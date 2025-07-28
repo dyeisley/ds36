@@ -2730,7 +2730,7 @@ namespace ds2xdriver
           "Zeta-Jones"
         };
 
-      actor_in = actor_firstnames[r.Next ( 200 )] + " " + actor_lastnames[r.Next ( 200 )];
+      actor_in = actor_firstnames[r.Next ( 500 )] + " " + actor_lastnames[r.Next ( 500 )];
 
       }  // End of CreateActor
 
