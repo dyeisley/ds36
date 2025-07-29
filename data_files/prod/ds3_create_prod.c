@@ -68,7 +68,7 @@ int main(int argc, char* argv[])
   if (argc < 3)    //Changed by GSK
   {
     //fprintf(stderr, "Syntax: ds2_create_prod n_prods\n");
-    fprintf(stderr, "Syntax: ds3_create_prod n_prods n_Sys_Type\n");  //Changed by GSK
+    fprintf(stderr, "Syntax: %s n_prods n_Sys_Type\n", argv[0]);
     fprintf(stderr, "n_Sys_Type can be 0 (Linux) or 1 (Windows) \n"); //Added by GSK
     exit(-1);
   }
@@ -90,8 +90,11 @@ int main(int argc, char* argv[])
     // Generate 1M unique titles from 1000 title words selected 2 at a time
     // sprintf(title, "%s %s", movie_titles[(int)floor(i/1000.0)%1000], movie_titles[i%1000]);
 
-    // Generate random titles (potential for duplicates) from 1000 title words selected 2 at a time
-    sprintf(title, "%s %s", movie_titles[rand() % 1000], movie_titles[rand() % 1000]);
+    // Generate random titles (potential for duplicates) from 1000 title words selected 2 or 3 at a time
+    if ( rand() % 100 > 50 )
+	    sprintf(title, "%s %s %s", movie_titles[rand() % 1000], movie_titles[rand() % 1000], movie_titles[rand() % 1000]);
+    else
+	    sprintf(title, "%s %s", movie_titles[rand() % 1000], movie_titles[rand() % 1000]);
 
     // Generate 250,000 actor names from randomly selecting from 500 first names x 500 last names
     sprintf(actor, "%s %s", popular_actor_firstnames[random2(0, ACTORS_FNAME_COUNT)], popular_actor_lastnames[random2(0, ACTORS_LNAME_COUNT)]);
