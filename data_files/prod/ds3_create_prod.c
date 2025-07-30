@@ -97,7 +97,7 @@ int main(int argc, char* argv[])
 	    sprintf(title, "%s %s", movie_titles[rand() % 1000], movie_titles[rand() % 1000]);
 
     // Generate 250,000 actor names from randomly selecting from 500 first names x 500 last names
-    sprintf(actor, "%s %s", popular_actor_firstnames[random2(0, ACTORS_FNAME_COUNT)], popular_actor_lastnames[random2(0, ACTORS_LNAME_COUNT)]);
+    sprintf(actor, "%s %s", popular_actor_firstnames[rand() % ACTORS_FNAME_COUNT], popular_actor_lastnames[rand() % ACTORS_LNAME_COUNT]);
 
     //printf("title= %s  actor= %s\n", title, actor);
 
