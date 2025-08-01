@@ -5,9 +5,9 @@
  *
  * Creates inventory data files for DVD Store Database V.3
  *
- * Syntax: ds3_create_inv n_prods n_Sys_Type > inv.csv
+ * Syntax: ds3_create_inv n_prods n_Sys_Type
  *
- * Builds inventory csv file from orderlines files for use in INVENTORY table load
+ * Builds inv.csv file from orderlines files for use in INVENTORY table load
  * Each line of output file: productid, quan_in_stock, quan_sold
  *
  * To compile: gcc -o ds3_create_inv ds2_create_inv.c -lm
