@@ -845,7 +845,7 @@ elsif($bln_is_DB_ORACLE == 1) 		#For Oracle
 	{
 		$line =~ s/{CUST_ROW_PLUS_ONE}/$cust_row_plus_one/g;         			
 	}	
-	$str_file_name = "oracleds35_create_db_tables_multi_".$database_size.$database_size_str.".pl";
+	$str_file_name = "oracleds35_perl_create_db_tables_multi_".$database_size.$database_size_str.".pl";
 	open (NEWFILE, ">", $str_file_name) || die "Creating new file to write failed : $!";
 	print NEWFILE @lines;
 	close (NEWFILE);
