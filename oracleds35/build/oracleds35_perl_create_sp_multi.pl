@@ -8,6 +8,8 @@ use warnings;
 my $oracletarget = $ARGV [0];
 my $numberofstores = $ARGV[1];
 
+my $pathsep;
+
 #Need seperate target directory so that mulitple DB Targets can be loaded at the same time
 my $oracletargetdir;  
 
@@ -16,17 +18,25 @@ $oracletargetdir = $oracletarget;
 # remove any backslashes from string to be used for directory name
 $oracletargetdir =~ s/\\//;
 
-system ("mkdir $oracletargetdir");
+system ("mkdir -p $oracletargetdir");
 
+# This section enables support for Linux and Windows - detecting the type of OS, and then using the proper commands
+if ("$^O" eq "linux")
+        {
+        $pathsep = "/";
+        }
+else
+        {
+        $pathsep = "\\\\";
+        };
 
 foreach my $k (1 .. $numberofstores){
-	open (my $OUT, ">$oracletargetdir\\oracleds35_createsp$k.sql") || die("Can't open oracleds35_createsp$k.sql");
+	open (my $OUT, ">$oracletargetdir${pathsep}oracleds35_createsp$k.sql") || die("Can't open oracleds35_createsp$k.sql");
 	print $OUT "CREATE GLOBAL TEMPORARY TABLE derivedtable1$k 
   ON COMMIT PRESERVE ROWS
   AS SELECT PRODUCTS$k.TITLE, PRODUCTS$k.ACTOR, PRODUCTS$k.PROD_ID, PRODUCTS$k.COMMON_PROD_ID
   FROM DS3.CUST_HIST$k INNER JOIN
     DS3.PRODUCTS$k ON CUST_HIST$k.PROD_ID = PRODUCTS$k.PROD_ID;
-
   
 CREATE OR REPLACE  PROCEDURE \"DS3\".\"NEW_CUSTOMER$k\" 
   (
@@ -902,7 +912,7 @@ exit;\n";
 sleep (1);
 
 foreach my $k (1 .. ($numberofstores-1)){
-  system ("start sqlplus \"ds3/ds3\@$oracletarget\" \@$oracletargetdir\\oracleds35_createsp$k.sql");
+  system ("start sqlplus \"ds3/ds3\@$oracletarget\" \@$oracletargetdir${pathsep}oracleds35_createsp$k.sql");
   }
-  system ("sqlplus \"ds3/ds3\@$oracletarget\" \@$oracletargetdir\\oracleds35_createsp$numberofstores.sql");
+  system ("sqlplus \"ds3/ds3\@$oracletarget\" \@$oracletargetdir${pathsep}oracleds35_createsp$numberofstores.sql");
 
