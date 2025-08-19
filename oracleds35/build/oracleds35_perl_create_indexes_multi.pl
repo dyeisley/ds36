@@ -9,6 +9,7 @@ my $oracletarget = $ARGV [0];
 my $numberofstores = $ARGV[1];
 
 my $pathsep;
+my $startcmd;
 
 #Need seperate target directory so that mulitple DB Targets can be loaded at the same time
 my $oracletargetdir;  
@@ -24,10 +25,12 @@ system ("mkdir -p $oracletargetdir");
 if ("$^O" eq "linux")
         {
         $pathsep = "/";
+	$startcmd = "";
         }
 else
         {
         $pathsep = "\\\\";
+	$startcmd = "start";
         };
 
 foreach my $k (1 .. $numberofstores){
@@ -213,6 +216,6 @@ EXIT;
 sleep(1);
   
 foreach my $k (1 .. ($numberofstores-1)){
-  system ("start sqlplus \"ds3/ds3\@$oracletarget \" \@$oracletargetdir${pathsep}oracleds35_createindexes$k.sql");
+  system ("$startcmd sqlplus \"ds3/ds3\@$oracletarget \" \@$oracletargetdir${pathsep}oracleds35_createindexes$k.sql");
   }
   system ("sqlplus \"ds3/ds3\@$oracletarget \" \@$oracletargetdir${pathsep}oracleds35_createindexes$numberofstores.sql");
