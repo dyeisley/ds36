@@ -8,7 +8,6 @@ TARGET=${1:-`hostname`}
 STORES=${2:-1}
 
 cd build
-sqlplus "sys/oracle@$TARGET as sysdba" @oracleds35_prep_create_db.sql
 sqlplus "sys/oracle@$TARGET as sysdba" @oracleds35_drop_tablespaces.sql
 sqlplus "sys/oracle@$TARGET as sysdba" @{TBLSPACE_SQLFNAME}
 perl {CREATEDB_SQLFNAME} $TARGET $STORES
