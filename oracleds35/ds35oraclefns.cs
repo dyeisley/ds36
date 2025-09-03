@@ -32,8 +32,10 @@
 using System;
 using System.IO;
 using System.Data;
-using Oracle.DataAccess.Client;
-using Oracle.DataAccess.Types;
+//using Oracle.DataAccess.Client;
+//using Oracle.DataAccess.Types;
+using Oracle.ManagedDataAccess.Client;
+using Oracle.ManagedDataAccess.Types;
 using System.Net;
 using System.Threading;
 using System.Runtime.InteropServices;
