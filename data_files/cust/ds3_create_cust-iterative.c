@@ -5,7 +5,7 @@
  *
  * Rewrite of ds3_create_cust.c by <dave_jaffe@dell.com> and <tmuirhead@vmware.com>
  *
- * This code randomly selects a first and last name.
+ * This code creates First & Last names by iteratively traversing the name lists.
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -85,12 +85,13 @@ int main(int argc, char* argv[]) {
 	}
     }
 
+    int first_index = 0;
+    int last_index = 0;
+    int use_female = 0;
+
     FP_cust = fopen(fn_cust, "wb");
 
     for (i = n_first; i <= n_last; i++) {
-        int use_female = rand() % 2;
-        int first_index = rand() % FIRSTNAME_POOL_SIZE;
-        int last_index = rand() % LAST_NAMES_COUNT;
         int street_index = rand() % STREET_NAME_COUNT;
         int city_index = rand() % US_CITY_COUNT;
         int suffix_index = rand() % SUFFIX_COUNT;
@@ -101,6 +102,18 @@ int main(int argc, char* argv[]) {
 	int country_index = rand() % COUNTRY_COUNT;
 	int age = rand() % 70 + 18;
 	int creditcard_type = rand() % 5 + 1;
+
+	// Alternate between male and female
+	use_female = use_female ? 0 : 1;
+
+	if (first_index >= FIRSTNAME_POOL_SIZE) {
+		first_index = 0;
+		last_index++;
+	}
+
+	if (last_index >= LAST_NAMES_COUNT) {
+		last_index = 0;
+	}
 
         const char *gender = use_female ? "F" : "M";
         const char *first_name = use_female ? female_names[first_index] : male_names[first_index];
@@ -145,7 +158,11 @@ int main(int argc, char* argv[]) {
         char phone[32];
         snprintf(phone, sizeof(phone), "%03d-%03d-%04d", area_code, exchange, subscriber);
 
-// nice human readable formatting, gcc -DNICE ds3_create_cust.c
+	if (!use_female) {
+		first_index++;
+	}
+
+// nice human readable formatting, gcc -DNICE ds3_create_cust-iterative.c
 #ifdef NICE
 	printf("%d,%-12s,%-12s,%-33s,,%-20s,%s,%05d,%-12s,%d,%-32s,%s,%d,%8s,%s,%s,password,%d,%6d,%s\n",
 #else
