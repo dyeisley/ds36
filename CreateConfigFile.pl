@@ -16,13 +16,16 @@ use strict;
 #Config File will be created in /ds2 folder
 #This config file will be used for executing Driver to drive workload against database server
 
-my $target_host = "localhost";			#Database/web server hostname or IP Address  Default = localhost
+my $hostname = `hostname`;
+chomp $hostname;
+
+my $target_host = $hostname;				#Database/web server hostname or IP Address  Default = localhost
 my $database_size = "10MB";				#Database Size Default = 10mb  (e.g. 30MB, 80GB)
-my $n_threads = 1;						#number of driver threads against one DB Server
-my $ramp_rate = 10;						#startup rate (users/sec) default = 10
-my $run_time = 0;						#run time (min) - Default = 0 is infinite
+my $n_threads = 1;					#number of driver threads against one DB Server
+my $ramp_rate = 10;					#startup rate (users/sec) default = 10
+my $run_time = 0;					#run time (min) - Default = 0 is infinite
 my $warmup_time = 1;					#warmup_time (min) default = 1
-my $think_time = 0;						#think time (sec) default = 0
+my $think_time = 0;					#think time (sec) default = 0
 my $pct_newcustomers = 20;				#percent of customers that are new customers default = 20
 my $n_searches = 3; 					#average number of searches per order default = 3
 my $search_batch_size = 5;				#average number of items returned in each search default = 5
@@ -34,20 +37,20 @@ my $detailed_view = "N";				#Parameter to display detailed view of Runtime Stati
 my $linux_perf_host = "";				#Parameter for linux CPU utilization Required format for value: <username>:<password>:<IP Address>
 
 my $line = "";
-my $end_line = "";						#End of line character
-
+my $end_line = "";					#End of line character
 
 print "Please enter following parameters: \n";
 print "***********************************\n";
-print "Please enter target host(s) (database/web server hostname or IP Address) : "; 
+print "Please enter target host(s) (database/web server hostname or IP Address) [$target_host] : "; 
 chomp($target_host = <STDIN>);
+$target_host ||= $hostname;
 print "Please enter database size (e.g. Input can be like 30MB, 80GB ,etc) : "; 
 chomp($database_size = <STDIN>);
 print "Please enter target hostname for perfmon CPU% display (windows only) : "; 
 chomp($windows_perf_host = <STDIN>);
 print "Please enter <username>:<password>:<IP Address> for linux machines for CPU % display (linux only) : ";
 chomp($linux_perf_host = <STDIN>);
-print "Please enter if you want detailed view of runtime statistics of each target machine ( Y / N): ";
+print "Please enter if you want detailed view of runtime statistics of each target machine ( Y / N ): ";
 chomp($detailed_view = <STDIN>);
 
 print "***********************************\n";
