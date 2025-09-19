@@ -43,22 +43,14 @@ namespace ds2xdriver
 
     int ds2Interfaceid;
     MySqlConnection objConn;
-    string db_query = String.Empty;
     string conn_str = "";
     string target_server_name;
     int target_store_number = 1; //Added to support Multiple stores - default is 1
 
-//
-//-------------------------------------------------------------------------------------------------
-//
-    public ds2Interface ( int ds2interfaceid , string target_name)
-    {
-        ds2Interfaceid = ds2interfaceid;
-        target_server_name = target_name;
-        conn_str = "Server=" + target_server_name + ";User ID=web;Password=web;Database=DS3";
-        objConn = new MySqlConnection(conn_str);
-        //Console.WriteLine("ds2Interface {0} created", ds2Interfaceid);
-    }
+    MySqlCommand Login, New_Customer, New_Member, New_Review, New_Helpfulness, Purchase;
+    MySqlCommand BrowseReviews_by_title, BrowseReviews_by_actor, Get_Prod_Reviews, Get_Reviews_by_stars;
+    MySqlCommand Get_Reviews_by_date, Browse_by_title, Browse_by_actor, Browse_by_category;
+    MySqlParameter cust_out_param, member_out_param, reviewid_out_param, helpfulnessid_out_param, neworder_out_param;
 
 //
 //-------------------------------------------------------------------------------------------------
@@ -74,12 +66,143 @@ namespace ds2xdriver
     // (Overloaded constructor to support multiple stores within single DS3 instance)
     public ds2Interface(int ds2interfaceid, string target_name, int target_store)
     {
-        ds2Interfaceid = ds2interfaceid;
-        target_server_name = target_name;
-        target_store_number = target_store;
-        conn_str = "Server=" + target_server_name + ";User ID=web;Password=web;Database=DS3";
-        objConn = new MySqlConnection(conn_str);
-        //Console.WriteLine("ds2Interface {0} created", ds2Interfaceid);
+      ds2Interfaceid = ds2interfaceid;
+      target_server_name = target_name;
+      target_store_number = target_store;
+      conn_str = "Server=" + target_server_name + ";User ID=web;Password=web;Database=DS3";
+      objConn = new MySqlConnection(conn_str);
+
+      cust_out_param = new MySqlParameter("customerid_out", MySqlDbType.Int32);
+      cust_out_param.Direction = ParameterDirection.Output;
+      cust_out_param.Value = 0;
+
+      member_out_param = new MySqlParameter("customerid_out", MySqlDbType.Int32);
+      member_out_param.Direction = ParameterDirection.Output;
+      member_out_param.Value = 0;
+
+      reviewid_out_param = new MySqlParameter("review_id_out", MySqlDbType.Int32);
+      reviewid_out_param.Direction = ParameterDirection.Output;
+      reviewid_out_param.Value = 0;
+
+      helpfulnessid_out_param = new MySqlParameter("review_helpfulness_id_out", MySqlDbType.Int32);
+      helpfulnessid_out_param.Direction = ParameterDirection.Output;
+      helpfulnessid_out_param.Value = 0;
+
+      neworder_out_param = new MySqlParameter("neworderid_out", MySqlDbType.Int32);
+      neworder_out_param.Direction = ParameterDirection.Output;
+      neworder_out_param.Value = 0;
+
+      // Set up MySql stored procedure calls and associated parameters
+      Login = new MySqlCommand("LOGIN" + target_store_number, objConn);
+      Login.CommandType = CommandType.StoredProcedure;
+      Login.Parameters.Add("username_in", MySqlDbType.VarChar, 50);
+      Login.Parameters.Add("password_in", MySqlDbType.VarChar, 50);
+
+      New_Customer = new MySqlCommand("NEW_CUSTOMER" + target_store_number, objConn);
+      New_Customer.CommandType = CommandType.StoredProcedure;
+      New_Customer.Parameters.Add("username_in", MySqlDbType.VarChar, 50);
+      New_Customer.Parameters.Add("password_in", MySqlDbType.VarChar, 50);
+      New_Customer.Parameters.Add("firstname_in", MySqlDbType.VarChar, 50);
+      New_Customer.Parameters.Add("lastname_in", MySqlDbType.VarChar, 50);
+      New_Customer.Parameters.Add("address1_in", MySqlDbType.VarChar, 50);
+      New_Customer.Parameters.Add("address2_in", MySqlDbType.VarChar, 50);
+      New_Customer.Parameters.Add("city_in", MySqlDbType.VarChar, 50);
+      New_Customer.Parameters.Add("state_in", MySqlDbType.VarChar, 50);
+      New_Customer.Parameters.Add("zip_in", MySqlDbType.Int32);
+      New_Customer.Parameters.Add("country_in", MySqlDbType.VarChar, 50);
+      New_Customer.Parameters.Add("region_in", MySqlDbType.Int32);
+      New_Customer.Parameters.Add("email_in", MySqlDbType.VarChar, 50);
+      New_Customer.Parameters.Add("phone_in", MySqlDbType.VarChar, 50);
+      New_Customer.Parameters.Add("creditcardtype_in", MySqlDbType.Int32);
+      New_Customer.Parameters.Add("creditcard_in", MySqlDbType.VarChar, 50);
+      New_Customer.Parameters.Add("creditcardexpiration_in", MySqlDbType.VarChar, 50);
+      New_Customer.Parameters.Add("age_in", MySqlDbType.Byte);
+      New_Customer.Parameters.Add("income_in", MySqlDbType.Int32);
+      New_Customer.Parameters.Add("gender_in", MySqlDbType.VarChar, 1);
+      New_Customer.Parameters.Add(cust_out_param);
+
+      New_Member = new MySqlCommand("NEW_MEMBER" + target_store_number, objConn);
+      New_Member.CommandType = CommandType.StoredProcedure; 
+      New_Member.Parameters.Add("customerid_in", MySqlDbType.Int32);
+      New_Member.Parameters.Add("membershiplevel_in", MySqlDbType.Int32);
+      New_Member.Parameters.Add(member_out_param);
+
+      New_Review = new MySqlCommand("NEW_PROD_REVIEW" + target_store_number, objConn);
+      New_Review.CommandType = CommandType.StoredProcedure;
+      New_Review.Parameters.Add("prod_id_in", MySqlDbType.Int32);
+      New_Review.Parameters.Add("stars_in", MySqlDbType.Int32);
+      New_Review.Parameters.Add("customerid_in", MySqlDbType.Int32);
+      New_Review.Parameters.Add("review_summary_in", MySqlDbType.VarChar, 50);
+      New_Review.Parameters.Add("review_text_in", MySqlDbType.VarChar, 1000);
+      New_Review.Parameters.Add(reviewid_out_param);
+
+      New_Helpfulness = new MySqlCommand("NEW_REVIEW_HELPFULNESS" + target_store_number, objConn);
+      New_Helpfulness.CommandType = CommandType.StoredProcedure;
+      New_Helpfulness.Parameters.Add("review_id_in", MySqlDbType.Int32);
+      New_Helpfulness.Parameters.Add("customerid_in", MySqlDbType.Int32);
+      New_Helpfulness.Parameters.Add("review_helpfulness_in", MySqlDbType.Int32);
+      New_Helpfulness.Parameters.Add(helpfulnessid_out_param);
+
+      Purchase = new MySqlCommand("PURCHASE" + target_store_number, objConn);
+      Purchase.CommandType = CommandType.StoredProcedure;
+      Purchase.Parameters.Add("customerid_in", MySqlDbType.Int32);
+      Purchase.Parameters.Add("number_items", MySqlDbType.Int32);
+      Purchase.Parameters.Add("netamount_in", MySqlDbType.Decimal);
+      Purchase.Parameters.Add("taxamount_in", MySqlDbType.Decimal);
+      Purchase.Parameters.Add("totalamount_in", MySqlDbType.Decimal);
+      Purchase.Parameters.Add("prod_id_in0", MySqlDbType.Int32); Purchase.Parameters.Add("qty_in0", MySqlDbType.Int32);
+      Purchase.Parameters.Add("prod_id_in1", MySqlDbType.Int32); Purchase.Parameters.Add("qty_in1", MySqlDbType.Int32);
+      Purchase.Parameters.Add("prod_id_in2", MySqlDbType.Int32); Purchase.Parameters.Add("qty_in2", MySqlDbType.Int32);
+      Purchase.Parameters.Add("prod_id_in3", MySqlDbType.Int32); Purchase.Parameters.Add("qty_in3", MySqlDbType.Int32);
+      Purchase.Parameters.Add("prod_id_in4", MySqlDbType.Int32); Purchase.Parameters.Add("qty_in4", MySqlDbType.Int32);
+      Purchase.Parameters.Add("prod_id_in5", MySqlDbType.Int32); Purchase.Parameters.Add("qty_in5", MySqlDbType.Int32);
+      Purchase.Parameters.Add("prod_id_in6", MySqlDbType.Int32); Purchase.Parameters.Add("qty_in6", MySqlDbType.Int32);
+      Purchase.Parameters.Add("prod_id_in7", MySqlDbType.Int32); Purchase.Parameters.Add("qty_in7", MySqlDbType.Int32);
+      Purchase.Parameters.Add("prod_id_in8", MySqlDbType.Int32); Purchase.Parameters.Add("qty_in8", MySqlDbType.Int32);
+      Purchase.Parameters.Add("prod_id_in9", MySqlDbType.Int32); Purchase.Parameters.Add("qty_in9", MySqlDbType.Int32);
+      Purchase.Parameters.Add(neworder_out_param);
+
+      Browse_by_title = new MySqlCommand("BROWSE_BY_TITLE" + target_store_number, objConn);
+      Browse_by_title.CommandType = CommandType.StoredProcedure;
+      Browse_by_title.Parameters.Add("batch_size_in", MySqlDbType.Int32);
+      Browse_by_title.Parameters.Add("title_in", MySqlDbType.VarChar, 50);
+
+      Browse_by_actor = new MySqlCommand("BROWSE_BY_ACTOR" + target_store_number, objConn);
+      Browse_by_actor.CommandType = CommandType.StoredProcedure;
+      Browse_by_actor.Parameters.Add("batch_size_in", MySqlDbType.Int32);
+      Browse_by_actor.Parameters.Add("actor_in", MySqlDbType.VarChar, 50);
+
+      Browse_by_category = new MySqlCommand("BROWSE_BY_CATEGORY" + target_store_number, objConn);
+      Browse_by_category.CommandType = CommandType.StoredProcedure;
+      Browse_by_category.Parameters.Add("batch_size_in", MySqlDbType.Int32);
+      Browse_by_category.Parameters.Add("category_in", MySqlDbType.VarChar, 50);
+      Browse_by_category.Parameters.Add("special_in", MySqlDbType.Int32);
+
+      BrowseReviews_by_actor = new MySqlCommand("GET_PROD_REVIEWS_BY_ACTOR" + target_store_number, objConn);
+      BrowseReviews_by_actor.CommandType = CommandType.StoredProcedure;
+      BrowseReviews_by_actor.Parameters.Add("actor_in", MySqlDbType.VarChar, 50);
+      BrowseReviews_by_actor.Parameters.Add("search_depth_in", MySqlDbType.Int32);
+
+      BrowseReviews_by_title = new MySqlCommand("GET_PROD_REVIEWS_BY_TITLE" + target_store_number, objConn);
+      BrowseReviews_by_title.CommandType = CommandType.StoredProcedure;
+      BrowseReviews_by_title.Parameters.Add("title_in", MySqlDbType.VarChar, 50);
+      BrowseReviews_by_title.Parameters.Add("search_depth_in", MySqlDbType.Int32);
+
+      Get_Prod_Reviews = new MySqlCommand("GET_PROD_REVIEWS" + target_store_number, objConn);
+      Get_Prod_Reviews.CommandType = CommandType.StoredProcedure;
+      Get_Prod_Reviews.Parameters.Add("batch_size_in", MySqlDbType.Int32);
+      Get_Prod_Reviews.Parameters.Add("prod_in", MySqlDbType.Int32);
+
+      Get_Reviews_by_stars = new MySqlCommand("GET_PROD_REVIEWS_BY_STARS" + target_store_number, objConn);
+      Get_Reviews_by_stars.CommandType = CommandType.StoredProcedure;
+      Get_Reviews_by_stars.Parameters.Add("batch_size_in", MySqlDbType.Int32);
+      Get_Reviews_by_stars.Parameters.Add("stars_in", MySqlDbType.Int32);
+      Get_Reviews_by_stars.Parameters.Add("prod_in", MySqlDbType.Int32);
+
+      Get_Reviews_by_date = new MySqlCommand("GET_PROD_REVIEWS_BY_DATE" + target_store_number, objConn);
+      Get_Reviews_by_date.CommandType = CommandType.StoredProcedure;
+      Get_Reviews_by_date.Parameters.Add("batch_size_in", MySqlDbType.Int32);
+      Get_Reviews_by_date.Parameters.Add("prod_in", MySqlDbType.Int32);
     }
  
 //
@@ -111,6 +234,9 @@ namespace ds2xdriver
       bool success = true;
       MySqlDataReader Rdr;
 
+      Login.Parameters["username_in"].Value = username_in;
+      Login.Parameters["password_in"].Value = password_in;
+    
 #if (USE_WIN32_TIMER)
       long ctr0 = 0, ctr = 0, freq = 0;
       QueryPerformanceFrequency(ref freq); // obtain system freq (ticks/sec)
@@ -119,14 +245,6 @@ namespace ds2xdriver
       TimeSpan TS = new TimeSpan();
       DateTime DT0 = DateTime.Now;
 #endif     
-    
-      MySqlCommand Login = new MySqlCommand("LOGIN" + target_store_number, objConn);
-      Login.CommandType = CommandType.StoredProcedure;
-      Login.Parameters.Add("username_in", MySqlDbType.VarChar, 50);
-      Login.Parameters.Add("password_in", MySqlDbType.VarChar, 50);
-
-      Login.Parameters["username_in"].Value = username_in;
-      Login.Parameters["password_in"].Value = password_in;
     
       try {
         Rdr = Login.ExecuteReader();
@@ -176,43 +294,6 @@ namespace ds2xdriver
       string creditcardexpiration_in = String.Format("{0:D4}/{1:D2}", ccexpyr_in, ccexpmon_in);
       bool success = true;
 
-#if (USE_WIN32_TIMER)
-      long ctr0 = 0, ctr = 0, freq = 0;
-      QueryPerformanceFrequency(ref freq); // obtain system freq (ticks/sec)
-      QueryPerformanceCounter(ref ctr0); // Start response time clock   
-#else
-      TimeSpan TS = new TimeSpan();
-      DateTime DT0 = DateTime.Now;
-#endif
-
-      MySqlParameter cust_out_param = new MySqlParameter("customerid_out", MySqlDbType.Int32);
-      cust_out_param.Direction = ParameterDirection.Output;
-      cust_out_param.Value = 0;
-
-      // Set up MySql stored procedure calls and associated parameters
-      MySqlCommand New_Customer = new MySqlCommand("NEW_CUSTOMER" + target_store_number, objConn);
-      New_Customer.CommandType = CommandType.StoredProcedure;
-      New_Customer.Parameters.Add("username_in", MySqlDbType.VarChar, 50);
-      New_Customer.Parameters.Add("password_in", MySqlDbType.VarChar, 50);
-      New_Customer.Parameters.Add("firstname_in", MySqlDbType.VarChar, 50);
-      New_Customer.Parameters.Add("lastname_in", MySqlDbType.VarChar, 50);
-      New_Customer.Parameters.Add("address1_in", MySqlDbType.VarChar, 50);
-      New_Customer.Parameters.Add("address2_in", MySqlDbType.VarChar, 50);
-      New_Customer.Parameters.Add("city_in", MySqlDbType.VarChar, 50);
-      New_Customer.Parameters.Add("state_in", MySqlDbType.VarChar, 50);
-      New_Customer.Parameters.Add("zip_in", MySqlDbType.Int32);
-      New_Customer.Parameters.Add("country_in", MySqlDbType.VarChar, 50);
-      New_Customer.Parameters.Add("region_in", MySqlDbType.Int32);
-      New_Customer.Parameters.Add("email_in", MySqlDbType.VarChar, 50);
-      New_Customer.Parameters.Add("phone_in", MySqlDbType.VarChar, 50);
-      New_Customer.Parameters.Add("creditcardtype_in", MySqlDbType.Int32);
-      New_Customer.Parameters.Add("creditcard_in", MySqlDbType.VarChar, 50);
-      New_Customer.Parameters.Add("creditcardexpiration_in", MySqlDbType.VarChar, 50);
-      New_Customer.Parameters.Add("age_in", MySqlDbType.Byte);
-      New_Customer.Parameters.Add("income_in", MySqlDbType.Int32);
-      New_Customer.Parameters.Add("gender_in", MySqlDbType.VarChar, 1);
-      New_Customer.Parameters.Add(cust_out_param);
-
       New_Customer.Parameters["username_in"].Value = username_in;
       New_Customer.Parameters["password_in"].Value = password_in;
       New_Customer.Parameters["firstname_in"].Value = firstname_in;
@@ -235,6 +316,15 @@ namespace ds2xdriver
     
 //    Console.WriteLine("Thread {0}: Calling New_Customer w/username_in= {1}  region={2}  ccexp={3}",
 //      Thread.CurrentThread.Name, username_in, region_in, creditcardexpiration_in);
+
+#if (USE_WIN32_TIMER)
+      long ctr0 = 0, ctr = 0, freq = 0;
+      QueryPerformanceFrequency(ref freq); // obtain system freq (ticks/sec)
+      QueryPerformanceCounter(ref ctr0); // Start response time clock   
+#else
+      TimeSpan TS = new TimeSpan();
+      DateTime DT0 = DateTime.Now;
+#endif
 
       bool deadlocked = false;      
       do
@@ -283,6 +373,9 @@ namespace ds2xdriver
     {
       bool success = true;
 
+      New_Member.Parameters["customerid_in"].Value = customerid_in;
+      New_Member.Parameters["membershiplevel_in"].Value = membershiplevel_in;
+
 #if (USE_WIN32_TIMER)
       long ctr0 = 0, ctr = 0, freq = 0;
       QueryPerformanceFrequency(ref freq); // obtain system freq (ticks/sec)
@@ -291,19 +384,6 @@ namespace ds2xdriver
       TimeSpan TS = new TimeSpan();
       DateTime DT0 = DateTime.Now;
 #endif
-
-      MySqlParameter cust_out_param = new MySqlParameter("customerid_out", MySqlDbType.Int32);
-      cust_out_param.Direction = ParameterDirection.Output;
-      cust_out_param.Value = 0;
-
-      MySqlCommand New_Member = new MySqlCommand("NEW_MEMBER" + target_store_number, objConn);
-      New_Member.CommandType = CommandType.StoredProcedure; 
-      New_Member.Parameters.Add("customerid_in", MySqlDbType.Int32);
-      New_Member.Parameters.Add("membershiplevel_in", MySqlDbType.Int32);
-      New_Member.Parameters.Add(cust_out_param);
-
-      New_Member.Parameters["customerid_in"].Value = customerid_in;
-      New_Member.Parameters["membershiplevel_in"].Value = membershiplevel_in;
 
       bool deadlocked = false;
       do
@@ -333,7 +413,7 @@ namespace ds2xdriver
           }
       } while (deadlocked);
 
-      customerid_out = (int)cust_out_param.Value;
+      customerid_out = (int) member_out_param.Value;
 
 #if (USE_WIN32_TIMER)
       QueryPerformanceCounter(ref ctr); // Stop response time clock
@@ -362,7 +442,6 @@ namespace ds2xdriver
       int[] category_out = new int[GlobalConstants.MAX_ROWS];
       Random r = new Random(DateTime.Now.Millisecond);
       MySqlDataReader Rdr;
-      MySqlCommand Browse;
   
       // Search for special half the time
       if (r.Next(100) < 50) {
@@ -373,36 +452,15 @@ namespace ds2xdriver
       //   " title= {4}  actor= {5}", Thread.CurrentThread.Name, browse_type_in, batch_size_in, browse_category_in,
       //   browse_title_in, browse_actor_in);
     
-      switch(browse_type_in)
-        {
-        case "title":
-          Browse = new MySqlCommand("BROWSE_BY_TITLE" + target_store_number, objConn);
-          Browse.CommandType = CommandType.StoredProcedure;
-          Browse.Parameters.Add("batch_size_in", MySqlDbType.Int32);
-          Browse.Parameters.Add("title_in", MySqlDbType.VarChar, 50);
-          Browse.Parameters["batch_size_in"].Value = batch_size_in;
-          Browse.Parameters["title_in"].Value = browse_title_in ;
-          break;
-        case "actor":
-          Browse = new MySqlCommand("BROWSE_BY_ACTOR" + target_store_number, objConn);
-          Browse.CommandType = CommandType.StoredProcedure;
-          Browse.Parameters.Add("batch_size_in", MySqlDbType.Int32);
-          Browse.Parameters.Add("actor_in", MySqlDbType.VarChar, 50);
-          Browse.Parameters["batch_size_in"].Value = batch_size_in;
-          Browse.Parameters["actor_in"].Value =  browse_actor_in ;
-          break;
-        case "category":
-        default:
-          Browse = new MySqlCommand("BROWSE_BY_CATEGORY" + target_store_number, objConn);
-          Browse.CommandType = CommandType.StoredProcedure;
-          Browse.Parameters.Add("batch_size_in", MySqlDbType.Int32);
-          Browse.Parameters.Add("category_in", MySqlDbType.VarChar, 50);
-          Browse.Parameters.Add("special_in", MySqlDbType.Int32);
-          Browse.Parameters["batch_size_in"].Value = batch_size_in;
-          Browse.Parameters["category_in"].Value = Convert.ToInt32(browse_category_in);
-          Browse.Parameters["special_in"].Value = special;
-          break;
-        }
+      Browse_by_title.Parameters["batch_size_in"].Value = batch_size_in;
+      Browse_by_title.Parameters["title_in"].Value = browse_title_in ;
+
+      Browse_by_actor.Parameters["batch_size_in"].Value = batch_size_in;
+      Browse_by_actor.Parameters["actor_in"].Value =  browse_actor_in ;
+
+      Browse_by_category.Parameters["batch_size_in"].Value = batch_size_in;
+      Browse_by_category.Parameters["category_in"].Value = browse_category_in != "" ? Convert.ToInt32(browse_category_in) : 0 ;
+      Browse_by_category.Parameters["special_in"].Value = special;
 
 #if (USE_WIN32_TIMER)
       long ctr0 = 0, ctr = 0, freq = 0;
@@ -415,7 +473,19 @@ namespace ds2xdriver
 
       try
         {
-        Rdr = Browse.ExecuteReader();
+      	switch(browse_type_in)
+        {
+           case "title":
+             Rdr = Browse_by_title.ExecuteReader();
+             break;
+           case "actor":
+             Rdr = Browse_by_actor.ExecuteReader();
+             break;
+           case "category":
+           default:
+             Rdr = Browse_by_category.ExecuteReader();
+             break;
+        }
 
         i_row = 0;
         if (Rdr.HasRows)
@@ -462,32 +532,16 @@ namespace ds2xdriver
       ref string[] review_summary_out, ref string[] review_text_out, ref int[] review_helpfulness_sum_out, ref double rt)
     {
         // Reviews Table: "REVIEW_ID" NUMBER,  "PROD_ID" NUMBER,  "REVIEW_DATE" DATE, "STARS" NUMBER,
-        // "CUSTOMERID" NUMBER,  "REVIEW_SUMMARY" VARCHAR2(50 byte), "REVIEW_TEXT" VARCHAR2(1000 byte) 
+        // "CUSTOMERID" NUMBER,  "REVIEW_SUMMARY" VARCHAR2(50 byte), "REVIEW_TEXT" VARCHAR2(1000 byte)
 	bool success = true;
         int i_row;
-	MySqlCommand BrowseReviews; 
         MySqlDataReader Rdr;
 
-        switch (browse_review_type_in)
-        {
-            case "actor":
-            	BrowseReviews = new MySqlCommand("GET_PROD_REVIEWS_BY_ACTOR" + target_store_number, objConn);
-                BrowseReviews.CommandType = CommandType.StoredProcedure;
-                BrowseReviews.Parameters.Add("actor_in", MySqlDbType.VarChar, 50);
-                BrowseReviews.Parameters.Add("search_depth_in", MySqlDbType.Int32);
-                BrowseReviews.Parameters["actor_in"].Value = get_review_actor_in;
-                BrowseReviews.Parameters["search_depth_in"].Value = search_depth_in ;
-                break;
-            case "title":
-	    default:
-            	BrowseReviews = new MySqlCommand("GET_PROD_REVIEWS_BY_TITLE" + target_store_number, objConn);
-                BrowseReviews.CommandType = CommandType.StoredProcedure;
-                BrowseReviews.Parameters.Add("title_in", MySqlDbType.VarChar, 50);
-                BrowseReviews.Parameters.Add("search_depth_in", MySqlDbType.Int32);
-                BrowseReviews.Parameters["title_in"].Value = get_review_title_in;
-                BrowseReviews.Parameters["search_depth_in"].Value = search_depth_in ;
-                break;
-        }
+        BrowseReviews_by_actor.Parameters["actor_in"].Value = get_review_actor_in;
+        BrowseReviews_by_actor.Parameters["search_depth_in"].Value = search_depth_in ;
+
+        BrowseReviews_by_title.Parameters["title_in"].Value = get_review_title_in;
+        BrowseReviews_by_title.Parameters["search_depth_in"].Value = search_depth_in ;
 
         //    Console.WriteLine("Thread {0}: Calling Browse Review w/ browse_type= {1}  batch_size_in= {2}",  
         //      Thread.CurrentThread.Name, browse_review_type_in, batch_size_in); 
@@ -503,10 +557,20 @@ namespace ds2xdriver
 
         try
         {
-            Rdr = BrowseReviews.ExecuteReader();
+            switch (browse_review_type_in)
+            {
+               case "actor":
+                  Rdr = BrowseReviews_by_actor.ExecuteReader();
+	          break;
+	       case "title":
+	       default:
+                  Rdr = BrowseReviews_by_title.ExecuteReader();
+	          break;
+	    }
+
             i_row = 0;
             while (Rdr.Read())
-              {
+            {
                 prod_id_out[i_row] = Rdr.GetInt32(0);
                 title_out[i_row] = Rdr.GetString(1);
                 actor_out[i_row] = Rdr.GetString(2);
@@ -540,6 +604,7 @@ namespace ds2xdriver
       TS = DateTime.Now - DT0;
       rt = TS.TotalSeconds; // Calculate response time
 #endif
+
        return (success);
     } // end ds2browsereview()
 
@@ -554,37 +619,23 @@ namespace ds2xdriver
         // "CUSTOMERID" NUMBER,  "REVIEW_SUMMARY" VARCHAR2(50 byte), "REVIEW_TEXT" VARCHAR2(1000 byte) 
         int i_row;
 	bool success = true;
-        MySqlCommand GetReviews;
         MySqlDataReader Rdr;
 
         switch (get_review_type_in)
         {
             case "noorder":
 	    default:
-            	GetReviews = new MySqlCommand("GET_PROD_REVIEWS" + target_store_number, objConn);
-                GetReviews.CommandType = CommandType.StoredProcedure;
-                GetReviews.Parameters.Add("batch_size_in", MySqlDbType.Int32);
-                GetReviews.Parameters.Add("prod_in", MySqlDbType.Int32);
-                GetReviews.Parameters["batch_size_in"].Value = batch_size_in;
-                GetReviews.Parameters["prod_in"].Value = get_review_prod_in ;
+                Get_Prod_Reviews.Parameters["batch_size_in"].Value = batch_size_in;
+                Get_Prod_Reviews.Parameters["prod_in"].Value = get_review_prod_in ;
                 break;
             case "star":
-            	GetReviews = new MySqlCommand("GET_PROD_REVIEWS_BY_STARS" + target_store_number, objConn);
-                GetReviews.CommandType = CommandType.StoredProcedure;
-                GetReviews.Parameters.Add("batch_size_in", MySqlDbType.Int32);
-                GetReviews.Parameters.Add("stars_in", MySqlDbType.Int32);
-                GetReviews.Parameters.Add("prod_in", MySqlDbType.Int32);
-                GetReviews.Parameters["batch_size_in"].Value = batch_size_in;
-                GetReviews.Parameters["stars_in"].Value = get_review_stars_in;
-                GetReviews.Parameters["prod_in"].Value = get_review_prod_in ;
+                Get_Reviews_by_stars.Parameters["batch_size_in"].Value = batch_size_in;
+                Get_Reviews_by_stars.Parameters["stars_in"].Value = get_review_stars_in;
+                Get_Reviews_by_stars.Parameters["prod_in"].Value = get_review_prod_in ;
                 break;
             case "date":
-            	GetReviews = new MySqlCommand("GET_PROD_REVIEWS_BY_DATE" + target_store_number, objConn);
-                GetReviews.CommandType = CommandType.StoredProcedure;
-                GetReviews.Parameters.Add("batch_size_in", MySqlDbType.Int32);
-                GetReviews.Parameters.Add("prod_in", MySqlDbType.Int32);
-                GetReviews.Parameters["batch_size_in"].Value = batch_size_in;
-                GetReviews.Parameters["prod_in"].Value = get_review_prod_in ;
+                Get_Reviews_by_date.Parameters["batch_size_in"].Value = batch_size_in;
+                Get_Reviews_by_date.Parameters["prod_in"].Value = get_review_prod_in ;
                 break;
         }
                 
@@ -599,7 +650,20 @@ namespace ds2xdriver
 
         try
         {
-            Rdr = GetReviews.ExecuteReader();
+	    switch (get_review_type_in)
+	    {
+		case "noorder":
+		default:
+            	   Rdr = Get_Prod_Reviews.ExecuteReader();
+		   break;
+		case "star":
+            	   Rdr = Get_Reviews_by_stars.ExecuteReader();
+		   break;
+		case "date":
+            	   Rdr = Get_Reviews_by_date.ExecuteReader();
+		   break;
+	    }
+
             i_row = 0;
             while (Rdr.Read())
             {
@@ -646,28 +710,6 @@ namespace ds2xdriver
     {
       bool success = true; 
 
-#if (USE_WIN32_TIMER)
-      long ctr0 = 0, ctr = 0, freq = 0;
-      QueryPerformanceFrequency(ref freq); // obtain system freq (ticks/sec)
-      QueryPerformanceCounter(ref ctr0); // Start response time clock   
-#else
-      TimeSpan TS = new TimeSpan();
-      DateTime DT0 = DateTime.Now;
-#endif
-
-      MySqlParameter reviewid_out_param = new MySqlParameter("review_id_out", MySqlDbType.Int32);
-      reviewid_out_param.Direction = ParameterDirection.Output;
-      reviewid_out_param.Value = 0;
-
-      MySqlCommand New_Review = new MySqlCommand("NEW_PROD_REVIEW" + target_store_number, objConn);
-      New_Review.CommandType = CommandType.StoredProcedure;
-      New_Review.Parameters.Add("prod_id_in", MySqlDbType.Int32);
-      New_Review.Parameters.Add("stars_in", MySqlDbType.Int32);
-      New_Review.Parameters.Add("customerid_in", MySqlDbType.Int32);
-      New_Review.Parameters.Add("review_summary_in", MySqlDbType.VarChar, 50);
-      New_Review.Parameters.Add("review_text_in", MySqlDbType.VarChar, 1000);
-      New_Review.Parameters.Add(reviewid_out_param);
-
       New_Review.Parameters["prod_id_in"].Value = new_review_prod_id_in;
       New_Review.Parameters["stars_in"].Value = new_review_stars_in;
       New_Review.Parameters["customerid_in"].Value = new_review_customerid_in;
@@ -676,6 +718,15 @@ namespace ds2xdriver
 
       Random r = new Random(DateTime.Now.Millisecond);
       bool deadlocked = false;
+
+#if (USE_WIN32_TIMER)
+      long ctr0 = 0, ctr = 0, freq = 0;
+      QueryPerformanceFrequency(ref freq); // obtain system freq (ticks/sec)
+      QueryPerformanceCounter(ref ctr0); // Start response time clock   
+#else
+      TimeSpan TS = new TimeSpan();
+      DateTime DT0 = DateTime.Now;
+#endif
 
       do
       {
@@ -722,6 +773,13 @@ namespace ds2xdriver
     {
       bool success = true;
 
+      New_Helpfulness.Parameters["review_id_in"].Value = reviewid_in;
+      New_Helpfulness.Parameters["customerid_in"].Value = customerid_in;
+      New_Helpfulness.Parameters["review_helpfulness_in"].Value = reviewhelpfulness_in;
+
+      bool deadlocked = false;
+      Random r = new Random(DateTime.Now.Millisecond);
+
 #if (USE_WIN32_TIMER)
       long ctr0 = 0, ctr = 0, freq = 0;
       QueryPerformanceFrequency(ref freq); // obtain system freq (ticks/sec)
@@ -730,24 +788,6 @@ namespace ds2xdriver
       TimeSpan TS = new TimeSpan();
       DateTime DT0 = DateTime.Now;
 #endif
-
-      MySqlParameter helpfulnessid_out_param = new MySqlParameter("review_helpfulness_id_out", MySqlDbType.Int32);
-      helpfulnessid_out_param.Direction = ParameterDirection.Output;
-      helpfulnessid_out_param.Value = 0;
-
-      MySqlCommand New_Helpfulness = new MySqlCommand("NEW_REVIEW_HELPFULNESS" + target_store_number, objConn);
-      New_Helpfulness.CommandType = CommandType.StoredProcedure;
-      New_Helpfulness.Parameters.Add("review_id_in", MySqlDbType.Int32);
-      New_Helpfulness.Parameters.Add("customerid_in", MySqlDbType.Int32);
-      New_Helpfulness.Parameters.Add("review_helpfulness_in", MySqlDbType.Int32);
-      New_Helpfulness.Parameters.Add(helpfulnessid_out_param);
-
-      New_Helpfulness.Parameters["review_id_in"].Value = reviewid_in;
-      New_Helpfulness.Parameters["customerid_in"].Value = customerid_in;
-      New_Helpfulness.Parameters["review_helpfulness_in"].Value = reviewhelpfulness_in;
-
-      bool deadlocked = false;
-      Random r = new Random(DateTime.Now.Millisecond);
 
       do
       {
@@ -784,6 +824,7 @@ namespace ds2xdriver
       TS = DateTime.Now - DT0;
       rt = TS.TotalSeconds; // Calculate response time
 #endif
+
       return (success);
     } // end ds2newreviewhelpfulness()
 
@@ -797,29 +838,6 @@ namespace ds2xdriver
       bool success = true;
       bool deadlocked = false;
       MySqlDataReader Rdr;
-
-      MySqlParameter neworder_out_param = new MySqlParameter("neworderid_out", MySqlDbType.Int32);
-      neworder_out_param.Direction = ParameterDirection.Output;
-      neworder_out_param.Value = 0;
-
-      MySqlCommand Purchase = new MySqlCommand("PURCHASE" + target_store_number, objConn);
-      Purchase.CommandType = CommandType.StoredProcedure;
-      Purchase.Parameters.Add("customerid_in", MySqlDbType.Int32);
-      Purchase.Parameters.Add("number_items", MySqlDbType.Int32);
-      Purchase.Parameters.Add("netamount_in", MySqlDbType.Decimal);
-      Purchase.Parameters.Add("taxamount_in", MySqlDbType.Decimal);
-      Purchase.Parameters.Add("totalamount_in", MySqlDbType.Decimal);
-      Purchase.Parameters.Add("prod_id_in0", MySqlDbType.Int32); Purchase.Parameters.Add("qty_in0", MySqlDbType.Int32);
-      Purchase.Parameters.Add("prod_id_in1", MySqlDbType.Int32); Purchase.Parameters.Add("qty_in1", MySqlDbType.Int32);
-      Purchase.Parameters.Add("prod_id_in2", MySqlDbType.Int32); Purchase.Parameters.Add("qty_in2", MySqlDbType.Int32);
-      Purchase.Parameters.Add("prod_id_in3", MySqlDbType.Int32); Purchase.Parameters.Add("qty_in3", MySqlDbType.Int32);
-      Purchase.Parameters.Add("prod_id_in4", MySqlDbType.Int32); Purchase.Parameters.Add("qty_in4", MySqlDbType.Int32);
-      Purchase.Parameters.Add("prod_id_in5", MySqlDbType.Int32); Purchase.Parameters.Add("qty_in5", MySqlDbType.Int32);
-      Purchase.Parameters.Add("prod_id_in6", MySqlDbType.Int32); Purchase.Parameters.Add("qty_in6", MySqlDbType.Int32);
-      Purchase.Parameters.Add("prod_id_in7", MySqlDbType.Int32); Purchase.Parameters.Add("qty_in7", MySqlDbType.Int32);
-      Purchase.Parameters.Add("prod_id_in8", MySqlDbType.Int32); Purchase.Parameters.Add("qty_in8", MySqlDbType.Int32);
-      Purchase.Parameters.Add("prod_id_in9", MySqlDbType.Int32); Purchase.Parameters.Add("qty_in9", MySqlDbType.Int32);
-      Purchase.Parameters.Add(neworder_out_param);
       
       // Find total cost of purchase
       Decimal netamount_in = 0;
@@ -867,6 +885,8 @@ namespace ds2xdriver
       Purchase.Parameters["prod_id_in8"].Value = prod_id_in[8]; Purchase.Parameters["qty_in8"].Value = qty_in[8];
       Purchase.Parameters["prod_id_in9"].Value = prod_id_in[9]; Purchase.Parameters["qty_in9"].Value = qty_in[9];
 
+      Random r = new Random(DateTime.Now.Millisecond);
+
 #if (USE_WIN32_TIMER)
       long ctr0 = 0, ctr = 0, freq = 0;
       QueryPerformanceFrequency(ref freq); // obtain system freq (ticks/sec)  
@@ -875,8 +895,6 @@ namespace ds2xdriver
       TimeSpan TS = new TimeSpan();
       DateTime DT0 = DateTime.Now;
 #endif
-
-      Random r = new Random(DateTime.Now.Millisecond);
 
       do {
         try {
