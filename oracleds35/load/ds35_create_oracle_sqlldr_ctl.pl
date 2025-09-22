@@ -28,7 +28,7 @@ print $OUT "INTO TABLE ds3.$tablename \n";
 print $OUT " \n";
 
 if (($ds3tabletype eq 'ORDERS') or ($ds3tabletype eq 'ORDERLINES') or ($ds3tabletype eq 'CUST')) { 
-	print $OUT "PARTITION (" . $partitionname . ")\n";
+	#	print $OUT "PARTITION (" . $partitionname . ")\n";
 	print $OUT "\n";
 	}
 print $OUT "FIELDS TERMINATED BY \",\" OPTIONALLY ENCLOSED BY '\"'\n";
