@@ -194,6 +194,11 @@ if($bln_is_DB_ORACLE == 1 || $bln_is_DB_MSSQL == 1)
                         $arr_db_file_paths[5] = @arr1_db_file_paths[5];
 		}
 		
+	        # Remove any trailing '/'
+                for(my $i_LoopCount = 0; $i_LoopCount < 6; $i_LoopCount++)
+                {
+                        @arr_db_file_paths[$i_LoopCount] =~ s{/$}{};
+                }
 	}
 	elsif($bln_is_DB_MSSQL == 1)
 	{
@@ -226,17 +231,17 @@ if($bln_is_DB_ORACLE == 1 || $bln_is_DB_MSSQL == 1)
 			$arr_db_file_paths[8] =	$arr_db_file_paths[9] = $arr_db_file_paths[10] = $arr_db_file_paths[11] = @arr1_db_file_paths[0];
 			$arr_db_file_paths[12] =	$arr_db_file_paths[13] = @arr1_db_file_paths[0];
 		}
-		else #If 9 paths spacified then 
+		else #If 9 paths specified then 
 		{
-			$arr_db_file_paths[0] = @arr1_db_file_paths[0];   							#path for ds.mdf
-			$arr_db_file_paths[1] = @arr1_db_file_paths[1];   							#path for ds_misc.ndf
+			$arr_db_file_paths[0] = @arr1_db_file_paths[0];   				#path for ds.mdf
+			$arr_db_file_paths[1] = @arr1_db_file_paths[1];   				#path for ds_misc.ndf
 			$arr_db_file_paths[2] = $arr_db_file_paths[3] = @arr1_db_file_paths[2];		#path for cust1.ndf and cust2.ndf
 			$arr_db_file_paths[4] = $arr_db_file_paths[5] = @arr1_db_file_paths[3];		#path for orders1.ndf and orders2.ndf
 			$arr_db_file_paths[6] = $arr_db_file_paths[7] = @arr1_db_file_paths[4];		#path for ind1.ndf and ind2.ndf
-                $arr_db_file_paths[8] = $arr_db_file_paths[9] = @arr1_db_file_paths[5];		#path for member1.ndf and member2.ndf
-                $arr_db_file_paths[10] = $arr_db_file_paths[11] = @arr1_db_file_paths[6];		#path for review1.ndf and review2.ndf
-			$arr_db_file_paths[12] = @arr1_db_file_paths[7];								#path for ds_log.ldf
-			$arr_db_file_paths[13] = @arr1_db_file_paths[8];								#path for full text catalog file
+                	$arr_db_file_paths[8] = $arr_db_file_paths[9] = @arr1_db_file_paths[5];		#path for member1.ndf and member2.ndf
+                	$arr_db_file_paths[10] = $arr_db_file_paths[11] = @arr1_db_file_paths[6];	#path for review1.ndf and review2.ndf
+			$arr_db_file_paths[12] = @arr1_db_file_paths[7];				#path for ds_log.ldf
+			$arr_db_file_paths[13] = @arr1_db_file_paths[8];				#path for full text catalog file
 		}
 		
 	}	
@@ -930,6 +935,11 @@ elsif($bln_is_DB_ORACLE == 1) 		#For Oracle
 	print NEWFILE @lines;
 	close (NEWFILE);
 	
+	if(lc($^O) eq lc("linux"))   #If system on which perl script is executing is Linux
+	{
+		system("chmod +x $str_file_name");
+	}
+
 	#Create new create_all bat script file from template
 	@lines = ();
 	$line = "";	
