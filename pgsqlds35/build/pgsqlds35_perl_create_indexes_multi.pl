@@ -15,6 +15,8 @@ my $DBNAME= "ds3";
 my $movecommand;
 my $timecommand;
 my $pathsep;
+my $delcommand;
+my $startcommand;
 
 my @indexfiles;
 
@@ -23,13 +25,17 @@ if ("$^O" eq "linux")
         {
         $movecommand = "mv";
         $timecommand = "date";
+	$delcommand = "rm -f";
         $pathsep = "/";
+	$startcommand = "sh";
         }
 else
         {
         $movecommand = "move";
         $timecommand = "time /T";
+	$delcommand = "del";
         $pathsep = "\\\\";
+	$startcommand = "start";
         };
 
 
@@ -41,10 +47,10 @@ $pgsql_targetdir = $psqltarget;
 # remove any backslashes from string to be used for directory name
 $pgsql_targetdir =~ s/\\//;
 
-system ("mkdir $pgsql_targetdir");
+system ("mkdir -p $pgsql_targetdir");
 
 foreach my $k(1 .. $numStores){
-	open (my $OUT, ">$pgsql_targetdir\\pgsqlds35_createindexes$k.sql") || die("Can't open pgsqlds35_createindexes$k.sql");
+	open (my $OUT, ">$pgsql_targetdir${pathsep}pgsqlds35_createindexes$k.sql") || die("Can't open pgsqlds35_createindexes$k.sql");
 	print $OUT "-- Tables
 \\c ds3;
 
@@ -195,21 +201,21 @@ CREATE INDEX IX_REORDER_PRODID$k ON REORDER$k
 \n";
 	close $OUT;
 	              
-open (my $OUTBAT, ">$pgsql_targetdir\\pgsqlds35_createindexes$k.bat") || die("Can't open pgsqlds35_createindexes$k.bat");
+open (my $OUTBAT, ">$pgsql_targetdir${pathsep}pgsqlds35_createindexes$k.bat") || die("Can't open pgsqlds35_createindexes$k.bat");
 		print $OUTBAT "set PGPASSWORD=ds3\n";
-		print $OUTBAT "psql -h $psqltarget -U $SYSDBA -d $DBNAME < $pgsql_targetdir\\pgsqlds35_createindexes$k.sql\n";
-        print $OUTBAT "$timecommand > $pgsql_targetdir\\finished$k.txt\n";
+		print $OUTBAT "psql -h $psqltarget -U $SYSDBA -d $DBNAME < $pgsql_targetdir${pathsep}pgsqlds35_createindexes$k.sql\n";
+        print $OUTBAT "$timecommand > $pgsql_targetdir${pathsep}finished$k.txt\n";
         print $OUTBAT "exit\n";
         close $OUTBAT;
 }
 sleep(1);
 
-system ("del $pgsql_targetdir\\finished*.txt");
+system ("${delcommand} $pgsql_targetdir${pathsep}finished*.txt");
 print "Load started at " .(localtime) , "\n";
 
 foreach my $k (1 .. ($numStores)){
-  print("psql -h $psqltarget -U $SYSDBA -d $DBNAME < $pgsql_targetdir\\pgsqlds35_createindexes$k.sql\n");
-  system("start $pgsql_targetdir\\pgsqlds35_createindexes$k.bat ");
+  print("psql -h $psqltarget -U $SYSDBA -d $DBNAME < $pgsql_targetdir${pathsep}pgsqlds35_createindexes$k.sql\n");
+  system("$startcommand $pgsql_targetdir${pathsep}pgsqlds35_createindexes$k.bat ");
   }
 
 my $num_finished = 0;
@@ -218,7 +224,7 @@ while ($num_finished < $numStores)
 			{
 			$num_finished =0;
 			sleep(5);
-			@indexfiles = glob("$pgsql_targetdir\\finished*.txt");                            # glob gets an array of all the finished*.txt files
+			@indexfiles = glob("$pgsql_targetdir${pathsep}finished*.txt");                            # glob gets an array of all the finished*.txt files
 																								   # The size of this array will tell us how many have finished
 			
 			$num_finished = $#indexfiles + 1;           #Compare size of array with number of stores being created, minus one due to array index starting at 0
@@ -231,6 +237,6 @@ sleep(5);
 
 # Delete the finishedxx.txt files
 
-system ("del $pgsql_targetdir\\finished*.txt");
+system ("${delcommand} $pgsql_targetdir${pathsep}finished*.txt");
 	
 

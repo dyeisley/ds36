@@ -12,6 +12,8 @@ my $DBNAME = "ds3";
 my $SYSDBA = "ds3";
 my $PGPASSWORD = "ds3";
 
+my $pathsep;
+
 #Need seperate target directory so that mulitple DB Targets can be loaded at the same time
 my $pgsql_targetdir;  
 
@@ -20,7 +22,17 @@ $pgsql_targetdir = $pgsql_target;
 # remove any backslashes from string to be used for directory name
 $pgsql_targetdir =~ s/\\//;
 
-system ("mkdir $pgsql_targetdir");
+system ("mkdir -p $pgsql_targetdir");
+
+# This section enables support for Linux and Windows - detecting the type of OS, and then using the proper commands
+if ("$^O" eq "linux")
+{
+	$pathsep = "/";
+}
+else
+{
+        $pathsep = "\\\\";
+};
 
 # First call the script to prepare for the creation of the database which will delete any existing DS35 database
 
@@ -28,7 +40,7 @@ system ("mkdir $pgsql_targetdir");
 system("psql -h $pgsql_target -U postgres -d postgres < pgsqlds35_prep_create_db.sql");
 
 foreach my $k (1 .. $numStores){
-	open(my $OUT, ">$pgsql_targetdir\\pgsqlds35_createtables.sql") || die("Can't open pgsqlds35_createtables.sql");
+	open(my $OUT, ">$pgsql_targetdir${pathsep}pgsqlds35_createtables.sql") || die("Can't open pgsqlds35_createtables.sql");
 	print $OUT "-- Tables
 
 \\c ds3;
@@ -165,8 +177,8 @@ foreach my $k (1 .. $numStores){
 \n";
 	close $OUT;
 	sleep(1);
-	print("psql -h $pgsql_target -U $SYSDBA -d $DBNAME < $pgsql_targetdir\\pgsqlds35_createtables.sql\n");
+	print("psql -h $pgsql_target -U $SYSDBA -d $DBNAME < $pgsql_targetdir${pathsep}pgsqlds35_createtables.sql\n");
       	#system("PGPASSWORD=$PGPASSWORD psql -h $pgsql_target -U $SYSDBA -d $DBNAME < pgsqlds35_createtables.sql");
-		system("psql -h $pgsql_target -U $SYSDBA -d $DBNAME < $pgsql_targetdir\\pgsqlds35_createtables.sql");
+		system("psql -h $pgsql_target -U $SYSDBA -d $DBNAME < $pgsql_targetdir${pathsep}pgsqlds35_createtables.sql");
 }
 

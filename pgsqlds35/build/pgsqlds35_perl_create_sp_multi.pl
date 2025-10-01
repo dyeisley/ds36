@@ -11,6 +11,8 @@ my $PGPASSWORD = "ds3";
 my $DBNAME = "ds3";
 my $SYSDBA = "ds3";
 
+my $pathsep;
+
 #Need seperate target directory so that mulitple DB Targets can be loaded at the same time
 my $pgsql_targetdir;  
 
@@ -19,10 +21,20 @@ $pgsql_targetdir = $pgsql_target;
 # remove any backslashes from string to be used for directory name
 $pgsql_targetdir =~ s/\\//;
 
-system ("mkdir $pgsql_targetdir");
+# This section enables support for Linux and Windows - detecting the type of OS, and then using the proper commands
+if ("$^O" eq "linux")
+        {
+        $pathsep = "/";
+        }
+else
+        {
+        $pathsep = "\\\\";
+        };
+
+system ("mkdir -p $pgsql_targetdir");
 
 foreach my $k (1 .. $numStores){
-	open(my $OUT, ">$pgsql_targetdir\\pgsqlds35_createsp.sql") || die("Can't open pgsqlds35_createsp.sql");
+	open(my $OUT, ">$pgsql_targetdir${pathsep}pgsqlds35_createsp.sql") || die("Can't open pgsqlds35_createsp.sql");
 	print $OUT "
 \\c $DBNAME;
 
@@ -548,6 +560,6 @@ CREATE OR REPLACE FUNCTION get_prod_reviews_by_title$k
 \n";
 	close $OUT;
 	sleep(1);
-	print("psql -h $pgsql_target -U $SYSDBA -d $DBNAME < $pgsql_targetdir\\pgsqlds35_createsp.sql\n");
-        system("psql -h $pgsql_target -U $SYSDBA -d $DBNAME < $pgsql_targetdir\\pgsqlds35_createsp.sql");
+	print("psql -h $pgsql_target -U $SYSDBA -d $DBNAME < $pgsql_targetdir${pathsep}pgsqlds35_createsp.sql\n");
+        system("psql -h $pgsql_target -U $SYSDBA -d $DBNAME < $pgsql_targetdir${pathsep}pgsqlds35_createsp.sql");
 }
