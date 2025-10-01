@@ -64,11 +64,7 @@ LANGUAGE plpgsql
 AS \$\$
 DECLARE
     customerid_out INTEGER;
-    age_int INTEGER;
-    income_int INTEGER;
 BEGIN
-    -- IF age_in = '' THEN age_int:=0 ; ELSE age_int := CAST (age_in AS INT); END IF;
-    -- IF income_in = '' THEN income_int:=0; ELSE income_int := CAST (income_in AS INT); END IF;
     BEGIN
     INSERT INTO CUSTOMERS$k (
           firstname,
@@ -108,8 +104,8 @@ BEGIN
           creditcardtype_in,
           creditcard_in,
           creditcardexpiration_in,
-          age_int,
-	  income_int,
+          age_in,
+	  income_in,
 	  gender_in
     )
     RETURNING customerid INTO customerid_out;
