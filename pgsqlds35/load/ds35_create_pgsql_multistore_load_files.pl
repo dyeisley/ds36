@@ -24,12 +24,6 @@ $pgsql_targetdir = $psqltarget;
 # remove any backslashes from string to be used for directory name
 $pgsql_targetdir =~ s/\\//;
 
-system ("mkdir cust\\$pgsql_targetdir");
-system ("mkdir orders\\$pgsql_targetdir");
-system ("mkdir reviews\\$pgsql_targetdir");
-system ("mkdir prod\\$pgsql_targetdir");
-system ("mkdir membership\\$pgsql_targetdir");
-
 print "$^O\n";
 
 # This section enables support for Linux and Windows - detecting the type of OS, and then using the proper commands
@@ -46,10 +40,16 @@ else
         $pathsep = "\\\\";
         };
 
+system ("mkdir -p cust${pathsep}$pgsql_targetdir");
+system ("mkdir -p orders${pathsep}$pgsql_targetdir");
+system ("mkdir -p reviews${pathsep}$pgsql_targetdir");
+system ("mkdir -p prod${pathsep}$pgsql_targetdir");
+system ("mkdir -p membership${pathsep}$pgsql_targetdir");
+
 # Customers
 
 foreach my $k (1 .. $numStores){
-open (my $OUT, ">cust$pathsep$pgsql_targetdir${pathsep}remote_pgsqlds35_cust_load$k.sql") || die("Can't open remote_pgsqlds35_cust_load$k.sql");
+open (my $OUT, ">cust${pathsep}$pgsql_targetdir${pathsep}remote_pgsqlds35_cust_load$k.sql") || die("Can't open remote_pgsqlds35_cust_load$k.sql");
 	print $OUT "\\c ds3;
 
 ALTER TABLE CUSTOMERS$k DISABLE TRIGGER ALL;
@@ -60,7 +60,7 @@ ALTER TABLE CUSTOMERS$k DISABLE TRIGGER ALL;
 ALTER TABLE CUSTOMERS$k ENABLE TRIGGER ALL;
 \n";
 	close $OUT;
-        open (my $OUTBAT, ">cust$pathsep$pgsql_targetdir${pathsep}remote_pgsqlds35_cust_load$k.bat") || die("Can't open remote_pgsqlds35_cust_load$k.bat");
+        open (my $OUTBAT, ">cust${pathsep}$pgsql_targetdir${pathsep}remote_pgsqlds35_cust_load$k.bat") || die("Can't open remote_pgsqlds35_cust_load$k.bat");
 		print $OUTBAT "set PGPASSWORD=ds3\n";
 		print $OUTBAT "psql -h $psqltarget -U $SYSDBA -d $DBNAME -f remote_pgsqlds35_cust_load$k.sql\n";
         print $OUTBAT "$timecommand > finished$k.txt\n";
@@ -71,7 +71,7 @@ ALTER TABLE CUSTOMERS$k ENABLE TRIGGER ALL;
 # Orders
 
 foreach my $k (1 .. $numStores){
-	open (my $OUT, ">orders$pathsep$pgsql_targetdir${pathsep}remote_pgsqlds35_orders_load$k.sql") || die("Can't open remote_pgsqlds35_orders_load$k.sql");
+	open (my $OUT, ">orders${pathsep}$pgsql_targetdir${pathsep}remote_pgsqlds35_orders_load$k.sql") || die("Can't open remote_pgsqlds35_orders_load$k.sql");
 	print $OUT "\\c ds3;
 
 ALTER TABLE ORDERS$k DISABLE TRIGGER ALL;
@@ -93,7 +93,7 @@ ALTER TABLE ORDERS$k ENABLE TRIGGER ALL;
 
 \n";
 	close $OUT;
-        open (my $OUTBAT, ">orders$pathsep$pgsql_targetdir${pathsep}remote_pgsqlds35_orders_load$k.bat") || die("Can't open remote_pgsqlds35_orders_load$k.bat");
+        open (my $OUTBAT, ">orders${pathsep}$pgsql_targetdir${pathsep}remote_pgsqlds35_orders_load$k.bat") || die("Can't open remote_pgsqlds35_orders_load$k.bat");
 		print $OUTBAT "set PGPASSWORD=ds3\n";
         print $OUTBAT "psql -h $psqltarget -U $SYSDBA -d $DBNAME -f remote_pgsqlds35_orders_load$k.sql\n";
         #print $OUT "$timecommand > finished$k.txt\n";
@@ -104,7 +104,7 @@ ALTER TABLE ORDERS$k ENABLE TRIGGER ALL;
 # Orderlines
 
 foreach my $k (1 .. $numStores){
-	open (my $OUT, ">orders$pathsep$pgsql_targetdir${pathsep}remote_pgsqlds35_orderlines_load$k.sql") || die("Can't open remote_pgsqlds35_orderlines_load$k.sql");
+	open (my $OUT, ">orders${pathsep}$pgsql_targetdir${pathsep}remote_pgsqlds35_orderlines_load$k.sql") || die("Can't open remote_pgsqlds35_orderlines_load$k.sql");
         print $OUT "\\c ds3;
 
 ALTER TABLE ORDERLINES$k DISABLE TRIGGER ALL;
@@ -126,7 +126,7 @@ ALTER TABLE ORDERLINES$k ENABLE TRIGGER ALL;
 
 \n";
 	close $OUT;
-        open (my $OUTBAT, ">orders$pathsep$pgsql_targetdir${pathsep}remote_pgsqlds35_orderlines_load$k.bat") || die("Can't open remote_pgsqlds35_orderlines_load$k.bat");
+        open (my $OUTBAT, ">orders${pathsep}$pgsql_targetdir${pathsep}remote_pgsqlds35_orderlines_load$k.bat") || die("Can't open remote_pgsqlds35_orderlines_load$k.bat");
 		print $OUTBAT "set PGPASSWORD=ds3\n";
         print $OUTBAT "psql -h $psqltarget -U $SYSDBA -d $DBNAME -f remote_pgsqlds35_orderlines_load$k.sql\n";
         print $OUTBAT "exit\n";
@@ -135,7 +135,7 @@ ALTER TABLE ORDERLINES$k ENABLE TRIGGER ALL;
 # cust_hist
 
 foreach my $k (1 .. $numStores){
-        open (my $OUT, ">orders$pathsep$pgsql_targetdir${pathsep}remote_pgsqlds35_cust_hist_load$k.sql") || die("Can't open remote_pgsqlds35_cust_hist_load$k.sql");
+        open (my $OUT, ">orders${pathsep}$pgsql_targetdir${pathsep}remote_pgsqlds35_cust_hist_load$k.sql") || die("Can't open remote_pgsqlds35_cust_hist_load$k.sql");
         print $OUT "\\c ds3;
 
 ALTER TABLE CUST_HIST$k DISABLE TRIGGER ALL;
@@ -157,7 +157,7 @@ ALTER TABLE CUST_HIST$k ENABLE TRIGGER ALL;
 
 \n";
 	close $OUT;
-        open (my $OUTBAT, ">orders$pathsep$pgsql_targetdir${pathsep}remote_pgsqlds35_cust_hist_load$k.bat") || die("Can't open remote_pgsqlds35_cust_hist_load$k.bat");
+        open (my $OUTBAT, ">orders${pathsep}$pgsql_targetdir${pathsep}remote_pgsqlds35_cust_hist_load$k.bat") || die("Can't open remote_pgsqlds35_cust_hist_load$k.bat");
 		print $OUTBAT "set PGPASSWORD=ds3\n";
 		print $OUTBAT "psql -h $psqltarget -U $SYSDBA -d $DBNAME -f remote_pgsqlds35_cust_hist_load$k.sql\n";
         print $OUTBAT "$timecommand > finished$k.txt\n";
@@ -168,7 +168,7 @@ ALTER TABLE CUST_HIST$k ENABLE TRIGGER ALL;
 #prod
 
 foreach my $k (1 .. $numStores){
-	open (my $OUT, ">prod$pathsep$pgsql_targetdir${pathsep}remote_pgsqlds35_prod_load$k.sql") || die("Can't open remote_pgsqlds35_prod_load$k.sql");
+	open (my $OUT, ">prod${pathsep}$pgsql_targetdir${pathsep}remote_pgsqlds35_prod_load$k.sql") || die("Can't open remote_pgsqlds35_prod_load$k.sql");
         print $OUT "\\c ds3;
 
 ALTER TABLE PRODUCTS$k DISABLE TRIGGER ALL;
@@ -178,7 +178,7 @@ ALTER TABLE PRODUCTS$k DISABLE TRIGGER ALL;
 ALTER TABLE PRODUCTS$k ENABLE TRIGGER ALL;
 \n";
 	close $OUT;
-        open (my $OUTBAT, ">prod$pathsep$pgsql_targetdir${pathsep}remote_pgsqlds35_prod_load$k.bat") || die("Can't open remote_pgsqlds35_prod_load$k.bat");
+        open (my $OUTBAT, ">prod${pathsep}$pgsql_targetdir${pathsep}remote_pgsqlds35_prod_load$k.bat") || die("Can't open remote_pgsqlds35_prod_load$k.bat");
 		print $OUTBAT "set PGPASSWORD=ds3\n";
         print $OUTBAT "psql -h $psqltarget -U $SYSDBA -d $DBNAME -f remote_pgsqlds35_prod_load$k.sql\n";
         print $OUTBAT "$timecommand > finished$k.txt\n";
@@ -188,7 +188,7 @@ ALTER TABLE PRODUCTS$k ENABLE TRIGGER ALL;
 
 # inv
 foreach my $k (1 .. $numStores){
-	open (my $OUT, ">prod$pathsep$pgsql_targetdir${pathsep}remote_pgsqlds35_inv_load$k.sql") || die("Can't open remote_pgsqlds35_inv_load$k.sql");
+	open (my $OUT, ">prod${pathsep}$pgsql_targetdir${pathsep}remote_pgsqlds35_inv_load$k.sql") || die("Can't open remote_pgsqlds35_inv_load$k.sql");
         print $OUT "\\c ds3;
 
 ALTER TABLE INVENTORY$k DISABLE TRIGGER ALL;
@@ -198,7 +198,7 @@ ALTER TABLE INVENTORY$k DISABLE TRIGGER ALL;
 ALTER TABLE INVENTORY$k ENABLE TRIGGER ALL;
 \n";
 	close $OUT;
-        open (my $OUTBAT, ">prod$pathsep$pgsql_targetdir${pathsep}remote_pgsqlds35_inv_load$k.bat") || die("Can't open remote_pgsqlds35_inv_load$k.bat");
+        open (my $OUTBAT, ">prod${pathsep}$pgsql_targetdir${pathsep}remote_pgsqlds35_inv_load$k.bat") || die("Can't open remote_pgsqlds35_inv_load$k.bat");
 		print $OUTBAT "set PGPASSWORD=ds3\n";
         print $OUTBAT "psql -h $psqltarget -U $SYSDBA -d $DBNAME -f remote_pgsqlds35_inv_load$k.sql\n";
         #print $OUTBAT "$timecommand > finished$k.txt\n";
@@ -209,7 +209,7 @@ ALTER TABLE INVENTORY$k ENABLE TRIGGER ALL;
 # membership
 
 foreach my $k (1 .. $numStores){
-        open (my $OUT, ">membership$pathsep$pgsql_targetdir${pathsep}remote_pgsqlds35_membership_load$k.sql") || die("Can't open remote_pgsqlds35_membership_load$k.sql");
+        open (my $OUT, ">membership${pathsep}$pgsql_targetdir${pathsep}remote_pgsqlds35_membership_load$k.sql") || die("Can't open remote_pgsqlds35_membership_load$k.sql");
         print $OUT "\\c ds3;
 
 ALTER TABLE MEMBERSHIP$k DISABLE TRIGGER ALL;
@@ -220,7 +220,7 @@ ALTER TABLE MEMBERSHIP$k ENABLE TRIGGER ALL;
 	
 \n";
         close $OUT;
-        open (my $OUTBAT, ">membership$pathsep$pgsql_targetdir${pathsep}remote_pgsqlds35_membership_load$k.bat") || die("Can't open remote_pgsqlds35_membership_load$k.bat");
+        open (my $OUTBAT, ">membership${pathsep}$pgsql_targetdir${pathsep}remote_pgsqlds35_membership_load$k.bat") || die("Can't open remote_pgsqlds35_membership_load$k.bat");
 		print $OUTBAT "set PGPASSWORD=ds3\n";
 		print $OUTBAT "psql -h $psqltarget -U $SYSDBA -d $DBNAME -f remote_pgsqlds35_membership_load$k.sql\n";
 		print $OUTBAT "$timecommand > finished$k.txt\n";
@@ -231,7 +231,7 @@ ALTER TABLE MEMBERSHIP$k ENABLE TRIGGER ALL;
 # Reviews
 
 foreach my $k (1 .. $numStores){
-        open (my $OUT, ">reviews$pathsep$pgsql_targetdir${pathsep}remote_pgsqlds35_reviews_load$k.sql") || die("Can't open remote_pgsqlds35_reviews_load$k.sql");
+        open (my $OUT, ">reviews${pathsep}$pgsql_targetdir${pathsep}remote_pgsqlds35_reviews_load$k.sql") || die("Can't open remote_pgsqlds35_reviews_load$k.sql");
         print $OUT "\\c ds3;
 
 ALTER TABLE REVIEWS$k DISABLE TRIGGER ALL;
@@ -241,7 +241,7 @@ ALTER TABLE REVIEWS$k DISABLE TRIGGER ALL;
 ALTER TABLE REVIEWS$k ENABLE TRIGGER ALL;
 \n";
         close $OUT;
-        open (my $OUTBAT, ">reviews$pathsep$pgsql_targetdir${pathsep}remote_pgsqlds35_reviews_load$k.bat") || die("Can't open remote_pgsqlds35_reviews_load$k.bat");
+        open (my $OUTBAT, ">reviews${pathsep}$pgsql_targetdir${pathsep}remote_pgsqlds35_reviews_load$k.bat") || die("Can't open remote_pgsqlds35_reviews_load$k.bat");
 		print $OUTBAT "set PGPASSWORD=ds3\n";
         print $OUTBAT "psql -h $psqltarget -U $SYSDBA -d $DBNAME -f remote_pgsqlds35_reviews_load$k.sql\n";
         print $OUTBAT "$timecommand > finishedreview$k.txt\n";
@@ -252,7 +252,7 @@ ALTER TABLE REVIEWS$k ENABLE TRIGGER ALL;
 # reviews helpfulness
 
 foreach my $k (1 .. $numStores){
-        open (my $OUT, ">reviews$pathsep$pgsql_targetdir${pathsep}remote_pgsqlds35_reviewshelpful_load$k.sql") || die("Can't open remote_pgsqlds35_reviewshelpful_load$k.sql");
+        open (my $OUT, ">reviews${pathsep}$pgsql_targetdir${pathsep}remote_pgsqlds35_reviewshelpful_load$k.sql") || die("Can't open remote_pgsqlds35_reviewshelpful_load$k.sql");
         print $OUT "\\c ds3;
 
 ALTER TABLE REVIEWS_HELPFULNESS$k DISABLE TRIGGER ALL;
@@ -262,7 +262,7 @@ ALTER TABLE REVIEWS_HELPFULNESS$k DISABLE TRIGGER ALL;
 ALTER TABLE REVIEWS_HELPFULNESS$k ENABLE TRIGGER ALL;
 \n";
         close $OUT;
-        open (my $OUTBAT, ">reviews$pathsep$pgsql_targetdir${pathsep}remote_pgsqlds35_reviewshelpful_load$k.bat") || die("Can't open remote_pgsqlds35_reviewshelpful_load$k.bat");
+        open (my $OUTBAT, ">reviews${pathsep}$pgsql_targetdir${pathsep}remote_pgsqlds35_reviewshelpful_load$k.bat") || die("Can't open remote_pgsqlds35_reviewshelpful_load$k.bat");
 		print $OUTBAT "set PGPASSWORD=ds3\n";
         print $OUTBAT "psql -h $psqltarget -U $SYSDBA -d $DBNAME -f remote_pgsqlds35_reviewshelpful_load$k.sql\n";
         print $OUTBAT "$timecommand > finishedhelp$k.txt\n";
