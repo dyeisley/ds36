@@ -43,7 +43,6 @@ int main(int argc, char* argv[])
 
   char n_cust_str[20], n_pct_str[20], r_membership_exp[25];
   int i, prev_interval, next_n_interval_size;
-  char   fn_member[35];
   FILE   *FP_member;
   time_t tptr;
 
@@ -83,9 +82,7 @@ int main(int argc, char* argv[])
   strcpy(str_Sys_Type,argv[3]);
   i_Sys_Type = atoi(str_Sys_Type);
 
-  sprintf(fn_member, "membership.csv");
-
-  FP_member = fopen(fn_member, "wb");
+  FP_member = fopen("membership.csv", "wb");
 
   srand((unsigned int)time(NULL));
 
@@ -113,10 +110,9 @@ int main(int argc, char* argv[])
 
       n_interval_size = floor(cur_flt_interval);
 
-
       r_membership_type = random2(1, 3);
 
-      r_year = current_time->tm_year + 1900 - (rand() % 15);  // All memberships happened in the last 15 years.
+      r_year = current_time->tm_year + 1900 + (rand() % 5);  // All memberships expire in the next 5 years.
       r_month = random2(1, 12);
       sprintf(r_membership_exp,"%4d/%02d/15", r_year, r_month);
 
