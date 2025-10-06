@@ -26,16 +26,16 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA  */
 
-
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
 #include <math.h>
+#include <time.h>
 
 #include "ds_reviews_data.h"
 
 int    review_id, prod_id, stars_num, cust_id, reviews_tot_num, n_customers, n_reviews_per_prod;
-int    i, j, k, i_month, i_day_of_month;
+int    i, j, k, i_year, i_month, i_day_of_month;
 int    review_helpfulness_id, helpfulness_rating, num_helpfulness_reviews;
 int    i_review_length, cur_review_length;
 char   review_summary[150], review_text[2000], review_date[10];
@@ -43,8 +43,10 @@ char   review_summary[150], review_text[2000], review_date[10];
 int    i_days_in_month[] = {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
 
 char   fn_reviews[35], fn_review_helpfulness[35];
-// FILE*  fp;
 FILE   *FP_reviews, *FP_review_helpfulness;
+time_t tptr;
+
+int random2(int i, int j);
 
 int main(int argc, char* argv[])
   {
@@ -75,6 +77,11 @@ int main(int argc, char* argv[])
   review_id = 0;
   review_helpfulness_id = 0;
 
+  time_t seconds=time(NULL);
+  struct tm* current_time=localtime(&seconds);
+
+  srand((unsigned int)time(NULL));
+
   for (i = 0; i < reviews_tot_num; i++)
     {
     review_id = i+1;
@@ -83,7 +90,9 @@ int main(int argc, char* argv[])
 
     i_month = random2 (1,12);
     i_day_of_month = random2 (1, i_days_in_month[i_month-1]);
-    sprintf(review_date,"%4d/%02d/%02d", 2013, i_month, i_day_of_month);
+    i_year = current_time->tm_year + 1900 - (rand() % 15);  // All reviews happened in the last 15 years.
+
+    sprintf(review_date,"%4d/%02d/%02d", i_year, i_month, i_day_of_month);
 
     stars_num = random2 (1,5);
 
@@ -103,7 +112,6 @@ int main(int argc, char* argv[])
       sprintf(review_text + strlen(review_text), "%s ", review_words[random2(0,4950)]);
       }
 
-
     if(i_Sys_Type == 0)   //If System is Linux, Append LF only    
     {	
 	fprintf(FP_reviews, "%d,%d,%s,%d,%d,%s,%s%c", review_id, prod_id, review_date, stars_num, cust_id, review_summary, review_text, 10);
@@ -112,6 +120,7 @@ int main(int argc, char* argv[])
     {
 	fprintf(FP_reviews, "%d,%d,%s,%d,%d,%s,%s%c%c", review_id, prod_id, review_date, stars_num, cust_id, review_summary, review_text, 13, 10);
     }
+
     // Create a random number of review helpfulness ratings for each created review
     num_helpfulness_reviews = random2(3,40);
     for (k = 1; k < num_helpfulness_reviews; k++)
@@ -127,11 +136,10 @@ int main(int argc, char* argv[])
         fprintf(FP_review_helpfulness, "%d,%d,%d,%d%c%c", review_helpfulness_id, review_id, cust_id, helpfulness_rating, 13, 10);
         }
       }
-
-
     }
 
-
+  fclose(FP_reviews);
+  fclose(FP_review_helpfulness);
   }
 
 //---------------------------------------random2---------------------------------------
