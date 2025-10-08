@@ -457,6 +457,7 @@ print "$par1_Start $par2_End $par3_Fname $par4_DB_Size $par_Sys_Type \n";
 #We need to check which OS this perl script is being run
 if(lc($^O) eq lc("linux"))   #If system on which perl script is executing is Linux
 {
+	system("gcc -o ds3_create_cust ds3_create_cust.c -lm");
 	system("chmod 755 ds3_create_cust");
 	system("./ds3_create_cust $par1_Start $par2_End $par3_Fname $par4_DB_Size $par_Sys_Type");		
 }
@@ -534,6 +535,7 @@ for($i_LoopCount = 0; $i_LoopCount < 12; $i_LoopCount++)
 	
 	if(lc($^O) eq lc("linux"))   #If system on which perl script is executing is Linux
 	{
+		system("gcc -o ds3_create_orders ds3_create_orders.c -lm");
 		system("chmod 755 ds3_create_orders");
 		system("./ds3_create_orders $par1_Start $par2_End $par3_ArrMonth[$i_LoopCount] $par4_DB_Size $par5_Month_Number $par_Sys_Type $par_Max_Prod_Id $par_Max_Cust_Id");		
 	}
@@ -565,16 +567,17 @@ print "\nCreating Inventory CSV file!!!! \n";
 
 if(lc($^O) eq lc("linux"))   #If system on which perl script is executing is Linux
 {
+	system("gcc -o ds3_create_inv ds3_create_inv.c -lm");
 	system("chmod 755 ds3_create_inv");
 	system("./ds3_create_inv $par_n_Prod $par_Sys_Type");
-     system("cp inv.csv ../prod/");		
+	system("cp inv.csv ../prod/");
 }
 else   #Windows
 {
 	if($bln_IsCygwin == 1)  #Run through Cygwin Bash Shell
 	{
 		system("./ds3_create_inv.exe $par_n_Prod $par_Sys_Type");
-           system("cp inv.csv ../prod/");	
+		system("cp inv.csv ../prod/");
 	}
 	else  #Run through DOS Shell
 	{
@@ -599,6 +602,7 @@ print "\nCreating product CSV file!!!! \n";
 
 if(lc($^O) eq lc("linux"))   #If system on which perl script is executing is Linux
 {
+	system("gcc -o ds3_create_prod ds3_create_prod.c -lm");
 	system("chmod 755 ds3_create_prod");
 	system("./ds3_create_prod $par_n_Prod $par_Sys_Type");		
 }
@@ -627,6 +631,7 @@ print "\nCreating membership CSV file!!!! \n";
 
 if(lc($^O) eq lc("linux"))   #If system on which perl script is executing is Linux
 {
+	system("gcc -o ds3_create_membership ds3_create_membership.c -lm");
 	system("chmod 755 ds3_create_membership");
         system("./ds3_create_membership $i_Cust_Rows $par_Pct_Member $par_Sys_Type");
 }
@@ -657,6 +662,7 @@ my $par_review_rows = $par_n_Prod * $par_Avg_Reviews;
 
 if(lc($^O) eq lc("linux"))   #If system on which perl script is executing is Linux
 {
+	system("gcc -o ds3_create_reviews ds3_create_reviews.c -lm");
 	system("chmod 755 ds3_create_reviews");
         system("./ds3_create_reviews $par_n_Prod $par_Avg_Reviews $i_Cust_Rows $par_Sys_Type");
 }
