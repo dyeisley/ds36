@@ -12,6 +12,7 @@
  * Last updated 6/29/2010 by GSK for SQL query parameterization
  * Last Updated 11/18/2015 updated from ds2 to ds3 
  * Last Updated 3/21/2018 for Multistore support for DS 3.5
+ *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
  *  the Free Software Foundation; either version 2 of the License, or
@@ -26,16 +27,14 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA  */
 
-
-
 using System;
 using System.IO;
 using System.Data;
-using System.Data.SqlClient;
+//using System.Data.SqlClient;
+using Microsoft.Data.SqlClient;
 using System.Net;
 using System.Threading;
 using System.Runtime.InteropServices;
-
 
 namespace ds2xdriver
   {
@@ -85,43 +84,15 @@ namespace ds2xdriver
     // (Overloaded constructor to support multiple stores within single DS3 instance)
     public ds2Interface(int ds2interfaceid, string target_name, int target_store)
     {
-        ds2Interfaceid = ds2interfaceid;
-        target_server = target_name;
-        target_store_number = target_store;
+      ds2Interfaceid = ds2interfaceid;
+      target_server = target_name;
+      target_store_number = target_store;
 
-        //Console.WriteLine("ds2Interface {0} created", ds2Interfaceid);
-    }      
-//
-//-------------------------------------------------------------------------------------------------
-// 
-    public  bool ds2initialize()
-      {
-      return(true);
-      } // end ds2initialize()
- 
-//
-//-------------------------------------------------------------------------------------------------
-//  
-    public bool ds2connect()
-      {
-      // Add Password=xxx to sConnectionString if password is set
+      //Add Password=xxx to sConnectionString if password is set
       //string sConnectionString = "User ID=sa;Initial Catalog=DS3;Connection Timeout=120;Data Source=" + Controller.target;
       //Changed by GSK (added new user ds3user and new server to connect everytime)
-      string sConnectionString = "User ID=ds3user;Initial Catalog=DS3;Connection Timeout=120;Data Source=" + target_server;
-      try
-        {
-        objConn = new SqlConnection(sConnectionString);
-        objConn.Open();
-        }
-      catch (SqlException e)
-        {
-        //Console.WriteLine("Thread {0}: error in connecting to database {1}: {2}",  Thread.CurrentThread.Name,
-        //  Controller.target, e.Message);
-        //Changed by GSK
-        Console.WriteLine ( "Thread {0}: error in connecting to database {1}: {2}" , Thread.CurrentThread.Name ,
-        target_server , e.Message );
-        return(false);
-        }
+      string sConnectionString = "TrustServerCertificate=True;User ID=ds3user;Initial Catalog=DS3;Connection Timeout=120;Data Source=" + target_server;
+      objConn = new SqlConnection(sConnectionString);
 
       // Set up SQL stored procedure calls and associated parameters
       Login = new SqlCommand("LOGIN" + target_store_number, objConn);
@@ -163,7 +134,6 @@ namespace ds2xdriver
       New_Prod_Review.Parameters.Add("@customerid_in", SqlDbType.Int);
       New_Prod_Review.Parameters.Add("@review_summary_in", SqlDbType.VarChar, 50);
       New_Prod_Review.Parameters.Add("@review_text_in", SqlDbType.VarChar, 1000);
-
       New_Review_Helpfulness = new SqlCommand("NEW_REVIEW_HELPFULNESS" + target_store_number, objConn);
       New_Review_Helpfulness.CommandType = CommandType.StoredProcedure;
       New_Review_Helpfulness.Parameters.Add("@review_id_in", SqlDbType.Int);
@@ -204,15 +174,15 @@ namespace ds2xdriver
       Get_Prod_Reviews_By_Title = new SqlCommand("GET_PROD_REVIEWS_BY_TITLE" + target_store_number, objConn);
       Get_Prod_Reviews_By_Title.CommandType = CommandType.StoredProcedure;
       Get_Prod_Reviews_By_Title.Parameters.Add("@batch_size_in", SqlDbType.Int);
-	  Get_Prod_Reviews_By_Title.Parameters.Add("@search_depth_in", SqlDbType.Int);
+      Get_Prod_Reviews_By_Title.Parameters.Add("@search_depth_in", SqlDbType.Int);
+
       Get_Prod_Reviews_By_Title.Parameters.Add("@title_in", SqlDbType.VarChar, 50);
 
       Get_Prod_Reviews_By_Actor = new SqlCommand("GET_PROD_REVIEWS_BY_ACTOR" + target_store_number, objConn);
       Get_Prod_Reviews_By_Actor.CommandType = CommandType.StoredProcedure;
       Get_Prod_Reviews_By_Actor.Parameters.Add("@batch_size_in", SqlDbType.Int);
-	  Get_Prod_Reviews_By_Actor.Parameters.Add("@search_depth_in", SqlDbType.Int);
+      Get_Prod_Reviews_By_Actor.Parameters.Add("@search_depth_in", SqlDbType.Int);
       Get_Prod_Reviews_By_Actor.Parameters.Add("@actor_in", SqlDbType.VarChar, 50);
-
 
       Purchase = new SqlCommand("PURCHASE" + target_store_number, objConn);
       Purchase.CommandType = CommandType.StoredProcedure; 
@@ -232,6 +202,35 @@ namespace ds2xdriver
       Purchase.Parameters.Add("@prod_id_in8", SqlDbType.Int); Purchase.Parameters.Add("@qty_in8", SqlDbType.Int);
       Purchase.Parameters.Add("@prod_id_in9", SqlDbType.Int); Purchase.Parameters.Add("@qty_in9", SqlDbType.Int);
      
+        //Console.WriteLine("ds2Interface {0} created", ds2Interfaceid);
+    }      
+//
+//-------------------------------------------------------------------------------------------------
+// 
+    public  bool ds2initialize()
+      {
+      return(true);
+      } // end ds2initialize()
+ 
+//
+//-------------------------------------------------------------------------------------------------
+//  
+    public bool ds2connect()
+      {
+      try
+        {
+        objConn.Open();
+        }
+      catch (SqlException e)
+        {
+        //Console.WriteLine("Thread {0}: error in connecting to database {1}: {2}",  Thread.CurrentThread.Name,
+        //  Controller.target, e.Message);
+        //Changed by GSK
+        Console.WriteLine ( "Thread {0}: error in connecting to database {1}: {2}" , Thread.CurrentThread.Name ,
+        target_server , e.Message );
+        return(false);
+        }
+
       return(true);
       } // end ds2connect()
  
@@ -247,6 +246,7 @@ namespace ds2xdriver
       TimeSpan TS = new TimeSpan();
       DateTime DT0;
 #endif     
+
       Login.Parameters["@username_in"].Value = username_in;
       Login.Parameters["@password_in"].Value = password_in;
           
@@ -304,6 +304,7 @@ namespace ds2xdriver
       {
       int region_in = (country_in == "US") ? 1:2;
       string creditcardexpiration_in = String.Format("{0:D4}/{1:D2}", ccexpyr_in, ccexpmon_in);
+
 #if (USE_WIN32_TIMER)
       long ctr0 = 0, ctr = 0, freq = 0;
 #else
@@ -396,7 +397,6 @@ namespace ds2xdriver
      
       New_Member.Parameters["@customerid_in"].Value = customerid_in;
       New_Member.Parameters["@membershiplevel_in"].Value = membershiplevel_in;
-        
 
 #if (USE_WIN32_TIMER)
       QueryPerformanceFrequency(ref freq); // obtain system freq (ticks/sec)
@@ -438,8 +438,6 @@ namespace ds2xdriver
             return (false);
         }
       } while (deadlocked);
-      
-     
             
 #if (USE_WIN32_TIMER)
       QueryPerformanceCounter(ref ctr); // Stop response time clock
@@ -466,7 +464,7 @@ namespace ds2xdriver
       // Products table: PROD_ID INT, CATEGORY TINYINT, TITLE VARCHAR(50), ACTOR VARCHAR(50), 
       //   PRICE DECIMAL(12,2), SPECIAL TINYINT, COMMON_PROD_ID INT
       int i_row;
-      string data_in = null;
+      string data_in = string.Empty;
       int[] category_out = new int[GlobalConstants.MAX_ROWS];
 
 #if (USE_WIN32_TIMER)
@@ -475,6 +473,7 @@ namespace ds2xdriver
       TimeSpan TS = new TimeSpan();
       DateTime DT0;
 #endif  
+
       switch(browse_type_in)
         {
         case "category":
@@ -554,7 +553,6 @@ namespace ds2xdriver
     //
     //-------------------------------------------------------------------------------------------------
     // 
-
     public bool ds2browsereview(string browse_review_type_in, string get_review_category_in, string get_review_actor_in,
       string get_review_title_in, int batch_size_in, int search_depth_in, int customerid_out, ref int rows_returned,
       ref int[] prod_id_out, ref string[] title_out, ref string[] actor_out, ref int[] review_id_out,
@@ -563,7 +561,7 @@ namespace ds2xdriver
     {
         // Reviews Table: "REVIEW_ID" NUMBER,  "PROD_ID" NUMBER,  "REVIEW_DATE" DATE, "STARS" NUMBER,
         // "CUSTOMERID" NUMBER,  "REVIEW_SUMMARY" VARCHAR2(50 byte), "REVIEW_TEXT" VARCHAR2(1000 byte) 
-        string data_in = null;
+        string data_in = string.Empty;
         int[] category_out = new int[GlobalConstants.MAX_ROWS];
         int i_row;
 
@@ -573,6 +571,7 @@ namespace ds2xdriver
         TimeSpan TS = new TimeSpan();
         DateTime DT0;
 #endif
+
         switch (browse_review_type_in)
         {
             case "actor":
@@ -646,7 +645,6 @@ namespace ds2xdriver
         TS = DateTime.Now - DT0;
         rt = TS.TotalSeconds; // Calculate response time
 #endif
-           
             
        return (true);
     } // end ds2browsereview()
@@ -654,7 +652,6 @@ namespace ds2xdriver
     //
     //-------------------------------------------------------------------------------------------------
     // 
-
     public bool ds2getreview(string get_review_type_in, int get_review_prod_in, int get_review_stars_in, int customerid_out, int batch_size_in, ref int rows_returned,
       ref int[] prod_id_out, ref int[] review_id_out, ref string[] review_date_out, ref int[] review_stars_out, ref int[] review_customerid_out,
       ref string[] review_summary_out, ref string[] review_text_out, ref int[] review_helpfulness_sum_out, ref double rt)
@@ -671,6 +668,7 @@ namespace ds2xdriver
         TimeSpan TS = new TimeSpan();
         DateTime DT0;
 #endif
+
         switch (get_review_type_in)
         {
             case "noorder":
@@ -771,13 +769,13 @@ namespace ds2xdriver
         New_Prod_Review.Parameters["@review_summary_in"].Value = new_review_summary_in;
         New_Prod_Review.Parameters["@review_text_in"].Value = new_review_text_in;
 
-
 #if (USE_WIN32_TIMER)
       QueryPerformanceFrequency(ref freq); // obtain system freq (ticks/sec)
       QueryPerformanceCounter(ref ctr0); // Start response time clock   
 #else
         DT0 = DateTime.Now;
 #endif
+
         bool deadlocked;
         do
         {
@@ -823,8 +821,6 @@ namespace ds2xdriver
         return (true);
     } // end ds2newreview()
 
-
-
     //
     //-------------------------------------------------------------------------------------------------
     // 
@@ -847,6 +843,7 @@ namespace ds2xdriver
 #else
         DT0 = DateTime.Now;
 #endif
+
         bool deadlocked;
         do
           {
@@ -880,8 +877,6 @@ namespace ds2xdriver
               return (false);
           }
         } while (deadlocked);
-        
-
 
 #if (USE_WIN32_TIMER)
       QueryPerformanceCounter(ref ctr); // Stop response time clock
@@ -893,9 +888,6 @@ namespace ds2xdriver
 
         return (true);
     } // end ds2newreviewhelpfulness()
-
-
-
 
 //
 //-------------------------------------------------------------------------------------------------
@@ -1029,5 +1021,3 @@ namespace ds2xdriver
       } // end ds2close()
     } // end Class ds2Interface
   } // end namespace ds2xdriver
-  
-        

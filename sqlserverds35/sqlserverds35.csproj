@@ -10,11 +10,12 @@
 
   <ItemGroup>
    <Compile Include="ds35sqlserverfns.cs" />
-   <Compile Include="ds35xdriver.cs" />
+   <Compile Include="../drivers/ds35xdriver.cs" />
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="System.Data.SqlClient" Version="4.9.0" />
+    <PackageReference Include="Microsoft.Data.SqlClient" Version="6.1.2" />
   </ItemGroup>
+
 
 </Project>
