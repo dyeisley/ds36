@@ -193,7 +193,12 @@ GO
 -- This keeps the number of items with low QUAN_IN_STOCK constant so that the rollback rate is constant 
 CREATE TRIGGER RESTOCK$k ON INVENTORY$k AFTER UPDATE
 AS
-  DECLARE \@changedPROD_ID INT, \@oldQUAN_IN_STOCK INT, \@newQUAN_IN_STOCK INT;
+  DECLARE \@changedPROD_ID INT, \@oldQUAN_IN_STOCK INT, \@newQUAN_IN_STOCK INT, \@quan_reordered INT;
+  DECLARE \@ReorderTime DATETIME = GETDATE();
+
+  SET \@quan_reordered = cast(rand() * 20 as INT) + 3
+  SET \@ReorderTime = DATEADD(MINUTE, \@quan_reordered, \@ReorderTime);
+
   IF UPDATE(QUAN_IN_STOCK)
     BEGIN
       SELECT \@changedPROD_ID = i.PROD_ID, \@oldQUAN_IN_STOCK = d.QUAN_IN_STOCK, \@newQUAN_IN_STOCK = i.QUAN_IN_STOCK
@@ -204,15 +209,19 @@ AS
             (
             PROD_ID,
             DATE_LOW,
-            QUAN_LOW
+            QUAN_LOW,
+            DATE_REORDERED,
+            QUAN_REORDERED
             )
           VALUES
             (
             \@changedPROD_ID,
             GETDATE(),
-            \@newQUAN_IN_STOCK
+            \@newQUAN_IN_STOCK,
+            \@ReorderTime,
+            \@quan_reordered
             )
-          UPDATE INVENTORY$k SET QUAN_IN_STOCK  = \@oldQUAN_IN_STOCK WHERE PROD_ID = \@changedPROD_ID
+          UPDATE INVENTORY$k SET QUAN_IN_STOCK = \@newQUAN_IN_STOCK + \@quan_reordered WHERE PROD_ID = \@changedPROD_ID
         END
     END
   RETURN
