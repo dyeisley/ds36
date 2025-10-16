@@ -80,12 +80,12 @@ namespace ds2xdriver
 #endif
 
     // Variables needed by User objects
-    public static string target , windows_perf_host = null;
-    public static string outfilename;
-    public static string ds2_mode_string;
+    public static string target = string.Empty , windows_perf_host = string.Empty;
+    public static string outfilename = string.Empty;
+    public static string ds2_mode_string = string.Empty;
     System.IO.StreamWriter outfile;
 
-    public static string[] target_servers;                   //Added by GSK (for single instance of driver program driving multiple database servers)
+    public static string[] target_servers;                  //Added by GSK (for single instance of driver program driving multiple database servers)
     public static string[] windows_perf_host_servers;       //Added by GSK
     public static int n_target_servers = 1;                 //Added by GSK to keep track of number of Servers/DB instances on which threads spawned
     public static object UpdateLock = 1;
@@ -127,7 +127,7 @@ namespace ds2xdriver
     public static int pct_newhelpfulness = 0;
     public static int pct_newmember = 0;
     public static double think_time , rt_tot_overall = 0.0 , rt_login_overall = 0.0 , rt_newcust_overall = 0.0 ,
-      rt_browse_overall = 0.0 , rt_purchase_overall = 0.0 , cpu_pct_tot = 0.0;
+        rt_browse_overall = 0.0 , rt_purchase_overall = 0.0 , cpu_pct_tot = 0.0;
     public static double rt_reviewbrowse_overall = 0.0, rt_newreview_overall = 0.0, rt_newhelpfulness_overall = 0.0,
         rt_newmember_overall = 0.0;
     public static double[] rt_tot_lastn = new double[GlobalConstants.LAST_N];
@@ -149,11 +149,11 @@ namespace ds2xdriver
     public static string detailed_view = "N";
     public static bool is_detailed_view = true;
 
-	//Added by Performance Team - Ruban (New parameter to print log timestamps)
+    //Added by Performance Team - Ruban (New parameter to print log timestamps)
     public static string log_timestamp = "NONE";
     public static string cur_datetime = "";
     //Added by GSK( New parameter to print Linux CPU utilization statistics)
-    public static string linux_perf_host = null;
+    public static string linux_perf_host = string.Empty;
     public static string[] linux_perf_host_servers;
     public static string[] linux_unames;
     public static string[] linux_passwd;
@@ -177,7 +177,7 @@ namespace ds2xdriver
     //db_size_str parameter is removed since it would not be used in code anywhere
     //Instead at same place we need db_size parameter
     //Added new parameter detailed_view by GSK default value = N
-	//Added new parameter log_timestamp by Performance Team - Ruban default value = N
+    //Added new parameter log_timestamp by Performance Team - Ruban default value = N
     //Added new parameter log_freq by Performance Team - Ruban default value = 10																				
     //Added new parameter linux_perf_host by GSK 
     static string[] input_parm_names = new string[] {"config_file", "target", "n_threads", "ramp_rate",
@@ -237,8 +237,8 @@ namespace ds2xdriver
         }
       catch(System.Exception e)
         {
-        //In case of any exception like error in connection to target linux host, directly throw exception to caller of this function
-        throw e;
+            Console.Error.WriteLine("Error: {0}", e.Message);
+	    return false;
         }
       return true;
       }
@@ -272,8 +272,7 @@ namespace ds2xdriver
         }
       catch ( System.Exception e )
         {
-        //In case of exception throw exception directly to caller of this function
-        throw e;
+            Console.Error.WriteLine("Error: {0}", e.Message);
         }                
       }
 
@@ -317,8 +316,7 @@ namespace ds2xdriver
         }
       catch ( System.Exception e )
         {
-        //In case of exception throw exception directly to caller of this function
-        throw e;
+            Console.Error.WriteLine("Error: {0}", e.Message);
         }    
       return cpuutilizn;
       }
@@ -345,7 +343,7 @@ namespace ds2xdriver
           }
         catch ( System.Exception e )
           {
-          throw e;
+            Console.Error.WriteLine("Error: {0}", e.Message);
           }
         }
       else if ( db_custom_size.IndexOf ( "gb" ) != -1 )
@@ -361,7 +359,7 @@ namespace ds2xdriver
           }
         catch ( System.Exception e )
           {
-          throw e;
+            Console.Error.WriteLine("Error: {0}", e.Message);
           }
         }
       else
@@ -415,12 +413,12 @@ namespace ds2xdriver
       //Console.WriteLine("Controller constructor: " + argarray.Length + " args");
 
       int i;
-            int z;
+      int z;
       int i_sec , run_time = 0 , warmup_time = 1, log_freq = 1;
       //Changed by GSK
       //int db_size=0;
       //string db_size_str, errmsg=null;
-      string errmsg = null;
+      string errmsg = string.Empty;
       double et;
       int opm , rt_login_avg_msec , rt_newcust_avg_msec , rt_browse_avg_msec , rt_purchase_avg_msec ,
         rt_tot_lastn_max_msec , rt_tot_avg_msec;
@@ -613,10 +611,10 @@ namespace ds2xdriver
       try
         {
         n_threads = Convert.ToInt32 ( input_parm_values[Array.IndexOf ( input_parm_names , "n_threads" )] );                
-                //Changed by GSK -- n_threads represents threads spawned per DB/Web Server
-                //Hence total number of threads spawned by Controller Driver Program = no of threads per Server * number of servers to Drive Workload on
-                n_threads = n_threads * n_target_servers;
-                Console.WriteLine ( "Total number of Threads to be Spawned across multiple servers are n_threads: {0}" , n_threads );
+        //Changed by GSK -- n_threads represents threads spawned per DB/Web Server
+        //Hence total number of threads spawned by Controller Driver Program = no of threads per Server * number of servers to Drive Workload on
+        n_threads = n_threads * n_target_servers;
+        Console.WriteLine ( "Total number of Threads to be Spawned across multiple servers are n_threads: {0}" , n_threads );
         }
       catch ( System.Exception e )
         {
@@ -782,7 +780,7 @@ namespace ds2xdriver
         windows_perf_host = input_parm_values[Array.IndexOf ( input_parm_names , "windows_perf_host" )];
         if ( windows_perf_host == "" )
           {
-          windows_perf_host = null;
+          windows_perf_host = string.Empty;
           windows_perf_host_servers = null;
           n_windows_servers = 0;
           }
@@ -814,7 +812,7 @@ namespace ds2xdriver
         linux_perf_host = input_parm_values[Array.IndexOf ( input_parm_names , "linux_perf_host" )];
         if ( linux_perf_host == "" )
           {
-          linux_perf_host = null;
+          linux_perf_host = string.Empty;
           linux_perf_host_servers = null;
           n_linux_servers = 0;
           arr_linux_cpu_utilization = null;
@@ -946,7 +944,7 @@ namespace ds2xdriver
           outfilename = input_parm_values[Array.IndexOf(input_parm_names, "out_filename")];
           if (outfilename == "") 
             { 
-              outfilename = null;
+              outfilename = string.Empty;
             }
           else 
            {
@@ -1015,7 +1013,7 @@ namespace ds2xdriver
       max_review = product_rows * 20;
 
       //Changed by GSK (size of array prod_array = number of rows in product table + (10000 * 10)
-      //Reason : Every 10000th product wil be popular and will have 10 entries in list
+      //Reason : Every 10000th product will be popular and will have 10 entries in list
       //Set up array to choose product ids from, weighted with more entries for popular products
       //Popular products (in this case every 10,000th) will have 10 entries in list, others just 1
       int prod_arr_size = product_rows + 100000;
@@ -1084,7 +1082,7 @@ namespace ds2xdriver
       //Need an array of PerfCounter Class objects to capture Processor Time for each Machine
 
       PerformanceCounter[] CPU_PCT = new PerformanceCounter[n_windows_servers];
-      if (windows_perf_host != null)
+      if (windows_perf_host != string.Empty)
         {           
         //Create PerfMon counter on Each target machine
 
@@ -1131,7 +1129,7 @@ namespace ds2xdriver
       //this will ensure each target is registered in registry of machine on which driver program runs
       //This will avoid giving any add RSA fingerprint message when actual run stats are getting printed out
       // 
-      if (linux_perf_host != null)     //Added by GSK for getting Linux CPU Utilization
+      if (linux_perf_host != string.Empty)     //Added by GSK for getting Linux CPU Utilization
         {
         for (i = 0; i < n_linux_servers; i++)
           {
@@ -1178,10 +1176,10 @@ namespace ds2xdriver
         { 
         Console.WriteLine ( "Controller: ConnectTimeout reached : could not connect all threads, Aborting...");
         Thread.Sleep ( 500 );
-        for ( i = 0 ; i < n_threads ; i++ )
-          {
-              threads[i].Abort();
-          }
+//        for ( i = 0 ; i < n_threads ; i++ )
+//          {
+//              threads[i].Abort();
+//          }
         return;
         }
       
@@ -1203,7 +1201,7 @@ namespace ds2xdriver
         //Call plink to execute mpstat on remote linux machine to store CPU data in File on remote system
         if (i_sec % log_freq == 1)  //At start as per log_freq interval, start background process for mpstat CPU monitoring on each linux machine
           {
-          if (linux_perf_host != null)     //Added by GSK for getting Linux CPU Utilization
+          if (linux_perf_host != string.Empty)     //Added by GSK for getting Linux CPU Utilization
             {
             for (i = 0; i < n_linux_servers; i++)
               {
@@ -1222,9 +1220,10 @@ namespace ds2xdriver
 
         Thread.Sleep ( 1000 );     // Update perfmon stats about every second
         Monitor.Enter ( UpdateLock );  // Block User threads from accessing code to update these values (below)       
+
 #if (USE_WIN32_TIMER)
-          QueryPerformanceCounter(ref ctr);
-          et = (ctr-ctr0)/(double) freq;   
+        QueryPerformanceCounter(ref ctr);
+        et = (ctr-ctr0)/(double) freq;   
 #else
         TS = DateTime.Now - DT0;
         et = TS.TotalSeconds;
@@ -1254,7 +1253,7 @@ namespace ds2xdriver
           MaxRTC.RawValue = rt_tot_lastn_max_msec;
           OPMC.RawValue = opm;
           //Changed by GSK
-          if (windows_perf_host != null)
+          if (windows_perf_host != string.Empty)
             {
             //cpu_pct_tot += CPU_PCT.NextValue();
             //++n_cpu_pct_samples;
@@ -1280,12 +1279,11 @@ namespace ds2xdriver
     	  if (n_overall > 0)
             {
             rt_tot_avg_msec = ( int ) Math.Floor ( 1000 * rt_tot_overall / n_overall );
-	        }
+	    }
           else
             {
             rt_tot_avg_msec = 0;
-	        }
-
+	    }
 
           //Added on 8/8/2010
           diff_n_overall = Math.Abs(n_overall - old_n_overall);
@@ -1300,18 +1298,18 @@ namespace ds2xdriver
           else
             {
             rt_tot_sampled = 0;
-	        }
+            }
  
-	      if (n_overall > 0)
+	    if (n_overall > 0)
             {
             pct_rollbacks = (100.0 * n_rollbacks_overall) / n_overall;
-	        }
+	    }
           else
             {
             pct_rollbacks = 0.0;
-	        }
+	    }
 
-		  switch (log_timestamp)  // Switch to determine the type of time stamps to put on each log line 
+	    switch (log_timestamp)  // Switch to determine the type of time stamps to put on each log line 
                 {
                     case "UTC":   // Call UtcNow.ToString to get UTC based time
                         cur_datetime = DateTime.UtcNow.ToString("yyyy-MM-ddTHH\\:mm\\:ss.fff'Z' ");
@@ -1334,7 +1332,7 @@ namespace ds2xdriver
           "rt_tot_sampled={5} " +
           "rollbacks: n={6} %={7,5:F1} ", et, n_overall, opm, rt_tot_lastn_max_msec, rt_tot_avg_msec,
           rt_tot_sampled,n_rollbacks_overall, pct_rollbacks, cur_datetime);
-          if (outfilename != null)
+          if (outfilename != string.Empty)
           {
              outfile.Write("{8} {0,7:F1},{1},{2},{3},{4},{5},{6},{7,5:F1}", et, n_overall, opm, rt_tot_lastn_max_msec, rt_tot_avg_msec,
              rt_tot_sampled, n_rollbacks_overall, pct_rollbacks, cur_datetime);
@@ -1343,16 +1341,16 @@ namespace ds2xdriver
           total_cpu_utilzn = 0.0;
           total_lin_cpu_utilzn = 0.0;
           total_win_cpu_utilzn = 0.0;
-          if ( windows_perf_host != null )
-            {
+          if ( windows_perf_host != string.Empty)
+          {
             //Changed by GSK to get total average cpu utilization                                                
             for ( i = 0 ; i < n_windows_servers ; i++ )
               {
               total_win_cpu_utilzn += ( arr_cpu_pct_tot[i] / arr_n_cpu_pct_samples[i] );
               }                        
-            }                     
-          if ( linux_perf_host != null )     //Added by GSK for getting Linux CPU Utilization
-            {                        
+          }                     
+          if ( linux_perf_host != string.Empty)     //Added by GSK for getting Linux CPU Utilization
+          {                        
             for ( i = 0 ; i < n_linux_servers ; i++ )
               {
               try
@@ -1368,7 +1366,7 @@ namespace ds2xdriver
                 return;
                 }
               }                        
-            }
+          }
 
           if ( is_Win_VM == true && is_Lin_VM == true )       //Get perf stats from both linux and windows machines                        
             {
@@ -1381,7 +1379,7 @@ namespace ds2xdriver
               sb_linux.Append ( linux_perf_host_servers[z] ).Append ( ";" );
               }
             Console.WriteLine ( "host {0} CPU%= {1,5:F1}" , windows_perf_host + ";" + sb_linux.ToString() , total_cpu_utilzn );
-			if (outfilename != null)
+			if (outfilename != string.Empty)
 			  {
 			  outfile.WriteLine(",{0,5:F1}" , total_cpu_utilzn );
 			  }
@@ -1392,11 +1390,11 @@ namespace ds2xdriver
                         
             total_cpu_utilzn = total_cpu_utilzn / n_target_servers;
             Console.WriteLine ( "host {0} CPU%= {1,5:F1}" , windows_perf_host  , total_cpu_utilzn );
-			if (outfilename != null) 
-			  {
-			  outfile.WriteLine(",{0,5:F1}" , total_cpu_utilzn );
-              }
-			}
+		if (outfilename != string.Empty) 
+		  {
+		     outfile.WriteLine(",{0,5:F1}" , total_cpu_utilzn );
+                  }
+            }
           else if ( is_Lin_VM == true && is_Win_VM == false )  //Get perf stats from linux machines                        
             {
             total_cpu_utilzn = total_lin_cpu_utilzn;
@@ -1407,21 +1405,20 @@ namespace ds2xdriver
               {
               sb_linux.Append ( linux_perf_host_servers[z] ).Append ( ";" );
               }
-            Console.WriteLine ( "host {0} CPU%= {1,5:F1}" , sb_linux.ToString() , total_cpu_utilzn );
-			if (outfilename != null)
-			  {
-			  outfile.WriteLine(",{0,5:F1}" , total_cpu_utilzn );
-              }
-			}
+              Console.WriteLine ( "host {0} CPU%= {1,5:F1}" , sb_linux.ToString() , total_cpu_utilzn );
+              if (outfilename != string.Empty)
+                 {
+                    outfile.WriteLine(",{0,5:F1}" , total_cpu_utilzn );
+                 }
+            }
           else
             {
                 Console.Write ( "\n" );
-				if (outfilename != null)
-				{
-				outfile.WriteLine ( "\n" );
-				}
-			}
-                  
+		if (outfilename != string.Empty)
+		{
+		   outfile.WriteLine ( "\n" );
+		}
+            }
 
           //Added by GSK
           //Call Write individual stats only when detailed_view parameter is YES and more than one target servers                   
@@ -1455,12 +1452,12 @@ namespace ds2xdriver
               //Added by GSK
               //Following condition i < n_windows_servers ensure that stats for windows VM's will be outputted first and then linux VM's
               //For this to work, target parameter should always specify all windows targets first followed by linux targets (all targets selerated by semi colon ;)
-              if ( windows_perf_host != null && i < n_windows_servers )
+              if ( windows_perf_host != string.Empty && i < n_windows_servers )
                   {
                   //Need individual CPU utilization of Virtual Machines on which DB / Web Servers are running
                   Console.WriteLine ( "host {0} CPU%= {1,5:F1}" , windows_perf_host_servers[i] , arr_cpu_pct_tot[i] / arr_n_cpu_pct_samples[i] );
                   }
-              if(linux_perf_host != null && i >= n_windows_servers)
+              if(linux_perf_host != string.Empty && i >= n_windows_servers)
                 {
                 try
                   {
@@ -1639,14 +1636,14 @@ namespace ds2xdriver
         rt_login_avg_msec, rt_newcust_avg_msec, rt_newmember_avg_msec, rt_browse_avg_msec, rt_reviewbrowse_avg_msec, rt_newreview_avg_msec, 
         rt_newhelpfulness_avg_msec, rt_purchase_avg_msec, rt_tot_sampled, n_rollbacks_overall, (100.0 * n_rollbacks_overall) / n_overall);
 
-      if (outfilename != null)
+      if (outfilename != string.Empty)
           outfile.Close();
 
       total_cpu_utilzn = 0.0;
       total_win_cpu_utilzn = 0.0;
       total_lin_cpu_utilzn = 0.0;
 
-      if ( windows_perf_host != null )
+      if ( windows_perf_host != string.Empty )
         {
         //Changed by GSK to get total average cpu utilization                                        
         for ( i = 0 ; i < n_windows_servers ; i++ )
@@ -1654,7 +1651,7 @@ namespace ds2xdriver
           total_win_cpu_utilzn += ( arr_cpu_pct_tot[i] / arr_n_cpu_pct_samples[i] );
           }                
         }            
-      if ( linux_perf_host != null )     //Added by GSK for getting Linux CPU Utilization
+      if ( linux_perf_host != string.Empty )     //Added by GSK for getting Linux CPU Utilization
         {                
         for ( i = 0 ; i < n_linux_servers ; i++ )
           {
@@ -1739,12 +1736,12 @@ namespace ds2xdriver
           //Added by GSK
           //Following condition i < n_windows_servers ensure that stats for windows VM's will be outputted first and then linux VM's
           //For this to work, target parameter should always specify all windows targets first followed by linux targets (all targets selerated by semi colon ;)
-          if ( windows_perf_host != null && i < n_windows_servers )
+          if ( windows_perf_host != string.Empty && i < n_windows_servers )
             {
             //Need individual CPU utilization for Virtual Machines on which DB/ Web Servers are running
             Console.WriteLine ( "host {0} CPU%= {1,5:F1}" , windows_perf_host_servers[i] , arr_cpu_pct_tot[i] / arr_n_cpu_pct_samples[i] );
             }
-          else if ( linux_perf_host != null && i >= n_windows_servers )     //Added by GSK for getting CPU Utilization of Linux Systems
+          else if ( linux_perf_host != string.Empty && i >= n_windows_servers )     //Added by GSK for getting CPU Utilization of Linux Systems
             {          
             try
               {
@@ -1900,7 +1897,6 @@ namespace ds2xdriver
     int creditcardtype_in , ccexpmon_in , ccexpyr_in , income_in , age_in;
     int customerid_in, membershiplevel_in, reviewid_in, reviewhelpfulness_in;
     string actor_in , title_in;
-    string[] actornames_in, titlenames_in;
     string new_review_summary_in, new_review_text_in;
     int new_review_stars_in, new_review_prod_id_in;
     string[] review_data_terms;
@@ -1908,7 +1904,7 @@ namespace ds2xdriver
     public int target_server_id = 0;   //Added by GSK (Need this public since it is used by Controller to find out which thread belongs to which DB/Web Server)
 
     int target_store = 1;
-
+/*
     public User ( int userid )
       {
       Userid = userid;
@@ -1922,12 +1918,18 @@ namespace ds2xdriver
       target_server_id = server_id;
       //Console.WriteLine("user {0} created", userid);
       }
+*/
     //Overloaded constructor to support multiple stores in single DS3 instance
     public User(int userid, int server_id, int target_store_num)
     {
         Userid = userid;
         target_server_id = server_id;
         target_store = target_store_num;
+
+	username_in = password_in = firstname_in = lastname_in = address1_in = address2_in = city_in = state_in = string.Empty;
+	zip_in = country_in = email_in = phone_in = creditcard_in = gender_in = string.Empty;
+	actor_in = title_in = new_review_summary_in = new_review_text_in = string.Empty;
+
         //Console.WriteLine("user {0} created", userid);
     }
 
@@ -1960,12 +1962,6 @@ namespace ds2xdriver
       int get_review_stars_in;                                           // Browse Reviews, Get Reviews
       int n_reviewbrowse = 0;
       int n_getreviewbrowse = 0;
-                          // New Review
-      //string new_review_summary_in = new string[GlobalConstants.MAX_ROWS]; // New Review
-      //string new_review_text_in = new string[1000];                        // New Review
-      
-         
-
 
       Thread.CurrentThread.Name = Userid.ToString ( );
       Console.WriteLine ( "Thread {0}: created for User {1}" , Thread.CurrentThread.Name , Userid );
@@ -2154,15 +2150,15 @@ namespace ds2xdriver
                   Console.WriteLine ( "Thread {0}: Error in New Member for User {1}, failure {2}, retrying" ,
                     Thread.CurrentThread.Name , username_in, failures);
     	        }
-  	          else
-  	            {
+  	      else
+  	        {
                   Console.WriteLine ( "Thread {0}: Error in New Member for User {1}, failure {2}, exiting" ,
                     Thread.CurrentThread.Name , username_in, failures);
                   return;
-  	            }
+  	        }
               }
 
-           // if ( customerid_out == 0 ) Console.WriteLine ( "Customer {0} is already a member" , customerid_in );
+            // if ( customerid_out == 0 ) Console.WriteLine ( "Customer {0} is already a member" , customerid_in );
             } while ( customerid_out == 0 ); // end of do/while try newcustomer
 
 //        Console.WriteLine("Thread {0}: New user {1} logged in, customerid = {2}, RT= {3,10:F3}", 
@@ -2263,6 +2259,7 @@ namespace ds2xdriver
             string get_review_type_in = "", get_review_category_in = "", get_review_actor_in = "", get_review_title_in = "";
             int get_review_prod_in;
             string get_review_criteria = "";
+            string[] actornames_in, titlenames_in;
             // int batch_size_in;
 
             n_reviewbrowse = 1 + r.Next(2 * Controller.n_reviews - 1);   // Perform average of n_reviews searches
@@ -2378,6 +2375,7 @@ namespace ds2xdriver
             if (user_type <= Controller.pct_newreviews / 100.0) // If this is true we have a customer that wants to submit a new review
             {
                 IsNewReview = true;
+
                 review_data_terms = InitReviewDataTerms();
                 new_review_summary_in = CreateReviewData(ref review_data_terms, 3);
                 new_review_text_in = CreateReviewData(ref review_data_terms, 25);
