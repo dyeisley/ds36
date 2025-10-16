@@ -54,14 +54,6 @@ namespace ds2xdriver
 
 //
 //-------------------------------------------------------------------------------------------------
-// DPY: This doesn't actually do anything useful. 
-    public bool ds2initialize()
-      {
-      return(true);
-      } // end ds2initialize()
-
-//
-//-------------------------------------------------------------------------------------------------
 // 
     // (Overloaded constructor to support multiple stores within single DS3 instance)
     public ds2Interface(int ds2interfaceid, string target_name, int target_store)

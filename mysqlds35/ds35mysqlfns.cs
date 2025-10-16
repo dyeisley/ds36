@@ -89,14 +89,6 @@ namespace ds2xdriver
         conn_str = "Server=" + target_server_name + ";User ID=web;Password=web;Database=DS3";
         //Console.WriteLine("ds2Interface {0} created", ds2Interfaceid);
     }
-    //
-    //-------------------------------------------------------------------------------------------------
-    // 
-      
-      public  bool ds2initialize()
-      {
-      return(true);
-      } // end ds2initialize()
  
 //
 //-------------------------------------------------------------------------------------------------
