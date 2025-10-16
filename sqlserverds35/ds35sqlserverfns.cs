@@ -57,30 +57,10 @@ namespace ds2xdriver
     SqlCommand Login, New_Customer, Browse_By_Category, Browse_By_Actor, Browse_By_Title, Purchase;
     SqlCommand Get_Prod_Reviews, Get_Prod_Reviews_By_Actor, Get_Prod_Reviews_By_Title, Get_Prod_Reviews_By_Date, Get_Prod_Reviews_By_Stars;
     SqlCommand New_Member, New_Prod_Review, New_Review_Helpfulness;
-    SqlDataReader Rdr;
 
 //
 //-------------------------------------------------------------------------------------------------
 // 
-    public ds2Interface(int ds2interfaceid)
-      {
-      ds2Interfaceid = ds2interfaceid;
-      //Console.WriteLine("ds2Interface {0} created", ds2Interfaceid);
-      }
-//
-//-------------------------------------------------------------------------------------------------
-// 
-    //Added by GSK for passing target DB Server / Web server name for connecting
-    public ds2Interface ( int ds2interfaceid , string target_server_name)
-        {
-        ds2Interfaceid = ds2interfaceid;
-        target_server = target_server_name;
-        //Console.WriteLine("ds2Interface {0} created", ds2Interfaceid);
-        }
-    //
-    //-------------------------------------------------------------------------------------------------
-    // 
-
     // (Overloaded constructor to support multiple stores within single DS3 instance)
     public ds2Interface(int ds2interfaceid, string target_name, int target_store)
     {
@@ -240,6 +220,7 @@ namespace ds2xdriver
       DateTime DT0;
 #endif     
 
+      SqlDataReader Rdr;
       Login.Parameters["@username_in"].Value = username_in;
       Login.Parameters["@password_in"].Value = password_in;
           
@@ -459,6 +440,7 @@ namespace ds2xdriver
       int i_row;
       string data_in = string.Empty;
       int[] category_out = new int[GlobalConstants.MAX_ROWS];
+      SqlDataReader Rdr;
 
 #if (USE_WIN32_TIMER)
       long ctr0 = 0, ctr = 0, freq = 0;
@@ -500,6 +482,7 @@ namespace ds2xdriver
         {
         switch(browse_type_in)
           {
+	  default:
           case "category":
             Rdr = Browse_By_Category.ExecuteReader();
             break;
@@ -557,6 +540,7 @@ namespace ds2xdriver
         string data_in = string.Empty;
         int[] category_out = new int[GlobalConstants.MAX_ROWS];
         int i_row;
+        SqlDataReader Rdr;
 
 #if (USE_WIN32_TIMER)
       long ctr0 = 0, ctr = 0, freq = 0;
@@ -595,6 +579,7 @@ namespace ds2xdriver
         {
             switch (browse_review_type_in)
               {
+		default:
                 case "actor":
                     Rdr = Get_Prod_Reviews_By_Actor.ExecuteReader();
                     break;
@@ -654,6 +639,7 @@ namespace ds2xdriver
         // string data_in = null;
         int[] category_out = new int[GlobalConstants.MAX_ROWS];
         int i_row;
+        SqlDataReader Rdr;
 
 #if (USE_WIN32_TIMER)
       long ctr0 = 0, ctr = 0, freq = 0;
@@ -693,6 +679,7 @@ namespace ds2xdriver
         {
             switch (get_review_type_in)
             {
+	      default:
               case "noorder":
                  Rdr = Get_Prod_Reviews.ExecuteReader();
                  break;
@@ -889,6 +876,8 @@ namespace ds2xdriver
       ref int neworderid_out, ref bool IsRollback, ref double rt)
       {
       int i, j;
+      SqlDataReader Rdr;
+
 #if (USE_WIN32_TIMER)
       long ctr0 = 0, ctr = 0, freq = 0;
 #else
