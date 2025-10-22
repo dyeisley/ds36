@@ -1891,7 +1891,6 @@ namespace ds2xdriver
 
     int Userid;
     ds2Interface[] ds2interfaces = new ds2Interface[GlobalConstants.MAX_USERS];
-    Random r;
     string username_in , password_in , firstname_in , lastname_in , address1_in , address2_in , city_in , state_in;
     string zip_in , country_in , email_in , phone_in , creditcard_in , gender_in;
     int creditcardtype_in , ccexpmon_in , ccexpyr_in , income_in , age_in;
@@ -1904,21 +1903,7 @@ namespace ds2xdriver
     public int target_server_id = 0;   //Added by GSK (Need this public since it is used by Controller to find out which thread belongs to which DB/Web Server)
 
     int target_store = 1;
-/*
-    public User ( int userid )
-      {
-      Userid = userid;
-      //Console.WriteLine("user {0} created", userid);
-      }
 
-    //Added by GSK Overloaded constructor which will take care of Single instance of Driver Program driving multiple servers on ESX Host(s)
-    public User ( int userid , int server_id)
-      {
-      Userid = userid;
-      target_server_id = server_id;
-      //Console.WriteLine("user {0} created", userid);
-      }
-*/
     //Overloaded constructor to support multiple stores in single DS3 instance
     public User(int userid, int server_id, int target_store_num)
     {
@@ -1971,25 +1956,10 @@ namespace ds2xdriver
         ++Controller.n_threads_running;
         }
 
-      // Create random stream r with very randomized seed
-      Random rtemp = new Random ( Userid * 1000 ); // Temporary seed
-      // For multi-thread runs sleep between 0 - 10 second to spread out Ticks (100 nsecs)
-      if ( Controller.n_threads > 1 ) Thread.Sleep ( rtemp.Next ( 10000 ) );
-      long DTNT = DateTime.Now.Ticks;
-      uint lowDTNT = ( uint ) ( 0x00000000ffffffff & DTNT );
-      uint rev_lowDTNT = 0;  // take low 32 bits of Tick counter and reverse them
-      for ( i = 0 ; i < 32 ; i++ ) rev_lowDTNT = rev_lowDTNT | ( ( 0x1 & ( lowDTNT >> i ) ) << ( 31 - i ) );
-      //Console.WriteLine("DTNT= 0x{0:x16}  lowDTNT= 0x{1:x8}  rev_lowDTNT= 0x{2:x8}", DTNT, lowDTNT, rev_lowDTNT);
-      r = new Random ( ( int ) rev_lowDTNT );
-
-      //ds2interfaces[Userid] = new ds2Interface ( Userid );
-      //Changed by GSK
-      //ds2interfaces[Userid] = new ds2Interface ( Userid , Controller.target_servers[target_server_id].ToString() );
-
       ds2interfaces[Userid] = new ds2Interface(Userid, Controller.target_servers[target_server_id].ToString(), ((Userid % Controller.n_stores)+1));
 
       // Users randomly start connecting over a (#users/ramp_rate) sec period
-      Thread.Sleep ( r.Next ( ( int ) Math.Floor ( 1000.0 * Controller.n_threads / ( double ) Controller.ramp_rate ) ) );
+      Thread.Sleep ( Random.Shared.Next( ( int ) Math.Floor ( 1000.0 * Controller.n_threads / ( double ) Controller.ramp_rate ) ) );
 
       if ( !ds2interfaces[Userid].ds2connect ( ) )
         {
@@ -2036,13 +2006,13 @@ namespace ds2xdriver
 
         // Login/New Customer Phase
 
-        double user_type = r.NextDouble ( );
+        double user_type = Random.Shared.NextDouble();
 
         if ( user_type >= Controller.pct_newcustomers / 100.0 ) // If this is true we have a returning customer 
           {
           IsLogin = true;
           //Returning user with randomized username
-          int i_user = 1 + r.Next ( Controller.max_customer );
+          int i_user = Random.Shared.Next(1,Controller.max_customer);
           username_in = "user" + i_user;
           password_in = "password";
           rows_returned = 0;
@@ -2089,7 +2059,7 @@ namespace ds2xdriver
           CreateUserData ( );
           do  // Try newcustomer until find a userid that doesn't exist
             {
-            int i_user = 1 + r.Next ( Controller.max_customer );
+            int i_user = Random.Shared.Next(1,Controller.max_customer);
             username_in = "newuser" + i_user;
             password_in = "password";
 
@@ -2139,8 +2109,8 @@ namespace ds2xdriver
             IsNewMember = true;
             do  // Try newmember until find a userid that doesn't exist
             {
-            customerid_in = 1 + r.Next ( Controller.max_customer );
-            membershiplevel_in = 1 + r.Next(3);
+            customerid_in = Random.Shared.Next(1,Controller.max_customer);
+            membershiplevel_in = Random.Shared.Next(1,3);
 
             failures = 0;
             while ( !ds2interfaces[Userid].ds2newmember ( customerid_in , membershiplevel_in , ref customerid_out , ref rt ) )
@@ -2182,16 +2152,16 @@ namespace ds2xdriver
         string browse_criteria = "";
         int batch_size_in;
 
-        int n_browse = 1 + r.Next ( 2 * Controller.n_searches - 1 );   // Perform average of n_searches searches
+        int n_browse = Random.Shared.Next(1, 2 * Controller.n_searches - 1);   // Perform average of n_searches searches
         for ( int ib = 0 ; ib < n_browse ; ib++ )
           {
-          batch_size_in = 1 + r.Next ( 2 * Controller.search_batch_size - 1 ); // request avg of search_batch_size lines
-          int search_type = r.Next ( 3 ); // randomly select search type
+          batch_size_in = Random.Shared.Next(1, 2 * Controller.search_batch_size - 1); // request avg of search_batch_size lines
+          int search_type = Random.Shared.Next(3); // randomly select search type
           switch ( search_type )
             {
             case 0:  // Search by Category
               browse_type_in = "category";
-              browse_category_in = ( 1 + r.Next ( GlobalConstants.MAX_CATEGORY ) ).ToString ( );
+              browse_category_in = (Random.Shared.Next(1, GlobalConstants.MAX_CATEGORY)).ToString();
               browse_actor_in = "";
               browse_title_in = "";
               browse_criteria = browse_category_in;
@@ -2262,11 +2232,11 @@ namespace ds2xdriver
             string[] actornames_in, titlenames_in;
             // int batch_size_in;
 
-            n_reviewbrowse = 1 + r.Next(2 * Controller.n_reviews - 1);   // Perform average of n_reviews searches
+            n_reviewbrowse = Random.Shared.Next(1,2 * Controller.n_reviews - 1);   // Perform average of n_reviews searches
             for (int ib = 0; ib < n_reviewbrowse; ib++)
             {
-                batch_size_in = 1 + r.Next(2 * Controller.search_batch_size - 1); // request avg of search_batch_size lines
-                int search_type = r.Next(2); // randomly select search type
+                batch_size_in = Random.Shared.Next(1,2 * Controller.search_batch_size - 1); // request avg of search_batch_size lines
+                int search_type = Random.Shared.Next(2); // randomly select search type
                 switch (search_type)
                 {
                     case 0:  // Get Reviews by Actor 
@@ -2321,30 +2291,30 @@ namespace ds2xdriver
             // GET_PROD_REVIEWS_BY_STARS - Get product reviews for a specific product at a specific "stars" level
 
             get_review_type_in = "";
-            get_review_stars_in = 1 + r.Next(5);    //Randomly select the star level to search for
+            get_review_stars_in = Random.Shared.Next(1,5);    //Randomly select the star level to search for
             get_review_prod_in = 0;
             //string get_review_criteria = "";
             // int batch_size_in;
 
-            n_getreviewbrowse = 1 + r.Next(2 * Controller.n_reviews - 1);   // Perform average of n_searches searches
+            n_getreviewbrowse = Random.Shared.Next(1,2 * Controller.n_reviews - 1);   // Perform average of n_searches searches
             for (int ib = 0; ib < n_getreviewbrowse; ib++)
             {
-                batch_size_in = 1 + r.Next(2 * Controller.search_batch_size - 1); // request avg of search_batch_size lines
-                int search_type = r.Next(3); // randomly select search type
+                batch_size_in = Random.Shared.Next(1,2 * Controller.search_batch_size - 1); // request avg of search_batch_size lines
+                int search_type = Random.Shared.Next(3); // randomly select search type
                 switch (search_type)
                 {
                     case 0:  // Get Reviews with no order 
                         get_review_type_in = "noorder";
                         // assign get_review_prod_in to be a random product id number
-                        get_review_prod_in = Controller.prod_array[r.Next(Controller.prod_array_size)];
+                        get_review_prod_in = Controller.prod_array[Random.Shared.Next(Controller.prod_array_size)];
                         break;
                     case 1:  // Get Reviews by Star ranking 
                         get_review_type_in = "star";
-                        get_review_prod_in = Controller.prod_array[r.Next(Controller.prod_array_size)];
+                        get_review_prod_in = Controller.prod_array[Random.Shared.Next(Controller.prod_array_size)];
                         break;
                     case 2:  // Get Reviews by date
                         get_review_type_in = "date";
-                        get_review_prod_in = Controller.prod_array[r.Next(Controller.prod_array_size)];
+                        get_review_prod_in = Controller.prod_array[Random.Shared.Next(Controller.prod_array_size)];
                         break;
                 }
                 failures = 0;
@@ -2379,8 +2349,8 @@ namespace ds2xdriver
                 review_data_terms = InitReviewDataTerms();
                 new_review_summary_in = CreateReviewData(ref review_data_terms, 3);
                 new_review_text_in = CreateReviewData(ref review_data_terms, 25);
-                new_review_stars_in = 1 + r.Next(5);
-                new_review_prod_id_in = 1 + r.Next(Controller.max_product);
+                new_review_stars_in = Random.Shared.Next(1,4);
+                new_review_prod_id_in = Random.Shared.Next(1,Controller.max_product);
 
                 failures = 0;
                 while (!ds2interfaces[Userid].ds2newreview(new_review_prod_id_in, new_review_stars_in, customerid_out,
@@ -2409,8 +2379,8 @@ namespace ds2xdriver
             if (user_type <= Controller.pct_newhelpfulness / 100.0) // If this is true we have a customer that wants to rate a reviews helpfulness
             {
                 IsNewHelpfulness = true;
-                reviewid_in = 1 + r.Next(Controller.max_review);
-                reviewhelpfulness_in = 1 + r.Next(10);
+                reviewid_in = Random.Shared.Next(1,Controller.max_review);
+                reviewhelpfulness_in = Random.Shared.Next(1,10);
 
                 failures = 0;
                 while (!ds2interfaces[Userid].ds2newreviewhelpfulness(reviewid_in, customerid_out, reviewhelpfulness_in, ref reviewhelpfulnessid_out, ref rt))
@@ -2445,20 +2415,20 @@ namespace ds2xdriver
           }
 
         // Randomize number of cart items with average n_line_items
-        int cart_items = 1 + r.Next ( 2 * Controller.n_line_items - 1 );
+        int cart_items = Random.Shared.Next(1, 2 * Controller.n_line_items - 1 );
 
         //For each cart item take product_id from search results or randomly select
         //for (i=0; i<cart_items; i++)
         //  {
-        //  prod_id_in[i] = (rows_returned > i) ? prod_id_out[i] : (1 + r.Next(Controller.max_product));
-        //  qty_in[i] = 1 + r.Next(3);  // qty (1, 2 or 3)
+        //  prod_id_in[i] = (rows_returned > i) ? prod_id_out[i] : (1 + Random.Shared.Next(Controller.max_product));
+        //  qty_in[i] = 1 + Random.Shared.Next(3);  // qty (1, 2 or 3)
         //  }
 
         // For each cart item randomly select product_id using weighted prod_array
         for ( i = 0 ; i < cart_items ; i++ )
           {
-          prod_id_in[i] = Controller.prod_array[r.Next ( Controller.prod_array_size )];
-          qty_in[i] = 1 + r.Next ( 3 );  // qty (1, 2 or 3)
+          prod_id_in[i] = Controller.prod_array[Random.Shared.Next( Controller.prod_array_size )];
+          qty_in[i] = Random.Shared.Next(1,3);  // qty (1, 2 or 3)
           //        Console.WriteLine("Thread {0}: Purchase prod_id_in[{1}] = {2}  qty_in[{1}]= {3}", 
           //          Thread.CurrentThread.Name, i, prod_id_in[i], qty_in[i]);
           }
@@ -2560,7 +2530,7 @@ namespace ds2xdriver
                                             
         Monitor.Exit ( Controller.UpdateLock );
 
-        Thread.Sleep ( r.Next ( 2 * ( int ) Math.Floor ( 1000 * Controller.think_time ) ) ); // Delay think time seconds               
+        Thread.Sleep ( Random.Shared.Next ( 2 * ( int ) Math.Floor ( 1000 * Controller.think_time ) ) ); // Delay think time seconds               
 
         } while ( !Controller.End ); // End of Thread Emulation loop
 
@@ -2576,49 +2546,49 @@ namespace ds2xdriver
       City[] us_cities = CityData.GetUSCities();
       City[] row_cities = CityData.GetROWCities();
 
-      if (r.Next(2) == 1) {
-          firstname_in = fake_user_data.male_first_names[r.Next(fake_user_data.firstname_pool_size)];
+      if (Random.Shared.Next(2) == 1) {
+          firstname_in = fake_user_data.male_first_names[Random.Shared.Next(fake_user_data.firstname_pool_size)];
           gender_in = "M";
       }
       else {
-          firstname_in = fake_user_data.female_first_names[r.Next(fake_user_data.firstname_pool_size)];
+          firstname_in = fake_user_data.female_first_names[Random.Shared.Next(fake_user_data.firstname_pool_size)];
           gender_in = "F";
       }
 
-      lastname_in = fake_user_data.last_names[r.Next(fake_user_data.lastname_pool_size)];
+      lastname_in = fake_user_data.last_names[Random.Shared.Next(fake_user_data.lastname_pool_size)];
 
       // Select region (US or ROW)
-      if ( r.Next ( 100 ) < 40 ) {
-          int index = r.Next(City.row_city_pool_size);
+      if ( Random.Shared.Next ( 100 ) < 40 ) {
+          int index = Random.Shared.Next(City.row_city_pool_size);
           city_in = row_cities[index].Name;
           zip_in = "";
           state_in = "";
           country_in = row_cities[index].State;
       }
       else {
-          int index = r.Next(City.us_city_pool_size);
+          int index = Random.Shared.Next(City.us_city_pool_size);
           city_in = us_cities[index].Name;
           state_in = us_cities[index].State;
-          zip_in = (r.Next(10000,99999)).ToString();
+          zip_in = (Random.Shared.Next(10000,99999)).ToString();
           country_in = "US";
       } //End Else
 
-      phone_in = r.Next(100,999) + "-" + r.Next(100,999) + "-" + r.Next(1000,9999);
-      creditcardtype_in = r.Next (1,5);
-      creditcard_in = r.Next(1000,9999) + " " + r.Next(1000,9999) + " " + r.Next(1000,9999) + " " + r.Next(1000,9999);
-      ccexpmon_in = 1 + r.Next ( 12 );
-      ccexpyr_in = DateTime.Now.Year + r.Next(5);
-      address1_in = r.Next(1,1000) + " Dell Way";
+      phone_in = Random.Shared.Next(100,999) + "-" + Random.Shared.Next(100,999) + "-" + Random.Shared.Next(1000,9999);
+      creditcardtype_in = Random.Shared.Next (1,5);
+      creditcard_in = Random.Shared.Next(1000,9999) + " " + Random.Shared.Next(1000,9999) + " " + Random.Shared.Next(1000,9999) + " " + Random.Shared.Next(1000,9999);
+      ccexpmon_in = Random.Shared.Next (1,12);
+      ccexpyr_in = DateTime.Now.Year + Random.Shared.Next(5);
+      address1_in = Random.Shared.Next(1,1000) + " Dell Way";
       address2_in = "";
 
       // 25% of new customers are apartment dwellers.
-      if (r.Next(100) < 25) {
-          address2_in = "Apartment " + r.Next(1,500);
+      if (Random.Shared.Next(100) < 25) {
+          address2_in = "Apartment " + Random.Shared.Next(1,500);
       }
 
       email_in = lastname_in.ToLower() + "@dell.com";
-      age_in = r.Next ( 18 , 100 );
-      income_in = 20000 * r.Next ( 1 , 6 ); // >$20,000, >$40,000, >$60,000, >$80,000, >$100,000
+      age_in = Random.Shared.Next ( 18 , 100 );
+      income_in = 20000 * Random.Shared.Next ( 1 , 6 ); // >$20,000, >$40,000, >$60,000, >$80,000, >$100,000
 
       }  // End of CreateUserData
 
@@ -2728,7 +2698,7 @@ namespace ds2xdriver
           "Zeta-Jones"
         };
 
-      actor_in = actor_firstnames[r.Next ( 500 )] + " " + actor_lastnames[r.Next ( 500 )];
+      actor_in = actor_firstnames[Random.Shared.Next( 500 )] + " " + actor_lastnames[Random.Shared.Next( 500 )];
 
       }  // End of CreateActor
 
@@ -2844,7 +2814,7 @@ namespace ds2xdriver
         "WOLVES", "WOMEN", "WON", "WONDERFUL", "WONDERLAND", "WONKA", "WORDS", "WORKER", "WORKING", "WORLD", 
         "WORST", "WRATH", "WRONG", "WYOMING", "YENTL", "YOUNG", "YOUTH", "ZHIVAGO", "ZOOLANDER", "ZORRO", 
         };
-      title_in = movie_titles[r.Next ( 1000 )] + " " + movie_titles[r.Next ( 1000 )];
+      title_in = movie_titles[Random.Shared.Next( 1000 )] + " " + movie_titles[Random.Shared.Next( 1000 )];
       }  // End of CreateTitle   
 
       string[] InitReviewDataTerms()
@@ -3254,7 +3224,7 @@ namespace ds2xdriver
 
         for (int i=0; i < num_terms; i++)
         {
-            return_string = return_string + " " + review_data_terms[r.Next(4900)];
+            return_string = return_string + " " + review_data_terms[Random.Shared.Next(4900)];
         }
         return (return_string);
     }  // End of CreateReviewData

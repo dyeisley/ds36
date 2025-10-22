@@ -331,10 +331,8 @@ namespace ds2xdriver
           if (e.Number == 1205)
             {
             deadlocked = true;
-            Random r = new Random(DateTime.Now.Millisecond);
-            int wait = r.Next(1000);
-            Console.WriteLine("Thread {0}: New_Customer deadlocked...waiting {1} msec, then will retry",
-              Thread.CurrentThread.Name, wait);
+            int wait = Random.Shared.Next(1000);
+            Console.WriteLine("Thread {0}: New_Customer deadlocked...waiting {1} msec, then will retry",Thread.CurrentThread.Name, wait);
             Thread.Sleep(wait); // Wait up to 1 sec, then try again
             }
           else
@@ -390,8 +388,7 @@ namespace ds2xdriver
               if (e.Number == 1205)
               {
                   deadlocked = true;
-                  Random r = new Random(DateTime.Now.Millisecond);
-                  int wait = r.Next(1000);
+                  int wait = Random.Shared.Next(1000);
                   Console.WriteLine("Thread {0}: New_Member deadlocked...waiting {1} msec, then will retry",
                     Thread.CurrentThread.Name, wait);
                   Thread.Sleep(wait); // Wait up to 1 sec, then try again
@@ -432,11 +429,10 @@ namespace ds2xdriver
       int i_row, special = 0;
       bool success = true;
       int[] category_out = new int[GlobalConstants.MAX_ROWS];
-      Random r = new Random(DateTime.Now.Millisecond);
       MySqlDataReader Rdr;
   
       // Search for special half the time
-      if (r.Next(100) < 50) {
+      if (Random.Shared.Next(100) < 50) {
         special = 1;
       }
 
@@ -708,7 +704,6 @@ namespace ds2xdriver
       New_Review.Parameters["review_summary_in"].Value = new_review_summary_in;
       New_Review.Parameters["review_text_in"].Value = new_review_text_in;
 
-      Random r = new Random(DateTime.Now.Millisecond);
       bool deadlocked = false;
 
 #if (USE_WIN32_TIMER)
@@ -732,7 +727,7 @@ namespace ds2xdriver
               if (e.Number == 1205)
               {
                   deadlocked = true;
-                  int wait = r.Next(1000);
+                  int wait = Random.Shared.Next(1000);
                   Console.WriteLine("Thread {0}: New_Review deadlocked...waiting {1} msec, then will retry",
                     Thread.CurrentThread.Name, wait);
                   Thread.Sleep(wait); // Wait up to 1 sec, then try again
@@ -770,7 +765,6 @@ namespace ds2xdriver
       New_Helpfulness.Parameters["review_helpfulness_in"].Value = reviewhelpfulness_in;
 
       bool deadlocked = false;
-      Random r = new Random(DateTime.Now.Millisecond);
 
 #if (USE_WIN32_TIMER)
       long ctr0 = 0, ctr = 0, freq = 0;
@@ -793,7 +787,7 @@ namespace ds2xdriver
               if (e.Number == 1205)
               {
                   deadlocked = true;
-                  int wait = r.Next(1000);
+                  int wait = Random.Shared.Next(1000);
                   Console.WriteLine("Thread {0}: New_Helpfulness deadlocked...waiting {1} msec, then will retry",
                     Thread.CurrentThread.Name, wait);
                   Thread.Sleep(wait); // Wait up to 1 sec, then try again
@@ -877,8 +871,6 @@ namespace ds2xdriver
       Purchase.Parameters["prod_id_in8"].Value = prod_id_in[8]; Purchase.Parameters["qty_in8"].Value = qty_in[8];
       Purchase.Parameters["prod_id_in9"].Value = prod_id_in[9]; Purchase.Parameters["qty_in9"].Value = qty_in[9];
 
-      Random r = new Random(DateTime.Now.Millisecond);
-
 #if (USE_WIN32_TIMER)
       long ctr0 = 0, ctr = 0, freq = 0;
       QueryPerformanceFrequency(ref freq); // obtain system freq (ticks/sec)  
@@ -898,7 +890,7 @@ namespace ds2xdriver
         catch (MySqlException myException) {
           if (myException.Message.Contains("deadlock")) {
             deadlocked = true;
-            int wait = r.Next(1000);
+            int wait = Random.Shared.Next(1000);
             Thread.Sleep(wait); // Wait up to 1 sec, then try again
             Console.WriteLine("Thread {0}: Purchase deadlocked...waiting {1} msec, then will retry", Thread.CurrentThread.Name, wait);
           }
