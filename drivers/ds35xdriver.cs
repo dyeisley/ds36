@@ -781,7 +781,7 @@ namespace ds2xdriver
         if ( windows_perf_host == "" )
           {
           windows_perf_host = string.Empty;
-          windows_perf_host_servers = null;
+          //windows_perf_host_servers = null;
           n_windows_servers = 0;
           }
         else
@@ -813,9 +813,9 @@ namespace ds2xdriver
         if ( linux_perf_host == "" )
           {
           linux_perf_host = string.Empty;
-          linux_perf_host_servers = null;
+          //linux_perf_host_servers = null;
           n_linux_servers = 0;
-          arr_linux_cpu_utilization = null;
+          //arr_linux_cpu_utilization = null;
           }
         else
           {
@@ -2012,7 +2012,7 @@ namespace ds2xdriver
           {
           IsLogin = true;
           //Returning user with randomized username
-          int i_user = Random.Shared.Next(1,Controller.max_customer);
+          int i_user = Random.Shared.Next(1,Controller.max_customer+1);
           username_in = "user" + i_user;
           password_in = "password";
           rows_returned = 0;
@@ -2059,7 +2059,7 @@ namespace ds2xdriver
           CreateUserData ( );
           do  // Try newcustomer until find a userid that doesn't exist
             {
-            int i_user = Random.Shared.Next(1,Controller.max_customer);
+            int i_user = Random.Shared.Next(1,Controller.max_customer+1);
             username_in = "newuser" + i_user;
             password_in = "password";
 
@@ -2109,8 +2109,8 @@ namespace ds2xdriver
             IsNewMember = true;
             do  // Try newmember until find a userid that doesn't exist
             {
-            customerid_in = Random.Shared.Next(1,Controller.max_customer);
-            membershiplevel_in = Random.Shared.Next(1,3);
+            customerid_in = Random.Shared.Next(1,Controller.max_customer+1);
+            membershiplevel_in = Random.Shared.Next(1,4);
 
             failures = 0;
             while ( !ds2interfaces[Userid].ds2newmember ( customerid_in , membershiplevel_in , ref customerid_out , ref rt ) )
@@ -2152,16 +2152,16 @@ namespace ds2xdriver
         string browse_criteria = "";
         int batch_size_in;
 
-        int n_browse = Random.Shared.Next(1, 2 * Controller.n_searches - 1);   // Perform average of n_searches searches
+        int n_browse = Random.Shared.Next(1, 2 * Controller.n_searches);   // Perform average of n_searches searches
         for ( int ib = 0 ; ib < n_browse ; ib++ )
           {
-          batch_size_in = Random.Shared.Next(1, 2 * Controller.search_batch_size - 1); // request avg of search_batch_size lines
+          batch_size_in = Random.Shared.Next(1, 2 * Controller.search_batch_size); // request avg of search_batch_size lines
           int search_type = Random.Shared.Next(3); // randomly select search type
           switch ( search_type )
             {
             case 0:  // Search by Category
               browse_type_in = "category";
-              browse_category_in = (Random.Shared.Next(1, GlobalConstants.MAX_CATEGORY)).ToString();
+              browse_category_in = (Random.Shared.Next(1, GlobalConstants.MAX_CATEGORY+1)).ToString();
               browse_actor_in = "";
               browse_title_in = "";
               browse_criteria = browse_category_in;
@@ -2232,10 +2232,10 @@ namespace ds2xdriver
             string[] actornames_in, titlenames_in;
             // int batch_size_in;
 
-            n_reviewbrowse = Random.Shared.Next(1,2 * Controller.n_reviews - 1);   // Perform average of n_reviews searches
+            n_reviewbrowse = Random.Shared.Next(1,2 * Controller.n_reviews);   // Perform average of n_reviews searches
             for (int ib = 0; ib < n_reviewbrowse; ib++)
             {
-                batch_size_in = Random.Shared.Next(1,2 * Controller.search_batch_size - 1); // request avg of search_batch_size lines
+                batch_size_in = Random.Shared.Next(1,2 * Controller.search_batch_size); // request avg of search_batch_size lines
                 int search_type = Random.Shared.Next(2); // randomly select search type
                 switch (search_type)
                 {
@@ -2296,10 +2296,10 @@ namespace ds2xdriver
             //string get_review_criteria = "";
             // int batch_size_in;
 
-            n_getreviewbrowse = Random.Shared.Next(1,2 * Controller.n_reviews - 1);   // Perform average of n_searches searches
+            n_getreviewbrowse = Random.Shared.Next(1,2 * Controller.n_reviews);   // Perform average of n_searches searches
             for (int ib = 0; ib < n_getreviewbrowse; ib++)
             {
-                batch_size_in = Random.Shared.Next(1,2 * Controller.search_batch_size - 1); // request avg of search_batch_size lines
+                batch_size_in = Random.Shared.Next(1,2 * Controller.search_batch_size); // request avg of search_batch_size lines
                 int search_type = Random.Shared.Next(3); // randomly select search type
                 switch (search_type)
                 {
@@ -2349,7 +2349,7 @@ namespace ds2xdriver
                 review_data_terms = InitReviewDataTerms();
                 new_review_summary_in = CreateReviewData(ref review_data_terms, 3);
                 new_review_text_in = CreateReviewData(ref review_data_terms, 25);
-                new_review_stars_in = Random.Shared.Next(1,4);
+                new_review_stars_in = Random.Shared.Next(1,6);
                 new_review_prod_id_in = Random.Shared.Next(1,Controller.max_product);
 
                 failures = 0;
@@ -2380,7 +2380,7 @@ namespace ds2xdriver
             {
                 IsNewHelpfulness = true;
                 reviewid_in = Random.Shared.Next(1,Controller.max_review);
-                reviewhelpfulness_in = Random.Shared.Next(1,10);
+                reviewhelpfulness_in = Random.Shared.Next(1,11);
 
                 failures = 0;
                 while (!ds2interfaces[Userid].ds2newreviewhelpfulness(reviewid_in, customerid_out, reviewhelpfulness_in, ref reviewhelpfulnessid_out, ref rt))
@@ -2415,7 +2415,7 @@ namespace ds2xdriver
           }
 
         // Randomize number of cart items with average n_line_items
-        int cart_items = Random.Shared.Next(1, 2 * Controller.n_line_items - 1 );
+        int cart_items = Random.Shared.Next(1, 2 * Controller.n_line_items);
 
         //For each cart item take product_id from search results or randomly select
         //for (i=0; i<cart_items; i++)
@@ -2428,7 +2428,7 @@ namespace ds2xdriver
         for ( i = 0 ; i < cart_items ; i++ )
           {
           prod_id_in[i] = Controller.prod_array[Random.Shared.Next( Controller.prod_array_size )];
-          qty_in[i] = Random.Shared.Next(1,3);  // qty (1, 2 or 3)
+          qty_in[i] = Random.Shared.Next(1,4);  // qty (1, 2 or 3)
           //        Console.WriteLine("Thread {0}: Purchase prod_id_in[{1}] = {2}  qty_in[{1}]= {3}", 
           //          Thread.CurrentThread.Name, i, prod_id_in[i], qty_in[i]);
           }
