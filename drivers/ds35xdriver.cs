@@ -83,7 +83,7 @@ namespace ds2xdriver
     public static string target = string.Empty , windows_perf_host = string.Empty;
     public static string outfilename = string.Empty;
     public static string ds2_mode_string = string.Empty;
-    System.IO.StreamWriter outfile;
+    System.IO.StreamWriter? outfile;
 
     public static string[] target_servers;                  //Added by GSK (for single instance of driver program driving multiple database servers)
     public static string[] windows_perf_host_servers;       //Added by GSK
@@ -847,7 +847,8 @@ namespace ds2xdriver
         Console.WriteLine ( "Error in converting parameter detailed_view: {0}" , e.Message );
         return;
         }
-	  //Added by Performance Team - Ruban
+
+      //Added by Performance Team - Ruban
       try
         {
         log_timestamp = input_parm_values[Array.IndexOf(input_parm_names, "log_timestamp")];
@@ -859,13 +860,15 @@ namespace ds2xdriver
             {
                 log_timestamp = "LOCAL";
             }
-			else if (log_timestamp.ToUpper() == "NONE")
-				{
+            else if (log_timestamp.ToUpper() == "NONE")
+            {
                 log_timestamp = "NONE";
                 cur_datetime = "";
             }
         else
+	    {
                 throw new System.Exception("Wrong value of parameter log_timestamp specified!!");
+	    }
         }
       catch (System.Exception e)
         {
@@ -924,9 +927,9 @@ namespace ds2xdriver
             }
           else 
            {
-          outfile = new System.IO.StreamWriter(outfilename);
-          outfile.WriteLine("datetime et, n_overall, opm, rt_tot_lastn_max_msec, rt_tot_avg_msec, rt_tot_sampled," +
-            " n_rollbacks_overall, rollback_pct" );
+              outfile = new System.IO.StreamWriter(outfilename);
+              outfile?.WriteLine("datetime et, n_overall, opm, rt_tot_lastn_max_msec, rt_tot_avg_msec, rt_tot_sampled," +
+                " n_rollbacks_overall, rollback_pct" );
            }
       }
         catch (System.Exception e)
@@ -1369,7 +1372,7 @@ namespace ds2xdriver
 
           if (outfilename != string.Empty)
           {
-             outfile.Write("{8} {0,7:F1},{1},{2},{3},{4},{5},{6},{7,5:F1}", et, n_overall, opm, rt_tot_lastn_max_msec, rt_tot_avg_msec,
+             outfile?.Write("{8} {0,7:F1},{1},{2},{3},{4},{5},{6},{7,5:F1}", et, n_overall, opm, rt_tot_lastn_max_msec, rt_tot_avg_msec,
              rt_tot_sampled, n_rollbacks_overall, pct_rollbacks, cur_datetime);
           }
 
@@ -1417,7 +1420,7 @@ namespace ds2xdriver
             Console.WriteLine ( "host {0} CPU%= {1,5:F1}" , windows_perf_host + ";" + sb_linux.ToString() , total_cpu_utilzn );
 			if (outfilename != string.Empty)
 			  {
-			  outfile.WriteLine(",{0,5:F1}" , total_cpu_utilzn );
+			  outfile?.WriteLine(",{0,5:F1}" , total_cpu_utilzn );
 			  }
             }
           else if ( is_Win_VM == true && is_Lin_VM == false )  //Get perf stats from windows machines                        
@@ -1428,7 +1431,7 @@ namespace ds2xdriver
             Console.WriteLine ( "host {0} CPU%= {1,5:F1}" , windows_perf_host  , total_cpu_utilzn );
 		if (outfilename != string.Empty) 
 		  {
-		     outfile.WriteLine(",{0,5:F1}" , total_cpu_utilzn );
+		     outfile?.WriteLine(",{0,5:F1}" , total_cpu_utilzn );
                   }
             }
           else if ( is_Lin_VM == true && is_Win_VM == false )  //Get perf stats from linux machines                        
@@ -1444,7 +1447,7 @@ namespace ds2xdriver
               Console.WriteLine ( "host {0} CPU%= {1,5:F1}" , sb_linux.ToString() , total_cpu_utilzn );
               if (outfilename != string.Empty)
                  {
-                    outfile.WriteLine(",{0,5:F1}" , total_cpu_utilzn );
+                    outfile?.WriteLine(",{0,5:F1}" , total_cpu_utilzn );
                  }
             }
           else
@@ -1452,7 +1455,7 @@ namespace ds2xdriver
                 Console.Write ( "\n" );
 		if (outfilename != string.Empty)
 		{
-		   outfile.WriteLine ( "\n" );
+		   outfile?.WriteLine ( "\n" );
 		}
             }
 
@@ -1477,7 +1480,7 @@ namespace ds2xdriver
               //  et, arr_n_overall[i], arr_opm[i], arr_rt_tot_lastn_max_msec[i], arr_rt_tot_avg_msec[i], arr_n_rollbacks_overall[i],
               //  (100.0 * arr_n_rollbacks_overall[i]) / arr_n_overall[i]);
               //Changed on 8/8/2010
-              Console.WriteLine("et={0,7:F1} n_overall={1} opm={2} rt_tot_lastn_max_msec={3} rt_tot_avg_msec={4} " +
+              Console.WriteLine("  et={0,7:F1} n_overall={1} opm={2} rt_tot_lastn_max_msec={3} rt_tot_avg_msec={4} " +
                 "rt_tot_sampled={5} " +
                 "rollbacks: n={6} %={7,5:F1} ",
                 et, arr_n_overall[i], arr_opm[i], arr_rt_tot_lastn_max_msec[i], arr_rt_tot_avg_msec[i], arr_rt_tot_sampled[i],
@@ -1507,8 +1510,9 @@ namespace ds2xdriver
                   return;
                   }
                 }
-              else Console.Error.Write ( "\n" );
+              //else Console.Error.Write ( "\n" );
               }                        
+	      Console.Error.Write ( "\n" );
             }
       //Till this point Added by GSK                    
 
@@ -1674,7 +1678,9 @@ namespace ds2xdriver
         rt_newhelpfulness_avg_msec, rt_purchase_avg_msec, rt_tot_sampled, n_rollbacks_overall, (100.0 * n_rollbacks_overall) / n_overall);
 
       if (outfilename != string.Empty)
-          outfile.Close();
+      {
+        outfile?.Close();
+      }
 
       total_cpu_utilzn = 0.0;
       total_win_cpu_utilzn = 0.0;
@@ -1914,6 +1920,7 @@ namespace ds2xdriver
       } // End of parse_args
 
     } // End of class Controller
+
   //
   //-------------------------------------------------------------------------------------------------
   //    
