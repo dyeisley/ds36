@@ -68,7 +68,7 @@ namespace ds2xdriver
   //
   //-------------------------------------------------------------------------------------------------
   //
-  class Controller
+  public class Controller
     {
     // If compile option /d:USE_WIN32_TIMER is specified will use 64b QueryPerformance counter from Win32
     // Else will use .NET DateTime class
@@ -85,9 +85,9 @@ namespace ds2xdriver
     public static string ds2_mode_string = string.Empty;
     System.IO.StreamWriter? outfile;
 
-    public static string[] target_servers;                  //Added by GSK (for single instance of driver program driving multiple database servers)
-    public static string[] windows_perf_host_servers;       //Added by GSK
-    public static int n_target_servers = 1;                 //Added by GSK to keep track of number of Servers/DB instances on which threads spawned
+    public static string[] target_servers = null!;                  //Added by GSK (for single instance of driver program driving multiple database servers)
+    public static string[] windows_perf_host_servers = null!;       //Added by GSK
+    public static int n_target_servers = 1;                         //Added by GSK to keep track of number of Servers/DB instances on which threads spawned
     public static object UpdateLock = 1;
     public static int n_threads , n_threads_running = 0 , n_threads_connected = 0;
     public static int n_overall = 0 , n_login_overall = 0 , n_newcust_overall = 0 , n_browse_overall = 0 ,
@@ -613,11 +613,11 @@ namespace ds2xdriver
         Console.WriteLine ( "Error in converting parameter run_time: {0}" , e.Message );
         return;
         }
-	  try	 
+      try	 
         {
         log_freq = Convert.ToInt32(input_parm_values[Array.IndexOf(input_parm_names, "log_freq")]);
         }
-        catch (System.Exception e)
+      catch (System.Exception e)
         {
         Console.WriteLine("Error in converting parameter log_freq: {0}", e.Message);
         return;
@@ -714,7 +714,7 @@ namespace ds2xdriver
         Console.WriteLine ( "Error in converting parameter search_batch_size: {0}" , e.Message );
         return;
         }
-		try
+      try
         {
         search_depth = Convert.ToInt32 ( input_parm_values[Array.IndexOf ( input_parm_names ,
           "search_depth" )] );
@@ -856,11 +856,11 @@ namespace ds2xdriver
             {
                 log_timestamp = "UTC";
             }
-            else if (log_timestamp.ToUpper() == "LOCAL")
+        else if (log_timestamp.ToUpper() == "LOCAL")
             {
                 log_timestamp = "LOCAL";
             }
-            else if (log_timestamp.ToUpper() == "NONE")
+        else if (log_timestamp.ToUpper() == "NONE")
             {
                 log_timestamp = "NONE";
                 cur_datetime = "";
@@ -932,7 +932,7 @@ namespace ds2xdriver
                 " n_rollbacks_overall, rollback_pct" );
            }
       }
-        catch (System.Exception e)
+      catch (System.Exception e)
       {
           Console.WriteLine("Error in filename given for out_filename: {0}", e.Message);
           return;
