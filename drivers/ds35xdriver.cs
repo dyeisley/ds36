@@ -97,31 +97,31 @@ namespace ds2xdriver
     public static int run_time = 0 , warmup_time = 1, log_freq = 1;
 
     //Added by GSK
-    public static int[] arr_n_login_overall;
-    public static double[] arr_rt_login_overall;
-    public static int[] arr_n_newcust_overall;
-    public static double[] arr_rt_newcust_overall;
-    public static int[] arr_n_browse_overall;
-    public static double[] arr_rt_browse_overall;
-    public static int[] arr_n_purchase_overall;
-    public static double[] arr_rt_purchase_overall;
-    public static int[] arr_n_rollbacks_overall;
-    public static int[] arr_n_overall;
-    public static double[] arr_rt_tot_overall;
-    public static int[] arr_n_purchase_from_start;
-    public static int[] arr_n_rollbacks_from_start;
-    public static double[,] arr_rt_tot_lastn;
-    public static double[] arr_cpu_pct_tot;
-    public static int[] arr_n_cpu_pct_samples;
+    public static int[] arr_n_login_overall = new int[n_target_servers];
+    public static double[] arr_rt_login_overall = new double[n_target_servers];
+    public static int[] arr_n_newcust_overall = new int[n_target_servers];
+    public static double[] arr_rt_newcust_overall = new double[n_target_servers];
+    public static int[] arr_n_browse_overall = new int[n_target_servers];
+    public static double[] arr_rt_browse_overall = new double[n_target_servers];
+    public static int[] arr_n_purchase_overall = new int[n_target_servers];
+    public static double[] arr_rt_purchase_overall = new double[n_target_servers];
+    public static int[] arr_n_rollbacks_overall = new int[n_target_servers];
+    public static int[] arr_n_overall = new int[n_target_servers];
+    public static double[] arr_rt_tot_overall = new double[n_target_servers];
+    public static int[] arr_n_purchase_from_start = new int[n_target_servers];
+    public static int[] arr_n_rollbacks_from_start = new int[n_target_servers];
+    public static double[,] arr_rt_tot_lastn = new double[n_target_servers,GlobalConstants.LAST_N];
+    public static double[] arr_cpu_pct_tot = new double[n_target_servers];
+    public static int[] arr_n_cpu_pct_samples = new int[n_target_servers];
     // Added by TM 3/17/2015
-    public static int[] arr_n_reviewbrowse_overall;
-    public static double[] arr_rt_reviewbrowse_overall;
-    public static int[] arr_n_newreview_overall;
-    public static double[] arr_rt_newreview_overall;
-    public static int[] arr_n_newhelpfulness_overall;
-    public static double[] arr_rt_newhelpfulness_overall;
-    public static int[] arr_n_newmember_overall;
-    public static double[] arr_rt_newmember_overall;
+    public static int[] arr_n_reviewbrowse_overall = new int[n_target_servers];
+    public static double[] arr_rt_reviewbrowse_overall = new double[n_target_servers];
+    public static int[] arr_n_newreview_overall = new int[n_target_servers];
+    public static double[] arr_rt_newreview_overall = new double[n_target_servers];
+    public static int[] arr_n_newhelpfulness_overall = new int[n_target_servers];
+    public static double[] arr_rt_newhelpfulness_overall = new double[n_target_servers];
+    public static int[] arr_n_newmember_overall = new int[n_target_servers];
+    public static double[] arr_rt_newmember_overall = new double[n_target_servers];
 
     public static int pct_newcustomers = 0 , n_searches , search_batch_size, search_depth , n_line_items , ramp_rate;
     public static int pct_newreviews = 0, n_reviews;
@@ -134,7 +134,7 @@ namespace ds2xdriver
     public static double[] rt_tot_lastn = new double[GlobalConstants.LAST_N];
     public static bool Start = false , End = false;
     public static int max_customer , max_product , prod_array_size, max_review;
-    public static int[] prod_array;
+    public static int[] prod_array = new int[n_target_servers];
     public static string virt_dir = "ds3" , page_type = "php";
 
     //Added new parameter database_custom_size and new variables by GSK
@@ -151,10 +151,10 @@ namespace ds2xdriver
     public static string cur_datetime = "";
     //Added by GSK( New parameter to print Linux CPU utilization statistics)
     public static string linux_perf_host = string.Empty;
-    public static string[] linux_perf_host_servers;
-    public static string[] linux_unames;
-    public static string[] linux_passwd;
-    public static double[] arr_linux_cpu_utilization;       //Used for book keeping purposes
+    public static string[] linux_perf_host_servers = { string.Empty };
+    public static string[] linux_unames = { string.Empty };
+    public static string[] linux_passwd = { string.Empty };
+    public static double[] arr_linux_cpu_utilization = { 0.0 };       //Used for book keeping purposes
     //Keep track of number of windows and linux VM's on which to drive workload on
     public static int n_windows_servers = 0;
     public static int n_linux_servers = 0;
