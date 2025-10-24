@@ -94,6 +94,7 @@ namespace ds2xdriver
       n_purchase_overall = 0 , n_rollbacks_overall = 0 , n_rollbacks_from_start = 0 , n_purchase_from_start = 0 , n_cpu_pct_samples = 0;
     public static int n_reviewbrowse_overall = 0, n_newreview_overall = 0, n_newhelpfulness_overall = 0, n_newmember_overall = 0;
     public static double pct_rollbacks;
+    public static int run_time = 0 , warmup_time = 1, log_freq = 1;
 
     //Added by GSK
     public static int[] arr_n_login_overall;
@@ -132,11 +133,7 @@ namespace ds2xdriver
         rt_newmember_overall = 0.0;
     public static double[] rt_tot_lastn = new double[GlobalConstants.LAST_N];
     public static bool Start = false , End = false;
-    public static int[] MAX_CUSTOMER = new int[] { 20000 , 2000000 , 200000000 };
-    public static int[] MAX_PRODUCT = new int[] { 10000 , 100000 , 1000000 };
     public static int max_customer , max_product , prod_array_size, max_review;
-    //public static int[] prod_array = new int[1100000];
-    //Changed by GSK (size of this array will depend on number of rows in product table)
     public static int[] prod_array;
     public static string virt_dir = "ds3" , page_type = "php";
 
@@ -207,8 +204,10 @@ namespace ds2xdriver
     [STAThread]
     static void Main ( string[] args )
       {
-      new Controller ( args );
+      Controller c = new Controller ( args );
+      c.do_work();
       }
+
     //
     //-------------------------------------------------------------------------------------------------
     //
@@ -408,23 +407,13 @@ namespace ds2xdriver
     //    
     //-------------------------------------------------------------------------------------------------
     //   
-    Controller ( string[] argarray )
+    public Controller ( string[] argarray )
       {
       //Console.WriteLine("Controller constructor: " + argarray.Length + " args");
 
       int i;
-      int z;
-      int i_sec , run_time = 0 , warmup_time = 1, log_freq = 1;
-      //Changed by GSK
-      //int db_size=0;
-      //string db_size_str, errmsg=null;
       string errmsg = string.Empty;
-      double et;
-      int opm , rt_login_avg_msec , rt_newcust_avg_msec , rt_browse_avg_msec , rt_purchase_avg_msec ,
-        rt_tot_lastn_max_msec , rt_tot_avg_msec;
-      int rt_reviewbrowse_avg_msec, rt_newreview_avg_msec, rt_newhelpfulness_avg_msec, rt_newmember_avg_msec;
-      double rt_tot_lastn_max;
-
+/*
       //Added by GSK
       int old_n_overall = 0;
       int[] arr_old_n_overall;
@@ -450,23 +439,7 @@ namespace ds2xdriver
       int[] arr_rt_tot_lastn_max_msec;
       int[] arr_rt_tot_avg_msec;
       double arr_rt_tot_lastn_max;
-
-      //Added by GSK (Keeps track of total and utilizn of bunch of linux and windows VM's)
-      double total_cpu_utilzn = 0.0;
-      double total_win_cpu_utilzn = 0.0;
-      double total_lin_cpu_utilzn = 0.0;
-
-    
-#if (USE_WIN32_TIMER)
-      long ctr0 = 0, ctr = 0, freq = 0;
-#else
-      TimeSpan TS = new TimeSpan ( );
-      DateTime DT0;
-#endif
-
-      User[] users = new User[GlobalConstants.MAX_USERS];
-      Thread[] threads = new Thread[GlobalConstants.MAX_USERS];
-
+*/
       if ( argarray.Length == 0 )
         {
         // display input parameter info
@@ -484,7 +457,10 @@ namespace ds2xdriver
       // send args to parse_args, return 0 or # of parms set, error_message if any
       // parsed values are in array input_parm_values
       i = parse_args ( argarray , ref errmsg );
-      if ( i != 0 ) { }//Console.WriteLine("{0} parameters parsed", i);
+      if ( i != 0 ) 
+        { 
+	//Console.WriteLine("{0} parameters parsed", i);
+	}
       else
         {
         Console.WriteLine ( errmsg );
@@ -493,14 +469,18 @@ namespace ds2xdriver
 
       // Set parameters from input_parm_values 
       //target = input_parm_values[Array.IndexOf ( input_parm_names , "target" )];
-
-      //Added try catch block by GSK
       try
         {
-
         target = input_parm_values[Array.IndexOf ( input_parm_names , "target" )];                
         target_servers = target.Split ( ';' );
         n_target_servers = target_servers.Length;   //Added by GSK to keep track of number of Target Servers
+        }
+      catch(System.Exception e)
+        {
+        Console.WriteLine ( "Error in converting parameter target: {0}" , e.Message );
+        return;
+        }
+
         //Added by GSK
         //Dynamically allocate memory Initialize arrays for book keeping for individual Servers on which test runs
         arr_n_login_overall = new int[n_target_servers];
@@ -525,7 +505,7 @@ namespace ds2xdriver
         arr_n_purchase_from_start = new int[n_target_servers];
         arr_n_rollbacks_from_start = new int[n_target_servers];
         arr_rt_tot_lastn = new double[n_target_servers,GlobalConstants.LAST_N];
-
+/*
         arr_opm = new int[n_target_servers];
         arr_rt_login_avg_msec = new int[n_target_servers];
         arr_rt_newcust_avg_msec = new int[n_target_servers];
@@ -600,13 +580,7 @@ namespace ds2xdriver
             arr_rt_tot_lastn[i,l] = 0.0;
             }
           }                
-        }
-        
-      catch(System.Exception e)
-        {
-        Console.WriteLine ( "Error in converting parameter target: {0}" , e.Message );
-        return;
-        }
+	  */
 
       try
         {
@@ -668,6 +642,7 @@ namespace ds2xdriver
         Console.WriteLine ( "Error: Wrong db_size parameter value specified" );
         return;
         }
+
       try
         {
         if ( db_size.ToUpper ( ) == "S" ) db_size = "10MB";        //These if and else if's are to ensure code works with older S | M | L parameters too
@@ -690,6 +665,7 @@ namespace ds2xdriver
         Console.WriteLine ( "Error in converting parameter warmup_time: {0}" , e.Message );
         return;
         }
+
       try
         {
         think_time = Convert.ToDouble ( input_parm_values[Array.IndexOf ( input_parm_names , "think_time" )] );
@@ -699,10 +675,10 @@ namespace ds2xdriver
         Console.WriteLine ( "Error in converting parameter think_time: {0}" , e.Message );
         return;
         }
+
       try
         {
-        pct_newcustomers =
-          Convert.ToInt32 ( input_parm_values[Array.IndexOf ( input_parm_names , "pct_newcustomers" )] );
+        pct_newcustomers = Convert.ToInt32 ( input_parm_values[Array.IndexOf ( input_parm_names , "pct_newcustomers" )] );
         }
       catch ( System.Exception e )
         {
@@ -998,16 +974,6 @@ namespace ds2xdriver
             n_line_items , virt_dir , page_type , windows_perf_host , detailed_view , linux_perf_host, outfilename, 
             ds2_mode_string, n_stores, log_freq, log_timestamp);
 
-#if (USE_WIN32_TIMER)
-      Console.WriteLine("\nUsing WIN32 QueryPerformanceCounters for measuring response time\n");
-#else
-      Console.WriteLine ( "\nUsing .NET DateTime for measuring response time\n" );
-#endif
-
-      //Changed by GSK
-      //max_customer = MAX_CUSTOMER[db_size];
-      //max_product = MAX_PRODUCT[db_size];
-
       max_customer = customer_rows;
       max_product = product_rows;
       max_review = product_rows * 20;
@@ -1026,8 +992,94 @@ namespace ds2xdriver
         }
       prod_array_size = i;
       //Console.WriteLine("{0} products in array", prod_array_size);
+      
+     } // end of Controller constructor
 
-      for ( i = 0 ; i < GlobalConstants.LAST_N ; i++ ) { rt_tot_lastn[i] = 0.0; }
+    //    
+    //-------------------------------------------------------------------------------------------------
+    //   
+    public void do_work () 
+    {
+      int i = 0, z = 0;
+      int i_sec; 
+      double et;
+      int opm , rt_login_avg_msec , rt_newcust_avg_msec , rt_browse_avg_msec , rt_purchase_avg_msec ,
+        rt_tot_lastn_max_msec , rt_tot_avg_msec;
+      int rt_reviewbrowse_avg_msec, rt_newreview_avg_msec, rt_newhelpfulness_avg_msec, rt_newmember_avg_msec;
+      double rt_tot_lastn_max;
+      
+      //Added by GSK
+      int old_n_overall = 0;
+      int[] arr_old_n_overall;
+      int diff_n_overall = 0;
+      int[] arr_diff_n_overall;
+      double old_rt_tot_overall = 0.0;
+      double[] arr_old_rt_tot_overall;
+      double diff_rt_tot_overall = 0.0;
+      double[] arr_diff_rt_tot_overall;
+      int[] arr_rt_tot_sampled;
+      int rt_tot_sampled = 0;
+
+      //Added by GSK
+      int[] arr_opm;
+      int[] arr_rt_login_avg_msec;
+      int[] arr_rt_newcust_avg_msec;
+      int[] arr_rt_browse_avg_msec;
+      int[] arr_rt_reviewbrowse_avg_msec;
+      int[] arr_rt_newreview_avg_msec;
+      int[] arr_rt_newhelpfulness_avg_msec;
+      int[] arr_rt_newmember_avg_msec;
+      int[] arr_rt_purchase_avg_msec;
+      int[] arr_rt_tot_lastn_max_msec;
+      int[] arr_rt_tot_avg_msec;
+      double arr_rt_tot_lastn_max;
+
+      arr_opm = new int[n_target_servers];
+      arr_rt_login_avg_msec = new int[n_target_servers];
+      arr_rt_newcust_avg_msec = new int[n_target_servers];
+      arr_rt_browse_avg_msec = new int[n_target_servers];
+      arr_rt_reviewbrowse_avg_msec = new int[n_target_servers];
+      arr_rt_newreview_avg_msec = new int[n_target_servers];
+      arr_rt_newhelpfulness_avg_msec = new int[n_target_servers];
+      arr_rt_newmember_avg_msec = new int[n_target_servers];
+      arr_rt_purchase_avg_msec = new int[n_target_servers];
+      arr_rt_tot_lastn_max_msec = new int[n_target_servers];
+      arr_rt_tot_avg_msec = new int[n_target_servers];
+
+      arr_rt_tot_lastn_max = 0.0;
+      old_n_overall = 0;
+      diff_n_overall = 0;
+      old_rt_tot_overall = 0.0;
+      diff_rt_tot_overall = 0.0;
+
+      //Added on 8/8/2010
+      arr_old_n_overall = new int[n_target_servers];
+      arr_diff_n_overall = new int[n_target_servers];
+      arr_old_rt_tot_overall = new double[n_target_servers];
+      arr_diff_rt_tot_overall = new double[n_target_servers];
+      arr_rt_tot_sampled = new int[n_target_servers];
+
+      User[] users = new User[GlobalConstants.MAX_USERS];
+      Thread[] threads = new Thread[GlobalConstants.MAX_USERS];
+
+      //Added by GSK (Keeps track of total and utilizn of bunch of linux and windows VM's)
+      double total_cpu_utilzn = 0.0;
+      double total_win_cpu_utilzn = 0.0;
+      double total_lin_cpu_utilzn = 0.0;
+
+#if (USE_WIN32_TIMER)
+      long ctr0 = 0, ctr = 0, freq = 0;
+      Console.WriteLine("\nUsing WIN32 QueryPerformanceCounters for measuring response time\n");
+#else
+      TimeSpan TS = new TimeSpan ( );
+      DateTime DT0;
+      Console.WriteLine ( "\nUsing .NET DateTime for measuring response time\n" );
+#endif
+
+      for ( i = 0 ; i < GlobalConstants.LAST_N ; i++ ) 
+      { 
+        rt_tot_lastn[i] = 0.0; 
+      }
 
 #if (GEN_PERF_CTRS)      
       if (!PerformanceCounterCategory.Exists("Test")) // Create Performance Counter object if necessary
@@ -1091,20 +1143,10 @@ namespace ds2xdriver
           CPU_PCT[i] = new PerformanceCounter("Processor", "% Processor Time", "_Total", windows_perf_host_servers[i]);
           }            
         }
-        
-      
 #else
             Console.WriteLine ( "Not generating Windows Performance Monitor Counters" );
 #endif
 
-      //for ( i = 0 ; i < n_threads ; i++ ) // Create User objects; associate each with new Thread running Emulate method
-      //    {
-      //    users[i] = new User ( i );
-      //    threads[i] = new Thread ( new ThreadStart ( users[i].Emulate ) );
-      //    }
-
-           
-                   
       for ( i = 0 , server_id = 0 ; i < n_threads ; i++ ) // Create User objects; associate each with new Thread running Emulate method
         {
         
@@ -1146,7 +1188,6 @@ namespace ds2xdriver
         Console.WriteLine(" ");
         }
 
-
       for ( i = 0 ; i < n_threads ; i++ ) // Start threads
         {
         threads[i].Start ( );
@@ -1176,10 +1217,6 @@ namespace ds2xdriver
         { 
         Console.WriteLine ( "Controller: ConnectTimeout reached : could not connect all threads, Aborting...");
         Thread.Sleep ( 500 );
-//        for ( i = 0 ; i < n_threads ; i++ )
-//          {
-//              threads[i].Abort();
-//          }
         return;
         }
       
@@ -1248,7 +1285,6 @@ namespace ds2xdriver
           arr_rt_tot_lastn_max_msec[i] = ( int ) Math.Floor ( 1000 * arr_rt_tot_lastn_max );
           }
                 
-                
 #if (GEN_PERF_CTRS)  
           MaxRTC.RawValue = rt_tot_lastn_max_msec;
           OPMC.RawValue = opm;
@@ -1265,7 +1301,6 @@ namespace ds2xdriver
                 }
             }
 #endif               
-                
 
         if ( i_sec % log_freq == 0 ) // print out stats as per log_freq seconds
           {
@@ -1329,9 +1364,9 @@ namespace ds2xdriver
           //Changed on 8/8/2010
 		  //Changed on 1/16/2019 - By Performance Team - Ruban													  
           Console.Write("{8}et={0,7:F1} n_overall={1} opm={2} rt_tot_lastn_max_msec={3} rt_tot_avg_msec={4} " +
-          "rt_tot_sampled={5} " +
-          "rollbacks: n={6} %={7,5:F1} ", et, n_overall, opm, rt_tot_lastn_max_msec, rt_tot_avg_msec,
-          rt_tot_sampled,n_rollbacks_overall, pct_rollbacks, cur_datetime);
+              "rt_tot_sampled={5} " + "rollbacks: n={6} %={7,5:F1} ", et, n_overall, opm, rt_tot_lastn_max_msec, rt_tot_avg_msec,
+              rt_tot_sampled,n_rollbacks_overall, pct_rollbacks, cur_datetime);
+
           if (outfilename != string.Empty)
           {
              outfile.Write("{8} {0,7:F1},{1},{2},{3},{4},{5},{6},{7,5:F1}", et, n_overall, opm, rt_tot_lastn_max_msec, rt_tot_avg_msec,
@@ -1341,6 +1376,7 @@ namespace ds2xdriver
           total_cpu_utilzn = 0.0;
           total_lin_cpu_utilzn = 0.0;
           total_win_cpu_utilzn = 0.0;
+
           if ( windows_perf_host != string.Empty)
           {
             //Changed by GSK to get total average cpu utilization                                                
@@ -1567,9 +1603,10 @@ namespace ds2xdriver
         } // End for i_sec<run_time
 
       Monitor.Enter ( UpdateLock );  // Block User threads from accessing code to update these values (below)
+
 #if (USE_WIN32_TIMER)
-        QueryPerformanceCounter(ref ctr);
-        et = (ctr-ctr0)/(double) freq;   
+      QueryPerformanceCounter(ref ctr);
+      et = (ctr-ctr0)/(double) freq;   
 #else
       TS = DateTime.Now - DT0;
       et = TS.TotalSeconds;
@@ -1651,6 +1688,7 @@ namespace ds2xdriver
           total_win_cpu_utilzn += ( arr_cpu_pct_tot[i] / arr_n_cpu_pct_samples[i] );
           }                
         }            
+
       if ( linux_perf_host != string.Empty )     //Added by GSK for getting Linux CPU Utilization
         {                
         for ( i = 0 ; i < n_linux_servers ; i++ )
@@ -1791,15 +1829,16 @@ namespace ds2xdriver
       MaxRTC.RawValue = 0;
       OPMC.RawValue = 0;
 #endif
-      } // End of Controller() Constructor
+      } // End of Controller() do_work()
+
     //
     //-------------------------------------------------------------------------------------------------
     //      
     static int parse_args ( string[] argstring , ref string errmsg )
       {
       int parm_idx = -1 , parm_count = 0;
-      string[] split = null;
-      string config_fname = null , parmline = null;
+      string[] split;
+      string config_fname, parmline;
       char[] delimeter = { '=' };
 
       for ( int i = 0 ; i < argstring.Length ; i++ )
@@ -1915,6 +1954,7 @@ namespace ds2xdriver
 	zip_in = country_in = email_in = phone_in = creditcard_in = gender_in = string.Empty;
 	actor_in = title_in = new_review_summary_in = new_review_text_in = string.Empty;
 
+        review_data_terms = InitReviewDataTerms();
         //Console.WriteLine("user {0} created", userid);
     }
 
@@ -2346,7 +2386,6 @@ namespace ds2xdriver
             {
                 IsNewReview = true;
 
-                review_data_terms = InitReviewDataTerms();
                 new_review_summary_in = CreateReviewData(ref review_data_terms, 3);
                 new_review_text_in = CreateReviewData(ref review_data_terms, 25);
                 new_review_stars_in = Random.Shared.Next(1,6);
@@ -2512,12 +2551,12 @@ namespace ds2xdriver
         Controller.arr_rt_purchase_overall[target_server_id] += rt_purchase;    
         
         if ( IsRollback )
-          {
+        {
           ++Controller.n_rollbacks_overall;
           ++Controller.arr_n_rollbacks_overall[target_server_id];             
           ++Controller.n_rollbacks_from_start;                                
           ++Controller.arr_n_rollbacks_from_start[target_server_id];          
-          }
+        }
 
         ++Controller.n_overall;
         ++Controller.arr_n_overall[target_server_id];                                           
