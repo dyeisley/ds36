@@ -105,7 +105,8 @@ foreach my $k (1 .. $numberofstores){
 # prod
 foreach my $k (1 .. $numberofstores){
 	open (my $OUT, ">prod/$sqlservertargetdir/remote_sqlserverds35_prod_load$k.sh") || die("Can't open remote_sqlserverds35_prod_load$k.sh");
-	print $OUT "bcp ds3..products$k in ../../../../data_files/prod/prod.csv -b 10000 -h TABLOCK -S $sqlservertarget -u -U sa -P $password -c -t ,> prod$k.log\n";
+	#print $OUT "bcp ds3..products$k in ../../../../data_files/prod/prod.csv -b 10000 -h TABLOCK -S $sqlservertarget -u -U sa -P $password -c -t ,> prod$k.log\n";
+	print $OUT "bcp ds3..products1 in ../../../../data_files/prod/prod.csv -S $sqlservertarget -U sa -P $password -c -t ',' -F 2 -u > prod$k.log\n";
 	print $OUT "date > finished$k.txt\n";
 	print $OUT "exit\n";
 	close $OUT;

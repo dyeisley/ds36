@@ -293,6 +293,21 @@ CREATE NONCLUSTERED INDEX IX_REVIEWSHELPFULNESS_ID_HELPID$k ON [dbo].[REVIEWS_HE
   ON DS_IND_FG
 go
 
+SET QUOTED_IDENTIFIER ON;
+SET ANSI_NULLS ON; -- ANSI_NULLS is also often required
+
+use DS3
+go
+
+IF EXISTS (SELECT * FROM sys.indexes WHERE name = 'idx_product_vector')
+    DROP INDEX idx_product_vector ON PRODUCTS$k;
+GO
+
+CREATE VECTOR INDEX idx_product_vector$k
+  ON PRODUCTS$k (ProductEmbedding)
+    WITH (METRIC = 'COSINE', TYPE = 'DISKANN')
+  ON DS_MISC_FG;
+GO
 
 
 CREATE STATISTICS stat_cust_cctype_username$k ON CUSTOMERS$k(CREDITCARDTYPE, USERNAME)
