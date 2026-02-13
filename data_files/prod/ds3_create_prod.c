@@ -40,6 +40,7 @@
 #include "ds_actor_names.h"
 
 #define MAX_CATEGORY 16
+#define VECTOR_DIM 384
 
 float  price;
 int    prod_id, category, quan_in_stock, special, sales_prod_id, sales, common_prod_id, membership_item_type;
@@ -120,14 +121,15 @@ int main(int argc, char* argv[])
 #ifdef NICE
     printf("%5d,%3d,%35s,%30s, %5.2f, %d, %d, %d\n", prod_id, category, title, actor, price, special, common_prod_id, membership_item_type);
 #else
-    if(i_Sys_Type == 0)   //If System is Linux, Append LF only    //Added by GSK
-    {	
-	fprintf(FP_prod, "%d,%d,%s,%s,%5.2f,%d,%d,%d%c", prod_id, category, title, actor, price, special, common_prod_id, membership_item_type, 10);
-    }	
-    else if(i_Sys_Type == 1) //If System is Windows, Append CR+LF   //Added by GSK
-    {
-	fprintf(FP_prod, "%d,%d,%s,%s,%5.2f,%d,%d,%d%c%c", prod_id, category, title, actor, price, special, common_prod_id, membership_item_type, 13, 10);
+    fprintf(FP_prod, "%d,%d,%s,%s,%5.2f,%d,%d,%d,", prod_id, category, title, actor, price, special, common_prod_id, membership_item_type);
+	/* Add the Vector Column as a JSON array string */
+    fprintf(FP_prod, "[");
+    for (int v = 0; v < VECTOR_DIM; v++) {
+        // Generates a mock float between -1.0 and 1.0 for test data
+        float mock_val = ((float)rand()/(float)(RAND_MAX)) * 2.0 - 1.0;
+        fprintf(FP_prod, "%.2f%s", mock_val, (v < VECTOR_DIM - 1) ? "," : "");
     }
+    fprintf(FP_prod, "]\n");
 #endif
 
     } // end for
