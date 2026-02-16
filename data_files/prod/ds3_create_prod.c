@@ -127,7 +127,7 @@ int main(int argc, char* argv[])
     for (int v = 0; v < VECTOR_DIM; v++) {
         // Generates a mock float between -1.0 and 1.0 for test data
         float mock_val = ((float)rand()/(float)(RAND_MAX)) * 2.0 - 1.0;
-        fprintf(FP_prod, "%.2f%s", mock_val, (v < VECTOR_DIM - 1) ? "," : "");
+        fprintf(FP_prod, "%.4f%s", mock_val, (v < VECTOR_DIM - 1) ? "," : "");
     }
     fprintf(FP_prod, "]\n");
 #endif

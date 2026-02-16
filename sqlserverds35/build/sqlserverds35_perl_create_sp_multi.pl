@@ -459,9 +459,9 @@ GO
 
 CREATE PROCEDURE GET_PROD_REVIEWS_BY_TITLE$k
   (
-  \@batch_size_in            INT,
-  \@title_in					VARCHAR(50),
-  \@search_depth_in					 INT = 500
+  \@batch_size_in       INT,
+  \@title_in		VARCHAR(50),
+  \@search_depth_in	INT = 500
   )
 
   AS 
@@ -484,10 +484,10 @@ GO
 USE DS3
 GO
 
-CREATE OR ALTER PROCEDURE BROWSE_BY_ACTOR_VECTOR$k
+CREATE OR ALTER PROCEDURE BROWSE_BY_VECTOR$k
   (
     \@batch_size_in      INT,
-    \@actor_vector_in    VECTOR(384)
+    \@vector_in    VECTOR(384)
   )
   AS
   BEGIN
@@ -505,7 +505,7 @@ CREATE OR ALTER PROCEDURE BROWSE_BY_ACTOR_VECTOR$k
     FROM VECTOR_SEARCH(
         TABLE = dbo.PRODUCTS$k,
         COLUMN = ProductEmbedding,
-        SIMILAR_TO = \@actor_vector_in,
+        SIMILAR_TO = \@vector_in,
         METRIC = 'COSINE',
         TOP_N = \@batch_size_in
     ) AS v
@@ -592,8 +592,8 @@ CREATE PROCEDURE PURCHASE$k
   \@item_id                  INT,
   \@prod_id                  INT,
   \@qty                      INT,
-  \@cur_quan		    INT,
-  \@new_quan		    INT,
+  \@cur_quan		     INT,
+  \@new_quan		     INT,
   \@cur_sales                INT,
   \@new_sales                INT
   
