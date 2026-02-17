@@ -83,6 +83,7 @@ namespace ds2xdriver
     public static string target = string.Empty , windows_perf_host = string.Empty;
     public static string outfilename = string.Empty;
     public static string ds2_mode_string = string.Empty;
+    public static string use_vectors_string = string.Empty;
     System.IO.StreamWriter? outfile;
 
     public static string[] target_servers = null!;                  //Added by GSK (for single instance of driver program driving multiple database servers)
@@ -165,8 +166,7 @@ namespace ds2xdriver
     public static bool ds2_mode = false;
     // Value for number of stores to support multi stores
     public static int n_stores = 1;
-	
-	
+    public static int n_vectors = 0;
 
     // Variables needed within Controller class
     // Added new Parameter db_size by GSK
@@ -180,7 +180,8 @@ namespace ds2xdriver
     static string[] input_parm_names = new string[] {"config_file", "target", "n_threads", "ramp_rate",
       "run_time", "db_size", "warmup_time", "think_time", "pct_newcustomers", "pct_newmember", "n_searches",
       "search_batch_size", "search_depth", "n_reviews", "pct_newreviews", "pct_newhelpfulness", "n_line_items", "virt_dir", 
-      "page_type", "windows_perf_host", "linux_perf_host", "detailed_view", "out_filename", "ds2_mode", "n_stores", "log_freq", "log_timestamp"};
+      "page_type", "windows_perf_host", "linux_perf_host", "detailed_view", "out_filename", "ds2_mode", "n_stores", "log_freq", "log_timestamp",
+      "use_vectors"};
     static string[] input_parm_desc = new string[] {"config file path", 
       "database/web server hostname or IP address", "number of driver threads", "startup rate (users/sec)",
       "run time (min) - 0 is infinite", "S | M | L or database size (e.g. 30MB, 80GB)", "warmup_time (min)", "think time (sec)", 
@@ -192,9 +193,9 @@ namespace ds2xdriver
       "username:password:target hostname/IP Address for Linux CPU% display (Linux Only)",
       "Detailed statistics View (Y / N)", "output results to specified file in csv format", "run driver in ds2 mode to mimic previous version",
       "Number of stores in DS3 instance", "print output frequency in seconds",
-	  "Detailed timestamp format for log (UTC / LOCAL / NONE) "};
+	  "Detailed timestamp format for log (UTC / LOCAL / NONE) ", "Experimental vectors"};
     static string[] input_parm_values = new string[] {"none", "localhost", "1", "10", "0", "10MB", "1", "0",
-      "20", "1", "3", "5", "500", "3", "5", "10", "5", "ds3", "php", "","","N","","N","1", "10", "NONE"};
+      "20", "1", "3", "5", "500", "3", "5", "10", "5", "ds3", "php", "","","N","","N","1", "10", "NONE", "N"};
 
     int server_id = 0;          //Added by GSK
     
@@ -965,17 +966,31 @@ namespace ds2xdriver
           Console.WriteLine("Error in converting parameter n_stores: {0}", e.Message);
           return;
       }
+      try
+      {
+          use_vectors_string = input_parm_values[Array.IndexOf(input_parm_names, "use_vectors")];
+          if (use_vectors_string.ToUpper() == "Y")
+          {
+              Console.WriteLine("Browse by vectors enabled.");
+              n_vectors = 1;
+          }
+      }
+      catch (System.Exception e)
+      {
+          Console.WriteLine("Error in parsing use_vectors parameter: {0}", e.Message);
+          return;
+      }
       
       Console.WriteLine ( "target= {0}  n_threads= {1}  ramp_rate= {2}  run_time= {3}  db_size= {4}" +
         "  warmup_time= {5}  think_time= {6} pct_newcustomers= {7} pct_newmembers= {8}  n_searches= {9}  search_batch_size= {10}" +
         "  search_depth= {11}  n_reviews={12} pct_newreviews={13} pct_newhelpfulness={14} n_line_items{15} virt_dir= {16}" +
         "  page_type= {17}  windows_perf_host= {18} detailed_view= {19} linux_perf_host= {20} output_file= {21} ds2_mode= {22}" +
-        "  n_stores= {23} log_freq= {24} log_timestamp= {25}"
+        "  n_stores= {23} log_freq= {24} log_timestamp= {25} use_vectors= {26}"
         ,
         target , n_threads , ramp_rate , run_time , db_size , warmup_time , think_time , pct_newcustomers ,
             pct_newmember, n_searches , search_batch_size , search_depth , n_reviews, pct_newreviews, pct_newhelpfulness,
             n_line_items , virt_dir , page_type , windows_perf_host , detailed_view , linux_perf_host, outfilename, 
-            ds2_mode_string, n_stores, log_freq, log_timestamp);
+            ds2_mode_string, n_stores, log_freq, log_timestamp, use_vectors_string);
 
       max_customer = customer_rows;
       max_product = product_rows;
@@ -2203,32 +2218,35 @@ namespace ds2xdriver
         for ( int ib = 0 ; ib < n_browse ; ib++ )
           {
           batch_size_in = Random.Shared.Next(1, 2 * Controller.search_batch_size); // request avg of search_batch_size lines
-          int search_type = Random.Shared.Next(3); // randomly select search type
+          int search_type = Random.Shared.Next(3 + Controller.n_vectors); // randomly select search type
+
+          browse_actor_in = "";
+          browse_title_in = "";
+          browse_category_in = "";
+
           switch ( search_type )
             {
             case 0:  // Search by Category
               browse_type_in = "category";
               browse_category_in = (Random.Shared.Next(1, GlobalConstants.MAX_CATEGORY+1)).ToString();
-              browse_actor_in = "";
-              browse_title_in = "";
               browse_criteria = browse_category_in;
               break;
             case 1:  // Search by Actor
               browse_type_in = "actor";
-              browse_category_in = "";
               CreateActor ( );
               browse_actor_in = actor_in;
-              browse_title_in = "";
               browse_criteria = browse_actor_in;
               break;
             case 2:  // Search by Title
               browse_type_in = "title";
-              browse_category_in = "";
-              browse_actor_in = "";
               CreateTitle ( );
               browse_title_in = title_in;
               browse_criteria = browse_title_in;
               break;
+	    case 3: // Vector search
+	      browse_type_in = "vector";
+              browse_criteria = browse_type_in;
+	      break;
             }
 
           failures = 0;

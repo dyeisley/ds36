@@ -36,6 +36,7 @@ using Microsoft.Data.SqlTypes;
 using System.Net;
 using System.Threading;
 using System.Runtime.InteropServices;
+using System.Text.Json;
 
 namespace ds2xdriver
   {
@@ -452,15 +453,6 @@ namespace ds2xdriver
       int dim = 384;
       float[] vector = new float[dim];
 
-      for (int i = 0; i < dim; i++)
-      {
-        vector[i] = (float)(rand.NextDouble() * 2.0 - 1.0);
-      }
-      var sqlVector = new SqlVector<float>(vector);
-
-      Browse_By_Vector.Parameters["@batch_size_in"].Value = batch_size_in;
-      Browse_By_Vector.Parameters["@vector_in"].Value = sqlVector;
-
 #if (USE_WIN32_TIMER)
       long ctr0 = 0, ctr = 0, freq = 0;
 #else
@@ -485,6 +477,17 @@ namespace ds2xdriver
           Browse_By_Title.Parameters["@title_in"].Value = "\"" + browse_title_in + "\"";
           data_in = "\"" + browse_title_in + "\"";
           break;
+        case "vector":
+          for (int i = 0; i < dim; i++)
+          {
+             vector[i] = (float)(rand.NextDouble() * 2.0 - 1.0);
+          }
+          var sqlVector = new SqlVector<float>(vector);
+
+          Browse_By_Vector.Parameters["@batch_size_in"].Value = batch_size_in;
+          Browse_By_Vector.Parameters["@vector_in"].Value = sqlVector;
+	  data_in = JsonSerializer.Serialize(sqlVector);
+          break;
         }
 
 //    Console.WriteLine("Thread {0}: Calling Browse w/ browse_type= {1} batch_size_in= {2}  data_in= {3}",
@@ -506,12 +509,13 @@ namespace ds2xdriver
             Rdr = Browse_By_Category.ExecuteReader();
             break;
           case "actor":
-            //Rdr = Browse_By_Actor.ExecuteReader();
-            Rdr = Browse_By_Vector.ExecuteReader();
+            Rdr = Browse_By_Actor.ExecuteReader();
             break;
           case "title":
             Rdr = Browse_By_Title.ExecuteReader();
-            //Rdr = Browse_By_Vector.ExecuteReader();
+            break;
+          case "vector":
+            Rdr = Browse_By_Vector.ExecuteReader();
             break;
           }
 
@@ -525,6 +529,7 @@ namespace ds2xdriver
           price_out[i_row] = Rdr.GetDecimal(4);
           special_out[i_row] = Rdr.GetByte(5);
           common_prod_id_out[i_row] = Rdr.GetInt32(6);
+          //Console.WriteLine("\tprod_id_out: {0} category_out: {1} title_out: {2} actor_out: {3} price_out: {4} special_out: {5} common_prod_id_out: {6}",prod_id_out[i_row],category_out[i_row],title_out[i_row],actor_out[i_row],price_out[i_row], special_out[i_row],common_prod_id_out[i_row]);
           ++i_row;
           }
         Rdr.Close();
