@@ -171,7 +171,7 @@ CREATE INDEX IX_REORDER_PRODID$k on REORDER$k
 \n";
   close $OUT;
   sleep(1);
-  print ("mysql -h $mysqltarget -u web --password=web < $mysql_targetdir${pathsep}mysqlds35_createindexes.sql\n");
-  system ("mysql -h $mysqltarget -u web --password=web < $mysql_targetdir${pathsep}mysqlds35_createindexes.sql");
+  print ("mariadb -h $mysqltarget -u web --password=web < $mysql_targetdir${pathsep}mysqlds35_createindexes.sql\n");
+  system ("mariadb -h $mysqltarget -u web --password=web < $mysql_targetdir${pathsep}mysqlds35_createindexes.sql");
   #system ("del $mysql_targetdir${pathsep}mysqlds35_createindexes.sql");
   }

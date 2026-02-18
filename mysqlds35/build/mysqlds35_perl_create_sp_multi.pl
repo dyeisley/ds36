@@ -374,6 +374,26 @@ BEGIN
         select * from PRODUCTS$k WHERE CATEGORY=category_in and SPECIAL=special_in limit batch_size_in;
 END; $$
 
+CREATE OR REPLACE PROCEDURE DS3.BROWSE_BY_VECTOR (
+    IN p_batch_size_in INT,
+    IN p_actor_vector_text TEXT -- Pass the vector as a JSON string
+)
+BEGIN
+    SELECT
+        PROD_ID,
+        CATEGORY,
+        TITLE,
+        ACTOR,
+        PRICE,
+        SPECIAL,
+        COMMON_PROD_ID,
+        -- Calculate distance (automatically uses index if created)
+        VEC_DISTANCE(v_embedding, VEC_FromText(p_actor_vector_text)) AS distance
+    FROM PRODUCT_CATALOG_MARIA
+    ORDER BY distance ASC
+    LIMIT p_batch_size_in;
+END; $$ 
+
 DROP PROCEDURE IF EXISTS DS3.GET_PROD_REVIEWS_BY_TITLE$k $$
 CREATE PROCEDURE DS3.GET_PROD_REVIEWS_BY_TITLE$k
   (
@@ -448,7 +468,7 @@ END; $$
 \n";
   close $OUT;
   sleep(1);
-  print ("mysql -h $mysqltarget -u web --password=web < $mysql_targetdir${pathsep}mysqlds35_createsp.sql\n");
-  system ("mysql -h $mysqltarget -u web --password=web < $mysql_targetdir${pathsep}mysqlds35_createsp.sql");
+  print ("mariadb -h $mysqltarget -u web --password=web < $mysql_targetdir${pathsep}mysqlds35_createsp.sql\n");
+  system ("mariadb -h $mysqltarget -u web --password=web < $mysql_targetdir${pathsep}mysqlds35_createsp.sql");
   #system ("del $mysql_targetdir${pathsep}mysqlds35_createsp.sql");
   }
