@@ -7,6 +7,9 @@ TARGET=${1:-`hostname`}
 STORES=${2:-1}
 PASSWORD=${3:-password}
 
+# Remove the double quotes from the vector data.
+perl -i -pe 's/"//g' ../data_files/prod/prod.csv
+
 cd build
 echo sqlcmd -C -S $TARGET -U sa -P $PASSWORD -i sqlserverds35_create_all_init_{DB_SIZE}.sql
 sqlcmd -C -S $TARGET -U sa -P $PASSWORD -i sqlserverds35_create_all_init_{DB_SIZE}.sql
