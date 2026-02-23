@@ -93,7 +93,7 @@ namespace ds2xdriver
     public static int n_threads , n_threads_running = 0 , n_threads_connected = 0;
     public static int n_overall = 0 , n_login_overall = 0 , n_newcust_overall = 0 , n_browse_overall = 0 ,
       n_purchase_overall = 0 , n_rollbacks_overall = 0 , n_rollbacks_from_start = 0 , n_purchase_from_start = 0 , n_cpu_pct_samples = 0;
-    public static int n_reviewbrowse_overall = 0, n_newreview_overall = 0, n_newhelpfulness_overall = 0, n_newmember_overall = 0;
+    public static int n_reviewbrowse_overall = 0, n_newreview_overall = 0, n_newhelpfulness_overall = 0, n_newmember_overall = 0, n_browse_vector = 0;
     public static double pct_rollbacks;
     public static int run_time = 0 , warmup_time = 1, log_freq = 1;
 
@@ -1547,6 +1547,7 @@ namespace ds2xdriver
           {
           n_overall = 0; n_login_overall = 0; n_newcust_overall = 0; n_browse_overall = 0; n_purchase_overall = 0;
           n_rollbacks_overall = 0;
+	  n_browse_vector = 0;
           rt_tot_overall = 0.0; rt_login_overall = 0.0; rt_newcust_overall = 0.0; rt_browse_overall = 0.0;
           rt_purchase_overall = 0.0;
           for ( int j = 0 ; j < GlobalConstants.LAST_N ; j++ ) rt_tot_lastn[j] = 0.0;
@@ -1681,16 +1682,25 @@ namespace ds2xdriver
       //  rt_purchase_avg_msec, n_rollbacks_overall, (100.0 * n_rollbacks_overall) / n_overall);
       //Changed on 8/8/2010
       // Changed again on 3/17/2015
-      Console.WriteLine("\nFinal ({0}): et={1,7:F1} n_overall={2} opm={3} rt_tot_lastn_max={4} rt_tot_avg={5} " +
+      Console.Write("\nFinal ({0}): et={1,7:F1} n_overall={2} opm={3} rt_tot_lastn_max={4} rt_tot_avg={5} " +
         "n_login_overall={6} n_newcust_overall={7} n_newmember_overall={8} n_browse_overall={9} " +
         "n_reviewbrowse={10} n_newreviews={11} n_newhelpfulness={12} n_purchase_overall={13} " +
         "rt_login_avg_msec={14} rt_newcust_avg_msec={15} rt_rewmember_avg_msec={16} rt_browse_avg_msec={17} " +
         "rt_reviewbrowse_avg_msec={18} rt_newreview_avg_msec={19} rt_newhelpfulness={20} rt_purchase_avg_msec={21} " +
-        "rt_tot_sampled={22} n_rollbacks_overall={23} rollback_rate = {24,5:F1}%",
+        "rt_tot_sampled={22} n_rollbacks_overall={23} rollback_rate = {24,2:F1}%",
         DateTime.Now, et, n_overall, opm, rt_tot_lastn_max_msec, rt_tot_avg_msec, n_login_overall, n_newcust_overall, n_newmember_overall,
         n_browse_overall, n_reviewbrowse_overall, n_newreview_overall, n_newhelpfulness_overall,  n_purchase_overall, 
         rt_login_avg_msec, rt_newcust_avg_msec, rt_newmember_avg_msec, rt_browse_avg_msec, rt_reviewbrowse_avg_msec, rt_newreview_avg_msec, 
         rt_newhelpfulness_avg_msec, rt_purchase_avg_msec, rt_tot_sampled, n_rollbacks_overall, (100.0 * n_rollbacks_overall) / n_overall);
+
+      if (n_vectors == 1)
+      {
+	Console.WriteLine(" n_browse_vector= {0}",n_browse_vector);
+      }
+      else
+      {
+	Console.WriteLine("");
+      }
 
       if (outfilename != string.Empty)
       {
@@ -1784,7 +1794,7 @@ namespace ds2xdriver
             "n_reviewbrowse_overall={9} n_newreview_overall={10} n_newhelpfulnes_overall={11} n_purchase_overall={12} " +
             "rt_login_avg_msec={13} rt_newcust_avg_msec={14} rt_newmember_avg_msec={15} rt_browse_avg_msec={16} " +
             "rt_reviewbrowse_avg_msec={17} rt_newreview_avg_msec={18} rt_newhelpfulness_avg_msec={19} rt_purchase_avg_msec={20} " +
-            "rt_tot_sampled={21} n_rollbacks_overall={22} rollback_rate = {23,5:F1}%  ",
+            "rt_tot_sampled={21} n_rollbacks_overall={22} rollback_rate = {23,2:F1}%  ",
             et, arr_n_overall[i], arr_opm[i], arr_rt_tot_lastn_max_msec[i], arr_rt_tot_avg_msec[i], arr_n_login_overall[i], arr_n_newcust_overall[i],
             arr_n_newmember_overall[i], arr_n_browse_overall[i], arr_n_reviewbrowse_overall[i], arr_n_newreview_overall[i], arr_n_newhelpfulness_overall[i], 
             arr_n_purchase_overall[i], arr_rt_login_avg_msec[i], arr_rt_newcust_avg_msec[i], arr_rt_newmember_avg_msec[i], arr_rt_browse_avg_msec[i],
@@ -2246,6 +2256,7 @@ namespace ds2xdriver
 	    case 3: // Vector search
 	      browse_type_in = "vector";
               browse_criteria = browse_type_in;
+	      Controller.n_browse_vector++;
 	      break;
             }
 
