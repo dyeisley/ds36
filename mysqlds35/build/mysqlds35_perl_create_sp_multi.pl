@@ -374,9 +374,9 @@ BEGIN
         select * from PRODUCTS$k WHERE CATEGORY=category_in and SPECIAL=special_in limit batch_size_in;
 END; $$
 
-CREATE OR REPLACE PROCEDURE DS3.BROWSE_BY_VECTOR (
+CREATE OR REPLACE PROCEDURE DS3.BROWSE_BY_VECTOR$k (
     IN p_batch_size_in INT,
-    IN p_actor_vector_text TEXT -- Pass the vector as a JSON string
+    IN p_vector_text TEXT -- Pass the vector as a JSON string
 )
 BEGIN
     SELECT
@@ -388,8 +388,8 @@ BEGIN
         SPECIAL,
         COMMON_PROD_ID,
         -- Calculate distance (automatically uses index if created)
-        VEC_DISTANCE(v_embedding, VEC_FromText(p_actor_vector_text)) AS distance
-    FROM PRODUCT_CATALOG_MARIA
+        VEC_DISTANCE(v_embedding, VEC_FromText(p_vector_text)) AS distance
+    FROM PRODUCTS$k
     ORDER BY distance ASC
     LIMIT p_batch_size_in;
 END; $$ 

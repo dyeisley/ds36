@@ -49,7 +49,7 @@ namespace ds2xdriver
 
     MySqlCommand Login, New_Customer, New_Member, New_Review, New_Helpfulness, Purchase;
     MySqlCommand BrowseReviews_by_title, BrowseReviews_by_actor, Get_Prod_Reviews, Get_Reviews_by_stars;
-    MySqlCommand Get_Reviews_by_date, Browse_by_title, Browse_by_actor, Browse_by_category;
+    MySqlCommand Get_Reviews_by_date, Browse_by_title, Browse_by_actor, Browse_by_category, Browse_by_vector;
     MySqlParameter cust_out_param, member_out_param, reviewid_out_param, helpfulnessid_out_param, neworder_out_param;
 
 //
@@ -169,6 +169,11 @@ namespace ds2xdriver
       Browse_by_category.Parameters.Add("batch_size_in", MySqlDbType.Int32);
       Browse_by_category.Parameters.Add("category_in", MySqlDbType.VarChar, 50);
       Browse_by_category.Parameters.Add("special_in", MySqlDbType.Int32);
+
+      Browse_by_vector = new MySqlCommand("BROWSE_BY_VECTOR" + target_store_number, objConn);
+      Browse_by_vector.CommandType = CommandType.StoredProcedure;
+      Browse_by_vector.Parameters.Add("p_batch_size_in", MySqlDbType.Int32);
+      Browse_by_vector.Parameters.Add("p_vector_text", MySqlDbType.Text);
 
       BrowseReviews_by_actor = new MySqlCommand("GET_PROD_REVIEWS_BY_ACTOR" + target_store_number, objConn);
       BrowseReviews_by_actor.CommandType = CommandType.StoredProcedure;
@@ -431,6 +436,10 @@ namespace ds2xdriver
       int[] category_out = new int[GlobalConstants.MAX_ROWS];
       MySqlDataReader Rdr;
   
+      Random rand = new();
+      int dim = 384;
+      float[] vector = new float[dim];
+
       // Search for special half the time
       if (Random.Shared.Next(100) < 50) {
         special = 1;
@@ -449,6 +458,18 @@ namespace ds2xdriver
       Browse_by_category.Parameters["batch_size_in"].Value = batch_size_in;
       Browse_by_category.Parameters["category_in"].Value = browse_category_in != "" ? Convert.ToInt32(browse_category_in) : 0 ;
       Browse_by_category.Parameters["special_in"].Value = special;
+
+      if (browse_type_in == "vector") 
+      {
+	for (int i = 0; i < dim; i++)
+	{
+	   vector[i] = (float)(rand.NextDouble() * 2.0 - 1.0);
+	}
+	string vectorJson = "[" + string.Join(",", vector.Select(v => v.ToString("F6", System.Globalization.CultureInfo.InvariantCulture))) + "]";
+
+	Browse_by_vector.Parameters["p_batch_size_in"].Value = batch_size_in;
+	Browse_by_vector.Parameters["p_vector_text"].Value = vectorJson;
+      }
 
 #if (USE_WIN32_TIMER)
       long ctr0 = 0, ctr = 0, freq = 0;
@@ -473,6 +494,9 @@ namespace ds2xdriver
            default:
              Rdr = Browse_by_category.ExecuteReader();
              break;
+           case "vector":
+             Rdr = Browse_by_vector.ExecuteReader();
+             break;
         }
 
         i_row = 0;
@@ -487,6 +511,7 @@ namespace ds2xdriver
             price_out[i_row] = Rdr.GetDecimal(4);
             special_out[i_row] = Rdr.GetByte(5);
             common_prod_id_out[i_row] = Rdr.GetInt32(6);
+            //Console.WriteLine("\tprod_id_out: {0} category_out: {1} title_out: {2} actor_out: {3} price_out: {4} special_out: {5} common_prod_id_out: {6}",prod_id_out[i_row],category_out[i_row],title_out[i_row],actor_out[i_row],price_out[i_row], special_out[i_row],common_prod_id_out[i_row]);
             ++i_row;
             }
           }
