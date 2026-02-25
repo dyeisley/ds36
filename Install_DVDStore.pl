@@ -1120,6 +1120,11 @@ elsif($bln_is_DB_MSSQL == 1) 		#For SQL Server
                         $line =~ s/{DB_SIZE}/$database_size$database_size_str/g;
                         $i_Cnt = ($i_Cnt + 1);
                 }
+                if($line =~ m/4:-0/ && $bln_is_use_vectors == 1)
+                {
+                        $line =~ s/4:-0/4:-1/g;
+                        $i_Cnt = ($i_Cnt + 1);
+                }
         }
         $str_file_name = "sqlserverds35_create_all_concurrent_".$database_size.$database_size_str.".sh";
         open (NEWFILE, ">", $str_file_name) || die "Creating new file to write failed : $!";

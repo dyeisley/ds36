@@ -8,6 +8,7 @@ use warnings;
 my $sqlservertarget = $ARGV [0];
 my $numberofstores = $ARGV[1];
 my $password = $ARGV[2] || 'password';
+my $use_vectors = $ARGV[3] || 0;
 
 my $sqlservertargetdir;
 
@@ -478,9 +479,11 @@ select T1.prod_id, T1.title, T1.actor, REVIEWS_HELPFULNESS$k.REVIEW_ID, T1.revie
 					ORDER BY totalhelp DESC;
   SET ROWCOUNT 0
 GO
+\n";
 
-
-
+if ( $use_vectors == 1 )
+{
+print $OUT "
 USE DS3
 GO
 
@@ -512,7 +515,10 @@ CREATE OR ALTER PROCEDURE BROWSE_BY_VECTOR$k
     ORDER BY v.distance ASC;
   END;
 GO
+\n";
+}
 
+print $OUT "
 -- Browse by Actor
 
 USE DS3

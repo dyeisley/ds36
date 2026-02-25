@@ -8,6 +8,7 @@ use warnings;
 my $sqlservertarget = $ARGV[0];
 my $numberofstores = $ARGV[1];
 my $mypassword = $ARGV[2] || 'password';
+my $use_vectors = $ARGV[3] || 0;
 
 #Need seperate target directory so that mulitple DB Targets can be loaded at the same time
 my $sqlservertargetdir;  
@@ -35,9 +36,6 @@ foreach my $k (1 .. $numberofstores){
 	open (my $OUT, ">$sqlservertargetdir${pathsep}sqlserverds35_createtables.sql") || die("Can't open sqlserverds35_createtables.sql");
 	print $OUT  "-- Tables
 USE DS3
-GO
-
-ALTER DATABASE SCOPED CONFIGURATION SET PREVIEW_FEATURES = ON;
 GO
 
 CREATE TABLE CUSTOMERS$k
@@ -107,6 +105,31 @@ CREATE TABLE ORDERLINES$k
   ) 
   ON DS_ORDERS_FG
 GO
+\n";
+
+if ( $use_vectors == 0 )
+{
+print $OUT  "
+CREATE TABLE PRODUCTS$k
+  (
+  PROD_ID INT IDENTITY NOT NULL,
+  CATEGORY TINYINT NOT NULL,
+  TITLE VARCHAR(50) NOT NULL,
+  ACTOR VARCHAR(50) NOT NULL,
+  PRICE MONEY NOT NULL,
+  SPECIAL TINYINT,
+  COMMON_PROD_ID INT NOT NULL,
+  MEMBERSHIP_ITEM INT NOT NULL
+  )
+  ON DS_MISC_FG
+GO
+\n";
+}
+else
+{
+print $OUT  "
+ALTER DATABASE SCOPED CONFIGURATION SET PREVIEW_FEATURES = ON;
+GO
 
 CREATE TABLE PRODUCTS$k
   (
@@ -122,7 +145,10 @@ CREATE TABLE PRODUCTS$k
   )
   ON DS_MISC_FG
 GO 
+\n";
+}
 
+print $OUT  "
 CREATE TABLE REVIEWS$k
   (
   REVIEW_ID INT IDENTITY NOT NULL, 
