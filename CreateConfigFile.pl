@@ -33,6 +33,7 @@ my $page_type = "php";					#web page type (for web driver) default = php
 my $windows_perf_host = "";				#target hostname for Perfmon CPU% display (Windows only)
 my $detailed_view = "N";				#Parameter to display detailed view of Runtime Statistics on Each target machine default = N
 my $linux_perf_host = "";				#Parameter for linux CPU utilization Required format for value: <username>:<password>:<IP Address>
+my $use_vectors= "N";					#use vector search
 
 my $line = "";
 my $end_line = "";					#End of line character
@@ -52,6 +53,9 @@ chomp($linux_perf_host = <STDIN>);
 print "Please enter if you want detailed view of runtime statistics of each target machine ( Y / N ) [N] : ";
 chomp($detailed_view = <STDIN>);
 $detailed_view ||= "N";
+print "Enable vector search ( Y / N ) [N] : ";
+chomp($use_vectors = <STDIN>);
+$use_vectors ||= "N";
 
 print "***********************************\n";
 
@@ -110,6 +114,9 @@ $line = "linux_perf_host=".$linux_perf_host;
 print NEWFILE $line;
 print NEWFILE $end_line;
 $line = "detailed_view=".$detailed_view;
+print NEWFILE $line;
+print NEWFILE $end_line;
+$line = "use_vectors=".$use_vectors;
 print NEWFILE $line;
 print NEWFILE $end_line;
 

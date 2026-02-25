@@ -53,29 +53,34 @@ FILE   *FP_prod;
 //  inclusively  (assumes j >= i)
 //
 int random2(int i, int j)
-        {
-        return i + floor((1+j-i) * (double) rand()/(((double) RAND_MAX) + 1));
-        } //random2
-//
+{
+  return i + floor((1+j-i) * (double) rand()/(((double) RAND_MAX) + 1));
+} //random2
 
 int main(int argc, char* argv[])
   {
   int n_prods, i;
   int i_Sys_Type = 0;	 //0 for Linux, 1 for Windows        //Added by GSK
+  int i_gen_vectors = 0;
 
   srand((unsigned int)time(NULL));
 
   // Check syntax
   if (argc < 3)    //Changed by GSK
   {
-    //fprintf(stderr, "Syntax: ds2_create_prod n_prods\n");
-    fprintf(stderr, "Syntax: %s n_prods n_Sys_Type\n", argv[0]);
+    fprintf(stderr, "Syntax: %s n_prods n_Sys_Type i_gen_vectors\n", argv[0]);
     fprintf(stderr, "n_Sys_Type can be 0 (Linux) or 1 (Windows) \n"); //Added by GSK
+    fprintf(stderr, "i_gen_vectors can be 0 (no vector data) or 1 (generate vector data) \n"); //Added by DPY
     exit(-1);
   }
 
   n_prods = atoi(argv[1]);
   i_Sys_Type = atoi(argv[2]);    //Added by GSK
+
+  if (argc == 4) 
+  {
+    i_gen_vectors = atoi(argv[3]);
+  }
 
 #ifndef NICE
   FP_prod = fopen("prod.csv", "wb");
@@ -121,15 +126,18 @@ int main(int argc, char* argv[])
 #ifdef NICE
     printf("%5d,%3d,%35s,%30s, %5.2f, %d, %d, %d\n", prod_id, category, title, actor, price, special, common_prod_id, membership_item_type);
 #else
-    fprintf(FP_prod, "%d,%d,%s,%s,%5.2f,%d,%d,%d,", prod_id, category, title, actor, price, special, common_prod_id, membership_item_type);
-	/* Add the Vector Column as a JSON array string */
-    fprintf(FP_prod, "\"[");
-    for (int v = 0; v < VECTOR_DIM; v++) {
-        // Generates a mock float between -1.0 and 1.0 for test data
-        float mock_val = ((float)rand()/(float)(RAND_MAX)) * 2.0 - 1.0;
-        fprintf(FP_prod, "%.4f%s", mock_val, (v < VECTOR_DIM - 1) ? "," : "");
+    fprintf(FP_prod, "%d,%d,%s,%s,%5.2f,%d,%d,%d", prod_id, category, title, actor, price, special, common_prod_id, membership_item_type);
+    /* Add the Vector Column as a JSON array string */
+    if (i_gen_vectors == 1) {
+       fprintf(FP_prod, ",\"[");
+       for (int v = 0; v < VECTOR_DIM; v++) {
+           // Generates a mock float between -1.0 and 1.0 for test data
+           float mock_val = ((float)rand()/(float)(RAND_MAX)) * 2.0 - 1.0;
+           fprintf(FP_prod, "%.4f%s", mock_val, (v < VECTOR_DIM - 1) ? "," : "");
+       }
+       fprintf(FP_prod, "]\"");
     }
-    fprintf(FP_prod, "]\"\n");
+    fprintf(FP_prod, "\n");
 #endif
 
     } // end for
