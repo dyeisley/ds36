@@ -7,6 +7,7 @@ use warnings;
 
 my $mysqltarget = $ARGV[0];
 my $numberofstores = $ARGV[1];
+my $use_vectors = $ARGV[2];
 
 my $movecommand;
 my $timecommand;
@@ -185,12 +186,23 @@ foreach my $k (1 .. $numberofstores){
 
 SET UNIQUE_CHECKS=0;
 SET FOREIGN_KEY_CHECKS=0;
-ALTER TABLE PRODUCTS$k DISABLE KEYS;
+ALTER TABLE PRODUCTS$k DISABLE KEYS;\n";
 
+if ( $use_vectors == 1 )
+{
+print $OUT "
 LOAD DATA LOCAL INFILE \"..$pathsep..$pathsep..$pathsep..${pathsep}data_files${pathsep}prod${pathsep}prod.csv\" INTO TABLE PRODUCTS$k FIELDS TERMINATED BY ',' OPTIONALLY ENCLOSED BY '\"' 
 (PROD_ID, CATEGORY, TITLE, ACTOR, PRICE, SPECIAL, COMMON_PROD_ID, MEMBERSHIP_ITEM, \@vec_text)
-SET v_embedding = VEC_FromText(\@vec_text);
+SET v_embedding = VEC_FromText(\@vec_text);\n";
+}
+else
+{
+print $OUT "
+LOAD DATA LOCAL INFILE \"..$pathsep..$pathsep..$pathsep..${pathsep}data_files${pathsep}prod${pathsep}prod.csv\" INTO TABLE PRODUCTS$k FIELDS TERMINATED BY ',' OPTIONALLY ENCLOSED BY '\"' 
+(PROD_ID, CATEGORY, TITLE, ACTOR, PRICE, SPECIAL, COMMON_PROD_ID, MEMBERSHIP_ITEM);\n";
+}
 
+print $OUT "
 ALTER TABLE PRODUCTS$k ENABLE KEYS;
 SET UNIQUE_CHECKS=1;
 SET FOREIGN_KEY_CHECKS=1;\n";

@@ -7,6 +7,7 @@ use warnings;
 
 my $mysqltarget = $ARGV[0];
 my $numberofstores = $ARGV[1];
+my $use_vectors = $ARGV[2];
 
 my $pathsep;
 
@@ -112,15 +113,17 @@ CREATE TABLE PRODUCTS$k
   PRICE NUMERIC(12,2) NOT NULL, 
   SPECIAL TINYINT,
   COMMON_PROD_ID INT NOT NULL,
-  MEMBERSHIP_ITEM INT NOT NULL,
-  v_embedding VECTOR(384) NOT NULL
+  MEMBERSHIP_ITEM INT NOT NULL";
+
+if ($use_vectors == 1)
+{
+print $OUT  ",
+  v_embedding VECTOR(384) NOT NULL";
+}
+
+print $OUT  "
   )
   ENGINE = MyISAM;
-
-ALTER TABLE PRODUCTS$k
-ADD VECTOR INDEX (v_embedding) 
-M=16 
-DISTANCE=cosine;
 
 CREATE TABLE REVIEWS$k
   (

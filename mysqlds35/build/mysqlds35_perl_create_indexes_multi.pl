@@ -7,6 +7,7 @@ use warnings;
 
 my $mysqltarget = $ARGV[0];
 my $numberofstores = $ARGV[1];
+my $use_vectors = $ARGV[2];
 
 my $pathsep; 
 
@@ -91,8 +92,18 @@ CREATE FULLTEXT INDEX IX_PROD_TITLE$k ON PRODUCTS$k
 CREATE INDEX IX_PROD_SPECIAL$k ON PRODUCTS$k 
   (
   SPECIAL
-  );
+  );";
 
+if ($use_vectors == 1)
+{
+print $OUT
+"ALTER TABLE PRODUCTS$k
+ADD VECTOR INDEX (v_embedding) 
+M=16 
+DISTANCE=cosine;";
+}
+
+print $OUT "
 ALTER TABLE MEMBERSHIP$k
   ADD CONSTRAINT FK_MEMBERSHIP_CUSTID$k FOREIGN KEY (CUSTOMERID)
   REFERENCES CUSTOMERS$k (CUSTOMERID)
