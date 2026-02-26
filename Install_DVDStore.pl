@@ -764,12 +764,10 @@ if($bln_is_DB_MYSQL == 1)			#For MySQL
 	print NEWFILE @lines;
 	close (NEWFILE);
 
-	chdir "../";
-	print NEWFILE @lines;
-	close (NEWFILE);
-
 	if ($bln_is_use_vectors == 1)
 	{
+	   chdir "../";
+
 	   my $filename = 'mysqlds35_create_all.sh';
 	   my $tempfile = 'mysqlds35_create_all.sh.tmp';
 
