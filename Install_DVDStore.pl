@@ -402,7 +402,7 @@ if($bln_is_Small_DB == 1)
 #For medium database with size exactly 1GB
 if($bln_is_Medium_DB == 1)
 {
-	print "Medium size database ( equal to 1 GB) \n";
+	print "Medium size database (equal to 1 GB) \n";
 	$mult_Cust_Rows = 2000000;				# 2 x 10^6
 	$mult_Ord_Rows = 100000;				# 1 x 10^5
 	$mult_Prod_Rows = 100000;				# 1 x 10^5
@@ -412,7 +412,7 @@ if($bln_is_Medium_DB == 1)
 #For large database with size > 1GB
 if($bln_is_Large_DB == 1)
 {
-	print "Large size database ( greater than 1 GB) \n";
+	print "Large size database (greater than 1 GB) \n";
 	$mult_Cust_Rows = 200000000;			# 2 x 10^8
 	$mult_Ord_Rows = 10000000;				# 1 x 10^7
 	$mult_Prod_Rows = 1000000;				# 1 x 10^6
@@ -763,7 +763,34 @@ if($bln_is_DB_MYSQL == 1)			#For MySQL
 	open (NEWFILE, ">" , $str_file_name) || die "Creating new file to write failed : $!";
 	print NEWFILE @lines;
 	close (NEWFILE);
-	
+
+	chdir "../";
+	print NEWFILE @lines;
+	close (NEWFILE);
+
+	if ($bln_is_use_vectors == 1)
+	{
+	   my $filename = 'mysqlds35_create_all.sh';
+	   my $tempfile = 'mysqlds35_create_all.sh.tmp';
+
+	   open(my $in,  '<', $filename) or die "Can't open $filename: $!";
+	   open(my $out, '>', $tempfile) or die "Can't open $tempfile: $!";
+
+	   while (my $line = <$in>)
+	   {
+		if($line =~ m/3:-0/)
+		{
+			$line =~ s/3:-0/3:-1/g;
+		}
+		print $out $line;
+	   }
+
+	   close($in);
+	   close($out);
+
+	   rename($tempfile, $filename);
+	}
+
 	print "\nCompleted creating and writing build scripts for MySQL database... \n";
 	
 }
@@ -966,7 +993,6 @@ elsif($bln_is_DB_ORACLE == 1) 		#For Oracle
 	print NEWFILE @lines;
 	close (NEWFILE);
 		
-	
 	chdir "../";		#Move to oracle directory to finally edit master shell script
 	
 	#Create new create_all shell script file from template
