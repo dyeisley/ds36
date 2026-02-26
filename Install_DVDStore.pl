@@ -769,24 +769,25 @@ if($bln_is_DB_MYSQL == 1)			#For MySQL
 	   chdir "../";
 
 	   my $filename = 'mysqlds35_create_all.sh';
-	   my $tempfile = 'mysqlds35_create_all.sh.tmp';
+	   my $newfile = 'mysqlds35_create_all_vectors.sh';
 
 	   open(my $in,  '<', $filename) or die "Can't open $filename: $!";
-	   open(my $out, '>', $tempfile) or die "Can't open $tempfile: $!";
+	   open(my $out, '>', $newfile) or die "Can't open $newfile: $!";
 
 	   while (my $line = <$in>)
 	   {
-		if($line =~ m/3:-0/)
-		{
-			$line =~ s/3:-0/3:-1/g;
-		}
+		$line =~ s/3:-0/3:-1/g;
+		$line =~ s/mysqlds35_create_all.sh/mysqlds35_create_all_vectors.sh/g;
 		print $out $line;
 	   }
 
 	   close($in);
 	   close($out);
 
-	   rename($tempfile, $filename);
+	   if(lc($^O) eq lc("linux"))   #If system on which perl script is executing is Linux
+	   {
+	        system("chmod +x $newfile");
+	   }
 	}
 
 	print "\nCompleted creating and writing build scripts for MySQL database... \n";
