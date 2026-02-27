@@ -663,6 +663,7 @@ namespace ds2xdriver
                 review_summary_out[i_row] = Rdr.GetString(5);
                 review_text_out[i_row] = Rdr.GetString(6);
                 review_helpfulness_sum_out[i_row] = Rdr.GetInt32(7);
+//Console.WriteLine("\tprod_id_out: {0} review_id_out: {1} review_date_out: {2} review_stars_out: {3} review_customerid_out: {4} review_summary_out: {5} review_text_out: {6} review_helpfulness_sum_out: {7}\n", prod_id_out[i_row], review_id_out[i_row], review_date_out[i_row], review_stars_out[i_row], review_customerid_out[i_row], review_summary_out[i_row], review_text_out[i_row], review_helpfulness_sum_out[i_row] );
                 ++i_row;
             } // end while rdr.read()
             Rdr.Close();
