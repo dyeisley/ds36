@@ -52,11 +52,15 @@ CREATE INDEX IX_CUST_HIST_CUSTOMERID_PRODID$k ON CUST_HIST$k
    PROD_ID
    );
 
+SET FOREIGN_KEY_CHECKS=0;
+
 ALTER TABLE CUST_HIST$k
   ADD CONSTRAINT FK_CUST_HIST_CUSTOMERID$k FOREIGN KEY (CUSTOMERID)
   REFERENCES CUSTOMERS$k (CUSTOMERID)
   ON DELETE CASCADE
   ;
+
+SET FOREIGN_KEY_CHECKS=1;
 \n";
   close $OUT;
   sleep(1);
@@ -74,22 +78,30 @@ CREATE INDEX IX_ORDER_CUSTID$k ON ORDERS$k
   CUSTOMERID
   );
 
+SET FOREIGN_KEY_CHECKS=0;
+
 ALTER TABLE ORDERS$k
   ADD CONSTRAINT FK_CUSTOMERID$k FOREIGN KEY (CUSTOMERID)
   REFERENCES CUSTOMERS$k (CUSTOMERID)
   ON DELETE SET NULL
   ;
 
+SET FOREIGN_KEY_CHECKS=1;
+
 CREATE UNIQUE INDEX IX_ORDERLINES_ORDERID$k ON ORDERLINES$k
   (
   ORDERID, ORDERLINEID
   );
+
+SET FOREIGN_KEY_CHECKS=0;
 
 ALTER TABLE ORDERLINES$k
   ADD CONSTRAINT FK_ORDERID$k FOREIGN KEY (ORDERID)
   REFERENCES ORDERS$k (ORDERID)
   ON DELETE CASCADE
   ;
+
+SET FOREIGN_KEY_CHECKS=1;
 \n";
   close $OUT;
   sleep(1);
@@ -138,11 +150,15 @@ foreach my $k (1 .. $numberofstores){
 	open (my $OUT, ">$mysql_targetdir${pathsep}$indexfile") || die("Can't open $mysql_targetdir${pathsep}$indexfile");
 	print $OUT  "-- Tables
 USE DS3;
+SET FOREIGN_KEY_CHECKS=0;
+
 ALTER TABLE MEMBERSHIP$k
   ADD CONSTRAINT FK_MEMBERSHIP_CUSTID$k FOREIGN KEY (CUSTOMERID)
   REFERENCES CUSTOMERS$k (CUSTOMERID)
   ON DELETE CASCADE
   ;
+
+SET FOREIGN_KEY_CHECKS=1;
 \n";
   close $OUT;
   sleep(1);
@@ -174,17 +190,20 @@ CREATE INDEX idx_reviews_helpfulness$k ON REVIEWS$k
   total_helpfulness
   );
 
+SET FOREIGN_KEY_CHECKS=0;
+
 ALTER TABLE REVIEWS$k
   ADD CONSTRAINT FK_REVIEW_CUSTOMERID$k FOREIGN KEY (CUSTOMERID)
   REFERENCES CUSTOMERS$k (CUSTOMERID)
   ON DELETE CASCADE
   ;
 
+SET FOREIGN_KEY_CHECKS=1;
 \n";
   close $OUT;
   sleep(1);
   print ("mysql -h $mysqltarget -u web --password=web < $mysql_targetdir${pathsep}$indexfile\n");
-  system ("mysql -h $mysqltarget -u web --password=web < $mysql_targetdir${pathsep}$indexfile $mybackground");
+  system ("mysql -h $mysqltarget -u web --password=web < $mysql_targetdir${pathsep}$indexfile");
   }
 
 $indexfile="mysqlds35_create_review_helpfulness_indexes.sql";
@@ -204,11 +223,15 @@ CREATE INDEX IX_REVIEW_HELP_ID_HELPID$k ON REVIEWS_HELPFULNESS$k
   REVIEWS_HELPFULNESS_ID
   );
 
+SET FOREIGN_KEY_CHECKS=0;
+
 ALTER TABLE REVIEWS_HELPFULNESS$k
   ADD CONSTRAINT FK_REVIEW_ID$k FOREIGN KEY (REVIEW_ID)
   REFERENCES REVIEWS$k (REVIEW_ID)
   ON DELETE CASCADE
   ;
+
+SET FOREIGN_KEY_CHECKS=1;
 
 CREATE INDEX IX_REORDER_PRODID$k on REORDER$k
   (
