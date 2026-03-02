@@ -401,7 +401,7 @@ BEGIN
             R.total_helpfulness AS totalhelp
         FROM DS3.PRODUCTS$k P
         INNER JOIN DS3.REVIEWS$k R ON P.prod_id = R.prod_id
-        WHERE MATCH (P.title) AGAINST (title_in) 
+        WHERE MATCH (P.title) AGAINST (title_in IN BOOLEAN MODE) 
         LIMIT search_depth_in
     ) AS T1
     ORDER BY totalhelp DESC
@@ -436,7 +436,7 @@ BEGIN
             R.total_helpfulness AS totalhelp
         FROM DS3.PRODUCTS$k P
         INNER JOIN DS3.REVIEWS$k R ON P.prod_id = R.prod_id
-        WHERE MATCH(P.actor) AGAINST(actor_in)
+        WHERE MATCH(P.actor) AGAINST(actor_in IN BOOLEAN MODE)
         LIMIT search_depth_in
     ) AS T1
     ORDER BY totalhelp DESC
