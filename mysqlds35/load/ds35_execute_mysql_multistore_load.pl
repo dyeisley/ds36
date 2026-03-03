@@ -109,7 +109,7 @@ if ("$^O" eq "linux")
 	
 	print "Load finished at ".(localtime), "\n";
 
-	sleep(10);
+	sleep(1);
 
 	# Delete the finishedxx.txt files
 

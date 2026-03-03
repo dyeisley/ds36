@@ -531,8 +531,8 @@ namespace ds2xdriver
         BrowseReviews_by_title.Parameters["title_in"].Value = get_review_title_in;
         BrowseReviews_by_title.Parameters["search_depth_in"].Value = search_depth_in ;
 
-        //    Console.WriteLine("Thread {0}: Calling Browse Review w/ browse_type= {1}  batch_size_in= {2}",  
-        //      Thread.CurrentThread.Name, browse_review_type_in, batch_size_in); 
+        //    Console.WriteLine("Thread {0}: Calling Browse Review w/ browse_type= {1}  search_depth_in= {2}",  
+        //      Thread.CurrentThread.Name, browse_review_type_in, search_depth_in); 
 
 #if (USE_WIN32_TIMER)
       long ctr0 = 0, ctr = 0, freq = 0;
@@ -569,6 +569,7 @@ namespace ds2xdriver
                 review_summary_out[i_row] = Rdr.GetString(7);
                 review_text_out[i_row] = Rdr.GetString(8);
                 review_helpfulness_sum_out[i_row] = Rdr.GetInt32(9);
+		//Console.WriteLine("\tprod_id_out: {0} title_out: {1} actor_out: {2} review_id_out: {3} review_date_out: {4} review_stars_out: {5} review_customerid_out: {6} review_summary_out: {7}\n\treview_text_out: {8} review_helpfulness_sum_out: {9}\n", prod_id_out[i_row], title_out[i_row], actor_out[i_row], review_id_out[i_row], review_date_out[i_row], review_stars_out[i_row], review_customerid_out[i_row], review_summary_out[i_row], review_text_out[i_row], review_helpfulness_sum_out[i_row] );
                 ++i_row;
             } // end while rdr.read()
             Rdr.Close();
@@ -627,6 +628,9 @@ namespace ds2xdriver
                 break;
         }
                 
+        //    Console.WriteLine("Thread {0}: Calling ds2getreview w/ browse_type= {1}  batch_size_in= {2} prod_in= {3}",
+        //      Thread.CurrentThread.Name, get_review_type_in, batch_size_in, get_review_prod_in);
+
 #if (USE_WIN32_TIMER)
       long ctr0 = 0, ctr = 0, freq = 0;
       QueryPerformanceFrequency(ref freq); // obtain system freq (ticks/sec)
@@ -663,6 +667,8 @@ namespace ds2xdriver
                 review_summary_out[i_row] = Rdr.GetString(5);
                 review_text_out[i_row] = Rdr.GetString(6);
                 review_helpfulness_sum_out[i_row] = Rdr.GetInt32(7);
+		//Console.WriteLine("\treview_id_out: {0} prod_id_out: {1} review_date_out: {2} review_stars_out: {3} review_customerid_out: {4} review_summary_out: {5} review_text_out: {6} review_helpfulness_sum_out: {7}",
+		//  review_id_out[i_row], prod_id_out[i_row], review_date_out[i_row], review_stars_out[i_row], review_customerid_out[i_row], review_summary_out[i_row], review_text_out[i_row], review_helpfulness_sum_out[i_row]);
                 ++i_row;
             } // end while rdr.read()
             Rdr.Close();
