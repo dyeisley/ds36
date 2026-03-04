@@ -8,6 +8,9 @@ use warnings;
 my $oracletarget = $ARGV [0];
 my $numberofstores = $ARGV[1];
 
+my $pathsep;
+my $startcmd;
+
 #Need seperate target directory so that mulitple DB Targets can be loaded at the same time
 my $oracletargetdir;  
 
@@ -16,10 +19,22 @@ $oracletargetdir = $oracletarget;
 # remove any backslashes from string to be used for directory name
 $oracletargetdir =~ s/\\//;
 
-system ("mkdir $oracletargetdir");
+system ("mkdir -p $oracletargetdir");
+
+# This section enables support for Linux and Windows - detecting the type of OS, and then using the proper commands
+if ("$^O" eq "linux")
+        {
+        $pathsep = "/";
+	$startcmd = "";
+        }
+else
+        {
+        $pathsep = "\\\\";
+	$startcmd = "start";
+        };
 
 foreach my $k (1 .. $numberofstores){
-	open (my $OUT, ">$oracletargetdir\\oracleds35_analyzeall$k.sql") || die("Can't open oracleds35_analyzeall$k.sql");
+	open (my $OUT, ">$oracletargetdir${pathsep}oracleds35_analyzeall$k.sql") || die("Can't open oracleds35_analyzeall$k.sql");
 	print $OUT "declare
 begin
 dbms_stats.gather_table_stats(ownname=> 'DS3', tabname=> 'CATEGORIES$k', partname=> NULL );
@@ -66,6 +81,6 @@ close $OUT;
 sleep(1);
 
 foreach my $k (1 .. ($numberofstores-1)){
-  system ("start sqlplus \"ds3/ds3\@$oracletarget \" \@$oracletargetdir\\oracleds35_analyzeall$k.sql");
+  system ("$startcmd sqlplus \"ds3/ds3\@$oracletarget \" \@$oracletargetdir${pathsep}oracleds35_analyzeall$k.sql");
   }
-  system ("sqlplus \"ds3/ds3\@$oracletarget \" \@$oracletargetdir\\oracleds35_analyzeall$numberofstores.sql");
+  system ("sqlplus \"ds3/ds3\@$oracletarget \" \@$oracletargetdir${pathsep}oracleds35_analyzeall$numberofstores.sql");

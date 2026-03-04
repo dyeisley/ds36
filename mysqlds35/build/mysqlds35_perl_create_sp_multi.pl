@@ -374,6 +374,26 @@ BEGIN
         select * from PRODUCTS$k WHERE CATEGORY=category_in and SPECIAL=special_in limit batch_size_in;
 END; $$
 
+CREATE OR REPLACE PROCEDURE DS3.BROWSE_BY_VECTOR$k (
+    IN p_batch_size_in INT,
+    IN p_vector_text TEXT -- Pass the vector as a JSON string
+)
+BEGIN
+    SELECT
+        PROD_ID,
+        CATEGORY,
+        TITLE,
+        ACTOR,
+        PRICE,
+        SPECIAL,
+        COMMON_PROD_ID,
+        -- Calculate distance (automatically uses index if created)
+        VEC_DISTANCE(v_embedding, VEC_FromText(p_vector_text)) AS distance
+    FROM PRODUCTS$k
+    ORDER BY distance ASC
+    LIMIT p_batch_size_in;
+END; $$ 
+
 DROP PROCEDURE IF EXISTS DS3.GET_PROD_REVIEWS_BY_TITLE$k $$
 CREATE PROCEDURE DS3.GET_PROD_REVIEWS_BY_TITLE$k
   (
@@ -387,7 +407,25 @@ BEGIN
     SET search_depth_in = 500; 
   END IF;
 
-select T1.prod_id, T1.title, T1.actor, REVIEWS_HELPFULNESS$k.REVIEW_ID, T1.review_date, T1.stars, T1.customerid, T1.review_summary, T1.review_text, SUM(helpfulness) AS totalhelp from REVIEWS_HELPFULNESS$k inner join (select TITLE, ACTOR, PRODUCTS$k.PROD_ID,REVIEWS$k.review_date, REVIEWS$k.stars, REVIEWS$k.review_id, REVIEWS$k.customerid, REVIEWS$k.review_summary, REVIEWS$k.review_text  from PRODUCTS$k inner join REVIEWS$k on PRODUCTS$k.prod_id = REVIEWS$k.prod_id where MATCH (TITLE) AGAINST ( title_in ) limit search_depth_in) as T1 on REVIEWS_HELPFULNESS$k.REVIEW_ID = T1.review_id GROUP BY REVIEW_ID ORDER BY totalhelp DESC limit 10;
+    SELECT * FROM (
+        SELECT
+            P.prod_id,
+            P.title,
+            P.actor,
+            R.review_id,
+            R.review_date,
+            R.stars,
+            R.customerid,
+            R.review_summary,
+            R.review_text,
+            R.total_helpfulness AS totalhelp
+        FROM DS3.PRODUCTS$k P
+        INNER JOIN DS3.REVIEWS$k R ON P.prod_id = R.prod_id
+        WHERE MATCH (P.title) AGAINST (title_in IN BOOLEAN MODE) 
+        LIMIT search_depth_in
+    ) AS T1
+    ORDER BY totalhelp DESC
+    LIMIT 10;
 
 END; $$
 
@@ -404,7 +442,25 @@ BEGIN
     SET search_depth_in = 500;
   END IF;
 
-select T1.prod_id, T1.title, T1.actor, REVIEWS_HELPFULNESS$k.REVIEW_ID, T1.review_date, T1.stars, T1.customerid, T1.review_summary, T1.review_text, SUM(helpfulness) AS totalhelp from REVIEWS_HELPFULNESS$k inner join (select TITLE, ACTOR, PRODUCTS$k.PROD_ID,REVIEWS$k.review_date, REVIEWS$k.stars, REVIEWS$k.review_id, REVIEWS$k.customerid, REVIEWS$k.review_summary, REVIEWS$k.review_text  from PRODUCTS$k inner join REVIEWS$k on PRODUCTS$k.prod_id = REVIEWS$k.prod_id where MATCH (ACTOR) AGAINST ( actor_in ) limit search_depth_in) as T1 on REVIEWS_HELPFULNESS$k.REVIEW_ID = T1.review_id GROUP BY REVIEW_ID ORDER BY totalhelp DESC limit 10;
+    SELECT * FROM (
+        SELECT
+            P.prod_id,
+            P.title,
+            P.actor,
+            R.review_id,
+            R.review_date,
+            R.stars,
+            R.customerid,
+            R.review_summary,
+            R.review_text,
+            R.total_helpfulness AS totalhelp
+        FROM DS3.PRODUCTS$k P
+        INNER JOIN DS3.REVIEWS$k R ON P.prod_id = R.prod_id
+        WHERE MATCH(P.actor) AGAINST(actor_in IN BOOLEAN MODE)
+        LIMIT search_depth_in
+    ) AS T1
+    ORDER BY totalhelp DESC
+    LIMIT 10;
 
 END; $$
 
@@ -416,7 +472,11 @@ CREATE PROCEDURE DS3.GET_PROD_REVIEWS$k
   )
 BEGIN
 
-SELECT REVIEWS$k.review_id, REVIEWS$k.prod_id, REVIEWS$k.review_date, REVIEWS$k.stars, REVIEWS$k.customerid,REVIEWS$k.review_summary, REVIEWS$k.review_text, SUM(REVIEWS_HELPFULNESS1.helpfulness) as total FROM REVIEWS$k INNER JOIN REVIEWS_HELPFULNESS1 on REVIEWS$k.review_id=REVIEWS_HELPFULNESS1.review_id WHERE PROD_ID = prod_in GROUP BY REVIEWS$k.review_id ORDER BY total DESC limit batch_size_in;
+SELECT review_id, prod_id, review_date, stars, customerid, review_summary, review_text, total_helpfulness
+FROM REVIEWS$k
+WHERE prod_id = prod_in
+ORDER BY total_helpfulness DESC
+LIMIT batch_size_in;
 
 END; $$
 
@@ -429,7 +489,11 @@ CREATE PROCEDURE DS3.GET_PROD_REVIEWS_BY_STARS$k
   )
 BEGIN
 
-SELECT REVIEWS$k.review_id, REVIEWS$k.prod_id, REVIEWS$k.review_date, REVIEWS$k.stars, REVIEWS$k.customerid,REVIEWS$k.review_summary, REVIEWS$k.review_text, SUM(REVIEWS_HELPFULNESS1.helpfulness) as total FROM REVIEWS$k INNER JOIN REVIEWS_HELPFULNESS1 on REVIEWS$k.review_id=REVIEWS_HELPFULNESS1.review_id WHERE PROD_ID = prod_in AND STARS = stars_in GROUP BY REVIEWS$k.review_id ORDER BY total DESC limit batch_size_in;
+SELECT review_id, prod_id, review_date, stars, customerid, review_summary, review_text, total_helpfulness 
+FROM REVIEWS$k
+WHERE prod_id = prod_in AND STARS = stars_in
+ORDER BY total_helpfulness DESC
+LIMIT batch_size_in;
 
 END; $$
 
@@ -441,14 +505,18 @@ CREATE PROCEDURE DS3.GET_PROD_REVIEWS_BY_DATE$k
   )
 BEGIN
 
-SELECT REVIEWS$k.review_id, REVIEWS$k.prod_id, REVIEWS$k.review_date, REVIEWS$k.stars, REVIEWS$k.customerid,REVIEWS$k.review_summary, REVIEWS$k.review_text, SUM(REVIEWS_HELPFULNESS1.helpfulness) as total FROM REVIEWS$k INNER JOIN REVIEWS_HELPFULNESS1 on REVIEWS$k.review_id=REVIEWS_HELPFULNESS1.review_id WHERE PROD_ID = prod_in GROUP BY REVIEWS$k.review_id ORDER BY REVIEW_DATE DESC limit batch_size_in;
+SELECT review_id, prod_id, review_date, stars, customerid, review_summary, review_text, total_helpfulness
+FROM REVIEWS$k
+WHERE prod_id = prod_in
+ORDER BY REVIEW_DATE DESC
+LIMIT batch_size_in;
 
 END; $$
 
 \n";
   close $OUT;
   sleep(1);
-  print ("mysql -h $mysqltarget -u web --password=web < $mysql_targetdir${pathsep}mysqlds35_createsp.sql\n");
-  system ("mysql -h $mysqltarget -u web --password=web < $mysql_targetdir${pathsep}mysqlds35_createsp.sql");
+  print ("mariadb -h $mysqltarget -u web --password=web < $mysql_targetdir${pathsep}mysqlds35_createsp.sql\n");
+  system ("mariadb -h $mysqltarget -u web --password=web < $mysql_targetdir${pathsep}mysqlds35_createsp.sql");
   #system ("del $mysql_targetdir${pathsep}mysqlds35_createsp.sql");
   }

@@ -8,6 +8,7 @@ use warnings;
 my $sqlservertarget = $ARGV [0];
 my $numberofstores = $ARGV[1];
 my $password = $ARGV[2] || 'password';
+my $use_vectors = $ARGV[3] || 0;
 
 my $sqlservertargetdir;
 
@@ -293,8 +294,29 @@ CREATE NONCLUSTERED INDEX IX_REVIEWSHELPFULNESS_ID_HELPID$k ON [dbo].[REVIEWS_HE
   ON DS_IND_FG
 go
 
+SET QUOTED_IDENTIFIER ON;
+SET ANSI_NULLS ON; -- ANSI_NULLS is also often required
 
+use DS3
+go
+\n";
 
+if ( $use_vectors == 1 )
+{
+print $OUT "
+IF EXISTS (SELECT * FROM sys.indexes WHERE name = 'idx_product_vector')
+    DROP INDEX idx_product_vector ON PRODUCTS$k;
+GO
+
+CREATE VECTOR INDEX idx_product_vector$k
+  ON PRODUCTS$k (ProductEmbedding)
+    WITH (METRIC = 'COSINE', TYPE = 'DISKANN')
+  ON DS_MISC_FG;
+GO
+\n";
+}
+
+print $OUT "
 CREATE STATISTICS stat_cust_cctype_username$k ON CUSTOMERS$k(CREDITCARDTYPE, USERNAME)
 GO
 CREATE STATISTICS stat_cust_cctype_customerid$k ON CUSTOMERS$k(CREDITCARDTYPE, CUSTOMERID)

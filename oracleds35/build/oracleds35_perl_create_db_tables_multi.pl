@@ -8,6 +8,8 @@ use warnings;
 my $oracletarget = $ARGV [0];
 my $numberofstores = $ARGV[1];
 
+my $pathsep;
+
 #Need seperate target directory so that mulitple DB Targets can be loaded at the same time
 my $oracletargetdir;  
 
@@ -16,14 +18,24 @@ $oracletargetdir = $oracletarget;
 # remove any backslashes from string to be used for directory name
 $oracletargetdir =~ s/\\//;
 
-system ("mkdir $oracletargetdir");
+system ("mkdir -p $oracletargetdir");
+
+# This section enables support for Linux and Windows - detecting the type of OS, and then using the proper commands
+if ("$^O" eq "linux")
+        {
+        $pathsep = "/";
+        }
+else
+        {
+        $pathsep = "\\\\";
+        };
 
 #First call the script to prepare for the creation of the database - which will delete any existing DS3 database
 
 system ("sqlplus \"sys/oracle\@$oracletarget as sysdba \" \@oracleds35_prep_create_db.sql"); 
 
 foreach my $k (1 .. $numberofstores){
-	open (my $OUT, ">$oracletargetdir\\oracleds35_createtables.sql") || die("Can't open oracleds35_createtables.sql");
+	open (my $OUT, ">$oracletargetdir${pathsep}oracleds35_createtables.sql") || die("Can't open oracleds35_createtables.sql");
 	print $OUT "CREATE TABLE \"DS3\".\"CUSTOMERS$k\"
   (
   \"CUSTOMERID\" NUMBER NOT NULL, 
@@ -83,34 +95,10 @@ CREATE TABLE \"DS3\".\"ORDERS$k\"
   ) 
   TABLESPACE \"ORDERTBS\"
   PARTITION BY RANGE (ORDERDATE)
-    (
-    PARTITION JAN2013 VALUES LESS THAN (TO_DATE('2013/02/01', 'YYYY/MM/DD')),
-    PARTITION FEB2013 VALUES LESS THAN (TO_DATE('2013/03/01', 'YYYY/MM/DD')),
-    PARTITION MAR2013 VALUES LESS THAN (TO_DATE('2013/04/01', 'YYYY/MM/DD')),
-    PARTITION APR2013 VALUES LESS THAN (TO_DATE('2013/05/01', 'YYYY/MM/DD')),
-    PARTITION MAY2013 VALUES LESS THAN (TO_DATE('2013/06/01', 'YYYY/MM/DD')),
-    PARTITION JUN2013 VALUES LESS THAN (TO_DATE('2013/07/01', 'YYYY/MM/DD')),
-    PARTITION JUL2013 VALUES LESS THAN (TO_DATE('2013/08/01', 'YYYY/MM/DD')),
-    PARTITION AUG2013 VALUES LESS THAN (TO_DATE('2013/09/01', 'YYYY/MM/DD')),
-    PARTITION SEP2013 VALUES LESS THAN (TO_DATE('2013/10/01', 'YYYY/MM/DD')),
-    PARTITION OCT2013 VALUES LESS THAN (TO_DATE('2013/11/01', 'YYYY/MM/DD')),
-    PARTITION NOV2013 VALUES LESS THAN (TO_DATE('2013/12/01', 'YYYY/MM/DD')),
-    PARTITION DEC2013 VALUES LESS THAN (TO_DATE('2014/01/01', 'YYYY/MM/DD')),
-    PARTITION JAN2014 VALUES LESS THAN (TO_DATE('2014/02/01', 'YYYY/MM/DD')),
-    PARTITION FEB2014 VALUES LESS THAN (TO_DATE('2014/03/01', 'YYYY/MM/DD')),
-    PARTITION MAR2014 VALUES LESS THAN (TO_DATE('2014/04/01', 'YYYY/MM/DD')),
-    PARTITION APR2014 VALUES LESS THAN (TO_DATE('2014/05/01', 'YYYY/MM/DD')),
-    PARTITION MAY2014 VALUES LESS THAN (TO_DATE('2014/06/01', 'YYYY/MM/DD')),
-    PARTITION JUN2014 VALUES LESS THAN (TO_DATE('2014/07/01', 'YYYY/MM/DD')),
-    PARTITION JUL2014 VALUES LESS THAN (TO_DATE('2014/08/01', 'YYYY/MM/DD')),
-    PARTITION AUG2014 VALUES LESS THAN (TO_DATE('2014/09/01', 'YYYY/MM/DD')),
-    PARTITION SEP2014 VALUES LESS THAN (TO_DATE('2014/10/01', 'YYYY/MM/DD')),
-    PARTITION OCT2014 VALUES LESS THAN (TO_DATE('2014/11/01', 'YYYY/MM/DD')),
-    PARTITION NOV2014 VALUES LESS THAN (TO_DATE('2014/12/01', 'YYYY/MM/DD')),
-    PARTITION DEC2014 VALUES LESS THAN (TO_DATE('2015/01/01', 'YYYY/MM/DD')),
-    PARTITION JAN2015 VALUES LESS THAN (TO_DATE('2015/02/01', 'YYYY/MM/DD')),
-    PARTITION MAXVAL VALUES LESS THAN (MAXVALUE)
-    )
+  INTERVAL (NUMTOYMINTERVAL(1, 'MONTH')) (
+    -- Define only the first partition. Others will be created automatically.
+    PARTITION JAN2010 VALUES LESS THAN (TO_DATE('2010-01-01', 'YYYY-MM-DD'))
+   );
   ;
 
 CREATE TABLE \"DS3\".\"ORDERLINES$k\"
@@ -123,34 +111,10 @@ CREATE TABLE \"DS3\".\"ORDERLINES$k\"
   ) 
   TABLESPACE \"ORDERTBS\"
   PARTITION BY RANGE (ORDERDATE)
-    (
-    PARTITION JAN2013 VALUES LESS THAN (TO_DATE('2013/02/01', 'YYYY/MM/DD')),
-    PARTITION FEB2013 VALUES LESS THAN (TO_DATE('2013/03/01', 'YYYY/MM/DD')),
-    PARTITION MAR2013 VALUES LESS THAN (TO_DATE('2013/04/01', 'YYYY/MM/DD')),
-    PARTITION APR2013 VALUES LESS THAN (TO_DATE('2013/05/01', 'YYYY/MM/DD')),
-    PARTITION MAY2013 VALUES LESS THAN (TO_DATE('2013/06/01', 'YYYY/MM/DD')),
-    PARTITION JUN2013 VALUES LESS THAN (TO_DATE('2013/07/01', 'YYYY/MM/DD')),
-    PARTITION JUL2013 VALUES LESS THAN (TO_DATE('2013/08/01', 'YYYY/MM/DD')),
-    PARTITION AUG2013 VALUES LESS THAN (TO_DATE('2013/09/01', 'YYYY/MM/DD')),
-    PARTITION SEP2013 VALUES LESS THAN (TO_DATE('2013/10/01', 'YYYY/MM/DD')),
-    PARTITION OCT2013 VALUES LESS THAN (TO_DATE('2013/11/01', 'YYYY/MM/DD')),
-    PARTITION NOV2013 VALUES LESS THAN (TO_DATE('2013/12/01', 'YYYY/MM/DD')),
-    PARTITION DEC2013 VALUES LESS THAN (TO_DATE('2014/01/01', 'YYYY/MM/DD')),
-    PARTITION JAN2014 VALUES LESS THAN (TO_DATE('2014/02/01', 'YYYY/MM/DD')),
-    PARTITION FEB2014 VALUES LESS THAN (TO_DATE('2014/03/01', 'YYYY/MM/DD')),
-    PARTITION MAR2014 VALUES LESS THAN (TO_DATE('2014/04/01', 'YYYY/MM/DD')),
-    PARTITION APR2014 VALUES LESS THAN (TO_DATE('2014/05/01', 'YYYY/MM/DD')),
-    PARTITION MAY2014 VALUES LESS THAN (TO_DATE('2014/06/01', 'YYYY/MM/DD')),
-    PARTITION JUN2014 VALUES LESS THAN (TO_DATE('2014/07/01', 'YYYY/MM/DD')),
-    PARTITION JUL2014 VALUES LESS THAN (TO_DATE('2014/08/01', 'YYYY/MM/DD')),
-    PARTITION AUG2014 VALUES LESS THAN (TO_DATE('2014/09/01', 'YYYY/MM/DD')),
-    PARTITION SEP2014 VALUES LESS THAN (TO_DATE('2014/10/01', 'YYYY/MM/DD')),
-    PARTITION OCT2014 VALUES LESS THAN (TO_DATE('2014/11/01', 'YYYY/MM/DD')),
-    PARTITION NOV2014 VALUES LESS THAN (TO_DATE('2014/12/01', 'YYYY/MM/DD')),
-    PARTITION DEC2014 VALUES LESS THAN (TO_DATE('2015/01/01', 'YYYY/MM/DD')),
-    PARTITION JAN2015 VALUES LESS THAN (TO_DATE('2015/02/01', 'YYYY/MM/DD')),
-    PARTITION MAXVAL VALUES LESS THAN (MAXVALUE)
-    )
+  INTERVAL (NUMTOYMINTERVAL(1, 'MONTH')) (
+    -- Define only the first partition. Others will be created automatically.
+    PARTITION JAN2010 VALUES LESS THAN (TO_DATE('2010-01-01', 'YYYY-MM-DD'))
+   );
   ;
 
 CREATE TABLE \"DS3\".\"PRODUCTS$k\"
@@ -261,7 +225,7 @@ CREATE SEQUENCE \"DS3\".\"ORDERID_SEQ$k\"
   \n";
   close $OUT;
   sleep(1);
-  system ("sqlplus \"sys/oracle\@$oracletarget as sysdba \" \@$oracletargetdir\\oracleds35_createtables.sql");
+  system ("sqlplus \"sys/oracle\@$oracletarget as sysdba \" \@$oracletargetdir${pathsep}oracleds35_createtables.sql");
   #system ("del oracleds35_createtables.sql");
   }
 

@@ -1,5 +1,5 @@
 # ds3_execute_mysql_multistore_load.pl
-# Script to execute mysql data loads in parallel for a set of ds3 sqlserver tables files for a given number of stores
+# Script to execute mariadb data loads in parallel for a set of ds3 sqlserver tables files for a given number of stores
 # Syntax to run - perl ds3_execute_mysql_multistore_load.pl <mysql_target> <number_of_stores> 
 
 use strict;
@@ -31,7 +31,7 @@ $mysql_targetdir =~ s/\\//;
 
 print "$^O\n";
 
-system ("mysql -h $mysqltarget -u web --password=web --local_infile DS3 < mysqlds35_disable_redo_log.sql");
+system ("mariadb -h $mysqltarget -u web --password=web --local_infile DS3 < mysqlds35_disable_redo_log.sql");
 
 # This section enables support for Linux and Windows - detecting the type of OS, and then starting the executions in parallel
 if ("$^O" eq "linux")
@@ -109,7 +109,7 @@ if ("$^O" eq "linux")
 	
 	print "Load finished at ".(localtime), "\n";
 
-	sleep(10);
+	sleep(1);
 
 	# Delete the finishedxx.txt files
 
@@ -219,4 +219,4 @@ else         # Windows Version
 
 }  # End Windows version
 
-system ("mysql -h $mysqltarget -u web --password=web --local_infile DS3 < mysqlds35_enable_redo_log.sql");
+system ("mariadb -h $mysqltarget -u web --password=web --local_infile DS3 < mysqlds35_enable_redo_log.sql");

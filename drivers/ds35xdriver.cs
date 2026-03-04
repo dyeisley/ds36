@@ -1,10 +1,10 @@
-﻿/*
+/*
  * Generalized DVD Store 3.5 Driver Program - ds35xdriver.cs
  *
  * Copyright (C) 2005 Dell, Inc. <davejaffe7@gmail.com> and <tmuirhead@vmware.com>
  *
  * Generates orders against DVD Store Database 3.5 through web interface or directly against database
- * Simulates users logging in to store or creating new customer data; browsing for DVDs by title, actor or 
+ * Simulates users logging in to store or creating new customer data; browsing for DVDs by title, actor or
  * category; creating new product reviews, browsing product reviews, and purchasing selected DVDs
  *
  * To see syntax: ds35xdriver   where x= web, mysql, sqlserver or oracle
@@ -68,79 +68,77 @@ namespace ds2xdriver
   //
   //-------------------------------------------------------------------------------------------------
   //
-  class Controller
+  public class Controller
     {
     // If compile option /d:USE_WIN32_TIMER is specified will use 64b QueryPerformance counter from Win32
-    // Else will use .NET DateTime class      
+    // Else will use .NET DateTime class
 #if (USE_WIN32_TIMER)
     [DllImport("kernel32.dll")]
     extern static short QueryPerformanceCounter(ref long x);
     [DllImport("kernel32.dll")]
-    extern static short QueryPerformanceFrequency(ref long x);   
+    extern static short QueryPerformanceFrequency(ref long x);
 #endif
 
-    // Variables needed by User objects 
-    public static string target , windows_perf_host = null;
-    public static string outfilename;
-    public static string ds2_mode_string;
-    System.IO.StreamWriter outfile;
-    
-    public static string[] target_servers;                   //Added by GSK (for single instance of driver program driving multiple database servers)
-    public static string[] windows_perf_host_servers;       //Added by GSK
-    public static int n_target_servers = 1;                 //Added by GSK to keep track of number of Servers/DB instances on which threads spawned
+    // Variables needed by User objects
+    public static string target = string.Empty , windows_perf_host = string.Empty;
+    public static string outfilename = string.Empty;
+    public static string ds2_mode_string = string.Empty;
+    public static string use_vectors_string = string.Empty;
+    System.IO.StreamWriter? outfile;
+
+    public static string[] target_servers = null!;                  //Added by GSK (for single instance of driver program driving multiple database servers)
+    public static string[] windows_perf_host_servers = null!;       //Added by GSK
+    public static int n_target_servers = 1;                         //Added by GSK to keep track of number of Servers/DB instances on which threads spawned
     public static object UpdateLock = 1;
     public static int n_threads , n_threads_running = 0 , n_threads_connected = 0;
     public static int n_overall = 0 , n_login_overall = 0 , n_newcust_overall = 0 , n_browse_overall = 0 ,
       n_purchase_overall = 0 , n_rollbacks_overall = 0 , n_rollbacks_from_start = 0 , n_purchase_from_start = 0 , n_cpu_pct_samples = 0;
-    public static int n_reviewbrowse_overall = 0, n_newreview_overall = 0, n_newhelpfulness_overall = 0, n_newmember_overall = 0;
+    public static int n_reviewbrowse_overall = 0, n_newreview_overall = 0, n_newhelpfulness_overall = 0, n_newmember_overall = 0, n_browse_vector = 0;
     public static double pct_rollbacks;
+    public static int run_time = 0 , warmup_time = 1, log_freq = 1;
 
     //Added by GSK
-    public static int[] arr_n_login_overall;
-    public static double[] arr_rt_login_overall;
-    public static int[] arr_n_newcust_overall;
-    public static double[] arr_rt_newcust_overall;
-    public static int[] arr_n_browse_overall;
-    public static double[] arr_rt_browse_overall;
-    public static int[] arr_n_purchase_overall;
-    public static double[] arr_rt_purchase_overall;
-    public static int[] arr_n_rollbacks_overall;
-    public static int[] arr_n_overall;
-    public static double[] arr_rt_tot_overall;
-    public static int[] arr_n_purchase_from_start;
-    public static int[] arr_n_rollbacks_from_start;
-    public static double[,] arr_rt_tot_lastn;
-    public static double[] arr_cpu_pct_tot;
-    public static int[] arr_n_cpu_pct_samples;
+    public static int[] arr_n_login_overall = new int[n_target_servers];
+    public static double[] arr_rt_login_overall = new double[n_target_servers];
+    public static int[] arr_n_newcust_overall = new int[n_target_servers];
+    public static double[] arr_rt_newcust_overall = new double[n_target_servers];
+    public static int[] arr_n_browse_overall = new int[n_target_servers];
+    public static double[] arr_rt_browse_overall = new double[n_target_servers];
+    public static int[] arr_n_purchase_overall = new int[n_target_servers];
+    public static double[] arr_rt_purchase_overall = new double[n_target_servers];
+    public static int[] arr_n_rollbacks_overall = new int[n_target_servers];
+    public static int[] arr_n_overall = new int[n_target_servers];
+    public static double[] arr_rt_tot_overall = new double[n_target_servers];
+    public static int[] arr_n_purchase_from_start = new int[n_target_servers];
+    public static int[] arr_n_rollbacks_from_start = new int[n_target_servers];
+    public static double[,] arr_rt_tot_lastn = new double[n_target_servers,GlobalConstants.LAST_N];
+    public static double[] arr_cpu_pct_tot = new double[n_target_servers];
+    public static int[] arr_n_cpu_pct_samples = new int[n_target_servers];
     // Added by TM 3/17/2015
-    public static int[] arr_n_reviewbrowse_overall;
-    public static double[] arr_rt_reviewbrowse_overall;
-    public static int[] arr_n_newreview_overall;
-    public static double[] arr_rt_newreview_overall;
-    public static int[] arr_n_newhelpfulness_overall;
-    public static double[] arr_rt_newhelpfulness_overall;
-    public static int[] arr_n_newmember_overall;
-    public static double[] arr_rt_newmember_overall;
+    public static int[] arr_n_reviewbrowse_overall = new int[n_target_servers];
+    public static double[] arr_rt_reviewbrowse_overall = new double[n_target_servers];
+    public static int[] arr_n_newreview_overall = new int[n_target_servers];
+    public static double[] arr_rt_newreview_overall = new double[n_target_servers];
+    public static int[] arr_n_newhelpfulness_overall = new int[n_target_servers];
+    public static double[] arr_rt_newhelpfulness_overall = new double[n_target_servers];
+    public static int[] arr_n_newmember_overall = new int[n_target_servers];
+    public static double[] arr_rt_newmember_overall = new double[n_target_servers];
 
     public static int pct_newcustomers = 0 , n_searches , search_batch_size, search_depth , n_line_items , ramp_rate;
     public static int pct_newreviews = 0, n_reviews;
     public static int pct_newhelpfulness = 0;
     public static int pct_newmember = 0;
     public static double think_time , rt_tot_overall = 0.0 , rt_login_overall = 0.0 , rt_newcust_overall = 0.0 ,
-      rt_browse_overall = 0.0 , rt_purchase_overall = 0.0 , cpu_pct_tot = 0.0;
+        rt_browse_overall = 0.0 , rt_purchase_overall = 0.0 , cpu_pct_tot = 0.0;
     public static double rt_reviewbrowse_overall = 0.0, rt_newreview_overall = 0.0, rt_newhelpfulness_overall = 0.0,
         rt_newmember_overall = 0.0;
     public static double[] rt_tot_lastn = new double[GlobalConstants.LAST_N];
     public static bool Start = false , End = false;
-    public static int[] MAX_CUSTOMER = new int[] { 20000 , 2000000 , 200000000 };
-    public static int[] MAX_PRODUCT = new int[] { 10000 , 100000 , 1000000 };
     public static int max_customer , max_product , prod_array_size, max_review;
-    //public static int[] prod_array = new int[1100000];
-    //Changed by GSK (size of this array will depend on number of rows in product table)
-    public static int[] prod_array;
+    public static int[] prod_array = new int[n_target_servers];
     public static string virt_dir = "ds3" , page_type = "php";
 
-    //Added new parameter database_custom_size and new variables by GSK 
+    //Added new parameter database_custom_size and new variables by GSK
     //Note that order_rows are per month
     public static int customer_rows , order_rows , product_rows;
     public static string db_size = "10MB";
@@ -149,16 +147,16 @@ namespace ds2xdriver
     public static string detailed_view = "N";
     public static bool is_detailed_view = true;
 
-	//Added by Performance Team - Ruban (New parameter to print log timestamps)
+    //Added by Performance Team - Ruban (New parameter to print log timestamps)
     public static string log_timestamp = "NONE";
-    public static string cur_datetime = "";																	   
+    public static string cur_datetime = "";
     //Added by GSK( New parameter to print Linux CPU utilization statistics)
-    public static string linux_perf_host = null;
-    public static string[] linux_perf_host_servers;
-    public static string[] linux_unames;
-    public static string[] linux_passwd;
-    public static double[] arr_linux_cpu_utilization;       //Used for book keeping purposes
-    //Keep track of number of windows and linux VM's on which to drive workload on 
+    public static string linux_perf_host = string.Empty;
+    public static string[] linux_perf_host_servers = { string.Empty };
+    public static string[] linux_unames = { string.Empty };
+    public static string[] linux_passwd = { string.Empty };
+    public static double[] arr_linux_cpu_utilization = { 0.0 };       //Used for book keeping purposes
+    //Keep track of number of windows and linux VM's on which to drive workload on
     public static int n_windows_servers = 0;
     public static int n_linux_servers = 0;
     //Boolean values to check if there are linux and windows target VM's
@@ -168,22 +166,22 @@ namespace ds2xdriver
     public static bool ds2_mode = false;
     // Value for number of stores to support multi stores
     public static int n_stores = 1;
-	
-	
+    public static int n_vectors = 0;
 
     // Variables needed within Controller class
     // Added new Parameter db_size by GSK
-    // db_size will indicate actual database size (e.g. Values for this parameter can be like 10MB or 150GB) 
+    // db_size will indicate actual database size (e.g. Values for this parameter can be like 10MB or 150GB)
     //db_size_str parameter is removed since it would not be used in code anywhere
     //Instead at same place we need db_size parameter
     //Added new parameter detailed_view by GSK default value = N
-	//Added new parameter log_timestamp by Performance Team - Ruban default value = N
-    //Added new parameter log_freq by Performance Team - Ruban default value = 10																				 
+    //Added new parameter log_timestamp by Performance Team - Ruban default value = N
+    //Added new parameter log_freq by Performance Team - Ruban default value = 10																				
     //Added new parameter linux_perf_host by GSK 
     static string[] input_parm_names = new string[] {"config_file", "target", "n_threads", "ramp_rate",
       "run_time", "db_size", "warmup_time", "think_time", "pct_newcustomers", "pct_newmember", "n_searches",
       "search_batch_size", "search_depth", "n_reviews", "pct_newreviews", "pct_newhelpfulness", "n_line_items", "virt_dir", 
-      "page_type", "windows_perf_host", "linux_perf_host", "detailed_view", "out_filename", "ds2_mode", "n_stores", "log_freq", "log_timestamp"};
+      "page_type", "windows_perf_host", "linux_perf_host", "detailed_view", "out_filename", "ds2_mode", "n_stores", "log_freq", "log_timestamp",
+      "use_vectors"};
     static string[] input_parm_desc = new string[] {"config file path", 
       "database/web server hostname or IP address", "number of driver threads", "startup rate (users/sec)",
       "run time (min) - 0 is infinite", "S | M | L or database size (e.g. 30MB, 80GB)", "warmup_time (min)", "think time (sec)", 
@@ -195,9 +193,9 @@ namespace ds2xdriver
       "username:password:target hostname/IP Address for Linux CPU% display (Linux Only)",
       "Detailed statistics View (Y / N)", "output results to specified file in csv format", "run driver in ds2 mode to mimic previous version",
       "Number of stores in DS3 instance", "print output frequency in seconds",
-	  "Detailed timestamp format for log (UTC / LOCAL / NONE) "};
+	  "Detailed timestamp format for log (UTC / LOCAL / NONE) ", "Experimental vectors"};
     static string[] input_parm_values = new string[] {"none", "localhost", "1", "10", "0", "10MB", "1", "0",
-      "20", "1", "3", "5", "500", "3", "5", "10", "5", "ds3", "php", "","","N","","N","1", "10", "NONE"};
+      "20", "1", "3", "5", "500", "3", "5", "10", "5", "ds3", "php", "","","N","","N","1", "10", "NONE", "N"};
 
     int server_id = 0;          //Added by GSK
     
@@ -207,8 +205,10 @@ namespace ds2xdriver
     [STAThread]
     static void Main ( string[] args )
       {
-      new Controller ( args );
+      Controller c = new Controller ( args );
+      c.do_work();
       }
+
     //
     //-------------------------------------------------------------------------------------------------
     //
@@ -237,8 +237,8 @@ namespace ds2xdriver
         }
       catch(System.Exception e)
         {
-        //In case of any exception like error in connection to target linux host, directly throw exception to caller of this function
-        throw e;
+            Console.Error.WriteLine("Error: {0}", e.Message);
+	    return false;
         }
       return true;
       }
@@ -252,7 +252,7 @@ namespace ds2xdriver
       {
       try
         {
-        String s_retValue = "";                    
+        String s_retValue = "";
         Process p = new Process ( );
         //These arguments will ensure than yes = y will automatically be answered
         // -l root -pw password 11.22.33.44 exit
@@ -272,8 +272,7 @@ namespace ds2xdriver
         }
       catch ( System.Exception e )
         {
-        //In case of exception throw exception directly to caller of this function
-        throw e;
+            Console.Error.WriteLine("Error: {0}", e.Message);
         }                
       }
 
@@ -317,8 +316,7 @@ namespace ds2xdriver
         }
       catch ( System.Exception e )
         {
-        //In case of exception throw exception directly to caller of this function
-        throw e;
+            Console.Error.WriteLine("Error: {0}", e.Message);
         }    
       return cpuutilizn;
       }
@@ -345,7 +343,7 @@ namespace ds2xdriver
           }
         catch ( System.Exception e )
           {
-          throw e;
+            Console.Error.WriteLine("Error: {0}", e.Message);
           }
         }
       else if ( db_custom_size.IndexOf ( "gb" ) != -1 )
@@ -361,7 +359,7 @@ namespace ds2xdriver
           }
         catch ( System.Exception e )
           {
-          throw e;
+            Console.Error.WriteLine("Error: {0}", e.Message);
           }
         }
       else
@@ -410,23 +408,13 @@ namespace ds2xdriver
     //    
     //-------------------------------------------------------------------------------------------------
     //   
-    Controller ( string[] argarray )
+    public Controller ( string[] argarray )
       {
       //Console.WriteLine("Controller constructor: " + argarray.Length + " args");
 
       int i;
-            int z;
-      int i_sec , run_time = 0 , warmup_time = 1, log_freq = 1;
-      //Changed by GSK
-      //int db_size=0;
-      //string db_size_str, errmsg=null;
-      string errmsg = null;
-      double et;
-      int opm , rt_login_avg_msec , rt_newcust_avg_msec , rt_browse_avg_msec , rt_purchase_avg_msec ,
-        rt_tot_lastn_max_msec , rt_tot_avg_msec;
-      int rt_reviewbrowse_avg_msec, rt_newreview_avg_msec, rt_newhelpfulness_avg_msec, rt_newmember_avg_msec;
-      double rt_tot_lastn_max;
-
+      string errmsg = string.Empty;
+/*
       //Added by GSK
       int old_n_overall = 0;
       int[] arr_old_n_overall;
@@ -452,23 +440,7 @@ namespace ds2xdriver
       int[] arr_rt_tot_lastn_max_msec;
       int[] arr_rt_tot_avg_msec;
       double arr_rt_tot_lastn_max;
-
-      //Added by GSK (Keeps track of total and utilizn of bunch of linux and windows VM's)
-      double total_cpu_utilzn = 0.0;
-      double total_win_cpu_utilzn = 0.0;
-      double total_lin_cpu_utilzn = 0.0;
-
-    
-#if (USE_WIN32_TIMER)
-      long ctr0 = 0, ctr = 0, freq = 0;
-#else
-      TimeSpan TS = new TimeSpan ( );
-      DateTime DT0;
-#endif
-
-      User[] users = new User[GlobalConstants.MAX_USERS];
-      Thread[] threads = new Thread[GlobalConstants.MAX_USERS];
-
+*/
       if ( argarray.Length == 0 )
         {
         // display input parameter info
@@ -486,7 +458,10 @@ namespace ds2xdriver
       // send args to parse_args, return 0 or # of parms set, error_message if any
       // parsed values are in array input_parm_values
       i = parse_args ( argarray , ref errmsg );
-      if ( i != 0 ) { }//Console.WriteLine("{0} parameters parsed", i);
+      if ( i != 0 ) 
+        { 
+	//Console.WriteLine("{0} parameters parsed", i);
+	}
       else
         {
         Console.WriteLine ( errmsg );
@@ -495,14 +470,18 @@ namespace ds2xdriver
 
       // Set parameters from input_parm_values 
       //target = input_parm_values[Array.IndexOf ( input_parm_names , "target" )];
-
-      //Added try catch block by GSK
       try
         {
-
         target = input_parm_values[Array.IndexOf ( input_parm_names , "target" )];                
         target_servers = target.Split ( ';' );
         n_target_servers = target_servers.Length;   //Added by GSK to keep track of number of Target Servers
+        }
+      catch(System.Exception e)
+        {
+        Console.WriteLine ( "Error in converting parameter target: {0}" , e.Message );
+        return;
+        }
+
         //Added by GSK
         //Dynamically allocate memory Initialize arrays for book keeping for individual Servers on which test runs
         arr_n_login_overall = new int[n_target_servers];
@@ -527,7 +506,7 @@ namespace ds2xdriver
         arr_n_purchase_from_start = new int[n_target_servers];
         arr_n_rollbacks_from_start = new int[n_target_servers];
         arr_rt_tot_lastn = new double[n_target_servers,GlobalConstants.LAST_N];
-
+/*
         arr_opm = new int[n_target_servers];
         arr_rt_login_avg_msec = new int[n_target_servers];
         arr_rt_newcust_avg_msec = new int[n_target_servers];
@@ -602,21 +581,15 @@ namespace ds2xdriver
             arr_rt_tot_lastn[i,l] = 0.0;
             }
           }                
-        }
-        
-      catch(System.Exception e)
-        {
-        Console.WriteLine ( "Error in converting parameter target: {0}" , e.Message );
-        return;
-        }
+	  */
 
       try
         {
         n_threads = Convert.ToInt32 ( input_parm_values[Array.IndexOf ( input_parm_names , "n_threads" )] );                
-                //Changed by GSK -- n_threads represents threads spawned per DB/Web Server
-                //Hence total number of threads spawned by Controller Driver Program = no of threads per Server * number of servers to Drive Workload on
-                n_threads = n_threads * n_target_servers;
-                Console.WriteLine ( "Total number of Threads to be Spawned across multiple servers are n_threads: {0}" , n_threads );
+        //Changed by GSK -- n_threads represents threads spawned per DB/Web Server
+        //Hence total number of threads spawned by Controller Driver Program = no of threads per Server * number of servers to Drive Workload on
+        n_threads = n_threads * n_target_servers;
+        Console.WriteLine ( "Total number of Threads to be Spawned across multiple servers are n_threads: {0}" , n_threads );
         }
       catch ( System.Exception e )
         {
@@ -641,11 +614,11 @@ namespace ds2xdriver
         Console.WriteLine ( "Error in converting parameter run_time: {0}" , e.Message );
         return;
         }
-	  try	 
+      try	 
         {
         log_freq = Convert.ToInt32(input_parm_values[Array.IndexOf(input_parm_names, "log_freq")]);
         }
-        catch (System.Exception e)
+      catch (System.Exception e)
         {
         Console.WriteLine("Error in converting parameter log_freq: {0}", e.Message);
         return;
@@ -670,6 +643,7 @@ namespace ds2xdriver
         Console.WriteLine ( "Error: Wrong db_size parameter value specified" );
         return;
         }
+
       try
         {
         if ( db_size.ToUpper ( ) == "S" ) db_size = "10MB";        //These if and else if's are to ensure code works with older S | M | L parameters too
@@ -692,6 +666,7 @@ namespace ds2xdriver
         Console.WriteLine ( "Error in converting parameter warmup_time: {0}" , e.Message );
         return;
         }
+
       try
         {
         think_time = Convert.ToDouble ( input_parm_values[Array.IndexOf ( input_parm_names , "think_time" )] );
@@ -701,10 +676,10 @@ namespace ds2xdriver
         Console.WriteLine ( "Error in converting parameter think_time: {0}" , e.Message );
         return;
         }
+
       try
         {
-        pct_newcustomers =
-          Convert.ToInt32 ( input_parm_values[Array.IndexOf ( input_parm_names , "pct_newcustomers" )] );
+        pct_newcustomers = Convert.ToInt32 ( input_parm_values[Array.IndexOf ( input_parm_names , "pct_newcustomers" )] );
         }
       catch ( System.Exception e )
         {
@@ -740,7 +715,7 @@ namespace ds2xdriver
         Console.WriteLine ( "Error in converting parameter search_batch_size: {0}" , e.Message );
         return;
         }
-		try
+      try
         {
         search_depth = Convert.ToInt32 ( input_parm_values[Array.IndexOf ( input_parm_names ,
           "search_depth" )] );
@@ -782,8 +757,8 @@ namespace ds2xdriver
         windows_perf_host = input_parm_values[Array.IndexOf ( input_parm_names , "windows_perf_host" )];
         if ( windows_perf_host == "" )
           {
-          windows_perf_host = null;
-          windows_perf_host_servers = null;
+          windows_perf_host = string.Empty;
+          //windows_perf_host_servers = null;
           n_windows_servers = 0;
           }
         else
@@ -814,10 +789,10 @@ namespace ds2xdriver
         linux_perf_host = input_parm_values[Array.IndexOf ( input_parm_names , "linux_perf_host" )];
         if ( linux_perf_host == "" )
           {
-          linux_perf_host = null;
-          linux_perf_host_servers = null;
+          linux_perf_host = string.Empty;
+          //linux_perf_host_servers = null;
           n_linux_servers = 0;
-          arr_linux_cpu_utilization = null;
+          //arr_linux_cpu_utilization = null;
           }
         else
           {
@@ -873,7 +848,8 @@ namespace ds2xdriver
         Console.WriteLine ( "Error in converting parameter detailed_view: {0}" , e.Message );
         return;
         }
-	  //Added by Performance Team - Ruban
+
+      //Added by Performance Team - Ruban
       try
         {
         log_timestamp = input_parm_values[Array.IndexOf(input_parm_names, "log_timestamp")];
@@ -881,17 +857,19 @@ namespace ds2xdriver
             {
                 log_timestamp = "UTC";
             }
-            else if (log_timestamp.ToUpper() == "LOCAL")
+        else if (log_timestamp.ToUpper() == "LOCAL")
             {
                 log_timestamp = "LOCAL";
             }
-			else if (log_timestamp.ToUpper() == "NONE")
-				{
+        else if (log_timestamp.ToUpper() == "NONE")
+            {
                 log_timestamp = "NONE";
                 cur_datetime = "";
             }
         else
+	    {
                 throw new System.Exception("Wrong value of parameter log_timestamp specified!!");
+	    }
         }
       catch (System.Exception e)
         {
@@ -946,16 +924,16 @@ namespace ds2xdriver
           outfilename = input_parm_values[Array.IndexOf(input_parm_names, "out_filename")];
           if (outfilename == "") 
             { 
-              outfilename = null;
+              outfilename = string.Empty;
             }
           else 
            {
-          outfile = new System.IO.StreamWriter(outfilename);
-          outfile.WriteLine("datetime et, n_overall, opm, rt_tot_lastn_max_msec, rt_tot_avg_msec, rt_tot_sampled," +
-            " n_rollbacks_overall, rollback_pct" );
+              outfile = new System.IO.StreamWriter(outfilename);
+              outfile?.WriteLine("datetime et, n_overall, opm, rt_tot_lastn_max_msec, rt_tot_avg_msec, rt_tot_sampled," +
+                " n_rollbacks_overall, rollback_pct" );
            }
       }
-        catch (System.Exception e)
+      catch (System.Exception e)
       {
           Console.WriteLine("Error in filename given for out_filename: {0}", e.Message);
           return;
@@ -988,34 +966,38 @@ namespace ds2xdriver
           Console.WriteLine("Error in converting parameter n_stores: {0}", e.Message);
           return;
       }
+      try
+      {
+          use_vectors_string = input_parm_values[Array.IndexOf(input_parm_names, "use_vectors")];
+          if (use_vectors_string.ToUpper() == "Y")
+          {
+              Console.WriteLine("Browse by vectors enabled.");
+              n_vectors = 1;
+          }
+      }
+      catch (System.Exception e)
+      {
+          Console.WriteLine("Error in parsing use_vectors parameter: {0}", e.Message);
+          return;
+      }
       
       Console.WriteLine ( "target= {0}  n_threads= {1}  ramp_rate= {2}  run_time= {3}  db_size= {4}" +
-        "  warmup_time= {5}  think_time= {6} pct_newcustomers= {7} pct_newmembers= {8}  n_searches= {9}  search_batch_size= {10}" +
-        "  search_depth= {11}  n_reviews={12} pct_newreviews={13} pct_newhelpfulness={14} n_line_items{15} virt_dir= {16}" +
-        "  page_type= {17}  windows_perf_host= {18} detailed_view= {19} linux_perf_host= {20} output_file= {21} ds2_mode= {22}" +
-        "  n_stores= {23} log_freq= {24} log_timestamp= {25}"
+        "  warmup_time= {5}  think_time= {6}  pct_newcustomers= {7}  pct_newmembers= {8}  n_searches= {9}  search_batch_size= {10}" +
+        "  search_depth= {11}  n_reviews= {12}  pct_newreviews= {13}  pct_newhelpfulness= {14}  n_line_items= {15}  virt_dir= {16}" +
+        "  page_type= {17}  windows_perf_host= {18}  detailed_view= {19}  linux_perf_host= {20}  output_file= {21}  ds2_mode= {22}" +
+        "  n_stores= {23}  log_freq= {24}  log_timestamp= {25}  use_vectors= {26}"
         ,
         target , n_threads , ramp_rate , run_time , db_size , warmup_time , think_time , pct_newcustomers ,
             pct_newmember, n_searches , search_batch_size , search_depth , n_reviews, pct_newreviews, pct_newhelpfulness,
             n_line_items , virt_dir , page_type , windows_perf_host , detailed_view , linux_perf_host, outfilename, 
-            ds2_mode_string, n_stores, log_freq, log_timestamp);
-
-#if (USE_WIN32_TIMER)
-      Console.WriteLine("\nUsing WIN32 QueryPerformanceCounters for measuring response time\n");
-#else
-      Console.WriteLine ( "\nUsing .NET DateTime for measuring response time\n" );
-#endif
-
-      //Changed by GSK
-      //max_customer = MAX_CUSTOMER[db_size];
-      //max_product = MAX_PRODUCT[db_size];
+            ds2_mode_string, n_stores, log_freq, log_timestamp, use_vectors_string);
 
       max_customer = customer_rows;
       max_product = product_rows;
       max_review = product_rows * 20;
 
       //Changed by GSK (size of array prod_array = number of rows in product table + (10000 * 10)
-      //Reason : Every 10000th product wil be popular and will have 10 entries in list
+      //Reason : Every 10000th product will be popular and will have 10 entries in list
       //Set up array to choose product ids from, weighted with more entries for popular products
       //Popular products (in this case every 10,000th) will have 10 entries in list, others just 1
       int prod_arr_size = product_rows + 100000;
@@ -1028,8 +1010,94 @@ namespace ds2xdriver
         }
       prod_array_size = i;
       //Console.WriteLine("{0} products in array", prod_array_size);
+      
+     } // end of Controller constructor
 
-      for ( i = 0 ; i < GlobalConstants.LAST_N ; i++ ) { rt_tot_lastn[i] = 0.0; }
+    //    
+    //-------------------------------------------------------------------------------------------------
+    //   
+    public void do_work () 
+    {
+      int i = 0, z = 0;
+      int i_sec; 
+      double et;
+      int opm , rt_login_avg_msec , rt_newcust_avg_msec , rt_browse_avg_msec , rt_purchase_avg_msec ,
+        rt_tot_lastn_max_msec , rt_tot_avg_msec;
+      int rt_reviewbrowse_avg_msec, rt_newreview_avg_msec, rt_newhelpfulness_avg_msec, rt_newmember_avg_msec;
+      double rt_tot_lastn_max;
+      
+      //Added by GSK
+      int old_n_overall = 0;
+      int[] arr_old_n_overall;
+      int diff_n_overall = 0;
+      int[] arr_diff_n_overall;
+      double old_rt_tot_overall = 0.0;
+      double[] arr_old_rt_tot_overall;
+      double diff_rt_tot_overall = 0.0;
+      double[] arr_diff_rt_tot_overall;
+      int[] arr_rt_tot_sampled;
+      int rt_tot_sampled = 0;
+
+      //Added by GSK
+      int[] arr_opm;
+      int[] arr_rt_login_avg_msec;
+      int[] arr_rt_newcust_avg_msec;
+      int[] arr_rt_browse_avg_msec;
+      int[] arr_rt_reviewbrowse_avg_msec;
+      int[] arr_rt_newreview_avg_msec;
+      int[] arr_rt_newhelpfulness_avg_msec;
+      int[] arr_rt_newmember_avg_msec;
+      int[] arr_rt_purchase_avg_msec;
+      int[] arr_rt_tot_lastn_max_msec;
+      int[] arr_rt_tot_avg_msec;
+      double arr_rt_tot_lastn_max;
+
+      arr_opm = new int[n_target_servers];
+      arr_rt_login_avg_msec = new int[n_target_servers];
+      arr_rt_newcust_avg_msec = new int[n_target_servers];
+      arr_rt_browse_avg_msec = new int[n_target_servers];
+      arr_rt_reviewbrowse_avg_msec = new int[n_target_servers];
+      arr_rt_newreview_avg_msec = new int[n_target_servers];
+      arr_rt_newhelpfulness_avg_msec = new int[n_target_servers];
+      arr_rt_newmember_avg_msec = new int[n_target_servers];
+      arr_rt_purchase_avg_msec = new int[n_target_servers];
+      arr_rt_tot_lastn_max_msec = new int[n_target_servers];
+      arr_rt_tot_avg_msec = new int[n_target_servers];
+
+      arr_rt_tot_lastn_max = 0.0;
+      old_n_overall = 0;
+      diff_n_overall = 0;
+      old_rt_tot_overall = 0.0;
+      diff_rt_tot_overall = 0.0;
+
+      //Added on 8/8/2010
+      arr_old_n_overall = new int[n_target_servers];
+      arr_diff_n_overall = new int[n_target_servers];
+      arr_old_rt_tot_overall = new double[n_target_servers];
+      arr_diff_rt_tot_overall = new double[n_target_servers];
+      arr_rt_tot_sampled = new int[n_target_servers];
+
+      User[] users = new User[GlobalConstants.MAX_USERS];
+      Thread[] threads = new Thread[GlobalConstants.MAX_USERS];
+
+      //Added by GSK (Keeps track of total and utilizn of bunch of linux and windows VM's)
+      double total_cpu_utilzn = 0.0;
+      double total_win_cpu_utilzn = 0.0;
+      double total_lin_cpu_utilzn = 0.0;
+
+#if (USE_WIN32_TIMER)
+      long ctr0 = 0, ctr = 0, freq = 0;
+      Console.WriteLine("\nUsing WIN32 QueryPerformanceCounters for measuring response time\n");
+#else
+      TimeSpan TS = new TimeSpan ( );
+      DateTime DT0;
+      Console.WriteLine ( "\nUsing .NET DateTime for measuring response time\n" );
+#endif
+
+      for ( i = 0 ; i < GlobalConstants.LAST_N ; i++ ) 
+      { 
+        rt_tot_lastn[i] = 0.0; 
+      }
 
 #if (GEN_PERF_CTRS)      
       if (!PerformanceCounterCategory.Exists("Test")) // Create Performance Counter object if necessary
@@ -1084,7 +1152,7 @@ namespace ds2xdriver
       //Need an array of PerfCounter Class objects to capture Processor Time for each Machine
 
       PerformanceCounter[] CPU_PCT = new PerformanceCounter[n_windows_servers];
-      if (windows_perf_host != null)
+      if (windows_perf_host != string.Empty)
         {           
         //Create PerfMon counter on Each target machine
 
@@ -1093,20 +1161,10 @@ namespace ds2xdriver
           CPU_PCT[i] = new PerformanceCounter("Processor", "% Processor Time", "_Total", windows_perf_host_servers[i]);
           }            
         }
-        
-      
 #else
             Console.WriteLine ( "Not generating Windows Performance Monitor Counters" );
 #endif
 
-      //for ( i = 0 ; i < n_threads ; i++ ) // Create User objects; associate each with new Thread running Emulate method
-      //    {
-      //    users[i] = new User ( i );
-      //    threads[i] = new Thread ( new ThreadStart ( users[i].Emulate ) );
-      //    }
-
-           
-                   
       for ( i = 0 , server_id = 0 ; i < n_threads ; i++ ) // Create User objects; associate each with new Thread running Emulate method
         {
         
@@ -1131,7 +1189,7 @@ namespace ds2xdriver
       //this will ensure each target is registered in registry of machine on which driver program runs
       //This will avoid giving any add RSA fingerprint message when actual run stats are getting printed out
       // 
-      if (linux_perf_host != null)     //Added by GSK for getting Linux CPU Utilization
+      if (linux_perf_host != string.Empty)     //Added by GSK for getting Linux CPU Utilization
         {
         for (i = 0; i < n_linux_servers; i++)
           {
@@ -1147,7 +1205,6 @@ namespace ds2xdriver
           }
         Console.WriteLine(" ");
         }
-
 
       for ( i = 0 ; i < n_threads ; i++ ) // Start threads
         {
@@ -1178,10 +1235,6 @@ namespace ds2xdriver
         { 
         Console.WriteLine ( "Controller: ConnectTimeout reached : could not connect all threads, Aborting...");
         Thread.Sleep ( 500 );
-        for ( i = 0 ; i < n_threads ; i++ )
-          {
-              threads[i].Abort();
-          }
         return;
         }
       
@@ -1203,7 +1256,7 @@ namespace ds2xdriver
         //Call plink to execute mpstat on remote linux machine to store CPU data in File on remote system
         if (i_sec % log_freq == 1)  //At start as per log_freq interval, start background process for mpstat CPU monitoring on each linux machine
           {
-          if (linux_perf_host != null)     //Added by GSK for getting Linux CPU Utilization
+          if (linux_perf_host != string.Empty)     //Added by GSK for getting Linux CPU Utilization
             {
             for (i = 0; i < n_linux_servers; i++)
               {
@@ -1222,9 +1275,10 @@ namespace ds2xdriver
 
         Thread.Sleep ( 1000 );     // Update perfmon stats about every second
         Monitor.Enter ( UpdateLock );  // Block User threads from accessing code to update these values (below)       
+
 #if (USE_WIN32_TIMER)
-          QueryPerformanceCounter(ref ctr);
-          et = (ctr-ctr0)/(double) freq;   
+        QueryPerformanceCounter(ref ctr);
+        et = (ctr-ctr0)/(double) freq;   
 #else
         TS = DateTime.Now - DT0;
         et = TS.TotalSeconds;
@@ -1249,12 +1303,11 @@ namespace ds2xdriver
           arr_rt_tot_lastn_max_msec[i] = ( int ) Math.Floor ( 1000 * arr_rt_tot_lastn_max );
           }
                 
-                
 #if (GEN_PERF_CTRS)  
           MaxRTC.RawValue = rt_tot_lastn_max_msec;
           OPMC.RawValue = opm;
           //Changed by GSK
-          if (windows_perf_host != null)
+          if (windows_perf_host != string.Empty)
             {
             //cpu_pct_tot += CPU_PCT.NextValue();
             //++n_cpu_pct_samples;
@@ -1266,7 +1319,6 @@ namespace ds2xdriver
                 }
             }
 #endif               
-                
 
         if ( i_sec % log_freq == 0 ) // print out stats as per log_freq seconds
           {
@@ -1280,12 +1332,11 @@ namespace ds2xdriver
     	  if (n_overall > 0)
             {
             rt_tot_avg_msec = ( int ) Math.Floor ( 1000 * rt_tot_overall / n_overall );
-	        }
+	    }
           else
             {
             rt_tot_avg_msec = 0;
-	        }
-
+	    }
 
           //Added on 8/8/2010
           diff_n_overall = Math.Abs(n_overall - old_n_overall);
@@ -1300,18 +1351,18 @@ namespace ds2xdriver
           else
             {
             rt_tot_sampled = 0;
-	        }
+            }
  
-	      if (n_overall > 0)
+	    if (n_overall > 0)
             {
             pct_rollbacks = (100.0 * n_rollbacks_overall) / n_overall;
-	        }
+	    }
           else
             {
             pct_rollbacks = 0.0;
-	        }
+	    }
 
-		  switch (log_timestamp)  // Switch to determine the type of time stamps to put on each log line 
+	    switch (log_timestamp)  // Switch to determine the type of time stamps to put on each log line 
                 {
                     case "UTC":   // Call UtcNow.ToString to get UTC based time
                         cur_datetime = DateTime.UtcNow.ToString("yyyy-MM-ddTHH\\:mm\\:ss.fff'Z' ");
@@ -1331,28 +1382,29 @@ namespace ds2xdriver
           //Changed on 8/8/2010
 		  //Changed on 1/16/2019 - By Performance Team - Ruban													  
           Console.Write("{8}et={0,7:F1} n_overall={1} opm={2} rt_tot_lastn_max_msec={3} rt_tot_avg_msec={4} " +
-          "rt_tot_sampled={5} " +
-          "rollbacks: n={6} %={7,5:F1} ", et, n_overall, opm, rt_tot_lastn_max_msec, rt_tot_avg_msec,
-          rt_tot_sampled,n_rollbacks_overall, pct_rollbacks, cur_datetime);
-          if (outfilename != null)
+              "rt_tot_sampled={5} " + "rollbacks: n={6} %={7,5:F1} ", et, n_overall, opm, rt_tot_lastn_max_msec, rt_tot_avg_msec,
+              rt_tot_sampled,n_rollbacks_overall, pct_rollbacks, cur_datetime);
+
+          if (outfilename != string.Empty)
           {
-             outfile.Write("{8} {0,7:F1},{1},{2},{3},{4},{5},{6},{7,5:F1}", et, n_overall, opm, rt_tot_lastn_max_msec, rt_tot_avg_msec,
+             outfile?.Write("{8} {0,7:F1},{1},{2},{3},{4},{5},{6},{7,5:F1}", et, n_overall, opm, rt_tot_lastn_max_msec, rt_tot_avg_msec,
              rt_tot_sampled, n_rollbacks_overall, pct_rollbacks, cur_datetime);
           }
 
           total_cpu_utilzn = 0.0;
           total_lin_cpu_utilzn = 0.0;
           total_win_cpu_utilzn = 0.0;
-          if ( windows_perf_host != null )
-            {
+
+          if ( windows_perf_host != string.Empty)
+          {
             //Changed by GSK to get total average cpu utilization                                                
             for ( i = 0 ; i < n_windows_servers ; i++ )
               {
               total_win_cpu_utilzn += ( arr_cpu_pct_tot[i] / arr_n_cpu_pct_samples[i] );
               }                        
-            }                     
-          if ( linux_perf_host != null )     //Added by GSK for getting Linux CPU Utilization
-            {                        
+          }                     
+          if ( linux_perf_host != string.Empty)     //Added by GSK for getting Linux CPU Utilization
+          {                        
             for ( i = 0 ; i < n_linux_servers ; i++ )
               {
               try
@@ -1368,7 +1420,7 @@ namespace ds2xdriver
                 return;
                 }
               }                        
-            }
+          }
 
           if ( is_Win_VM == true && is_Lin_VM == true )       //Get perf stats from both linux and windows machines                        
             {
@@ -1381,9 +1433,9 @@ namespace ds2xdriver
               sb_linux.Append ( linux_perf_host_servers[z] ).Append ( ";" );
               }
             Console.WriteLine ( "host {0} CPU%= {1,5:F1}" , windows_perf_host + ";" + sb_linux.ToString() , total_cpu_utilzn );
-			if (outfilename != null)
+			if (outfilename != string.Empty)
 			  {
-			  outfile.WriteLine(",{0,5:F1}" , total_cpu_utilzn );
+			  outfile?.WriteLine(",{0,5:F1}" , total_cpu_utilzn );
 			  }
             }
           else if ( is_Win_VM == true && is_Lin_VM == false )  //Get perf stats from windows machines                        
@@ -1392,11 +1444,11 @@ namespace ds2xdriver
                         
             total_cpu_utilzn = total_cpu_utilzn / n_target_servers;
             Console.WriteLine ( "host {0} CPU%= {1,5:F1}" , windows_perf_host  , total_cpu_utilzn );
-			if (outfilename != null) 
-			  {
-			  outfile.WriteLine(",{0,5:F1}" , total_cpu_utilzn );
-              }
-			}
+		if (outfilename != string.Empty) 
+		  {
+		     outfile?.WriteLine(",{0,5:F1}" , total_cpu_utilzn );
+                  }
+            }
           else if ( is_Lin_VM == true && is_Win_VM == false )  //Get perf stats from linux machines                        
             {
             total_cpu_utilzn = total_lin_cpu_utilzn;
@@ -1407,21 +1459,20 @@ namespace ds2xdriver
               {
               sb_linux.Append ( linux_perf_host_servers[z] ).Append ( ";" );
               }
-            Console.WriteLine ( "host {0} CPU%= {1,5:F1}" , sb_linux.ToString() , total_cpu_utilzn );
-			if (outfilename != null)
-			  {
-			  outfile.WriteLine(",{0,5:F1}" , total_cpu_utilzn );
-              }
-			}
+              Console.WriteLine ( "host {0} CPU%= {1,5:F1}" , sb_linux.ToString() , total_cpu_utilzn );
+              if (outfilename != string.Empty)
+                 {
+                    outfile?.WriteLine(",{0,5:F1}" , total_cpu_utilzn );
+                 }
+            }
           else
             {
                 Console.Write ( "\n" );
-				if (outfilename != null)
-				{
-				outfile.WriteLine ( "\n" );
-				}
-			}
-                  
+		if (outfilename != string.Empty)
+		{
+		   outfile?.WriteLine ( "\n" );
+		}
+            }
 
           //Added by GSK
           //Call Write individual stats only when detailed_view parameter is YES and more than one target servers                   
@@ -1444,7 +1495,7 @@ namespace ds2xdriver
               //  et, arr_n_overall[i], arr_opm[i], arr_rt_tot_lastn_max_msec[i], arr_rt_tot_avg_msec[i], arr_n_rollbacks_overall[i],
               //  (100.0 * arr_n_rollbacks_overall[i]) / arr_n_overall[i]);
               //Changed on 8/8/2010
-              Console.WriteLine("et={0,7:F1} n_overall={1} opm={2} rt_tot_lastn_max_msec={3} rt_tot_avg_msec={4} " +
+              Console.WriteLine("  et={0,7:F1} n_overall={1} opm={2} rt_tot_lastn_max_msec={3} rt_tot_avg_msec={4} " +
                 "rt_tot_sampled={5} " +
                 "rollbacks: n={6} %={7,5:F1} ",
                 et, arr_n_overall[i], arr_opm[i], arr_rt_tot_lastn_max_msec[i], arr_rt_tot_avg_msec[i], arr_rt_tot_sampled[i],
@@ -1455,12 +1506,12 @@ namespace ds2xdriver
               //Added by GSK
               //Following condition i < n_windows_servers ensure that stats for windows VM's will be outputted first and then linux VM's
               //For this to work, target parameter should always specify all windows targets first followed by linux targets (all targets selerated by semi colon ;)
-              if ( windows_perf_host != null && i < n_windows_servers )
+              if ( windows_perf_host != string.Empty && i < n_windows_servers )
                   {
                   //Need individual CPU utilization of Virtual Machines on which DB / Web Servers are running
                   Console.WriteLine ( "host {0} CPU%= {1,5:F1}" , windows_perf_host_servers[i] , arr_cpu_pct_tot[i] / arr_n_cpu_pct_samples[i] );
                   }
-              if(linux_perf_host != null && i >= n_windows_servers)
+              if(linux_perf_host != string.Empty && i >= n_windows_servers)
                 {
                 try
                   {
@@ -1474,8 +1525,9 @@ namespace ds2xdriver
                   return;
                   }
                 }
-              else Console.Error.Write ( "\n" );
+              //else Console.Error.Write ( "\n" );
               }                        
+	      Console.Error.Write ( "\n" );
             }
       //Till this point Added by GSK                    
 
@@ -1495,6 +1547,7 @@ namespace ds2xdriver
           {
           n_overall = 0; n_login_overall = 0; n_newcust_overall = 0; n_browse_overall = 0; n_purchase_overall = 0;
           n_rollbacks_overall = 0;
+	  n_browse_vector = 0;
           rt_tot_overall = 0.0; rt_login_overall = 0.0; rt_newcust_overall = 0.0; rt_browse_overall = 0.0;
           rt_purchase_overall = 0.0;
           for ( int j = 0 ; j < GlobalConstants.LAST_N ; j++ ) rt_tot_lastn[j] = 0.0;
@@ -1570,9 +1623,10 @@ namespace ds2xdriver
         } // End for i_sec<run_time
 
       Monitor.Enter ( UpdateLock );  // Block User threads from accessing code to update these values (below)
+
 #if (USE_WIN32_TIMER)
-        QueryPerformanceCounter(ref ctr);
-        et = (ctr-ctr0)/(double) freq;   
+      QueryPerformanceCounter(ref ctr);
+      et = (ctr-ctr0)/(double) freq;   
 #else
       TS = DateTime.Now - DT0;
       et = TS.TotalSeconds;
@@ -1628,25 +1682,36 @@ namespace ds2xdriver
       //  rt_purchase_avg_msec, n_rollbacks_overall, (100.0 * n_rollbacks_overall) / n_overall);
       //Changed on 8/8/2010
       // Changed again on 3/17/2015
-      Console.WriteLine("\nFinal ({0}): et={1,7:F1} n_overall={2} opm={3} rt_tot_lastn_max={4} rt_tot_avg={5} " +
+      Console.Write("\nFinal ({0}): et={1,7:F1} n_overall={2} opm={3} rt_tot_lastn_max={4} rt_tot_avg={5} " +
         "n_login_overall={6} n_newcust_overall={7} n_newmember_overall={8} n_browse_overall={9} " +
         "n_reviewbrowse={10} n_newreviews={11} n_newhelpfulness={12} n_purchase_overall={13} " +
         "rt_login_avg_msec={14} rt_newcust_avg_msec={15} rt_rewmember_avg_msec={16} rt_browse_avg_msec={17} " +
         "rt_reviewbrowse_avg_msec={18} rt_newreview_avg_msec={19} rt_newhelpfulness={20} rt_purchase_avg_msec={21} " +
-        "rt_tot_sampled={22} n_rollbacks_overall={23} rollback_rate = {24,5:F1}%",
+        "rt_tot_sampled={22} n_rollbacks_overall={23} rollback_rate = {24,2:F1}%",
         DateTime.Now, et, n_overall, opm, rt_tot_lastn_max_msec, rt_tot_avg_msec, n_login_overall, n_newcust_overall, n_newmember_overall,
         n_browse_overall, n_reviewbrowse_overall, n_newreview_overall, n_newhelpfulness_overall,  n_purchase_overall, 
         rt_login_avg_msec, rt_newcust_avg_msec, rt_newmember_avg_msec, rt_browse_avg_msec, rt_reviewbrowse_avg_msec, rt_newreview_avg_msec, 
         rt_newhelpfulness_avg_msec, rt_purchase_avg_msec, rt_tot_sampled, n_rollbacks_overall, (100.0 * n_rollbacks_overall) / n_overall);
 
-      if (outfilename != null)
-          outfile.Close();
+      if (n_vectors == 1)
+      {
+	Console.WriteLine(" n_browse_vector= {0}",n_browse_vector);
+      }
+      else
+      {
+	Console.WriteLine("");
+      }
+
+      if (outfilename != string.Empty)
+      {
+        outfile?.Close();
+      }
 
       total_cpu_utilzn = 0.0;
       total_win_cpu_utilzn = 0.0;
       total_lin_cpu_utilzn = 0.0;
 
-      if ( windows_perf_host != null )
+      if ( windows_perf_host != string.Empty )
         {
         //Changed by GSK to get total average cpu utilization                                        
         for ( i = 0 ; i < n_windows_servers ; i++ )
@@ -1654,7 +1719,8 @@ namespace ds2xdriver
           total_win_cpu_utilzn += ( arr_cpu_pct_tot[i] / arr_n_cpu_pct_samples[i] );
           }                
         }            
-      if ( linux_perf_host != null )     //Added by GSK for getting Linux CPU Utilization
+
+      if ( linux_perf_host != string.Empty )     //Added by GSK for getting Linux CPU Utilization
         {                
         for ( i = 0 ; i < n_linux_servers ; i++ )
           {
@@ -1728,7 +1794,7 @@ namespace ds2xdriver
             "n_reviewbrowse_overall={9} n_newreview_overall={10} n_newhelpfulnes_overall={11} n_purchase_overall={12} " +
             "rt_login_avg_msec={13} rt_newcust_avg_msec={14} rt_newmember_avg_msec={15} rt_browse_avg_msec={16} " +
             "rt_reviewbrowse_avg_msec={17} rt_newreview_avg_msec={18} rt_newhelpfulness_avg_msec={19} rt_purchase_avg_msec={20} " +
-            "rt_tot_sampled={21} n_rollbacks_overall={22} rollback_rate = {23,5:F1}%  ",
+            "rt_tot_sampled={21} n_rollbacks_overall={22} rollback_rate = {23,2:F1}%  ",
             et, arr_n_overall[i], arr_opm[i], arr_rt_tot_lastn_max_msec[i], arr_rt_tot_avg_msec[i], arr_n_login_overall[i], arr_n_newcust_overall[i],
             arr_n_newmember_overall[i], arr_n_browse_overall[i], arr_n_reviewbrowse_overall[i], arr_n_newreview_overall[i], arr_n_newhelpfulness_overall[i], 
             arr_n_purchase_overall[i], arr_rt_login_avg_msec[i], arr_rt_newcust_avg_msec[i], arr_rt_newmember_avg_msec[i], arr_rt_browse_avg_msec[i],
@@ -1739,12 +1805,12 @@ namespace ds2xdriver
           //Added by GSK
           //Following condition i < n_windows_servers ensure that stats for windows VM's will be outputted first and then linux VM's
           //For this to work, target parameter should always specify all windows targets first followed by linux targets (all targets selerated by semi colon ;)
-          if ( windows_perf_host != null && i < n_windows_servers )
+          if ( windows_perf_host != string.Empty && i < n_windows_servers )
             {
             //Need individual CPU utilization for Virtual Machines on which DB/ Web Servers are running
             Console.WriteLine ( "host {0} CPU%= {1,5:F1}" , windows_perf_host_servers[i] , arr_cpu_pct_tot[i] / arr_n_cpu_pct_samples[i] );
             }
-          else if ( linux_perf_host != null && i >= n_windows_servers )     //Added by GSK for getting CPU Utilization of Linux Systems
+          else if ( linux_perf_host != string.Empty && i >= n_windows_servers )     //Added by GSK for getting CPU Utilization of Linux Systems
             {          
             try
               {
@@ -1794,15 +1860,16 @@ namespace ds2xdriver
       MaxRTC.RawValue = 0;
       OPMC.RawValue = 0;
 #endif
-      } // End of Controller() Constructor
+      } // End of Controller() do_work()
+
     //
     //-------------------------------------------------------------------------------------------------
     //      
     static int parse_args ( string[] argstring , ref string errmsg )
       {
       int parm_idx = -1 , parm_count = 0;
-      string[] split = null;
-      string config_fname = null , parmline = null;
+      string[] split;
+      string config_fname, parmline;
       char[] delimeter = { '=' };
 
       for ( int i = 0 ; i < argstring.Length ; i++ )
@@ -1878,6 +1945,7 @@ namespace ds2xdriver
       } // End of parse_args
 
     } // End of class Controller
+
   //
   //-------------------------------------------------------------------------------------------------
   //    
@@ -1894,13 +1962,11 @@ namespace ds2xdriver
 
     int Userid;
     ds2Interface[] ds2interfaces = new ds2Interface[GlobalConstants.MAX_USERS];
-    Random r;
     string username_in , password_in , firstname_in , lastname_in , address1_in , address2_in , city_in , state_in;
     string zip_in , country_in , email_in , phone_in , creditcard_in , gender_in;
     int creditcardtype_in , ccexpmon_in , ccexpyr_in , income_in , age_in;
     int customerid_in, membershiplevel_in, reviewid_in, reviewhelpfulness_in;
     string actor_in , title_in;
-    string[] actornames_in, titlenames_in;
     string new_review_summary_in, new_review_text_in;
     int new_review_stars_in, new_review_prod_id_in;
     string[] review_data_terms;
@@ -1909,25 +1975,18 @@ namespace ds2xdriver
 
     int target_store = 1;
 
-    public User ( int userid )
-      {
-      Userid = userid;
-      //Console.WriteLine("user {0} created", userid);
-      }
-
-    //Added by GSK Overloaded constructor which will take care of Single instance of Driver Program driving multiple servers on ESX Host(s)
-    public User ( int userid , int server_id)
-      {
-      Userid = userid;
-      target_server_id = server_id;
-      //Console.WriteLine("user {0} created", userid);
-      }
     //Overloaded constructor to support multiple stores in single DS3 instance
     public User(int userid, int server_id, int target_store_num)
     {
         Userid = userid;
         target_server_id = server_id;
         target_store = target_store_num;
+
+	username_in = password_in = firstname_in = lastname_in = address1_in = address2_in = city_in = state_in = string.Empty;
+	zip_in = country_in = email_in = phone_in = creditcard_in = gender_in = string.Empty;
+	actor_in = title_in = new_review_summary_in = new_review_text_in = string.Empty;
+
+        review_data_terms = InitReviewDataTerms();
         //Console.WriteLine("user {0} created", userid);
     }
 
@@ -1960,12 +2019,6 @@ namespace ds2xdriver
       int get_review_stars_in;                                           // Browse Reviews, Get Reviews
       int n_reviewbrowse = 0;
       int n_getreviewbrowse = 0;
-                          // New Review
-      //string new_review_summary_in = new string[GlobalConstants.MAX_ROWS]; // New Review
-      //string new_review_text_in = new string[1000];                        // New Review
-      
-         
-
 
       Thread.CurrentThread.Name = Userid.ToString ( );
       Console.WriteLine ( "Thread {0}: created for User {1}" , Thread.CurrentThread.Name , Userid );
@@ -1975,33 +2028,10 @@ namespace ds2xdriver
         ++Controller.n_threads_running;
         }
 
-      // Create random stream r with very randomized seed
-      Random rtemp = new Random ( Userid * 1000 ); // Temporary seed
-      // For multi-thread runs sleep between 0 - 10 second to spread out Ticks (100 nsecs)
-      if ( Controller.n_threads > 1 ) Thread.Sleep ( rtemp.Next ( 10000 ) );
-      long DTNT = DateTime.Now.Ticks;
-      uint lowDTNT = ( uint ) ( 0x00000000ffffffff & DTNT );
-      uint rev_lowDTNT = 0;  // take low 32 bits of Tick counter and reverse them
-      for ( i = 0 ; i < 32 ; i++ ) rev_lowDTNT = rev_lowDTNT | ( ( 0x1 & ( lowDTNT >> i ) ) << ( 31 - i ) );
-      //Console.WriteLine("DTNT= 0x{0:x16}  lowDTNT= 0x{1:x8}  rev_lowDTNT= 0x{2:x8}", DTNT, lowDTNT, rev_lowDTNT);
-      r = new Random ( ( int ) rev_lowDTNT );
-
-      //ds2interfaces[Userid] = new ds2Interface ( Userid );
-      //Changed by GSK
-      //ds2interfaces[Userid] = new ds2Interface ( Userid , Controller.target_servers[target_server_id].ToString() );
-
       ds2interfaces[Userid] = new ds2Interface(Userid, Controller.target_servers[target_server_id].ToString(), ((Userid % Controller.n_stores)+1));
 
-      if ( !ds2interfaces[Userid].ds2initialize ( ) )
-        {
-        //Console.WriteLine ( "Can't initialize " + Controller.target + "; exiting" );
-        //Changed by GSK
-        Console.WriteLine ( "Can't initialize " + Controller.target_servers[target_server_id].ToString ( ) + "; exiting" );
-        return;
-        }
-
       // Users randomly start connecting over a (#users/ramp_rate) sec period
-      Thread.Sleep ( r.Next ( ( int ) Math.Floor ( 1000.0 * Controller.n_threads / ( double ) Controller.ramp_rate ) ) );
+      Thread.Sleep ( Random.Shared.Next( ( int ) Math.Floor ( 1000.0 * Controller.n_threads / ( double ) Controller.ramp_rate ) ) );
 
       if ( !ds2interfaces[Userid].ds2connect ( ) )
         {
@@ -2048,13 +2078,13 @@ namespace ds2xdriver
 
         // Login/New Customer Phase
 
-        double user_type = r.NextDouble ( );
+        double user_type = Random.Shared.NextDouble();
 
         if ( user_type >= Controller.pct_newcustomers / 100.0 ) // If this is true we have a returning customer 
           {
           IsLogin = true;
           //Returning user with randomized username
-          int i_user = 1 + r.Next ( Controller.max_customer );
+          int i_user = Random.Shared.Next(1,Controller.max_customer+1);
           username_in = "user" + i_user;
           password_in = "password";
           rows_returned = 0;
@@ -2101,7 +2131,7 @@ namespace ds2xdriver
           CreateUserData ( );
           do  // Try newcustomer until find a userid that doesn't exist
             {
-            int i_user = 1 + r.Next ( Controller.max_customer );
+            int i_user = Random.Shared.Next(1,Controller.max_customer+1);
             username_in = "newuser" + i_user;
             password_in = "password";
 
@@ -2123,7 +2153,6 @@ namespace ds2xdriver
                   return;
 	            }
               }
-              
 
             //if (customerid_out == 0)
             //{
@@ -2135,8 +2164,8 @@ namespace ds2xdriver
             }
             } while ( customerid_out < 1 ); // end of do/while try newcustomer
 
-//        Console.WriteLine("Thread {0}: New user {1} logged in, customerid = {2}, RT= {3,10:F3}", 
-//           Thread.CurrentThread.Name, username_in, customerid_out, rt);  
+//        Console.WriteLine("Thread {0}: New user {1} logged in, customerid = {2}, RT= {3,10:F3}",
+//           Thread.CurrentThread.Name, username_in, customerid_out, rt);
 
           rt_newcust = rt;  // Just count last iteration if had to retry username
           rt_tot += rt;
@@ -2145,15 +2174,15 @@ namespace ds2xdriver
 
         // End of Login/New Customer Phase
 
-          // Begin New Member Phase 
+        // Begin New Member Phase
 
         if ( ( user_type <= Controller.pct_newmember / 100.0 ) && (!Controller.ds2_mode)) // If this is true we have a customer that wants to join membership program
         {
             IsNewMember = true;
             do  // Try newmember until find a userid that doesn't exist
             {
-            customerid_in = 1 + r.Next ( Controller.max_customer );
-            membershiplevel_in = 1 + r.Next(3);
+            customerid_in = Random.Shared.Next(1,Controller.max_customer+1);
+            membershiplevel_in = Random.Shared.Next(1,4);
 
             failures = 0;
             while ( !ds2interfaces[Userid].ds2newmember ( customerid_in , membershiplevel_in , ref customerid_out , ref rt ) )
@@ -2163,15 +2192,15 @@ namespace ds2xdriver
                   Console.WriteLine ( "Thread {0}: Error in New Member for User {1}, failure {2}, retrying" ,
                     Thread.CurrentThread.Name , username_in, failures);
     	        }
-  	          else 
-  	            {
+  	      else
+  	        {
                   Console.WriteLine ( "Thread {0}: Error in New Member for User {1}, failure {2}, exiting" ,
                     Thread.CurrentThread.Name , username_in, failures);
                   return;
-  	            }
+  	        }
               }
 
-           // if ( customerid_out == 0 ) Console.WriteLine ( "Customer {0} is already a member" , customerid_in );
+            // if ( customerid_out == 0 ) Console.WriteLine ( "Customer {0} is already a member" , customerid_in );
             } while ( customerid_out == 0 ); // end of do/while try newcustomer
 
 //        Console.WriteLine("Thread {0}: New user {1} logged in, customerid = {2}, RT= {3,10:F3}", 
@@ -2180,8 +2209,8 @@ namespace ds2xdriver
           rt_newmember = rt;  // Just count last iteration if had to retry username
           rt_tot += rt;
 
-          } //End of IF 
-        
+          } //End of IF
+
           // End of New Member Phase
 
         // Browse Phase
@@ -2195,36 +2224,40 @@ namespace ds2xdriver
         string browse_criteria = "";
         int batch_size_in;
 
-        int n_browse = 1 + r.Next ( 2 * Controller.n_searches - 1 );   // Perform average of n_searches searches
+        int n_browse = Random.Shared.Next(1, 2 * Controller.n_searches);   // Perform average of n_searches searches
         for ( int ib = 0 ; ib < n_browse ; ib++ )
           {
-          batch_size_in = 1 + r.Next ( 2 * Controller.search_batch_size - 1 ); // request avg of search_batch_size lines
-          int search_type = r.Next ( 3 ); // randomly select search type
+          batch_size_in = Random.Shared.Next(1, 2 * Controller.search_batch_size); // request avg of search_batch_size lines
+          int search_type = Random.Shared.Next(3 + Controller.n_vectors); // randomly select search type
+
+          browse_actor_in = "";
+          browse_title_in = "";
+          browse_category_in = "";
+
           switch ( search_type )
             {
             case 0:  // Search by Category
               browse_type_in = "category";
-              browse_category_in = ( 1 + r.Next ( GlobalConstants.MAX_CATEGORY ) ).ToString ( );
-              browse_actor_in = "";
-              browse_title_in = "";
+              browse_category_in = (Random.Shared.Next(1, GlobalConstants.MAX_CATEGORY+1)).ToString();
               browse_criteria = browse_category_in;
               break;
-            case 1:  // Search by Actor 
+            case 1:  // Search by Actor
               browse_type_in = "actor";
-              browse_category_in = "";
               CreateActor ( );
               browse_actor_in = actor_in;
-              browse_title_in = "";
               browse_criteria = browse_actor_in;
               break;
             case 2:  // Search by Title
               browse_type_in = "title";
-              browse_category_in = "";
-              browse_actor_in = "";
               CreateTitle ( );
               browse_title_in = title_in;
               browse_criteria = browse_title_in;
               break;
+	    case 3: // Vector search
+	      browse_type_in = "vector";
+              browse_criteria = browse_type_in;
+	      Controller.n_browse_vector++;
+	      break;
             }
 
           failures = 0;
@@ -2237,7 +2270,7 @@ namespace ds2xdriver
                Console.WriteLine ( "Thread {0}: Error in simple product Browse for User {1}, failure {2}, retrying" ,
                 Thread.CurrentThread.Name , username_in, failures);
     	      }
-	        else 
+	        else
 	          {
                Console.WriteLine ( "Thread {0}: Error in simple product Browse for User {1}, failure {2}, exiting" ,
                 Thread.CurrentThread.Name , username_in, failures);
@@ -2272,13 +2305,14 @@ namespace ds2xdriver
             string get_review_type_in = "", get_review_category_in = "", get_review_actor_in = "", get_review_title_in = "";
             int get_review_prod_in;
             string get_review_criteria = "";
+            string[] actornames_in, titlenames_in;
             // int batch_size_in;
 
-            n_reviewbrowse = 1 + r.Next(2 * Controller.n_reviews - 1);   // Perform average of n_reviews searches
+            n_reviewbrowse = Random.Shared.Next(1,2 * Controller.n_reviews);   // Perform average of n_reviews searches
             for (int ib = 0; ib < n_reviewbrowse; ib++)
             {
-                batch_size_in = 1 + r.Next(2 * Controller.search_batch_size - 1); // request avg of search_batch_size lines
-                int search_type = r.Next(2); // randomly select search type
+                batch_size_in = Random.Shared.Next(1,2 * Controller.search_batch_size); // request avg of search_batch_size lines
+                int search_type = Random.Shared.Next(2); // randomly select search type
                 switch (search_type)
                 {
                     case 0:  // Get Reviews by Actor 
@@ -2333,30 +2367,30 @@ namespace ds2xdriver
             // GET_PROD_REVIEWS_BY_STARS - Get product reviews for a specific product at a specific "stars" level
 
             get_review_type_in = "";
-            get_review_stars_in = 1 + r.Next(5);    //Randomly select the star level to search for
+            get_review_stars_in = Random.Shared.Next(1,5);    //Randomly select the star level to search for
             get_review_prod_in = 0;
             //string get_review_criteria = "";
             // int batch_size_in;
 
-            n_getreviewbrowse = 1 + r.Next(2 * Controller.n_reviews - 1);   // Perform average of n_searches searches
+            n_getreviewbrowse = Random.Shared.Next(1,2 * Controller.n_reviews);   // Perform average of n_searches searches
             for (int ib = 0; ib < n_getreviewbrowse; ib++)
             {
-                batch_size_in = 1 + r.Next(2 * Controller.search_batch_size - 1); // request avg of search_batch_size lines
-                int search_type = r.Next(3); // randomly select search type
+                batch_size_in = Random.Shared.Next(1,2 * Controller.search_batch_size); // request avg of search_batch_size lines
+                int search_type = Random.Shared.Next(3); // randomly select search type
                 switch (search_type)
                 {
                     case 0:  // Get Reviews with no order 
                         get_review_type_in = "noorder";
                         // assign get_review_prod_in to be a random product id number
-                        get_review_prod_in = Controller.prod_array[r.Next(Controller.prod_array_size)];
+                        get_review_prod_in = Controller.prod_array[Random.Shared.Next(Controller.prod_array_size)];
                         break;
                     case 1:  // Get Reviews by Star ranking 
                         get_review_type_in = "star";
-                        get_review_prod_in = Controller.prod_array[r.Next(Controller.prod_array_size)];
+                        get_review_prod_in = Controller.prod_array[Random.Shared.Next(Controller.prod_array_size)];
                         break;
                     case 2:  // Get Reviews by date
                         get_review_type_in = "date";
-                        get_review_prod_in = Controller.prod_array[r.Next(Controller.prod_array_size)];
+                        get_review_prod_in = Controller.prod_array[Random.Shared.Next(Controller.prod_array_size)];
                         break;
                 }
                 failures = 0;
@@ -2387,11 +2421,11 @@ namespace ds2xdriver
             if (user_type <= Controller.pct_newreviews / 100.0) // If this is true we have a customer that wants to submit a new review
             {
                 IsNewReview = true;
-                review_data_terms = InitReviewDataTerms();
+
                 new_review_summary_in = CreateReviewData(ref review_data_terms, 3);
                 new_review_text_in = CreateReviewData(ref review_data_terms, 25);
-                new_review_stars_in = 1 + r.Next(5);
-                new_review_prod_id_in = 1 + r.Next(Controller.max_product);
+                new_review_stars_in = Random.Shared.Next(1,6);
+                new_review_prod_id_in = Random.Shared.Next(1,Controller.max_product);
 
                 failures = 0;
                 while (!ds2interfaces[Userid].ds2newreview(new_review_prod_id_in, new_review_stars_in, customerid_out,
@@ -2420,8 +2454,8 @@ namespace ds2xdriver
             if (user_type <= Controller.pct_newhelpfulness / 100.0) // If this is true we have a customer that wants to rate a reviews helpfulness
             {
                 IsNewHelpfulness = true;
-                reviewid_in = 1 + r.Next(Controller.max_review);
-                reviewhelpfulness_in = 1 + r.Next(10);
+                reviewid_in = Random.Shared.Next(1,Controller.max_review);
+                reviewhelpfulness_in = Random.Shared.Next(1,11);
 
                 failures = 0;
                 while (!ds2interfaces[Userid].ds2newreviewhelpfulness(reviewid_in, customerid_out, reviewhelpfulness_in, ref reviewhelpfulnessid_out, ref rt))
@@ -2456,20 +2490,20 @@ namespace ds2xdriver
           }
 
         // Randomize number of cart items with average n_line_items
-        int cart_items = 1 + r.Next ( 2 * Controller.n_line_items - 1 );
+        int cart_items = Random.Shared.Next(1, 2 * Controller.n_line_items);
 
         //For each cart item take product_id from search results or randomly select
         //for (i=0; i<cart_items; i++)
         //  {
-        //  prod_id_in[i] = (rows_returned > i) ? prod_id_out[i] : (1 + r.Next(Controller.max_product));
-        //  qty_in[i] = 1 + r.Next(3);  // qty (1, 2 or 3)
+        //  prod_id_in[i] = (rows_returned > i) ? prod_id_out[i] : (1 + Random.Shared.Next(Controller.max_product));
+        //  qty_in[i] = 1 + Random.Shared.Next(3);  // qty (1, 2 or 3)
         //  }
 
         // For each cart item randomly select product_id using weighted prod_array
         for ( i = 0 ; i < cart_items ; i++ )
           {
-          prod_id_in[i] = Controller.prod_array[r.Next ( Controller.prod_array_size )];
-          qty_in[i] = 1 + r.Next ( 3 );  // qty (1, 2 or 3)
+          prod_id_in[i] = Controller.prod_array[Random.Shared.Next( Controller.prod_array_size )];
+          qty_in[i] = Random.Shared.Next(1,4);  // qty (1, 2 or 3)
           //        Console.WriteLine("Thread {0}: Purchase prod_id_in[{1}] = {2}  qty_in[{1}]= {3}", 
           //          Thread.CurrentThread.Name, i, prod_id_in[i], qty_in[i]);
           }
@@ -2553,12 +2587,12 @@ namespace ds2xdriver
         Controller.arr_rt_purchase_overall[target_server_id] += rt_purchase;    
         
         if ( IsRollback )
-          {
+        {
           ++Controller.n_rollbacks_overall;
           ++Controller.arr_n_rollbacks_overall[target_server_id];             
           ++Controller.n_rollbacks_from_start;                                
           ++Controller.arr_n_rollbacks_from_start[target_server_id];          
-          }
+        }
 
         ++Controller.n_overall;
         ++Controller.arr_n_overall[target_server_id];                                           
@@ -2571,7 +2605,7 @@ namespace ds2xdriver
                                             
         Monitor.Exit ( Controller.UpdateLock );
 
-        Thread.Sleep ( r.Next ( 2 * ( int ) Math.Floor ( 1000 * Controller.think_time ) ) ); // Delay think time seconds               
+        Thread.Sleep ( Random.Shared.Next ( 2 * ( int ) Math.Floor ( 1000 * Controller.think_time ) ) ); // Delay think time seconds               
 
         } while ( !Controller.End ); // End of Thread Emulation loop
 
@@ -2584,103 +2618,162 @@ namespace ds2xdriver
     //          
     void CreateUserData ( )
       {
-      string[] states = new string[] {"AK", "AL", "AR", "AZ", "CA", "CO", "CT", "DC", "DE", "FL", "GA", "HI", "IA", 
-                        "ID", "IL", "IN", "KS", "KY", "LA", "MA", "MD", "ME", "MI", "MN", "MO", "MS", "MT", "NC", 
-                        "ND", "NE", "NH", "NJ", "NM", "NV", "NY", "OH", "OK", "OR", "PA", "RI", "SC", "SD", "TN", 
-                        "TX", "UT", "VA", "VT", "WA", "WI", "WV", "WY"};
+      City[] us_cities = CityData.GetUSCities();
+      City[] row_cities = CityData.GetROWCities();
 
-      string[] countries = new string[] {"Australia", "Canada", "Chile", "China", "France", "Germany", "Japan", 
-                           "Russia", "South Africa", "UK"};
+      if (Random.Shared.Next(2) == 1) {
+          firstname_in = fake_user_data.male_first_names[Random.Shared.Next(fake_user_data.firstname_pool_size)];
+          gender_in = "M";
+      }
+      else {
+          firstname_in = fake_user_data.female_first_names[Random.Shared.Next(fake_user_data.firstname_pool_size)];
+          gender_in = "F";
+      }
 
-      int j;
-      firstname_in = ""; for ( j = 0 ; j < 6 ; j++ ) { firstname_in = firstname_in + ( char ) ( 65 + r.Next ( 26 ) ); }
-      lastname_in = ""; for ( j = 0 ; j < 10 ; j++ ) { lastname_in = lastname_in + ( char ) ( 65 + r.Next ( 26 ) ); }
-      city_in = ""; for ( j = 0 ; j < 7 ; j++ ) { city_in = city_in + ( char ) ( 65 + r.Next ( 26 ) ); }
+      lastname_in = fake_user_data.last_names[Random.Shared.Next(fake_user_data.lastname_pool_size)];
 
-      if ( r.Next ( 2 ) == 1 ) // Select region (US or ROW)
-        { //ROW    
-        zip_in = (r.Next(100000)).ToString();
-        state_in = "";
-        country_in = countries[r.Next ( 10 )];
-        }
-      else //US
-        {
-        zip_in = ( r.Next ( 100000 ) ).ToString ( );
-        state_in = states[r.Next ( 50 )];
-        country_in = "US";
-        } //End Else
+      // Select region (US or ROW)
+      if ( Random.Shared.Next ( 100 ) < 40 ) {
+          int index = Random.Shared.Next(City.row_city_pool_size);
+          city_in = row_cities[index].Name;
+          zip_in = "";
+          state_in = "";
+          country_in = row_cities[index].State;
+      }
+      else {
+          int index = Random.Shared.Next(City.us_city_pool_size);
+          city_in = us_cities[index].Name;
+          state_in = us_cities[index].State;
+          zip_in = (Random.Shared.Next(10000,99999)).ToString();
+          country_in = "US";
+      } //End Else
 
-      phone_in = "" + r.Next ( 100 , 1000 ) + r.Next ( 10000000 );
-      creditcardtype_in = 1 + r.Next ( 5 );
-      creditcard_in = "" + r.Next ( 10000000 , 100000000 ) + r.Next ( 10000000 , 100000000 );
-      ccexpmon_in = 1 + r.Next ( 12 );
-      ccexpyr_in = 2008 + r.Next ( 5 );
-      address1_in = phone_in + " Dell Way";
+      phone_in = Random.Shared.Next(100,999) + "-" + Random.Shared.Next(100,999) + "-" + Random.Shared.Next(1000,9999);
+      creditcardtype_in = Random.Shared.Next (1,5);
+      creditcard_in = Random.Shared.Next(1000,9999) + " " + Random.Shared.Next(1000,9999) + " " + Random.Shared.Next(1000,9999) + " " + Random.Shared.Next(1000,9999);
+      ccexpmon_in = Random.Shared.Next (1,12);
+      ccexpyr_in = DateTime.Now.Year + Random.Shared.Next(5);
+      address1_in = Random.Shared.Next(1,1000) + " Dell Way";
       address2_in = "";
-      email_in = lastname_in + "@dell.com";
-      age_in = r.Next ( 18 , 100 );
-      income_in = 20000 * r.Next ( 1 , 6 ); // >$20,000, >$40,000, >$60,000, >$80,000, >$100,000
-      gender_in = ( r.Next ( 2 ) == 1 ) ? "M" : "F";
+
+      // 25% of new customers are apartment dwellers.
+      if (Random.Shared.Next(100) < 25) {
+          address2_in = "Apartment " + Random.Shared.Next(1,500);
+      }
+
+      email_in = lastname_in.ToLower() + "@dell.com";
+      age_in = Random.Shared.Next ( 18 , 100 );
+      income_in = 20000 * Random.Shared.Next ( 1 , 6 ); // >$20,000, >$40,000, >$60,000, >$80,000, >$100,000
 
       }  // End of CreateUserData
 
     //
     //-------------------------------------------------------------------------------------------------
-    //      
+    //
     void CreateActor ( )
       {
-      // Names compiled by Dara Jaffe
 
-      // 200 actor/actress firstnames
+      // 500 actor/actress firstnames
       string[] actor_firstnames = new string[]
         {
-        "ADAM", "ADRIEN", "AL", "ALAN", "ALBERT", "ALEC", "ALICIA", "ANDY", "ANGELA", "ANGELINA", "ANJELICA", 
-        "ANNE", "ANNETTE", "ANTHONY", "AUDREY", "BELA", "BEN", "BETTE", "BOB", "BRAD", "BRUCE", "BURT", "CAMERON", 
-        "CANDICE", "CARMEN", "CARRIE", "CARY", "CATE", "CHARLES", "CHARLIZE", "CHARLTON", "CHEVY", "CHRIS", 
-        "CHRISTIAN", "CHRISTOPHER", "CLARK", "CLINT", "CUBA", "DAN", "DANIEL", "DARYL", "DEBBIE", "DENNIS", 
-        "DENZEL", "DIANE", "DORIS", "DREW", "DUSTIN", "ED", "EDWARD", "ELIZABETH", "ELLEN", "ELVIS", "EMILY", 
-        "ETHAN", "EWAN", "FARRAH", "FAY", "FRANCES", "FRANK", "FRED", "GARY", "GENE", "GEOFFREY", "GINA", "GLENN", 
-        "GOLDIE", "GRACE", "GREG", "GREGORY", "GRETA", "GROUCHO", "GWYNETH", "HALLE", "HARRISON", "HARVEY", 
-        "HELEN", "HENRY", "HILARY", "HUGH", "HUME", "HUMPHREY", "IAN", "INGRID", "JACK", "JADA", "JAMES", "JANE", 
-        "JAYNE", "JEFF", "JENNIFER", "JEREMY", "JESSICA", "JIM", "JOAN", "JODIE", "JOE", "JOHN", "JOHNNY", "JON", 
-        "JUDE", "JUDI", "JUDY", "JULIA", "JULIANNE", "JULIETTE", "KARL", "KATE", "KATHARINE", "KENNETH", "KEVIN", 
-        "KIM", "KIRK", "KIRSTEN", "LANA", "LAURA", "LAUREN", "LAURENCE", "LEELEE", "LENA", "LEONARDO", "LIAM", 
-        "LISA", "LIV", "LIZA", "LUCILLE", "MADELINE", "MAE", "MARILYN", "MARISA", "MARLENE", "MARLON", "MARY", 
-        "MATT", "MATTHEW", "MEG", "MEL", "MENA", "MERYL", "MICHAEL", "MICHELLE", "MILLA", "MINNIE", "MIRA", 
-        "MORGAN", "NATALIE", "NEVE", "NICK", "NICOLAS", "NICOLE", "OLYMPIA", "OPRAH", "ORLANDO", "PARKER", 
-        "PAUL", "PEARL", "PENELOPE", "RALPH", "RAY", "REESE", "RENEE", "RICHARD", "RIP", "RITA", "RIVER", 
-        "ROBERT", "ROBIN", "ROCK", "ROSIE", "RUBY", "RUSSELL", "SALLY", "SALMA", "SANDRA", "SCARLETT", "SEAN", 
-        "SHIRLEY", "SIDNEY", "SIGOURNEY", "SISSY", "SOPHIA", "SPENCER", "STEVE", "SUSAN", "SYLVESTER", "THORA", 
-        "TIM", "TOM", "UMA", "VAL", "VIVIEN", "WALTER", "WARREN", "WHOOPI", "WILL", "WILLEM", "WILLIAM", "WINONA", 
-        "WOODY", "ZERO"
+          "Aaron", "Adam", "Adrien", "Aidan", "Al", "Alan", "Albert", "Alden", "Aldis", "Alec", "Alexander", "Alexandra",
+          "Alfred", "Alicia", "Alison", "Allison", "Amanda", "Amandla", "Amber", "Amy", "Ana", "Andre", "Andrea", "Andrew",
+          "Andy", "Angela", "Angelina", "Anjelica", "Ann", "Anna", "Anne", "Annette", "Anson", "Anthony", "Anton", "Antonio",
+          "Antony", "Anya", "Aparna", "Archie", "Armie", "Arnold", "Aubrey", "Audrey", "Austin", "Ayo", "Barkhad", "Barry",
+          "Ben", "Benedict", "Benicio", "Bette", "Bill", "Billy", "Bob", "Boyd", "Bradley", "Brendan", "Brenton", "Brian",
+          "Brie", "Brittany", "Bruce", "Bryan", "Burt", "Cameron", "Carey", "Carl", "Carrie-Anne", "Cary", "Casey", "Cate",
+          "Catherine", "Chace", "Channing", "Charles", "Charlie", "Charlize", "Chaske", "Chevy", "Chiwetel", "Chloe", "Chris",
+          "Christian", "Christina", "Christoph", "Christopher", "Ciaran", "Cillian", "Claes", "Clark", "Clint", "Cloris",
+          "Cobie", "Colby", "Colin", "Colman", "Connie", "Corey", "Courteney", "Craig", "Cuba", "Dakota", "Damian", "Dan",
+          "Danai", "Dane", "Daniel", "Daniela", "Danielle", "Danny", "Dave", "David", "Demi", "Dennis", "Denzel", "Dermot",
+          "Dev", "Diane", "Diego", "Djimon", "Dominic", "Dominique", "Don", "Donald", "Donnie", "Doris", "Doug", "Drew",
+          "Dustin", "Dwayne", "Ed", "Eddie", "Edward", "Eiza", "Elijah", "Elisabeth", "Elizabeth", "Elle", "Ellen", "Elliot",
+          "Elsie", "Emile", "Emilio", "Emily", "Emma", "Ernest", "Ernie", "Ethan", "Eugene", "Eva", "Evan", "Ewan", "Famke",
+          "Finn", "Fionn", "Florence", "Forest", "Frances", "Frank", "Frankie", "Freddie", "Gael", "Gal", "Garrett", "Gary",
+          "Geena", "Gemma", "Gene", "Geoffrey", "George", "Gerard", "Giancarlo", "Gillian", "Gina", "Ginnifer", "Glen", "Glenn",
+          "Goldie", "Greta", "Gugu", "Gustaf", "Gwendoline", "Gwyneth", "Hailee", "Haley", "Halle", "Harris", "Harrison",
+          "Harry", "Harvey", "Hayden", "Hayley", "Heath", "Helen", "Helena", "Henry", "Hilary", "Hiroyuki", "Holly", "Hugh",
+          "Hugo", "Humphrey", "Ian", "Idris", "Iko", "Imelda", "Imogen", "Ingrid", "Ioan", "Issa", "Jack", "Jackie", "Jacob",
+          "Jaden", "Jahi", "Jai", "Jaimie", "Jake", "James", "Jamie", "Jane", "Janet", "Jason", "Javier", "Jean", "Jeff",
+          "Jeffrey", "Jena", "Jenna", "Jennifer", "Jeremy", "Jerome", "Jerry", "Jesse", "Jessica", "Jet", "Jim", "J.K.",
+          "Joaquin", "Jodie", "Joe", "Joel", "John", "Johnny", "Jon", "Jonah", "Jonathan", "Jordan", "Joseph", "Josh", "Judd",
+          "Jude", "Judi", "Judy", "Julia", "Julianne", "Juliette", "Juno", "Jurnee", "Justice", "Justin", "Kaitlin", "Kaley",
+          "Karen", "Kate", "Katharine", "Katherine", "Kathryn", "Kathy", "Katie", "Kayvan", "Keanu", "Keegan-Michael", "Keira",
+          "Keke", "Kelsey", "Ken", "Kerry", "Kevin", "Kiefer", "Kieran", "Kingsley", "Kirsten", "Kristen", "Kumail", "Kurt",
+          "Kyle", "LaKeith", "Laura", "Lauren", "Laurence", "Lena", "Leonardo", "Leslie", "Letitia", "Liam", "Liev", "Lily",
+          "Linda", "Lindsay", "Lisa", "Logan", "Ludwig", "Lupita", "Macaulay", "Mackenyu", "Mads", "Maggie", "Mahershala",
+          "Maika", "Maisie", "Malcolm", "Marc", "Margot", "Maria", "Marion", "Marisa", "Mark", "Marlon", "Martin", "Mary",
+          "Matt", "Matthew", "Maura", "Maya", "Mel", "Melanie", "Melissa", "Meryl", "Michael", "Michelle", "Mickey", "Mila",
+          "Miles", "Millie", "Milo", "Mindy", "Minnie", "Morfydd", "Morgan", "Moses", "Naomie", "Natalie", "Natasha", "Nathan",
+          "Neil", "Nicholas", "Nick", "Nicolas", "Nicole", "Nikolaj", "Noomi", "Norman", "Octavia", "Odeya", "Olga", "Olivia",
+          "Orlando", "Oscar", "Owen", "Paddy", "Patrice", "Patricia", "Patrick", "Patton", "Paul", "Pedro", "Penelope", "Peter",
+          "Philip", "Phylicia", "Pierce", "Pom", "Queen", "Quinta", "Quintessa", "Rachel", "Rafe", "Raffey", "Rainn", "Ralph",
+          "Rami", "Randall", "Rashida", "Ray", "Rebecca", "Rebel", "Reese", "Regina", "Renee", "Rhona", "Rhys", "Richard",
+          "Rinko", "Rita", "Riz", "Rob", "Robert", "Robin", "Ron", "Rosamund", "Rosario", "Rose", "Rosie", "Rupert", "Russell",
+          "Ryan", "Sacha", "Sadie", "Salma", "Sam", "Samara", "Samuel", "Sanaa", "Sandra", "Saoirse", "Sarah", "Scarlett",
+          "Scott", "Sean", "Sebastian", "Selena", "Seth", "Shah", "Shailene", "Sharon", "Shaun", "Shea", "Shia", "Shirley",
+          "Sidney", "Sigourney", "Simone", "Simu", "Sissy", "Skeet", "Sofia", "Sonequa", "Sophia", "Spike", "Stanley",
+          "Stellan", "Stephanie", "Steve", "Steven", "Suraaj", "Susan", "Sydney", "Sylvester", "Taika", "Tao", "Taraji",
+          "Taran", "Taron", "Tatiana", "Tessa", "Teyonah", "Thandiwe", "Thomasin", "Thuso", "Tilda", "Tim", "Timothee", "Tina",
+          "Tobey", "Toby", "Tom", "Tommy", "Toni", "Tony", "Topher", "Trevante", "Tuppence", "Uma", "Uzo", "Valerie",
+          "Vanessa", "Vera", "Vicky", "Viggo", "Vin", "Vince", "Viola", "Walton", "Warwick", "Wesley", "Whoopi", "Will",
+          "Willem", "William", "Woody", "Wunmi", "Yahya", "Yvonne", "Zac", "Zach", "Zachary", "Zazie", "Zoe"
         };
 
-      // 200 actor/actress lastnames  
+      // 500 actor/actress lastnames
       string[] actor_lastnames = new string[]
         {
-        "AFFLECK", "AKROYD", "ALLEN", "ANISTON", "ASTAIRE", "BACALL", "BAILEY", "BALE", "BALL", "BARRYMORE", 
-        "BASINGER", "BEATTY", "BENING", "BERGEN", "BERGMAN", "BERRY", "BIRCH", "BLANCHETT", "BLOOM", "BOGART", 
-        "BOLGER", "BRANAGH", "BRANDO", "BRIDGES", "BRODY", "BULLOCK", "CAGE", "CAINE", "CAMPBELL", "CARREY", 
-        "CHAPLIN", "CHASE", "CLOSE", "COOPER", "COSTNER", "CRAWFORD", "CRONYN", "CROWE", "CRUISE", "CRUZ", 
-        "DAFOE", "DAMON", "DAVIS", "DAY", "DAY-LEWIS", "DEAN", "DEE", "DEGENERES", "DENCH", "DENIRO", 
-        "DEPP", "DERN", "DIAZ", "DICAPRIO", "DIETRICH", "DOUGLAS", "DREYFUSS", "DRIVER", "DUKAKIS", "DUNST", 
-        "EASTWOOD", "FAWCETT", "FIELD", "FIENNES", "FINNEY", "FISHER", "FONDA", "FORD", "FOSTER", "FREEMAN", 
-        "GABLE", "GARBO", "GARCIA", "GARLAND", "GIBSON", "GOLDBERG", "GOODING", "GRANT", "GUINESS", "HACKMAN", 
-        "HANNAH", "HARRIS", "HAWKE", "HAWN", "HAYEK", "HECHE", "HEPBURN", "HESTON", "HOFFMAN", "HOPE", 
-        "HOPKINS", "HOPPER", "HORNE", "HUDSON", "HUNT", "HURT", "HUSTON", "IRONS", "JACKMAN", "JOHANSSON", 
-        "JOLIE", "JOVOVICH", "KAHN", "KEATON", "KEITEL", "KELLY", "KIDMAN", "KILMER", "KINNEAR", "KUDROW", 
-        "LANCASTER", "LANSBURY", "LAW", "LEIGH", "LEWIS", "LOLLOBRIGIDA", "LOREN", "LUGOSI", "MALDEN", "MANSFIELD", 
-        "MARTIN", "MARX", "MATTHAU", "MCCONAUGHEY", "MCDORMAND", "MCGREGOR", "MCKELLEN", "MCQUEEN", "MINELLI", "MIRANDA",  
-        "MONROE", "MOORE", "MOSTEL", "NEESON", "NEWMAN", "NICHOLSON", "NOLTE", "NORTON", "ODONNELL", "OLIVIER", 
-        "PACINO", "PALTROW", "PECK", "PENN", "PESCI", "PFEIFFER", "PHOENIX", "PINKETT", "PITT", "POITIER", 
-        "POSEY", "PRESLEY", "REYNOLDS", "RICKMAN", "ROBBINS", "ROBERTS", "RUSH", "RUSSELL", "RYAN", "RYDER", 
-        "SANDLER", "SARANDON", "SILVERSTONE", "SINATRA", "SMITH", "SOBIESKI", "SORVINO", "SPACEK", "STALLONE", "STREEP", 
-        "SUVARI", "SWANK", "TANDY", "TAUTOU", "TAYLOR", "TEMPLE", "THERON", "THURMAN", "TOMEI", "TORN", 
-        "TRACY", "TURNER", "TYLER", "VOIGHT", "WAHLBERG", "WALKEN", "WASHINGTON", "WATSON", "WAYNE", "WEAVER", 
-        "WEST", "WILLIAMS", "WILLIS", "WILSON", "WINFREY", "WINSLET", "WITHERSPOON", "WOOD", "WRAY", "ZELLWEGER"
+          "Abdi", "Abdul-Mateen II", "Ackles", "Adams", "Aduba", "Affleck", "Ahmed", "Alexander", "Ali", "Allen", "Anderson",
+          "Aniston", "Applegate", "Aranas", "Arquette", "Atwell", "Aykroyd", "Bacall", "Baldwin", "Bale", "Banderas", "Bang",
+          "Banks", "Bardem", "Baron Cohen", "Barrymore", "Bassett", "Bates", "Bautista", "Bean", "Beetz", "Bell", "Bello",
+          "Ben-Adir", "Bening", "Bergman", "Berry", "Bichir", "Biles", "Binoche", "Birch", "B. Jordan", "Blanchett", "Bloom",
+          "Blunt", "Bobby Brown", "Bogart", "Bonham Carter", "Borgnine", "Boutella", "Brando", "Bridges", "Brie", "Britton",
+          "Brody", "Brolin", "Brooks", "Brosnan", "Brown", "Brunson", "Bullock", "Buscemi", "Busey", "Butler", "Byrne", "Cage",
+          "Cardellini", "Carrey", "Cassidy", "Cavill", "Cena", "Chalamet", "Chan", "Chase", "Chastain", "Chau", "Cheadle",
+          "Christensen", "Christie", "Clark", "Clooney", "Close", "Collette", "Colman", "Connery", "Considine", "Cooper",
+          "Coster-Waldau", "Costner", "Cotillard", "Courtney", "Cox", "Cranston", "Crawford", "Crowe", "Crudup", "Cruz",
+          "Culkin", "Cumberbatch", "Cuoco", "Daddario", "Dafoe", "Damon", "Dance", "Davis", "Dawson", "Day", "de Armas",
+          "DeGeneres", "DeHaan", "Del Toro", "De Niro", "Depp", "Dern", "DeVito", "Diaz", "DiCaprio", "Dickinson", "Diesel",
+          "Dinklage", "Driver", "Dunst", "Eastwood", "Edebiri", "Edgerton", "Efron", "Egerton", "Ehrenreich", "Eisenberg",
+          "Ejiofor", "Elba", "Elordi", "Esposito", "Estevez", "Evans", "Falco", "Fanning", "Faris", "Farmiga", "Farrell",
+          "Ferguson", "Fey", "Fiennes", "Fillion", "Firth", "Fishback", "Fishburne", "Fisher", "Flynn", "Fonda", "Ford",
+          "Foster", "Freeman", "Gable", "Gadot", "Galifianakis", "Garcia Bernal", "Garfield", "Garland", "Gere", "Giamatti",
+          "Gibson", "Gillan", "Gilliam", "Gleeson", "Goggins", "Goldberg", "Goldblum", "Goldwyn", "Gomez", "Gonzalez",
+          "Gooding Jr.", "Goodwin", "Gordon-Levitt", "Gosling", "Grace", "Grace Moretz", "Grammer", "Grant", "Griffith",
+          "Grillo", "Grint", "Gruffudd", "Gurira", "Gyllenhaal", "Hackman", "Hahn", "Hamm", "Hammer", "Hanks", "Harbour",
+          "Harlow", "Harper", "Harrelson", "Harris", "Hathaway", "Hauser", "Hawke", "Hawkins", "Hawn", "Hayek", "Headey",
+          "Heard", "Hedlund", "Heigl", "Hepburn", "Highmore", "Hill", "Hinds", "Hirsch", "H. Macy", "Hodge", "Hoffman",
+          "Holbrook", "Holland", "Holmes", "Hopkins", "Hopper", "Hoult", "Hounsou", "Hudson", "Hunter", "Huston", "Ifans",
+          "Ingram", "Ironside", "Isaac", "Jackman", "James", "Janney", "Janssen", "Jeong", "Jessica Parker", "Johansson",
+          "Johnson", "Jolie", "Jones", "Kaling", "Kamal", "Kazan", "Keach", "Keaton", "Keitel", "Keoghan", "Key", "Kidman",
+          "Kier", "Kikuchi", "Killam", "King", "Kirby", "Klementieff", "Knightley", "Kravitz", "Krieps", "Kudrow", "Kunis",
+          "Kurylenko", "Kuss", "LaBeouf", "Larson", "Lathan", "Latifah", "Law", "Leachman", "Ledger", "Lee", "Lee Jones",
+          "Lehman", "Leigh", "Lerman", "Levin", "Levy", "Lewis", "Li", "Liotta", "Liu", "L. Jackson", "Lopez", "Loren",
+          "Louis-Dreyfus", "Lowe", "Lyonne", "Macdonald", "MacLachlan", "Madekwe", "Maguire", "Malek", "Malone", "Manning",
+          "Margret", "Maron", "Martindale", "Martin-Green", "Maslany", "Mbatha-Raw", "Mbedu", "McAdams", "McCarthy",
+          "McClanahan", "McDormand", "McDowell", "McElhone", "McGregor", "McKellen", "McKenzie", "McNairy", "Melchior",
+          "Mendes", "Meyer", "Middleton", "Mikkelsen", "Minifie", "Mirren", "Mitra", "Molina", "Monroe", "Moore", "Moreno",
+          "Mortensen", "Mosaku", "Moss", "Mount", "Mulligan", "Mulroney", "Muniz", "Murphy", "Nanjiani", "Neeson", "Newton",
+          "Nolte", "Norton", "Novak", "Nyong'o", "Odenkirk", "Odom Jr.", "O'Donnell", "Oh", "Okamoto", "Oldman", "Olsen",
+          "O'Neill", "Orser", "Ortega", "Oswalt", "Pacino", "Page", "Palmer", "Paltrow", "Park", "Parris", "Pascal", "Patel",
+          "Patrick Harris", "Pattinson", "Peele", "Perlman", "Perry", "Pesci", "Peters", "P. Henson", "Phoenix", "Pike",
+          "Plaza", "Poesy", "Poitier", "Poots", "Portman", "Posey", "Powell", "Pryce", "Pugh", "Purohit", "Quaid", "Quinn",
+          "Quinto", "Radcliffe", "Rae", "Rapace", "Rashad", "Redmayne", "Reedus", "Reeves", "Reitman", "Renner", "Reynolds",
+          "Rhames", "Rhodes", "Richards", "Richardson", "Rickman", "Riseborough", "Robbie", "Roberts", "Rockwell", "Rodriguez",
+          "Rogen", "Rogowski", "Ronan", "Rourke", "Rudolph", "Ruffalo", "Rukh Khan", "Rush", "Russell", "Saldana", "Sanada",
+          "Sandler", "Sarandon", "Schreiber", "Schwarzenegger", "Seinfeld", "Serkis", "Sessa", "Seyfried", "Seymour Hoffman",
+          "Sharma", "Shaw", "Shawkat", "Short", "Simmons", "Sink", "Skarsgard", "Smith", "Smollett", "Smulders", "Snipes",
+          "Spacek", "Spall", "Spencer", "Stallone", "Stan", "Stanfield", "Starr", "Statham", "Staunton", "Steenburgen",
+          "Steinfeld", "Stenberg", "Stevens", "Stewart", "Stone", "Strahovski", "Streep", "Styles", "Sutherland", "Swank",
+          "Swayze", "Sweeney", "Swindell", "Swinton", "Tatum", "Taylor", "Taylor-Johnson", "Taylor-Joy", "Teller", "Temple",
+          "Theron", "Thompson", "Thurman", "Thwaites", "Tierney", "Timberlake", "Tomei", "Tucci", "Tyson", "Ulrich", "Uwais",
+          "Van Dien", "Vaughn", "Ventimiglia", "Vikander", "Wahlberg", "Waititi", "Walken", "Walker", "Waller-Bridge", "Waltz",
+          "Washington", "Weathers", "Weaver", "Weaving", "Whigham", "Whitaker", "Whitehead", "Wiig", "Williams", "Willis",
+          "Wilson", "Winston", "Witherspoon", "Wolfhard", "Wong", "Wood", "Wright", "Yelchin", "Yeoh", "Yeun", "Zellweger",
+          "Zeta-Jones"
         };
 
-      actor_in = actor_firstnames[r.Next ( 200 )] + " " + actor_lastnames[r.Next ( 200 )];
+      actor_in = actor_firstnames[Random.Shared.Next( 500 )] + " " + actor_lastnames[Random.Shared.Next( 500 )];
 
       }  // End of CreateActor
 
@@ -2796,11 +2889,11 @@ namespace ds2xdriver
         "WOLVES", "WOMEN", "WON", "WONDERFUL", "WONDERLAND", "WONKA", "WORDS", "WORKER", "WORKING", "WORLD", 
         "WORST", "WRATH", "WRONG", "WYOMING", "YENTL", "YOUNG", "YOUTH", "ZHIVAGO", "ZOOLANDER", "ZORRO", 
         };
-      title_in = movie_titles[r.Next ( 1000 )] + " " + movie_titles[r.Next ( 1000 )];
+      title_in = movie_titles[Random.Shared.Next( 1000 )] + " " + movie_titles[Random.Shared.Next( 1000 )];
       }  // End of CreateTitle   
 
       string[] InitReviewDataTerms()
-    {
+      {
           string[] review_data_terms = new string[] 
           {"the","and","a","of","to","is","in","I","that","this","it","for","was","with","as","The","movie","on",
             "but","you","are","have","his","not","film","be","one","by","an","he","from","50","at","all","who",
@@ -2911,7 +3004,291 @@ namespace ds2xdriver
             "images","Brian","Robin","screenplay","Tony","leaving","impressive","die","hoping","successful","pull","cinema","creepy",
             "married","provide","More","Steven","monster","YOU","alot","key","male","attempts","boys","jokes","clever","HD","ALL","success",
             "bad","suggest","brief","Henry","Edward","continue","do","negative","society","Unfortunately","finding","immediately","listen",
-            "touch","LOVE","annoying","western","rating","day","Billy","becoming","knowing","common","ending","quick","Sean","performance","writers","Trek","Anthony","sweet","hot","impressed","too","unless","subtle","journey","Academy","unlike","money","concept","apparently","explain","hardly","fascinating","weak","ever","scene","Edition","notice","cult","Or","ride","digital","FOR","tough","Red","world","15","graphic","Night","35","CGI","note","development","whatever","played","off","dream","Jeff","disappointed","government","effective","era","onto","wanting","51","off","mentioned","bluray","aspects","about","intelligent","the","mysterious","werent","03","first","chase","over","involving","situation","Jane","fiction","directors","literally","mix","Other","value","vampire","though","plain","master","fell","comedy","see","Jennifer","martial","force","thrown","arrived","know","ready","speak","THAT","cast","Williams","14","Time","hasnt","meaning","tired","discover","H","Ryan","magic","current","Highly","disturbing","moral","cheap","excellent","led","Charlie","touching","Bad","City","trailer","music","adults","De","What","train","For","atmosphere","today","ultimate","months","helped","learned","A","to","was","odd","difference","Last","II","credits","state","mixed","super","away","Since","creative","barely","held","seriously","office","physical","equally","grew","So","credit","opinion","so","step","Captain","tension","day","willing","not","Superman","regular","All","humor","directors","continues","ship","were","was","acting","Still","college","in","original","baby","Wonderful","Because","finest","spirit","inspired","entertaining","gang","then","WAS","otherwise","Buy","Patrick","reasons","trouble","memories","trip","Jr","Get","normal","Despite","thoroughly","mood","lose","Moore","wonderfully","tape","generally","action","growing","comedic","pace","todays","natural","feelings","extended","superior","indeed","acted","Blu","paid","videos","print","lived","surprisingly","potential","before","search","tone","absolute","laughs","either","moved","rented","compelling","Matt","weird","died","impossible","drawn","girlfriend","cheesy","themes","VERY","original","six","interview","gay","recommended","Dark","dog","The","compare","Danny","race","Having","Still","presence","positive","love","ideas","motion","viewed","80s","Thank","thing","awful","lovely","3D","scenery","content","Western","pop","seemingly","job","One","tv","reviewer","Alan","thanks","putting","culture","walk","Jackson","air","itself","featuring","party","fresh","filmmakers","case","slowly","yes","example","emotions","subtitles","teen","store","dancing","opportunity","charming","pleased","understanding","but","support","directing","predictable","Eric","Max","Gary","suddenly","set","editing","rated","People","appeal","Roger","Those","humans","asked","family","gotten","discovers","offer","release","Eastwood","with","role","captured","proves","ago","attack","convincing","better","excited","fan","B","Oh","seasons","DVDs","stuck","captures","own","Be","gun","genius","before","allowed","producers","allow","Better","Your","keeping","million","other","history","smart","ridiculous","toward","appearance","Was","Where","8","56","Everyone","experience","Hitchcock","Youll","Here","water","ahead","impact","pass","hits","followed","Ed","sitting","pieces","Can","Each","for","soldiers","Old","Have","Ford","wondering","wife","thus","picked","revenge","self","returns","numerous","creating","soul","place","building","merely","best","constantly","twice","others","My","format","audiences","long","heavy","Joseph","amazing","lets","avoid","Everything","bringing","shame","issue","not","Howard","date","beat","interesting","ago","clean","US","gorgeous","personally","realized","double","much","Elizabeth","man","stick","youd","Nothing","allows","Potter","colors","capture","laughed","ray","innocent","aware","Fun","year","Clint","cold","House","ON","stars","news","later","fellow","apart","neither","students","Adam","effects","system","giant","right","childhood","Much","silent","managed","fair","tragic","High","West","wrong","falling","down","fire","Fox","struggle","quality","born","video","Stone","Don","week","process","red","hair","7","done","part","And","F","reminded","wild","South","arts","agent","prefer","Grant","relate","Overall","began","learns","fails","enough","Green","deeply","actors","See","poorly","lacks","spectacular","Warner","made","director","sorry","watch","kills","do","hand","drive","introduced","places","Gene","Matthew","reminds","multiple","flick","Mrs","serial","turning","accurate","approach","Russell","summer","Never","Burton","vision","religious","packed","discs","starting","ones","Now","Lord","limited","flying","brothers","comedies","timebr","Life","filming","be","Jerry","interesting","comments","Earth","memory","grow","cartoon","with","answer","Halloween","12","25","planet","carry","Sarah","individual","developed","rarely","source","Mel","mans","Awesome","walking","Evil","emotion","watching","prison","forces","afraid","performance","When","villain","treat","back","Nick","However","leader","Dennis","century","sick","condition","intended","ending","a","remarkable","yet","Russian","asks","himself","Part","Alex","throw","honest","failed","itself","shooting","script","visually","noticed","mainly","drama","expectations","United","bother","wide","alive","presentation","loving","thing","technical","Before","joy","winning","Queen","choose","build","member","hearing","street","Kate","BEST","loud","mission","food","genre","Rock","package","marriage","opens","steals","road","suppose","learning","bored","so","land","psychological","children","NO","element","test","Eddie","together","Miss","Allen","costumes","acts","Italian","energy","Horror","violence","justice","minutes","Andrew","66","Anne","Brad","appeared","service","portrays","folks","brutal","realizes","shouldnt","point","gonna","dealing","The","46","dreams","traditional","blue","met","strength","excellent","accept","pleasure","charm","prove","lets","Alien","purpose","classic","screen","ONE","Go","blu","mind","destroy","artistic","grown","faces","else","wellbr","more","describe","study","Loved","players","treatment","utterly","finish","sexy","honestly","teenage","Depp","surprising","Brown","Did","additional","Dolby","performances","la","are","Taylor","relationships","professional","actions","breaks","short","Instead","moments","exception","Shes","technology","beautiful","WITH","emotionally","release","necessary","engaging","deliver","entertaining","zombies","sharp","Worth","Kelly","days","home","Wilson","situations","Spanish","visuals","latest","design","N","About","seat","pulled","deserved","theatre","direct","lady","legendary","hidden","classics","creates","humor","sing","names","fans","hadnt","provided","hated","pictures","theaters","Being","Julie","wasted","Johnson","Anderson","shoot","Digital","detective","fights","delivered","student","bigger","focuses","loses","Me","BUT","first","loss","overly","kinda","spot","remain","visit","Chinese","HAVE","Yet","door","father","actor","While","nicely","9","Julia","camp","enjoying","earth","Three","treated","deals","Blue","performances","other","calls","sheer","Americans","Davis","talks","Definitely","capable","Video","SO","point","brilliantly","jump","Brothers","remembered","mean","knowledge","believes","presents","central","Arthur","delightful","heroes","Let","disappointing","comment","picture","program","Music","lies","40","Our","releases","Jimmy","Guy","item","law","mental","brain","around","extreme","minutes","desire","restored","Joan","Criterion","bloody","Paris","send","Jackie","insight","scared","aliens","mom","pain","combination","travel","Are","broken","decision","bizarre","weeks","sell","back","hopes","R","Watching","doctor","Ron","50","Funny","2nd","unusual","grand","deeper","finished","adding","dangerous","constant","like","tears","nominated","disk","Prince","event","perfect","Anyone","Tommy","Arnold","values","friends","heads","somewhere","lacking","regret","genuine","conflict","teacher","definately","Douglas","Jean","rescue","discovered","it","Miller","have","Dan","Really","fairy","kick","children","Stewart","prior","Jesus","job","others","himself","ancient","Walter","intriguing","featured","Cruise","explains","history","Family","dull","audience","training","army","quiet","impression","losing","dialogue","reach","essentially","ground","involves","flat","Al","film","Picture","cost","loose","hurt","everybody","amusing","Fred","Vincent","length","Alice","range","magnificent","Review","standing","complaint","plane","seven","trust","Without","greater","narrative","price","Young","enough","Wars","personality","Andy","dying","seen","survive","appropriate","Hanks","initial","Movies","tend","100","Overall","thank","generation","Rob","MY","perspective","pulls","to","weve","relatively","67","dialog","closer","thats","Rocky","son","witty","meeting","unexpected","introduction","protect","producer","bits","dumb","driving","island","higher","lover","built","13","kids","edited","North","magical","set","photography","recommended","taste","foreign","Ms","Im","tour","bottom","cry","old","friend","favor","money","flaws","characters","surely","confused","thembr","plans","mad","faith","author","blown","us","death","You","aside","results","critical","dark","through","forgotten","fabulous","Oh","wearing","Lost","night","Would","flicks","who","passed","location","dad","unable","roles","majority","friendship","happening","Whats","frame","London","creature","alternate","previously","humanity","Thanks","old","MUST","night","Cant","fits","creatures","Stanley","dvd","portraying","Beautiful","skip","lesson","Ever","if","Michelle","machine","Sound","CD","gem","boss","Lets","Harris","Lewis","trailers","Amazing","Lady","with","Universal","heart","passion","mind","responsible","sat","project","Larry","shock","asking","wrong","surround","bright","lovers","Back","entertainment","Oliver","boring","forever","Fantastic","sequels","sides","GOOD","section","listening","great","animals","apparent","shocking","over","voices","steal","15","condition","artist","Cameron","True","away","serves","conclusion","mess","slasher","speaking","packaging","right","numbers","Sure","opera","inner","friends","balance","Clark","radio","Pretty","kids","till","unknown","twenty","Texas","things","Indian","haunting","record","holding","Bourne","mistake","favorites","Hugh","manage","manner","Lawrence","lame","girl","moments","ok","Morgan","center","Barbara","described","war","Kim","fake","significant","connection","part","unfortunately","officer","tragedy","novel","for","strongly","saved","fill","rise","performed","placed","media","badly","timeless","Linda","bar","Anyway","theyve","Willis","deserve","down","Hard","satisfying","suspect","home","Which","regarding","humorous","efforts","awesome","Kubrick","andor","Spielberg","although","Unlike","affair","San","driven","cuts","warm","features","Dean","Jonathan","fans","pair","noir","quality","the","Rachel","chose","join","wouldve","experienced","Long","cameo","see","Instead","phone","everyone","today","Death","mine","Vietnam","draw","extras","boyfriend","contrast","Los","greatly","Does","Series","70s","nobody","whenever","area","Jessica","Award","proper","comparison","20th","largely","enjoy","season","wonderful","Susan","Must","victim","faithful","alltime","eat","carries","Lots","Please","imagination","features","Over","makers","especially","reveal","sense","damn","spoil","Washington","storybr","skills","video","Helen","Any","Tarantino","fate","virtually","recognize","via","criminal","genuinely","death","masterpiece","disappointment","portray","mother","determined","offered","okay","like","beloved","powers","04","words","games","war","supposedly","36","opinion","Along","History","Woody","teach","holiday","Girl","franchise","though","long","latter","are","facts","Action","Terry","REALLY","around","Overall","Rick","General","Nazi","correct","but","extras","didnt","reveals","types","Roman","develop","focused","evidence","climax","twisted","FBI","separate","line","delivery","Alexander","award","Nice","2","stuff","actor","actresses","ARE","ghost","confusing","horse","Civil","England","flick","fashion","Planet","blow","speaks","references","partner","painful","Collection","refreshing","future","trilogy","cant","anybody","extraordinary","enjoys","things","script","prepared","enjoyable","lives","accent","1st","To","Craig","desperate","Show","oh","private","mediocre","reviews","purchasing","green","nuclear","amazed","movie","Roy","reason","ordinary","ruin","experiences","serve","guy","cross","hilarious","J","depiction","core","helping","disaster","77","of","woman","saving","OK","57","pacing","drama","did","himbr","scare","President","encounter","Golden","year","During","sold","nowhere","like","know","ran","ages","cars","talents","really","viewing","lower","wedding","necessarily","Home","Jamie","2","designed","normally","copies","Harrison","joke","After","shines","Living","exact","covered","variety","owner","streets","forth","animal","figured","opposite","crowd","Take","selling","victims","count","caused","nudity","pleasant","hired","us","struggles","monsters","revealed","Comedy","suffers","cops","concerned","once","mark","AS","Finally","sight","Roberts","On","Hill","walks","Holmes","required","quest","marvelous","thoughts","tracks","TV","praise","claim","does","Santa","display","trapped","Out","raised","European","tribute","Look","pleasantly","apartment","smile","paced","DVD","wonderful","dated","Book","line","safe","changing","disc","reaction","vs","Perfect","speech","below","touches","returned","Alfred","about","even","Directors","sign","directly","sports","Doctor","another","families","We","convinced","Unfortunately","DO","quirky","picture","Dracula","underrated","fantastic","picks","place","yoga","brand","genre","breaking","Disc","contemporary","paying","clips","ever","overthetop","Nicholas","chosen","featurette","hotel","That","Ian","Cage","angry","receive","depicted","fly","superb","attractive","produce","complicated","handle","side","intelligence","spy","deadly","recorded","stated","cinematography","Now","No","dollars","fathers","weight","daughter","glimpse","Nicholson","shocked","volume","Simon","heavily","Donald","With","essential","25","themselves","hospital","therefore","exceptional","causes","battles","Set","Joel","crap","Baby","favourite","witness","anyway","Top","own","May","BE","think","spite","research","different","pI","larger","contain","recall","equal","cat","Audio","remastered","gold","Ann","Anniversary","superhero","massive","Murphy","plots","Army","including","description","besides","direction","mere","attitude","Sir","Live","exercise","account","choices","Damon","titles","stopped","ruined","spends","Master","bank","repeated","obsessed","suspenseful","Parker","dies","kinds","frightening","roll","Broadway","excuse","watches","judge","books","sympathetic","Sometimes","Pitt","stellar","Lucy","influence","shape","perform","suffering","days","real","documentaries","production","challenge","Saturday","arrives","case","Anna","stays","house","served","detailed","legend","lessons","alone","replaced","Irish","nasty","romance","independent","murdered","claims","popcorn","First","expected","segment","surrounding","gangster","debut","fourth","opened","Jake","enemy","Matrix","community","wear","initially","mebr","least","yes","accident","Especially","of","eating","Gibson","darker","explained","However","Could","cutting","Princess","mob","searching","king","Friday","covers","mature","Based","Hopkins","perfect","levels","and","marry","church","decades","villains","house","behavior","wife","Original","lifebr","style","2","village","Iron","suspense","succeeds","realism","Things","Yes","style","terribly","two","rules","unbelievable","purchase","26","struggling","drop","thrilling","beautiful","Dick","Up","breath","views","Leonard","Absolutely","Cary","WWII","childrens","related","African","ensemble","time","gory","true","Catherine","scientist","sleep","practically","else","seller","per","entertained","sound","career","poignant","1","fault","Barry","anything","Elvis","appreciated","month","highest","Carol","chick","for","Gordon","Something","industry","occasionally","Simply","Dawn","steps","men","Godzilla","blame","Dave","bed","fail","grows","Laura","Maria","guns","opposed","assume","onebr","position","gritty","owned","u","seeking","freedom","at","desert","Indiana","football","Colin","Carl","lucky","Connery","couldve","Full","curious","explanation","tons","eyes","boring","everyday","satire","remind","Men","anywhere","identity","carried","sadly","unforgettable","MGM","sense","11","Again","amazing","random","stayed","Samuel","Kirk","rights","Street","tremendous","wealthy","Such","Space","Lucas","charge","cable","veteran","wise","winner","later","post","baseball","Jewish","feet","Jon","commercial","combined","Zombie","holes","colorful","rental","tight","facial","Some","complain","installment","yet","proud","Theyre","Wild","ways","once","happen","highlight","blind","closing","Saw","SciFi","seek","AT","dialogue","station","ball","works","heck","cultural","Amy","says","Harvey","Ken","lighting","enter","age","Die","round","drugs","dubbed","Amazon","dirty","Happy","season","commentary","review","destroyed","past","delight","ring","90","past","pilot","Snow","At","guilty","supernatural","BUY","possible","child","pThis","seconds","waited","arms","review","flow","Jeffrey","letting","78","M","score","Park","sound","I","Sandra","Not","WILL","restoration","unfortunate","FROM","understood","teens","routine","promise","go","definite","advantage","Owen","laugh","upset","exist","Jay","sensitive","essence","play","Kong","soldier","library","providing","believable","thrilled","roles","released","unlikely","Carrey","believed","reference","violence","women","thin","option","Lisa","Louis","costume","weapons","context","Had","chapter","notch","beginning","sex","Angel","school","youth","two","Terminator","field","DTS","effectively","States","ice","ways","Way","answers","Next","Greek","builds","revolves","boat","vampires","drag","Rose","guitar","chilling","documentary","sequel","drives","againbr","dozen","Almost","bear","School","real","tradition","specific","returning","morning","throws","Ghost","floor","primarily","path","Mickey","which","far","Wood","allowing","edition","Karen","suit","empty","repeat","matters","blend","sends","calling","favorites","artists","47","Bobby","formula","album","improved","touched","crafted","welcome","child","crisp","ugly","ranks","sea","guy","allbr","homage","throughout","handsome","star","contact","thebr","sings","intensity","achieve","walked","terror","Dragon","currently","cinema","remaining","Sure","reviews","novel","bond","advice","endless","satisfied","speed","countless","window","lights","Scorsese","committed","slight","recording","excitement","heart","decade","campy","lot","Then","SEE","informative","something","adapted","tiny","convince","Romero","hundreds","Jeremy","worthwhile","teaches","3rd","Neil","soundtrack","Ultimate","haunted","pointless","saves","raw","finale","face","overcome","TV","school","courage","gain","birth","spiritual","movement","fictional","material","attention","occasional","Okay","mainstream","director","attempting","passing","menu","thousands","proved","myself","hide","say","hype","mouth","Real","push","Philip","cool","waybr","hanging","par","conversation","Final","So","danger","Quentin","status","differences","Super","gotta","father","enjoyment","EVER","importance","singer","bet","minds","board","DVDbr","stops","The","eight","Fans","Pacino","level","thatbr","episodes","Disneys","again","handled","it","vast","techniques","adventures","stood","Ted","Give","80s","wall","Denzel","thriller","surface","Victor","hundred","Whether","crash","murders","lonely","Kane","reminiscent","La","insane","Films","somebody","he","abandoned","infamous","You","Four","inspiring","audience","instance","writing","amazingly","go","gore","destruction","awkward","loaded","outbr","son","episodes","aside","closely","peace","John","according","format","daily","Carter","NEVER","honor","Probably","interpretation","Entertainment","robot","Cooper","downright","cares","herebr","parts","easier","stock","soft","narration","broke","Mr","notes","enhanced","Right","production","Plus","picking","Through","brilliant","Movie","very","treasure","faced","pack","expensive","sets","same","episode","identify","Hall","Annie","game","flawed","troubled","teaching","forgot","Bogart","Come","CIA","boy","politics","model","National","Five","stories","Cut","medical","corny","Brooks","IF","sorts","anyone","3","skin","standards","parody","raise","Art","ONLY","XMen","response","reason","fine","Days","anymore","FILM","tear","theater","struck","im","Finally","international","peoples","suffer","songs","instead","BBC","torture","Chuck","harsh","releasing","think","funnier","renting","Interesting","draws","refuses","Freeman","horror","belief","Campbell","sequel","Timothy","Check","also","terrifying","wins","Yet","Gregory","horrific","unnecessary","practice","LOVED","husband","states","security","en","OK","grace","sinister","filmmaking","anything","evening","relief","Upon","que","carefully","wit","Albert","come","wont","advanced","rough","target","Boy","desperately","California","episode","fallen","sounded","buy","Complete","vehicle","bomb","goodbr","thru","Im","another","Curtis","mindless","comics","Blood","suicide","sure","Foster","yourself","listed","filmmaker","LIKE","channel","movie","alone","storyline","improvement","Reeves","existence","figures","term","brother","gripping","naked","paper","remote","Kurt","teenagers","girl","aint","dressed","Crowe","Hunter","masterful","convey","Hepburn","aged","criticism","Josh","locations","planning","bodies","makeup","one","degree","cartoons","III","Nicole","regardless","millions","soundtrack","matter","parts","entertain","art","spending","combat","statement","appealing","68","subsequent","corporate","Shirley","Mexican","ignore","studios","removed","Hope","Hoffman","Seven","cases","Shakespeare","dry","problem","Diane","club","brilliant","does","profound","head","written","Murray","represents","neat","Thompson","Hitchcocks","guessing","Emma","88","amazon","dinner","then","market","plastic","Greatest","V","qualities","birthday","matches","authentic","cool","suffered","depressing","Make","starred","goofy","WHAT","storyline","too","hopefully","challenging","mass","thrill","dropped","Fan","corrupt","false","Judy","Mad","lesser","library","town","hours","fought","notable","split","instantly","hooked","true","commentaries","film","talked","likeable","individuals","entry","creation","clothes","I","Austin","Has","JUST","lawyer","encounters","documentary","successfully","grab","fine","anniversary","device","simple","eyes","laugh","young","movie","executed","redeeming","devoted","slow","men","rid","risk","westerns","flashbacks","noted","while","person","Chicago","god","classical","disc","woman","stolen","thisbr","Cold","Chan","ever","frequently","X","host","task","ages","superb","REAL","worry","hiding","ones","arrive","tales","sake","replace","star","far","sequences","why","Predator","highlights","hero","pregnant","timely","Leslie","earned","Another","surprises","instant","have","factor","Of","Vampire","Adams","teenager","jumps","appreciation","Japan","Fast","established","Sandler","stuff","reporter","interaction","shallow","Carpenter","Got","expert","Pixar","overall","Grace","experience","play","aired","threat","UK","Ralph","toobr","Tyler","age","prevent","dynamic","Harold","Welles","portion","breathtaking","daughter","warning","busy","press","Blade","animation","trash","pathetic","cruel","requires","tied","taught","Entertaining","hilarious","endbr","Hannibal","Favorite","dislike","collection","Freddy","caring","60s","language","everyone","survivors","versus","Ross","stories","base","sudden","eerie","sword","Keanu","underground","checking","newer","Collectors","Man","crying","golden","Tracy","offering","ladies","develops","novels","page","no","tense","likable","continued","throwing","Maggie","failure","37","player","Stars","problems","YOUR","spots","Price","garbage","belongs","displays","revealing","moviesbr","storytelling","musicals","Bay","amongst","side","Myers","escapes","Plus","sum","miles","thriller","game","examples","scale","seeks","person","protagonist","Walt","bothered","reality","Coen","always","books","rival","flaw","centers","discuss","rule","song","primary","graphics","utter","Although","wears","Meanwhile","inspiration","imagery","definition","100","Del","era","Professor","newly","goal","letter","shark","shows","St","inevitable","flight","Truly","Lane","slapstick","copy","Emily","site","friend","discussion","humour","Shrek","Ellen","explore","horribly","explaining","rape","basis","Natalie","riding","scary","town","non","dead","priest","Kubricks","reality","16","Making","Bryan","product","addition","upper","comfortable","Its","Road","material","shipping","Poor","technique","one","increasingly","friendly","stretch","hang","Father","of","circumstances","16","America","universe","everyones","luck","intellectual","shot","date","Robinson","Jet","historically","everything","jumping","evil","happened","lines","relevant","segments","argue","period","pointed","Marie","solve","hoped","wrapped","cash","prime","complaints","spoken","native","metal","definitive","Catholic","religion","region","new","kid","interest","you","Burtons","THEY","next","hed","Keaton","rolling","theater","Even","many","transformation","honest","screaming","Made","sophisticated","blood","outstanding","reallife","Francis","Battle","Reynolds","Li","predictable","express","flesh","What","survival","brave","stunts","portrait","drinking","Baker","fat","reasonable","causing","performing","this","shot","HBO","guest","albeit","kicks","Kill","Island","05","foot","ratio","guys","women","nice","Nancy","score","blows","aging","innocence","Add","Theres","wind","Private","Turner","perfectly","mother","Legend","awards","GET","Quite","grade","usual","Jesse","Luke","surreal","disappointment","vivid","quote","carrying","anger","Hunt","boxing","evident","size","hunt","Keith","weekend","gruesome","contained","br","14","terrible","seriously","Audrey","Kenneth","Clooney","wondered","Seeing","Heston","laid","fame","89","look","Century","ive","depicts","D","ruthless","sad","accidentally","Should","while","happily","Paramount","wooden","heroic","Hong","clues","bound","benefit","maintain","Costner","Law","worlds","controversial","physically","smaller","songs","workout","Duke","Von","Norman","bit","C","Dirty","Second","career","Hulk","Hell","doesnt","18","scientific","explores","stronger","chief","ourselves","online","specifically","shop","society","Twilight","note","court","Think","entertainment","vintage","costumes","thirty","grain","watching","cynical","HE","dedicated","attacked","tends","favorite","Baldwin","Europe","isbr","introduces","previews","sympathy","angles","health","reputation","casual","expressions","Newman","June","english","clue","art","Heres","Asian","screenwriter","45","anamorphic","shared","watchable","glorious","Soviet","Niro","morebr","staying","None","torn","wake","attempted","HIS","Las","root","rating","engaged","different","country","skill","socalled","underlying","loyal","Marilyn","Randy","Then","bucks","worse","comical","Angelina","careful","name","connected","Great","Movie","accomplished","no","flawless","Third","Benjamin","trained","Moon","title","backdrop","thumbs","shut","beings","BD","wanna","Patricia","onbr","messages","resolution","p","photo","youbr","Brilliant","obsession","Science","OUT","truck","East","strike","Fiction","lacked","challenges","ride","24","captain","theyll","Todd","im","Movie","viewer","recomend","capturing","hollywood","Wallace","dollar","Graham","Remember","Rodriguez","customer","attacks","Secret","substance","drunk","He","rendition","Nelson","reaches","released","Kids","this","improve","Travolta","Marshall","scary","mentally","overlooked","halfway","acted","Lynch","concerns","pushed","enters","con","info","moment","Angela","y","Brandon","subtitles","crude","gentle","thousand","AN","France","buddy","threw","kid","face","PG13","this","Wes","uncomfortable","Youre","worried","arm","El","filmsbr","perfection","signs","riveting","fears","wishes","Rogers","disagree","Meryl","hint","Phil","blockbuster","execution","Vegas","masterpiece","Actor","handful","table","fantastic","heroine","unrealistic","that","gratuitous","financial","striking","situation","direction","Alec","Toy","theyd","pays","Glenn","eccentric","naturally","through","Americas","L","along","Yeah","adventure","edition","areas","legal","laughs","dvd","Buffy","ANY","demands","anymore","Quality","player","headed","gags","admire","hours","Ive","chasing","dead","Amanda","punch","themselves","superbly","it","worse","piano","Burt","matter","transfer","harder","Ethan","OR","silver","fond","pulling","darn","kidnapped","Streep","consequences","bus","forever","Air","Masterpiece","dress","liking","directorial","Mexico","sisters","lines","stealing","national","least","deaths","Ridley","Drew","passionate","Mom","absurd","groups","fun","also","intelligent","Stallone","shine","believing","brilliance","gross","name","THE","Meg","grainy","Count","moment","cliche","WAY","well","future","Am","personalities","dogs","criminals","Lees","environment","enormous","yeah","Hollywood","urban","Given","bridge","USA","professor","timing","upcoming","laughter","fitting","mountain","surrounded","sucked","ripped","official","lives","Greg","workouts","Crystal","Claire","contrived","available","selection","Christmas","hardcore","remarkably","lie","tad","DONT","finish","Blair","evil","anyway","american","facing","Andrews","decisions","exchange","myself","arguably","beginning","candy","dvds","locked","film","BIG","structure","strikes","LA","orders","Years","Kennedy","stole","spoof","bitter","budget","civil","admit","60","darkness","Save","TIME","suspense","gradually","hitting","reccomend","to","tale","antics","get","fix","Aliens","Colonel","America","appearances","critic","oil","Later","connect","von","Dont","typically","right","importantly","Boys","accused","God","associated","Sadly","idea","beneath","911","1","helpful","Val","Christ","developing","works","Holly","shipped","mid","nonstop","intent","58","wonders","jobs","access","They","settings","code","cell","except","Lois","sacrifice","princess","demonstrates","lowbudget","drink","Sharon","regard","Also","3","beats","Southern","sure","Hollywoods","Lloyd","heres","Doc","delivering","Sherlock","had","sister","Perry","burning","anyway","mothers","exists","list","secrets","herbr","scares","concerning","spoiled","blew","dare","Betty","The","17","ballet","Side","Monty","movements","soap","worn","Besides","suggests","purely","mask","traveling","creators","chance","WHO","Hughes","Eastwoods","fan","strong","4","Sally","price","Bottom","Vince","Uncle","insult","dragged","Angeles","betterbr","Raymond","outrageous","best","Marvel","whereas","reviewing","involved","performers","rely","English","porn","Beatles","horror","glass","alive","closed","card","27","form","Keep"
+            "touch","LOVE","annoying","western","rating","day","Billy","becoming","knowing","common","ending","quick","Sean","performance",
+	    "writers","Trek","Anthony","sweet","hot","impressed","too","unless","subtle","journey","Academy","unlike","money","concept",
+	    "apparently","explain","hardly","fascinating","weak","ever","scene","Edition","notice","cult","Or","ride","digital","FOR","tough",
+	    "Red","world","15","graphic","Night","35","CGI","note","development","whatever","played","off","dream","Jeff","disappointed",
+	    "government","effective","era","onto","wanting","51","off","mentioned","bluray","aspects","about","intelligent","the",
+	    "mysterious","werent","03","first","chase","over","involving","situation","Jane","fiction","directors","literally",
+	    "mix","Other","value","vampire","though","plain","master","fell","comedy","see","Jennifer","martial","force",
+	    "thrown","arrived","know","ready","speak","THAT","cast","Williams","14","Time","hasnt","meaning","tired","discover",
+	    "H","Ryan","magic","current","Highly","disturbing","moral","cheap","excellent","led","Charlie","touching","Bad",
+	    "City","trailer","music","adults","De","What","train","For","atmosphere","today","ultimate","months","helped","learned",
+	    "A","to","was","odd","difference","Last","II","credits","state","mixed","super","away","Since","creative","barely",
+	    "held","seriously","office","physical","equally","grew","So","credit","opinion","so","step","Captain","tension",
+	    "day","willing","not","Superman","regular","All","humor","directors","continues","ship","were","was","acting",
+	    "Still","college","in","original","baby","Wonderful","Because","finest","spirit","inspired","entertaining","gang",
+	    "then","WAS","otherwise","Buy","Patrick","reasons","trouble","memories","trip","Jr","Get","normal","Despite","thoroughly",
+	    "mood","lose","Moore","wonderfully","tape","generally","action","growing","comedic","pace","todays","natural","feelings",
+	    "extended","superior","indeed","acted","Blu","paid","videos","print","lived","surprisingly","potential","before",
+	    "search","tone","absolute","laughs","either","moved","rented","compelling","Matt","weird","died","impossible",
+	    "drawn","girlfriend","cheesy","themes","VERY","original","six","interview","gay","recommended","Dark","dog","The",
+	    "compare","Danny","race","Having","Still","presence","positive","love","ideas","motion","viewed","80s","Thank","thing",
+	    "awful","lovely","3D","scenery","content","Western","pop","seemingly","job","One","tv","reviewer","Alan","thanks","putting",
+	    "culture","walk","Jackson","air","itself","featuring","party","fresh","filmmakers","case","slowly","yes","example",
+	    "emotions","subtitles","teen","store","dancing","opportunity","charming","pleased","understanding","but","support",
+	    "directing","predictable","Eric","Max","Gary","suddenly","set","editing","rated","People","appeal","Roger","Those",
+	    "humans","asked","family","gotten","discovers","offer","release","Eastwood","with","role","captured","proves",
+	    "ago","attack","convincing","better","excited","fan","B","Oh","seasons","DVDs","stuck","captures","own","Be",
+	    "gun","genius","before","allowed","producers","allow","Better","Your","keeping","million","other","history",
+	    "smart","ridiculous","toward","appearance","Was","Where","8","56","Everyone","experience","Hitchcock","Youll",
+	    "Here","water","ahead","impact","pass","hits","followed","Ed","sitting","pieces","Can","Each","for","soldiers",
+	    "Old","Have","Ford","wondering","wife","thus","picked","revenge","self","returns","numerous","creating","soul",
+	    "place","building","merely","best","constantly","twice","others","My","format","audiences","long","heavy","Joseph",
+	    "amazing","lets","avoid","Everything","bringing","shame","issue","not","Howard","date","beat","interesting","ago","clean","US",
+	    "gorgeous","personally","realized","double","much","Elizabeth","man","stick","youd","Nothing","allows","Potter","colors",
+	    "capture","laughed","ray","innocent","aware","Fun","year","Clint","cold","House","ON","stars","news","later","fellow",
+	    "apart","neither","students","Adam","effects","system","giant","right","childhood","Much","silent","managed","fair","tragic",
+	    "High","West","wrong","falling","down","fire","Fox","struggle","quality","born","video","Stone","Don","week","process","red","hair",
+	    "7","done","part","And","F","reminded","wild","South","arts","agent","prefer","Grant","relate","Overall",
+	    "began","learns","fails","enough","Green","deeply","actors","See","poorly","lacks","spectacular","Warner",
+	    "made","director","sorry","watch","kills","do","hand","drive","introduced","places","Gene","Matthew",
+	    "reminds","multiple","flick","Mrs","serial","turning","accurate","approach","Russell","summer","Never",
+	    "Burton","vision","religious","packed","discs","starting","ones","Now","Lord","limited","flying","brothers",
+	    "comedies","timebr","Life","filming","be","Jerry","interesting","comments","Earth","memory","grow","cartoon",
+	    "with","answer","Halloween","12","25","planet","carry","Sarah","individual","developed","rarely","source",
+	    "Mel","mans","Awesome","walking","Evil","emotion","watching","prison","forces","afraid","performance","When",
+	    "villain","treat","back","Nick","However","leader","Dennis","century","sick","condition","intended","ending","a",
+	    "remarkable","yet","Russian","asks","himself","Part","Alex","throw","honest","failed","itself","shooting","script",
+	    "visually","noticed","mainly","drama","expectations","United","bother","wide","alive","presentation","loving",
+	    "thing","technical","Before","joy","winning","Queen","choose","build","member","hearing","street","Kate",
+	    "BEST","loud","mission","food","genre","Rock","package","marriage","opens","steals","road","suppose","learning",
+	    "bored","so","land","psychological","children","NO","element","test","Eddie","together","Miss","Allen","costumes",
+	    "acts","Italian","energy","Horror","violence","justice","minutes","Andrew","66","Anne","Brad","appeared",
+	    "service","portrays","folks","brutal","realizes","shouldnt","point","gonna","dealing","The","46","dreams",
+	    "traditional","blue","met","strength","excellent","accept","pleasure","charm","prove","lets","Alien","purpose","classic",
+	    "screen","ONE","Go","blu","mind","destroy","artistic","grown","faces","else","wellbr","more","describe","study","Loved",
+	    "players","treatment","utterly","finish","sexy","honestly","teenage","Depp","surprising","Brown","Did",
+	    "additional","Dolby","performances","la","are","Taylor","relationships","professional","actions","breaks",
+	    "short","Instead","moments","exception","Shes","technology","beautiful","WITH","emotionally","release",
+	    "necessary","engaging","deliver","entertaining","zombies","sharp","Worth","Kelly","days","home","Wilson",
+	    "situations","Spanish","visuals","latest","design","N","About","seat","pulled","deserved","theatre",
+	    "direct","lady","legendary","hidden","classics","creates","humor","sing","names","fans","hadnt","provided",
+	    "hated","pictures","theaters","Being","Julie","wasted","Johnson","Anderson","shoot","Digital","detective",
+	    "fights","delivered","student","bigger","focuses","loses","Me","BUT","first","loss","overly","kinda",
+	    "spot","remain","visit","Chinese","HAVE","Yet","door","father","actor","While","nicely","9","Julia",
+	    "camp","enjoying","earth","Three","treated","deals","Blue","performances","other","calls","sheer",
+	    "Americans","Davis","talks","Definitely","capable","Video","SO","point","brilliantly","jump","Brothers",
+	    "remembered","mean","knowledge","believes","presents","central","Arthur","delightful","heroes","Let","disappointing",
+	    "comment","picture","program","Music","lies","40","Our","releases","Jimmy","Guy","item","law","mental","brain",
+	    "around","extreme","minutes","desire","restored","Joan","Criterion","bloody","Paris","send","Jackie","insight","scared",
+	    "aliens","mom","pain","combination","travel","Are","broken","decision","bizarre","weeks","sell","back","hopes",
+	    "R","Watching","doctor","Ron","50","Funny","2nd","unusual","grand","deeper","finished","adding","dangerous",
+	    "constant","like","tears","nominated","disk","Prince","event","perfect","Anyone","Tommy","Arnold","values",
+	    "friends","heads","somewhere","lacking","regret","genuine","conflict","teacher","definately","Douglas","Jean","rescue",
+	    "discovered","it","Miller","have","Dan","Really","fairy","kick","children","Stewart","prior","Jesus","job",
+	    "others","himself","ancient","Walter","intriguing","featured","Cruise","explains","history","Family","dull",
+	    "audience","training","army","quiet","impression","losing","dialogue","reach","essentially","ground",
+	    "involves","flat","Al","film","Picture","cost","loose","hurt","everybody","amusing","Fred","Vincent",
+	    "length","Alice","range","magnificent","Review","standing","complaint","plane","seven","trust","Without",
+	    "greater","narrative","price","Young","enough","Wars","personality","Andy","dying","seen","survive","appropriate",
+	    "Hanks","initial","Movies","tend","101","Overall","thank","generation","Rob","MY","perspective","pulls","to",
+	    "weve","relatively","67","dialog","closer","thats","Rocky","son","witty","meeting","unexpected","introduction",
+	    "protect","producer","bits","dumb","driving","island","higher","lover","built","13","kids","edited","North",
+	    "magical","set","photography","recommended","taste","foreign","Ms","Im","tour","bottom","cry","old","friend",
+	    "favor","money","flaws","characters","surely","confused","thembr","plans","mad","faith","author","blown","us","death",
+	    "You","aside","results","critical","dark","through","forgotten","fabulous","Oh","wearing","Lost","night","Would","flicks",
+	    "who","passed","location","dad","unable","roles","majority","friendship","happening","Whats","frame","London",
+	    "creature","alternate","previously","humanity","Thanks","old","MUST","night","Cant","fits","creatures",
+	    "Stanley","dvd","portraying","Beautiful","skip","lesson","Ever","if","Michelle","machine","Sound","CD","gem",
+	    "boss","Lets","Harris","Lewis","trailers","Amazing","Lady","with","Universal","heart","passion","mind",
+	    "responsible","sat","project","Larry","shock","asking","wrong","surround","bright","lovers","Back",
+	    "entertainment","Oliver","boring","forever","Fantastic","sequels","sides","GOOD","section","listening",
+	    "great","animals","apparent","shocking","over","voices","steal","15","condition","artist","Cameron",
+	    "True","away","serves","conclusion","mess","slasher","speaking","packaging","right","numbers","Sure",
+	    "opera","inner","friends","balance","Clark","radio","Pretty","kids","till","unknown","twenty","Texas",
+	    "things","Indian","haunting","record","holding","Bourne","mistake","favorites","Hugh","manage","manner",
+	    "Lawrence","lame","girl","moments","ok","Morgan","center","Barbara","described","war","Kim","fake","significant",
+	    "connection","part","unfortunately","officer","tragedy","novel","for","strongly","saved","fill","rise",
+	    "performed","placed","media","badly","timeless","Linda","bar","Anyway","theyve","Willis","deserve","down","Hard",
+	    "satisfying","suspect","home","Which","regarding","humorous","efforts","awesome","Kubrick","andor","Spielberg",
+	    "although","Unlike","affair","San","driven","cuts","warm","features","Dean","Jonathan","fans","pair","noir",
+	    "quality","the","Rachel","chose","join","wouldve","experienced","Long","cameo","see","Instead","phone","everyone",
+	    "today","Death","mine","Vietnam","draw","extras","boyfriend","contrast","Los","greatly","Does","Series","70s",
+	    "nobody","whenever","area","Jessica","Award","proper","comparison","20th","largely","enjoy","season","wonderful",
+	    "Susan","Must","victim","faithful","alltime","eat","carries","Lots","Please","imagination","features","Over","makers",
+	    "especially","reveal","sense","damn","spoil","Washington","storybr","skills","video","Helen","Any","Tarantino","fate",
+	    "virtually","recognize","via","criminal","genuinely","death","masterpiece","disappointment","portray","mother","determined",
+	    "offered","okay","like","beloved","powers","04","words","games","war","supposedly","36","opinion","Along","History",
+	    "Woody","teach","holiday","Girl","franchise","though","long","latter","are","facts","Action","Terry","REALLY",
+	    "around","Overall","Rick","General","Nazi","correct","but","extras","didnt","reveals","types","Roman","develop",
+	    "focused","evidence","climax","twisted","FBI","separate","line","delivery","Alexander","award","Nice","2","stuff",
+	    "actor","actresses","ARE","ghost","confusing","horse","Civil","England","flick","fashion","Planet","blow",
+	    "speaks","references","partner","painful","Collection","refreshing","future","trilogy","cant","anybody",
+	    "extraordinary","enjoys","things","script","prepared","enjoyable","lives","accent","1st","To","Craig",
+	    "desperate","Show","oh","private","mediocre","reviews","purchasing","green","nuclear","amazed","movie",
+	    "Roy","reason","ordinary","ruin","experiences","serve","guy","cross","hilarious","J","depiction","core",
+	    "helping","disaster","77","of","woman","saving","OK","57","pacing","drama","did","himbr","scare","President",
+	    "encounter","Golden","year","During","sold","nowhere","like","know","ran","ages","cars","talents","really",
+	    "viewing","lower","wedding","necessarily","Home","Jamie","2","designed","normally","copies","Harrison","joke",
+	    "After","shines","Living","exact","covered","variety","owner","streets","forth","animal","figured","opposite",
+	    "crowd","Take","selling","victims","count","caused","nudity","pleasant","hired","us","struggles","monsters",
+	    "revealed","Comedy","suffers","cops","concerned","once","mark","AS","Finally","sight","Roberts","On","Hill",
+	    "walks","Holmes","required","quest","marvelous","thoughts","tracks","TV","praise","claim","does","Santa","display",
+	    "trapped","Out","raised","European","tribute","Look","pleasantly","apartment","smile","paced","DVD","wonderful",
+	    "dated","Book","line","safe","changing","disc","reaction","vs","Perfect","speech","below","touches","returned",
+	    "Alfred","about","even","Directors","sign","directly","sports","Doctor","another","families","We","convinced",
+	    "Unfortunately","DO","quirky","picture","Dracula","underrated","fantastic","picks","place","yoga","brand","genre",
+	    "breaking","Disc","contemporary","paying","clips","ever","overthetop","Nicholas","chosen","featurette","hotel",
+	    "That","Ian","Cage","angry","receive","depicted","fly","superb","attractive","produce","complicated","handle",
+	    "side","intelligence","spy","deadly","recorded","stated","cinematography","Now","No","dollars","fathers","weight",
+	    "daughter","glimpse","Nicholson","shocked","volume","Simon","heavily","Donald","With","essential","25","themselves",
+	    "hospital","therefore","exceptional","causes","battles","Set","Joel","crap","Baby","favourite","witness","anyway",
+	    "Top","own","May","BE","think","spite","research","different","pI","larger","contain","recall","equal","cat","Audio",
+	    "remastered","gold","Ann","Anniversary","superhero","massive","Murphy","plots","Army","including","description",
+	    "besides","direction","mere","attitude","Sir","Live","exercise","account","choices","Damon","titles","stopped",
+	    "ruined","spends","Master","bank","repeated","obsessed","suspenseful","Parker","dies","kinds","frightening","roll",
+	    "Broadway","excuse","watches","judge","books","sympathetic","Sometimes","Pitt","stellar","Lucy","influence","shape",
+	    "perform","suffering","days","real","documentaries","production","challenge","Saturday","arrives","case","Anna","stays",
+	    "house","served","detailed","legend","lessons","alone","replaced","Irish","nasty","romance","independent","murdered",
+	    "claims","popcorn","First","expected","segment","surrounding","gangster","debut","fourth","opened","Jake","enemy",
+	    "Matrix","community","wear","initially","mebr","least","yes","accident","Especially","of","eating","Gibson","darker",
+	    "explained","However","Could","cutting","Princess","mob","searching","king","Friday","covers","mature","Based","Hopkins",
+	    "perfect","levels","and","marry","church","decades","villains","house","behavior","wife","Original","lifebr","style","2",
+	    "village","Iron","suspense","succeeds","realism","Things","Yes","style","terribly","two","rules","unbelievable","purchase",
+	    "26","struggling","drop","thrilling","beautiful","Dick","Up","breath","views","Leonard","Absolutely",
+	    "Cary","WWII","childrens","related","African","ensemble","time","gory","true","Catherine","scientist","sleep",
+	    "practically","else","seller","per","entertained","sound","career","poignant","1","fault","Barry","anything",
+	    "Elvis","appreciated","month","highest","Carol","chick","for","Gordon","Something","industry","occasionally","Simply",
+	    "Dawn","steps","men","Godzilla","blame","Dave","bed","fail","grows","Laura","Maria","guns","opposed","assume","onebr",
+	    "position","gritty","owned","u","seeking","freedom","at","desert","Indiana","football","Colin","Carl","lucky",
+	    "Connery","couldve","Full","curious","explanation","tons","eyes","boring","everyday","satire","remind","Men",
+	    "anywhere","identity","carried","sadly","unforgettable","MGM","sense","11","Again","amazing","random","stayed",
+	    "Samuel","Kirk","rights","Street","tremendous","wealthy","Such","Space","Lucas","charge","cable","veteran","wise",
+	    "winner","later","post","baseball","Jewish","feet","Jon","commercial","combined","Zombie","holes","colorful","rental",
+	    "tight","facial","Some","complain","installment","yet","proud","Theyre","Wild","ways","once","happen","highlight","blind",
+	    "closing","Saw","SciFi","seek","AT","dialogue","station","ball","works","heck","cultural","Amy","says","Harvey","Ken",
+	    "lighting","enter","age","Die","round","drugs","dubbed","Amazon","dirty","Happy","season","commentary","review","destroyed",
+	    "past","delight","ring","90","past","pilot","Snow","At","guilty","supernatural","BUY","possible","child","pThis","seconds",
+	    "waited","arms","review","flow","Jeffrey","letting","78","M","score","Park","sound","I","Sandra","Not","WILL","restoration",
+	    "unfortunate","FROM","understood","teens","routine","promise","go","definite","advantage","Owen","laugh","upset","exist",
+	    "Jay","sensitive","essence","play","Kong","soldier","library","providing","believable","thrilled","roles","released",
+	    "unlikely","Carrey","believed","reference","violence","women","thin","option","Lisa","Louis","costume","weapons",
+	    "context","Had","chapter","notch","beginning","sex","Angel","school","youth","two","Terminator","field","DTS",
+	    "effectively","States","ice","ways","Way","answers","Next","Greek","builds","revolves","boat","vampires","drag",
+	    "Rose","guitar","chilling","documentary","sequel","drives","againbr","dozen","Almost","bear","School","real",
+	    "tradition","specific","returning","morning","throws","Ghost","floor","primarily","path","Mickey","which","far",
+	    "Wood","allowing","edition","Karen","suit","empty","repeat","matters","blend","sends","calling","favorites",
+	    "artists","47","Bobby","formula","album","improved","touched","crafted","welcome","child","crisp","ugly",
+	    "ranks","sea","guy","allbr","homage","throughout","handsome","star","contact","thebr","sings","intensity","achieve",
+	    "walked","terror","Dragon","currently","cinema","remaining","Sure","reviews","novel","bond","advice","endless",
+	    "satisfied","speed","countless","window","lights","Scorsese","committed","slight","recording","excitement","heart",
+	    "decade","campy","lot","Then","SEE","informative","something","adapted","tiny","convince","Romero","hundreds",
+	    "Jeremy","worthwhile","teaches","3rd","Neil","soundtrack","Ultimate","haunted","pointless","saves","raw",
+	    "finale","face","overcome","TV","school","courage","gain","birth","spiritual","movement","fictional",
+	    "material","attention","occasional","Okay","mainstream","director","attempting","passing","menu","thousands",
+	    "proved","myself","hide","say","hype","mouth","Real","push","Philip","cool","waybr","hanging","par",
+	    "conversation","Final","So","danger","Quentin","status","differences","Super","gotta","father","enjoyment",
+	    "EVER","importance","singer","bet","minds","board","DVDbr","stops","The","eight","Fans","Pacino","level",
+	    "that","episodes","Disneys","again","handled","it","vast","techniques","adventures","stood","Ted","Give","80s",
+	    "wall","Denzel","thriller","surface","Victor","hundred","Whether","crash","murders","lonely","Kane","reminiscent",
+	    "La","insane","Films","somebody","he","abandoned","infamous","You","Four","inspiring","audience","instance","writing",
+	    "amazingly","go","gore","destruction","awkward","loaded","outbr","son","episodes","aside","closely","peace","John",
+	    "according","format","daily","Carter","NEVER","honor","Probably","interpretation","Entertainment","robot","Cooper",
+	    "downright","cares","herebr","parts","easier","stock","soft","narration","broke","Mr","notes","enhanced","Right",
+	    "production","Plus","picking","Through","brilliant","Movie","very","treasure","faced","pack","expensive","sets",
+	    "same","episode","identify","Hall","Annie","game","flawed","troubled","teaching","forgot","Bogart","Come","CIA",
+	    "boy","politics","model","National","Five","stories","Cut","medical","corny","Brooks","IF","sorts","anyone",
+	    "3","skin","standards","parody","raise","Art","ONLY","XMen","response","reason","fine","Days","anymore","FILM",
+	    "tear","theater","struck","im","Finally","international","peoples","suffer","songs","instead","BBC","torture",
+	    "Chuck","harsh","releasing","think","funnier","renting","Interesting","draws","refuses","Freeman","horror",
+	    "belief","Campbell","sequel","Timothy","Check","also","terrifying","wins","Yet","Gregory","horrific",
+	    "unnecessary","practice","LOVED","husband","states","security","en","OK","grace","sinister","filmmaking",
+	    "anything","evening","relief","Upon","que","carefully","wit","Albert","come","wont","advanced","rough",
+	    "target","Boy","desperately","California","episode","fallen","sounded","buy","Complete","vehicle","bomb",
+	    "goodbr","thru","Im","another","Curtis","mindless","comics","Blood","suicide","sure","Foster","yourself",
+	    "listed","filmmaker","LIKE","channel","movie","alone","storyline","improvement","Reeves","existence","figures",
+	    "term","brother","gripping","naked","paper","remote","Kurt","teenagers","girl","aint","dressed","Crowe",
+	    "Hunter","masterful","convey","Hepburn","aged","criticism","Josh","locations","planning","bodies","makeup",
+	    "one","degree","cartoons","III","Nicole","regardless","millions","soundtrack","matter","parts","entertain","art",
+	    "spending","combat","statement","appealing","68","subsequent","corporate","Shirley","Mexican","ignore",
+	    "studios","removed","Hope","Hoffman","Seven","cases","Shakespeare","dry","problem","Diane","club","brilliant",
+	    "does","profound","head","written","Murray","represents","neat","Thompson","Hitchcocks","guessing","Emma",
+	    "88","amazon","dinner","then","market","plastic","Greatest","V","qualities","birthday","matches","authentic",
+	    "cool","suffered","depressing","Make","starred","goofy","WHAT","storyline","too","hopefully","challenging",
+	    "mass","thrill","dropped","Fan","corrupt","false","Judy","Mad","lesser","library","town","hours","fought",
+	    "notable","split","instantly","hooked","true","commentaries","film","talked","likeable","individuals",
+	    "entry","creation","clothes","I","Austin","Has","JUST","lawyer","encounters","documentary","successfully",
+	    "grab","fine","anniversary","device","simple","eyes","laugh","young","movie","executed","redeeming",
+	    "devoted","slow","men","rid","risk","westerns","flashbacks","noted","while","person","Chicago","god",
+	    "classical","disc","woman","stolen","thisbr","Cold","Chan","ever","frequently","X","host","task","ages",
+	    "superb","REAL","worry","hiding","ones","arrive","tales","sake","replace","star","far","sequences","why",
+	    "Predator","highlights","hero","pregnant","timely","Leslie","earned","Another","surprises","instant","have",
+	    "factor","Of","Vampire","Adams","teenager","jumps","appreciation","Japan","Fast","established","Sandler",
+	    "stuff","reporter","interaction","shallow","Carpenter","Got","expert","Pixar","overall","Grace","experience",
+	    "play","aired","threat","UK","Ralph","toobr","Tyler","age","prevent","dynamic","Harold","Welles","portion",
+	    "breathtaking","daughter","warning","busy","press","Blade","animation","trash","pathetic","cruel","requires",
+	    "tied","taught","Entertaining","hilarious","endbr","Hannibal","Favorite","dislike","collection","Freddy",
+	    "caring","60s","language","everyone","survivors","versus","Ross","stories","base","sudden","eerie","sword",
+	    "Keanu","underground","checking","newer","Collectors","Man","crying","golden","Tracy","offering","ladies",
+	    "develops","novels","page","no","tense","likable","continued","throwing","Maggie","failure","37","player",
+	    "Stars","problems","YOUR","spots","Price","garbage","belongs","displays","revealing","moviesbr","storytelling",
+	    "musicals","Bay","amongst","side","Myers","escapes","Plus","sum","miles","thriller","game","examples","scale",
+	    "seeks","person","protagonist","Walt","bothered","reality","Coen","always","books","rival","flaw","centers",
+	    "discuss","rule","song","primary","graphics","utter","Although","wears","Meanwhile","inspiration","imagery",
+	    "definition","100","Del","era","Professor","newly","goal","letter","shark","shows","St","inevitable","flight",
+	    "Truly","Lane","slapstick","copy","Emily","site","friend","discussion","humour","Shrek","Ellen","explore",
+	    "horribly","explaining","rape","basis","Natalie","riding","scary","town","non","dead","priest","Kubricks",
+	    "reality","16","Making","Bryan","product","addition","upper","comfortable","Its","Road","material","shipping",
+	    "Poor","technique","one","increasingly","friendly","stretch","hang","Father","of","circumstances","16",
+	    "America","universe","everyones","luck","intellectual","shot","date","Robinson","Jet","historically",
+	    "everything","jumping","evil","happened","lines","relevant","segments","argue","period","pointed","Marie",
+	    "solve","hoped","wrapped","cash","prime","complaints","spoken","native","metal","definitive","Catholic",
+	    "religion","region","new","kid","interest","you","Burtons","THEY","next","hed","Keaton","rolling","theater",
+	    "Even","many","transformation","honest","screaming","Made","sophisticated","blood","outstanding","reallife",
+	    "Francis","Battle","Reynolds","Li","predictable","express","flesh","What","survival","brave","stunts","portrait",
+	    "drinking","Baker","fat","reasonable","causing","performing","this","shot","HBO","guest","albeit","kicks",
+	    "Kill","Island","05","foot","ratio","guys","women","nice","Nancy","score","blows","aging","innocence","Add",
+	    "Theres","wind","Private","Turner","perfectly","mother","Legend","awards","GET","Quite","grade","usual",
+	    "Jesse","Luke","surreal","disappointment","vivid","quote","carrying","anger","Hunt","boxing","evident",
+	    "size","hunt","Keith","weekend","gruesome","contained","br","14","terrible","seriously","Audrey","Kenneth",
+	    "Clooney","wondered","Seeing","Heston","laid","fame","89","look","Century","ive","depicts","D","ruthless",
+	    "sad","accidentally","Should","while","happily","Paramount","wooden","heroic","Hong","clues","bound",
+	    "benefit","maintain","Costner","Law","worlds","controversial","physically","smaller","songs","workout",
+	    "Duke","Von","Norman","bit","C","Dirty","Second","career","Hulk","Hell","doesnt","18","scientific","explores",
+	    "stronger","chief","ourselves","online","specifically","shop","society","Twilight","note","court","Think",
+	    "entertainment","vintage","costumes","thirty","grain","watching","cynical","HE","dedicated","attacked",
+	    "tends","favorite","Baldwin","Europe","isbr","introduces","previews","sympathy","angles","health","reputation",
+	    "casual","expressions","Newman","June","english","clue","art","Heres","Asian","screenwriter","45","anamorphic",
+	    "shared","watchable","glorious","Soviet","Niro","morebr","staying","None","torn","wake","attempted","HIS",
+	    "Las","root","rating","engaged","different","country","skill","socalled","underlying","loyal","Marilyn",
+	    "Randy","Then","bucks","worse","comical","Angelina","careful","name","connected","Great","Movie","accomplished",
+	    "no","flawless","Third","Benjamin","trained","Moon","title","backdrop","thumbs","shut","beings","BD","wanna",
+	    "Patricia","onbr","messages","resolution","p","photo","youbr","Brilliant","obsession","Science","OUT",
+	    "truck","East","strike","Fiction","lacked","challenges","ride","24","captain","theyll","Todd","im",
+	    "Movie","viewer","recomend","capturing","hollywood","Wallace","dollar","Graham","Remember","Rodriguez",
+	    "customer","attacks","Secret","substance","drunk","He","rendition","Nelson","reaches","released","Kids",
+	    "this","improve","Travolta","Marshall","scary","mentally","overlooked","halfway","acted","Lynch","concerns",
+	    "pushed","enters","con","info","moment","Angela","y","Brandon","subtitles","crude","gentle","thousand",
+	    "AN","France","buddy","threw","kid","face","PG13","this","Wes","uncomfortable","Youre","worried","arm",
+	    "El","filmsbr","perfection","signs","riveting","fears","wishes","Rogers","disagree","Meryl","hint","Phil",
+	    "blockbuster","execution","Vegas","masterpiece","Actor","handful","table","fantastic","heroine","unrealistic",
+	    "that","gratuitous","financial","striking","situation","direction","Alec","Toy","theyd","pays","Glenn",
+	    "eccentric","naturally","through","Americas","L","along","Yeah","adventure","edition","areas","legal",
+	    "laughs","dvd","Buffy","ANY","demands","anymore","Quality","player","headed","gags","admire","hours",
+	    "Ive","chasing","dead","Amanda","punch","themselves","superbly","it","worse","piano","Burt","matter",
+	    "transfer","harder","Ethan","OR","silver","fond","pulling","darn","kidnapped","Streep","consequences",
+	    "bus","forever","Air","Masterpiece","dress","liking","directorial","Mexico","sisters","lines","stealing",
+	    "national","least","deaths","Ridley","Drew","passionate","Mom","absurd","groups","fun","also","intelligent",
+	    "Stallone","shine","believing","brilliance","gross","name","THE","Meg","grainy","Count","moment","cliche",
+	    "WAY","well","future","Am","personalities","dogs","criminals","Lees","environment","enormous","yeah",
+	    "Hollywood","urban","Given","bridge","USA","professor","timing","upcoming","laughter","fitting","mountain",
+	    "surrounded","sucked","ripped","official","lives","Greg","workouts","Crystal","Claire","contrived",
+	    "available","selection","Christmas","hardcore","remarkably","lie","tad","DONT","finish","Blair","evil",
+	    "anyway","american","facing","Andrews","decisions","exchange","myself","arguably","beginning","candy",
+	    "dvds","locked","film","BIG","structure","strikes","LA","orders","Years","Kennedy","stole","spoof","bitter",
+	    "budget","civil","admit","60","darkness","Save","TIME","suspense","gradually","hitting","reccomend","to",
+	    "tale","antics","get","fix","Aliens","Colonel","America","appearances","critic","oil","Later","connect",
+	    "von","Dont","typically","right","importantly","Boys","accused","God","associated","Sadly","idea","beneath",
+	    "911","1","helpful","Val","Christ","developing","works","Holly","shipped","mid","nonstop","intent","58",
+	    "wonders","jobs","access","They","settings","code","cell","except","Lois","sacrifice","princess","demonstrates",
+	    "lowbudget","drink","Sharon","regard","Also","3","beats","Southern","sure","Hollywoods","Lloyd","heres",
+	    "Doc","delivering","Sherlock","had","sister","Perry","burning","anyway","mothers","exists","list","secrets",
+	    "herbr","scares","concerning","spoiled","blew","dare","Betty","The","17","ballet","Side","Monty","movements",
+	    "soap","worn","Besides","suggests","purely","mask","traveling","creators","chance","WHO","Hughes",
+	    "Eastwoods","fan","strong","4","Sally","price","Bottom","Vince","Uncle","insult","dragged","Angeles","betterbr",
+	    "Raymond","outrageous","best","Marvel","whereas","reviewing","involved","performers","rely","English","porn",
+	    "Beatles","horror","glass","alive","closed","card","27","form","Keep"
           };
         return review_data_terms;
     }
@@ -2922,14 +3299,284 @@ namespace ds2xdriver
 
         for (int i=0; i < num_terms; i++)
         {
-            return_string = return_string + " " + review_data_terms[r.Next(4900)];
+            return_string = return_string + " " + review_data_terms[Random.Shared.Next(4900)];
         }
         return (return_string);
     }  // End of CreateReviewData
-          
+
     } // End of Class User
 
-  } // End of Namespace ds2xdriver
+public class City
+{
+    public string Name { get; set; }
+    public string State { get; set; }
 
+    public const int us_city_pool_size = 100;
+    public const int row_city_pool_size = 15;
 
+    public City(string name, string state)
+    {
+        Name = name;
+        State = state;
+    }
+}
 
+public static class CityData
+{
+    public static City[] GetROWCities()
+    {
+	return new City[]
+	{
+            new City("Barcelona", "Spain"),
+            new City("Rome", "Italy"),
+            new City("Seoul", "South Korea"),
+            new City("Bangkok", "Thailand"),
+            new City("Mumbai", "India"),
+            new City("Istanbul", "Turkey"),
+            new City("Vienna", "Austria"),
+            new City("Zurich", "Switzerland"),
+            new City("Buenos Aires", "Argentina"),
+            new City("Oslo", "Norway"),
+            new City("Copenhagen", "Denmark"),
+            new City("Auckland", "New Zealand"),
+            new City("Helsinki", "Finland"),
+            new City("Reykjavik", "Iceland"),
+            new City("Lisbon","Portugal")
+	};
+    }
+
+    public static City[] GetUSCities()
+    {
+        return new City[]
+        {
+            new City("New York", "New York"),
+            new City("Los Angeles", "California"),
+            new City("Chicago", "Illinois"),
+            new City("Houston", "Texas"),
+            new City("Phoenix", "Arizona"),
+            new City("Philadelphia", "Pennsylvania"),
+            new City("San Antonio", "Texas"),
+            new City("San Diego", "California"),
+            new City("Dallas", "Texas"),
+            new City("San Jose", "California"),
+            new City("Austin", "Texas"),
+            new City("Jacksonville", "Florida"),
+            new City("Fort Worth", "Texas"),
+            new City("Columbus", "Ohio"),
+            new City("Charlotte", "North Carolina"),
+            new City("San Francisco", "California"),
+            new City("Indianapolis", "Indiana"),
+            new City("Seattle", "Washington"),
+            new City("Denver", "Colorado"),
+            new City("Washington", "District of Columbia"),
+            new City("Boston", "Massachusetts"),
+            new City("El Paso", "Texas"),
+            new City("Nashville", "Tennessee"),
+            new City("Detroit", "Michigan"),
+            new City("Oklahoma City", "Oklahoma"),
+            new City("Portland", "Oregon"),
+            new City("Las Vegas", "Nevada"),
+            new City("Memphis", "Tennessee"),
+            new City("Louisville", "Kentucky"),
+            new City("Baltimore", "Maryland"),
+            new City("Milwaukee", "Wisconsin"),
+            new City("Albuquerque", "New Mexico"),
+            new City("Tucson", "Arizona"),
+            new City("Fresno", "California"),
+            new City("Mesa", "Arizona"),
+            new City("Sacramento", "California"),
+            new City("Atlanta", "Georgia"),
+            new City("Kansas City", "Missouri"),
+            new City("Colorado Springs", "Colorado"),
+            new City("Miami", "Florida"),
+            new City("Raleigh", "North Carolina"),
+            new City("Omaha", "Nebraska"),
+            new City("Long Beach", "California"),
+            new City("Virginia Beach", "Virginia"),
+            new City("Oakland", "California"),
+            new City("Minneapolis", "Minnesota"),
+            new City("Tulsa", "Oklahoma"),
+            new City("Tampa", "Florida"),
+            new City("Arlington", "Texas"),
+            new City("New Orleans", "Louisiana"),
+            new City("Wichita", "Kansas"),
+            new City("Cleveland", "Ohio"),
+            new City("Bakersfield", "California"),
+            new City("Aurora", "Colorado"),
+            new City("Anaheim", "California"),
+            new City("Honolulu", "Hawaii"),
+            new City("Santa Ana", "California"),
+            new City("Riverside", "California"),
+            new City("Corpus Christi", "Texas"),
+            new City("Lexington", "Kentucky"),
+            new City("Henderson", "Nevada"),
+            new City("Stockton", "California"),
+            new City("Saint Paul", "Minnesota"),
+            new City("Cincinnati", "Ohio"),
+            new City("St. Louis", "Missouri"),
+            new City("Pittsburgh", "Pennsylvania"),
+            new City("Greensboro", "North Carolina"),
+            new City("Lincoln", "Nebraska"),
+            new City("Anchorage", "Alaska"),
+            new City("Plano", "Texas"),
+            new City("Orlando", "Florida"),
+            new City("Irvine", "California"),
+            new City("Newark", "New Jersey"),
+            new City("Durham", "North Carolina"),
+            new City("Chula Vista", "California"),
+            new City("Toledo", "Ohio"),
+            new City("Fort Wayne", "Indiana"),
+            new City("St. Petersburg", "Florida"),
+            new City("Laredo", "Texas"),
+            new City("Jersey City", "New Jersey"),
+            new City("Chandler", "Arizona"),
+            new City("Madison", "Wisconsin"),
+            new City("Lubbock", "Texas"),
+            new City("Scottsdale", "Arizona"),
+            new City("Reno", "Nevada"),
+            new City("Buffalo", "New York"),
+            new City("Gilbert", "Arizona"),
+            new City("Glendale", "Arizona"),
+            new City("North Las Vegas", "Nevada"),
+            new City("Winston–Salem", "North Carolina"),
+            new City("Chesapeake", "Virginia"),
+            new City("Norfolk", "Virginia"),
+            new City("Fremont", "California"),
+            new City("Garland", "Texas"),
+            new City("Irving", "Texas"),
+            new City("Hialeah", "Florida"),
+            new City("Richmond", "Virginia"),
+            new City("Boise", "Idaho"),
+            new City("Spokane", "Washington"),
+            new City("Garner", "North Carolina")
+        };
+    }
+}
+
+public static class fake_user_data {
+
+	public const int lastname_pool_size = 1000;
+	public const int firstname_pool_size = 200;
+
+	public static readonly string[] last_names = new string[lastname_pool_size] {
+		"Ashbell","Ashberg","Ashborn","Ashbrook","Ashburn","Ashdale","Ashfield","Ashford","Ashglass","Ashgreen",
+		"Ashhall","Ashhart","Ashhouse","Ashland","Ashlow","Ashman","Ashmore","Ashport","Ashridge","Ashrose","Ashsmith","Ashson","Ashstone","Ashtree","Ashwall",
+		"Ashway","Ashwell","Ashworth","Brightbell","Brightborn","Brightbrook","Brightburn","Brightdale","Brightfield","Brightford","Brightglass","Brightgreen",
+		"Brighthall","Brighthart","Brighthouse","Brightlow","Brightmore","Brightridge","Brightsmith","Brightson","Brightstone","Brighttree","Brightway","Brightwell",
+		"Brightwood","Brightworth","Brightwright","Brookbell","Brookberg","Brookborn","Brookbrook","Brookburn","Brookdale","Brookfield","Brookford","Brookglass",
+		"Brookgreen","Brookhart","Brookhouse","Brooklow","Brookman","Brookmore","Brookridge","Brookrose","Brooksmith","Brookstone","Brooktree","Brookwall","Brookway",
+		"Brookwell","Brookworth","Brookwright","Claybell","Clayberg","Clayborn","Claybrook","Clayburn","Claydale","Clayford","Claygreen","Clayhall","Clayhouse","Clayland",
+		"Claylow","Clayman","Clayport","Claysmith","Claystone","Claywall","Clayway","Claywood","Clayworth","Claywright","Covebell","Coveberg","Coveborn","Covebrook",
+		"Coveburn","Covedale","Covefield","Coveford","Coveglass","Covehall","Covehart","Covehouse","Coveland","Covelow","Coveman","Covemore","Coveport","Covesmith",
+		"Coveson","Covestone","Covetree","Covewall","Covewell","Covewood","Coveworth","Covewright","Dalebell","Daleborn","Dalebrook","Daleburn","Dalefield","Daleford",
+		"Daleglass","Dalegreen","Dalehart","Dalehouse","Daleland","Dalelow","Dalemore","Daleport","Daleridge","Dalerose","Dalesmith","Daletree","Dalewall","Daleway",
+		"Dalewell","Daleworth","Dalewright","Drakebell","Drakeborn","Drakebrook","Drakeburn","Drakedale","Drakefield","Drakeford","Drakehall","Drakehart","Drakehouse",
+		"Drakemore","Drakeport","Drakeridge","Drakerose","Drakesmith","Drakeson","Drakestone","Draketree","Drakewall","Drakeway","Drakewell","Drakeworth","Drakewright",
+		"Eagleberg","Eagleborn","Eaglebrook","Eagleburn","Eagleglass","Eaglegreen","Eaglehall","Eaglehart","Eaglehouse","Eagleland","Eaglelow","Eaglemore","Eagleport",
+		"Eagleridge","Eaglerose","Eaglesmith","Eaglestone","Eaglewall","Eaglewell","Eaglewood","Elkbell","Elkberg","Elkborn","Elkbrook","Elkburn","Elkdale","Elkfield",
+		"Elkford","Elkglass","Elkgreen","Elkhall","Elkhart","Elkland","Elklow","Elkman","Elkmore","Elkport","Elkridge","Elkson","Elkstone","Elktree","Elkwall","Elkway",
+		"Elkwood","Elkworth","Elkwright","Foxbell","Foxborn","Foxburn","Foxdale","Foxfield","Foxford","Foxglass","Foxhall","Foxhart","Foxhouse","Foxland","Foxlow","Foxmore",
+		"Foxport","Foxridge","Foxrose","Foxsmith","Foxson","Foxtree","Foxwall","Foxway","Foxwell","Foxwood","Foxworth","Foxwright","Frostbell","Frostberg","Frostborn","Frostbrook",
+		"Frostburn","Frostdale","Frostfield","Frostford","Frostgreen","Frosthall","Frosthart","Frostland","Frostlow","Frostman","Frostport","Frostridge","Frostrose",
+		"Frostsmith","Frostson","Frosttree","Frostwall","Frostway","Frostwell","Frostwood","Frostworth","Frostwright","Goldbell","Goldberg","Goldborn","Goldbrook","Golddale",
+		"Goldfield","Goldford","Goldglass","Goldgreen","Goldhall","Goldhart","Goldhouse","Goldland","Goldlow","Goldmore","Goldport","Goldrose","Goldsmith","Goldstone","Goldtree",
+		"Goldwall","Goldway","Goldwell","Goldwood","Goldworth","Goldwright","Greenbell","Greenberg","Greenborn","Greenbrook","Greenburn","Greenfield","Greenford","Greenglass",
+		"Greengreen","Greenhall","Greenhart","Greenhouse","Greenland","Greenlow","Greenman","Greenmore","Greenport","Greenrose","Greensmith","Greenson","Greenstone",
+		"Greentree","Greenway","Greenwell","Greenwood","Greenworth","Greenwright","Hartbell","Hartberg","Hartborn","Hartbrook","Hartburn","Hartdale","Hartfield","Hartford",
+		"Hartglass","Hartgreen","Harthall","Harthart","Harthouse","Hartland","Hartlow","Hartman","Hartmore","Hartport","Hartridge","Hartrose","Hartsmith","Hartson","Hartstone",
+		"Harttree","Hartwall","Hartway","Hartworth","Hartwright","Hawkbell","Hawkborn","Hawkbrook","Hawkburn","Hawkdale","Hawkfield","Hawkford","Hawkgreen","Hawkhall",
+		"Hawkhart","Hawkhouse","Hawkland","Hawklow","Hawkman","Hawkmore","Hawkport","Hawkridge","Hawkrose","Hawksmith","Hawkson","Hawkstone","Hawktree","Hawkwall","Hawkway",
+		"Hawkwell","Hawkwood","Hawkworth","Hawkwright","Ironbell","Ironberg","Ironborn","Ironbrook","Ironburn","Irondale","Ironfield","Ironford","Ironglass","Irongreen",
+		"Ironhall","Ironhart","Ironhouse","Ironland","Ironlow","Ironman","Ironmore","Ironridge","Ironrose","Ironsmith","Irontree","Ironway","Ironwell","Ironworth","Ironwright",
+		"Ivybell","Ivyberg","Ivyborn","Ivyburn","Ivydale","Ivyfield","Ivyford","Ivyglass","Ivygreen","Ivyhall","Ivyhouse","Ivyland","Ivylow","Ivyman","Ivymore","Ivyport",
+		"Ivyridge","Ivyrose","Ivysmith","Ivystone","Ivytree","Ivywall","Ivywell","Ivywood","Ivyworth","Ivywright","Jackbell","Jackberg","Jackborn","Jackbrook","Jackburn",
+		"Jackdale","Jackford","Jackglass","Jackgreen","Jackhall","Jackhart","Jackhouse","Jackland","Jacklow","Jackman","Jackmore","Jackport","Jackridge","Jackrose","Jackson",
+		"Jackstone","Jackwall","Jackway","Jackworth","Jackwright","Jadeberg","Jadeborn","Jadebrook","Jadeburn","Jadedale","Jadefield","Jadeford","Jadeglass","Jadegreen",
+		"Jadehall","Jadehouse","Jadeland","Jadelow","Jademan","Jademore","Jadeport","Jaderose","Jadesmith","Jadeson","Jadestone","Jadetree","Jadewall","Jadeway","Jadewell",
+		"Jadewood","Jadeworth","Jadewright","Kingbell","Kingberg","Kingbrook","Kingburn","Kingdale","Kingfield","Kingford","Kingglass","Kinggreen","Kinghall","Kinghart",
+		"Kinghouse","Kingland","Kinglow","Kingman","Kingmore","Kingport","Kingridge","Kingrose","Kingsmith","Kingson","Kingstone","Kingtree","Kingwall","Kingwell","Kingwood",
+		"Kingworth","Knightberg","Knightborn","Knightbrook","Knightburn","Knightfield","Knightford","Knightglass","Knightgreen","Knighthall","Knighthouse","Knightland",
+		"Knightlow","Knightman","Knightmore","Knightport","Knightridge","Knightrose","Knightson","Knightstone","Knighttree","Knightwall","Knightway","Knightwell","Knightwood",
+		"Knightwright","Lakeberg","Lakebrook","Lakeburn","Lakedale","Lakefield","Lakeford","Lakeglass","Lakegreen","Lakehall","Lakehart","Lakehouse","Lakeland","Lakemore",
+		"Lakeport","Lakeridge","Lakerose","Lakesmith","Lakeson","Laketree","Lakewall","Lakeway","Lakewell","Lakewood","Lakeworth","Lakewright","Laneberg","Lanebrook","Laneburn",
+		"Lanedale","Lanefield","Laneford","Lanegreen","Lanehall","Lanehouse","Laneland","Lanelow","Laneman","Lanemore","Laneport","Laneridge","Lanerose","Lanesmith","Laneson",
+		"Lanestone","Lanetree","Lanewall","Laneway","Lanewell","Laneworth","Lanewright","Marchberg","Marchbrook","Marchburn","Marchdale","Marchfield","Marchford","Marchglass",
+		"Marchgreen","Marchhall","Marchhouse","Marchland","Marchlow","Marchman","Marchmore","Marchport","Marchridge","Marchrose","Marchsmith","Marchson","Marchstone",
+		"Marchtree","Marchwall","Marchway","Marchwell","Marchwood","Marchworth","Marchwright","Moonberg","Moonborn","Moonbrook","Moonburn","Moondale","Moonfield","Moonford",
+		"Moonglass","Moongreen","Moonhall","Moonhart","Moonhouse","Moonmore","Moonridge","Moonrose","Moonson","Moonstone","Moontree","Moonwall","Moonway","Moonwell",
+		"Moonwood","Moonworth","Moonwright","Nashbell","Nashberg","Nashborn","Nashbrook","Nashburn","Nashdale","Nashfield","Nashford","Nashglass","Nashgreen","Nashhall",
+		"Nashhart","Nashhouse","Nashland","Nashman","Nashmore","Nashridge","Nashrose","Nashson","Nashstone","Nashtree","Nashwall","Nashway","Nashwood","Nashworth","Northbell",
+		"Northberg","Northborn","Northbrook","Northburn","Northdale","Northfield","Northglass","Northgreen","Northhall","Northhart","Northhouse","Northland","Northlow",
+		"Northman","Northmore","Northport","Northrose","Northsmith","Northson","Northstone","Northtree","Northwall","Northway","Northwell","Northwood","Northworth","Northwright",
+		"Oakbell","Oakborn","Oakburn","Oakfield","Oakford","Oakglass","Oakgreen","Oakhall","Oakhart","Oakhouse","Oakland","Oaklow","Oakman","Oakmore","Oakport","Oakridge","Oakrose",
+		"Oakstone","Oaktree","Oakwall","Oakway","Oakwood","Oakworth","Oakwright","Orchberg","Orchborn","Orchbrook","Orchburn","Orchdale","Orchfield","Orchford","Orchglass",
+		"Orchgreen","Orchhall","Orchhart","Orchland","Orchlow","Orchmore","Orchport","Orchridge","Orchrose","Orchsmith","Orchson","Orchstone","Orchtree","Orchwall","Orchwell",
+		"Pagebell","Pageberg","Pageborn","Pagebrook","Pageburn","Pagedale","Pagefield","Pageford","Pageglass","Pagegreen","Pagehouse","Pageland","Pagelow","Pageman","Pagemore",
+		"Pageport","Pageridge","Pagerose","Pagesmith","Pageson","Pagestone","Pagetree","Pagewall","Pageway","Pagewood","Pageworth","Pagewright","Pinebell","Pineborn","Pinebrook",
+		"Pinedale","Pinefield","Pineford","Pineglass","Pinegreen","Pinehall","Pinehart","Pinehouse","Pinelow","Pinemore","Pineport","Pinerose","Pinesmith","Pineson","Pinestone",
+		"Pinetree","Pinewall","Pinewell","Pineworth","Pinewright","Quinnberg","Quinnborn","Quinnbrook","Quinnburn","Quinndale","Quinnfield","Quinnford","Quinngreen","Quinnhall",
+		"Quinnhart","Quinnhouse","Quinnland","Quinnmore","Quinnport","Quinnridge","Quinnrose","Quinnsmith","Quinnson","Quinnstone","Quinntree","Quinnway","Quinnwell","Quinnwood",
+		"Rainbell","Rainberg","Rainborn","Rainbrook","Rainburn","Raindale","Rainford","Raingreen","Rainhall","Rainhart","Rainhouse","Rainland","Rainlow","Rainman","Rainmore","Rainport",
+		"Rainridge","Rainrose","Rainsmith","Rainson","Raintree","Rainwall","Rainway","Rainwell","Rainwood","Rainwright","Stonebell","Stoneberg","Stoneborn","Stonebrook","Stoneburn",
+		"Stonedale","Stoneford","Stoneglass","Stonegreen","Stonehall","Stonehart","Stonehouse","Stoneland","Stonelow","Stoneman","Stonemore","Stoneport","Stoneridge","Stonesmith",
+		"Stoneson","Stonestone","Stonetree","Stonewall","Stoneway","Stonewell","Stoneworth","Stonewright","Thornbell","Thornbrook","Thornburn","Thorndale","Thornfield","Thornford",
+		"Thornglass","Thorngreen","Thornhart","Thornhouse","Thornlow","Thornmore","Thornport","Thornrose","Thornsmith","Thornson","Thornstone","Thorntree","Thornwall","Thornway",
+		"Thornwell","Thornworth","Thornwright","Umberberg","Umberborn","Umberbrook","Umberdale","Umberfield","Umberford","Umberglass","Umbergreen","Umberhall","Umberhart",
+		"Umberhouse","Umberland","Umberlow","Umberman","Umbermore","Umberport","Umberridge","Umberrose","Umberson","Umberstone","Umbertree","Umberwall","Umberwell","Umberwright",
+		"Valebell","Valeberg","Valedale","Valefield","Valeford","Valeglass","Valehall","Valehart","Valehouse","Valeland","Valeman","Valemore","Valeridge","Valerose","Valesmith",
+		"Valeson","Valestone","Valetree","Valewall","Valeway","Valewell","Valewood","Valeworth","Valewright","Westbell","Westberg","Westborn","Westbrook","Westburn","Westdale",
+		"Westford","Westglass","Westgreen","Westhart","Westhouse","Westland","Westman","Westmore","Westport","Westridge","Westrose","Westsmith","Westson","Weststone","Westtree",
+		"Westwall","Westway","Westwell","Westwood","Westworth","Westwright","Yeisley","Yorkborn","Yorkburn","Yorkdale","Yorkfield","Yorkford","Yorkglass","Yorkgreen","Yorkhart",
+		"Yorkhouse","Yorkland","Yorklow","Yorkmore","Yorkport","Yorkrose","Yorksmith","Yorkson","Yorktree","Yorkwall","Yorkway","Yorkwell","Yorkwright","Zenbell","Zenberg",
+		"Zenborn","Zenburn","Zendale","Zenglass","Zengreen","Zenhall","Zenhart","Zenland","Zenlow","Zenman","Zenmore","Zenport","Zenridge","Zenrose","Zenson","Zenstone","Zentree",
+		"Zenwall","Zenway","Zenworth"
+	};
+
+	public static readonly string[] male_first_names = new string[firstname_pool_size] {
+		"Aaron", "Adam", "Adrian", "Alan", "Albert", "Alec", "Alex", "Alexander", "Alfred", "Andrew",
+		"Anthony", "Arthur", "Austin", "Barry", "Ben", "Benjamin", "Bernard", "Bill", "Billy", "Blake",
+		"Bob", "Bobby", "Brad", "Bradley", "Brandon", "Brent", "Brett", "Brian", "Bruce", "Bryan",
+		"Caleb", "Carl", "Carlos", "Casey", "Chad", "Charles", "Charlie", "Chester", "Chris", "Christian",
+		"Christopher", "Clarence", "Clark", "Clayton", "Cliff", "Clifford", "Cody", "Colin", "Connor", "Corey",
+		"Craig", "Curtis", "Dan", "Daniel", "Darren", "Dave", "David", "Dean", "Dennis", "Derek",
+		"Derrick", "Don", "Donald", "Douglas", "Drew", "Dustin", "Dwayne", "Dylan", "Earl", "Eddie",
+		"Edward", "Edwin", "Elijah", "Elliot", "Ethan", "Eugene", "Evan", "Felix", "Francis", "Frank",
+		"Franklin", "Fred", "Frederick", "Gabe", "Gabriel", "Garry", "Gary", "Gavin", "Gene", "Geoffrey",
+		"George", "Gerald", "Gilbert", "Glen", "Gordon", "Grant", "Greg", "Gregory", "Harold", "Harry",
+		"Harvey", "Hayden", "Henry", "Herbert", "Herman", "Howard", "Hugh", "Hunter", "Ian", "Isaac",
+		"Ivan", "Jack", "Jackson", "Jacob", "Jake", "James", "Jamie", "Jared", "Jason", "Jasper",
+		"Jay", "Jeff", "Jeffery", "Jeffrey", "Jeremiah", "Jeremy", "Jerry", "Jesse", "Jim", "Jimmy",
+		"Joe", "Joel", "John", "Johnny", "Jon", "Jonathan", "Jordan", "Jose", "Joseph", "Josh",
+		"Joshua", "Juan", "Julian", "Justin", "Keith", "Ken", "Kenneth", "Kevin", "Kirk", "Kyle",
+		"Lance", "Larry", "Lawrence", "Lee", "Leo", "Leon", "Leonard", "Leroy", "Leslie", "Liam",
+		"Logan", "Louis", "Lucas", "Luis", "Luke", "Malcolm", "Manuel", "Marc", "Marcus", "Mario",
+		"Mark", "Marshall", "Martin", "Marvin", "Mason", "Matthew", "Maurice", "Max", "Melvin", "Michael",
+		"Micheal", "Miguel", "Mike", "Milton", "Mitchell", "Morgan", "Nathan", "Nathaniel", "Neil", "Nelson",
+		"Nicholas", "Nick", "Noah", "Norman", "Oliver", "Oscar", "Owen", "Patrick", "Paul", "Pedro"
+	};
+
+	public static readonly string[] female_first_names = new string[firstname_pool_size] {
+		"Abigail", "Ada", "Adelaide", "Adele", "Alexa", "Alexandra", "Alice", "Alicia", "Alison", "Amanda",
+		"Amber", "Amy", "Ana", "Andrea", "Angela", "Angelica", "Anita", "Ann", "Anna", "Anne",
+		"Annette", "Annie", "April", "Ariana", "Ashley", "Audrey", "Autumn", "Ava", "Barbara", "Beatrice",
+		"Belinda", "Bernice", "Beth", "Bethany", "Beverly", "Bianca", "Bonnie", "Brandi", "Brenda", "Briana",
+		"Brianna", "Britney", "Brooke", "Camila", "Candace", "Cara", "Carla", "Carmen", "Carol", "Carole",
+		"Caroline", "Carolyn", "Carrie", "Cassandra", "Catherine", "Cathy", "Charlene", "Charlotte", "Chelsea", "Cheryl",
+		"Chloe", "Christina", "Christine", "Claire", "Clara", "Clarissa", "Colleen", "Connie", "Cora", "Courtney",
+		"Crystal", "Cynthia", "Daisy", "Dana", "Danielle", "Daphne", "Darlene", "Deborah", "Debra", "Denise",
+		"Diana", "Diane", "Dorothy", "Edith", "Eileen", "Elaine", "Eleanor", "Elena", "Elisa", "Elisabeth",
+		"Elise", "Elizabeth", "Ella", "Ellen", "Ellie", "Emily", "Emma", "Erica", "Erika", "Erin",
+		"Esther", "Eva", "Evelyn", "Faith", "Felicia", "Fiona", "Florence", "Frances", "Gabriela", "Gabrielle",
+		"Gail", "Georgia", "Geraldine", "Gina", "Ginger", "Gloria", "Grace", "Gretchen", "Gwen", "Hailey",
+		"Haley", "Hannah", "Harper", "Hazel", "Heather", "Heidi", "Helen", "Holly", "Hope", "Irene",
+		"Isabel", "Isabella", "Jackie", "Jacqueline", "Jade", "Jamie", "Jane", "Janet", "Janice", "Jasmine",
+		"Jean", "Jeanette", "Jeanne", "Jenna", "Jennifer", "Jessica", "Jill", "Joan", "Joann", "Joanna",
+		"Jocelyn", "Jordan", "Joy", "Joyce", "Judith", "Judy", "Julia", "Julie", "June", "Justine",
+		"Kara", "Karen", "Katherine", "Kathleen", "Kathryn", "Kathy", "Katie", "Kay", "Kayla", "Kelsey",
+		"Kim", "Kimberly", "Krista", "Kristen", "Kristin", "Krystal", "Kyla", "Kylie", "Lana", "Laura",
+		"Lauren", "Laurie", "Leah", "Leslie", "Lillian", "Lily", "Linda", "Lindsay", "Lisa", "Lois",
+		"Loretta", "Lori", "Lorraine", "Louise", "Lucia", "Lucille", "Lucy", "Lydia", "Lynn", "Madeline"
+	};
+}
+
+}

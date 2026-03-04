@@ -28,7 +28,7 @@ $pgsql_targetdir = $psqltarget;
 # remove any backslashes from string to be used for directory name
 $pgsql_targetdir =~ s/\\//;
 
-system ("mkdir $pgsql_targetdir");
+#system ("mkdir $pgsql_targetdir");
 
 print "$^0\n";
 
@@ -44,40 +44,40 @@ if ("$^O" eq "linux")
         # Delete any finishedxx.txt files that might be present from previous runs
 
         chdir ("$base_dir");
-        system ("rm -f cust/finished*.txt");
-        system ("rm -f orders/finished*.txt");
-        system ("rm -f membership/finished*.txt");
-        system ("rm -f prod/finished*.txt");
-        system ("rm -f reviews/finished*.txt");
+        system ("rm -f cust/$pgsql_targetdir/finished*.txt");
+        system ("rm -f orders/$pgsql_targetdir/finished*.txt");
+        system ("rm -f membership/$pgsql_targetdir/finished*.txt");
+        system ("rm -f prod/$pgsql_targetdir/finished*.txt");
+        system ("rm -f reviews/$pgsql_targetdir/finished*.txt");
 
         print "Load started at ".(localtime), "\n";
 
 
-        chdir("$base_dir/membership");
+        chdir("$base_dir/membership/$psqltarget");
         foreach my $k (1 .. $numStores){
                 system ("sh remote_pgsqlds35_membership_load$k.bat &");
                 }
 
-        chdir("$base_dir/prod");
+        chdir("$base_dir/prod/$psqltarget");
         foreach my $k (1 .. $numStores){
                 system ("sh remote_pgsqlds35_prod_load$k.bat &");
                 system ("sh remote_pgsqlds35_inv_load$k.bat &");
                 }
 
-        chdir("$base_dir/reviews");
+        chdir("$base_dir/reviews/$psqltarget");
         foreach my $k (1 .. $numStores){
                 system ("sh remote_pgsqlds35_reviews_load$k.bat &");
                 system ("sh remote_pgsqlds35_reviewshelpful_load$k.bat &");
                 }
 
-        chdir("$base_dir/orders");
+        chdir("$base_dir/orders/$psqltarget");
 	foreach my $k (1 .. $numStores){
                 system ("sh remote_pgsqlds35_orders_load$k.bat &");
                 system ("sh remote_pgsqlds35_orderlines_load$k.bat &");
                 system ("sh remote_pgsqlds35_cust_hist_load$k.bat &");
                 }
 
-        chdir("$base_dir/cust");
+        chdir("$base_dir/cust/$psqltarget");
         foreach my $k (1 .. $numStores){
                 system ("sh remote_pgsqlds35_cust_load$k.bat &");
                 }
@@ -87,23 +87,24 @@ if ("$^O" eq "linux")
         # It assumes that becuase each set of loads will finish within 10 seconds of each
         # other, then does a cleanup of the finished files.
 
-        my $cust_finished_file = "$base_dir/cust/finished$numStores.txt";
-        my $orders_finished_file = "$base_dir/orders/finished$numStores.txt";
-        my $reviews_finished_file = "$base_dir/reviews/finished$numStores.txt";
-		my $reviewshelp_finished_file = "$base_dir/reviews/finishedhelp$numStores.txt";
-        my $prod_finished_file = "$base_dir/prod/finished$numStores.txt";
-        my $membership_finished_file = "$base_dir/membership/finished$numStores.txt";
+        my $cust_finished_file = "$base_dir/cust/$pgsql_targetdir/finished$numStores.txt";
+        my $orders_finished_file = "$base_dir/orders/$pgsql_targetdir/finished$numStores.txt";
+        my $reviews_finished_file = "$base_dir/reviews/$pgsql_targetdir/finishedreview$numStores.txt";
+	my $reviewshelp_finished_file = "$base_dir/reviews/$pgsql_targetdir/finishedhelp$numStores.txt";
+        my $prod_finished_file = "$base_dir/prod/$pgsql_targetdir/finished$numStores.txt";
+        my $membership_finished_file = "$base_dir/membership/$pgsql_targetdir/finished$numStores.txt";
 
         while ($num_finished < 6)
                 {
-                sleep(1);
-                $num_finished =0;
+                sleep(5);
+                $num_finished = 0;
                 if (-e $cust_finished_file) {++$num_finished;}
                 if (-e $orders_finished_file) {++$num_finished;}
                 if (-e $reviews_finished_file) {++$num_finished;}
-				if (-e $reviewshelp_finished_file) {++$num_finished;}
+		if (-e $reviewshelp_finished_file) {++$num_finished;}
                 if (-e $prod_finished_file) {++$num_finished;}
                 if (-e $membership_finished_file) {++$num_finished;}
+		print "Finished load count: $num_finished\n";
                 }
 
         print "Load finished at ".(localtime), "\n";
@@ -111,14 +112,12 @@ if ("$^O" eq "linux")
         sleep(30);
 
         # Delete the finishedxx.txt files
-
-
         chdir ("$base_dir");
-        system ("rm -f cust/finished*.txt");
-        system ("rm -f orders/finished*.txt");
-        system ("rm -f membership/finished*.txt");
-        system ("rm -f prod/finished*.txt");
-        system ("rm -f reviews/finished*.txt");
+        system ("rm -f cust/$pgsql_targetdir/finished*.txt");
+        system ("rm -f orders/$pgsql_targetdir/finished*.txt");
+        system ("rm -f membership/$pgsql_targetdir/finished*.txt");
+        system ("rm -f prod/$pgsql_targetdir/finished*.txt");
+        system ("rm -f reviews/$pgsql_targetdir/finished*.txt");
 
         }  # End Linux version
 else         # Windows Version
@@ -178,7 +177,7 @@ else         # Windows Version
         my $cust_finished_file = "$base_dir\\cust\\$pgsql_targetdir\\finished$numStores.txt";
         my $orders_finished_file = "$base_dir\\orders\\$pgsql_targetdir\\finished$numStores.txt";
         my $reviews_finished_file = "$base_dir\\reviews\\$pgsql_targetdir\\finished$numStores.txt";
-		my $reviewshelp_finished_file = "$base_dir\\reviews\\$pgsql_targetdir\\finishedhelp$numStores.txt";
+	my $reviewshelp_finished_file = "$base_dir\\reviews\\$pgsql_targetdir\\finishedhelp$numStores.txt";
         my $prod_finished_file = "$base_dir\\prod\\$pgsql_targetdir\\finished$numStores.txt";
         my $membership_finished_file = "$base_dir\\membership\\$pgsql_targetdir\\finished$numStores.txt";
 		

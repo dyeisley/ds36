@@ -85,14 +85,7 @@ namespace ds2xdriver
         target_store_number = target_store;
         //Console.WriteLine("ds2Interface {0} created", ds2Interfaceid);
     }
-    //
-    //-------------------------------------------------------------------------------------------------
-    // ]
 
-    public bool ds2initialize()
-      {
-      return(true);
-      } // end ds2initialize()
 //
 //-------------------------------------------------------------------------------------------------
 // 

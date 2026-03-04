@@ -1991,14 +1991,6 @@ namespace ds2xdriver
 
       ds2interfaces[Userid] = new ds2Interface(Userid, Controller.target_servers[target_server_id].ToString(), ((Userid % Controller.n_stores)+1));
 
-      if ( !ds2interfaces[Userid].ds2initialize ( ) )
-        {
-        //Console.WriteLine ( "Can't initialize " + Controller.target + "; exiting" );
-        //Changed by GSK
-        Console.WriteLine ( "Can't initialize " + Controller.target_servers[target_server_id].ToString ( ) + "; exiting" );
-        return;
-        }
-
       // Users randomly start connecting over a (#users/ramp_rate) sec period
       Thread.Sleep ( r.Next ( ( int ) Math.Floor ( 1000.0 * Controller.n_threads / ( double ) Controller.ramp_rate ) ) );
 

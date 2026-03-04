@@ -23,3 +23,35 @@ Instructions for creating DVD Store Version 3 (DS3) database customer data
   sh ds3_create_cust_small.sh (or medium or large) 
 
 <davejaffe7@gmail.com> and <tmuirhead@vmware.com>  5/15/15
+
+-------------------------------------------------------------------------------------------------------------
+
+2025-07 Re-write of ds3_create_cust utility to create real looking fake user data. 
+
+female_names_full.h  -- 1000 female names
+last_names_full.h    -- 1000 last names
+male_names_full.h    -- 1000 male names
+street_names_full.h  -- 650 street names
+us_cities.h	     -- 200 US Cities
+
+Two C files for creating the data are available.
+
+ds3_create_cust.c  		-- Randomly selects first & last names from the lists. 
+ds3_create_cust-iterative.c	-- Iteratively selects first name + last name
+
+The iterative code will create 2M unique Fist+Last name (male/female) combinations before repeating. 
+(Note, some first names appear in both male and female first names lists.)
+
+The random selection code is likely to generate more duplicate name combinations, but that doesn't really matter
+since the customer IDs are all unique. 
+
+	To compile on Linux:
+	  gcc -o ds3_create_cust ds3_create_cust.c 
+	  gcc -o ds3_create_cust-iterative ds3_create_cust-iterative.c 
+
+You can also compile with -DNICE option for debugging. This creates nice human readable columns and the output is 
+directed to the screen instead of a file.
+	  gcc -DNICE -o ds3_create_cust ds3_create_cust.c 
+	  gcc -DNICE -o ds3_create_cust-iterative ds3_create_cust-iterative.c 
+
+<dyeisley@redhat.com>
