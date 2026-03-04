@@ -7,6 +7,7 @@ use warnings;
 
 my $mysqltarget = $ARGV[0];
 my $numberofstores = $ARGV[1];
+my $use_vectors = $ARGV[2];
 
 my $pathsep;
 
@@ -34,7 +35,7 @@ else
 
 #First call the script to prepare for the creation of the database - which will delete any existing DS3 database
 
-system ("mysql -h $mysqltarget -u web --password=web < mysqlds35_prep_create_db.sql"); 
+system ("mariadb -h $mysqltarget -u web --password=web < mysqlds35_prep_create_db.sql"); 
 
 foreach my $k (1 .. $numberofstores){
 	open (my $OUT, ">$mysql_targetdir${pathsep}mysqlds35_createtables.sql") || die("Can't open $mysql_targetdir${pathsep}mysqlds35_createtables.sql");
@@ -112,7 +113,15 @@ CREATE TABLE PRODUCTS$k
   PRICE NUMERIC(12,2) NOT NULL, 
   SPECIAL TINYINT,
   COMMON_PROD_ID INT NOT NULL,
-  MEMBERSHIP_ITEM INT NOT NULL 
+  MEMBERSHIP_ITEM INT NOT NULL";
+
+if ($use_vectors == 1)
+{
+print $OUT  ",
+  v_embedding VECTOR(384) NOT NULL";
+}
+
+print $OUT  "
   )
   ENGINE = MyISAM;
 
@@ -187,7 +196,7 @@ CREATE TABLE REORDER$k
 \n";
   close $OUT;
   sleep(1);
-  print ("mysql -h $mysqltarget -u web --password=web < $mysql_targetdir${pathsep}mysqlds35_createtables.sql\n");
-  system ("mysql -h $mysqltarget -u web --password=web < $mysql_targetdir${pathsep}mysqlds35_createtables.sql");
+  print ("mariadb -h $mysqltarget -u web --password=web < $mysql_targetdir${pathsep}mysqlds35_createtables.sql\n");
+  system ("mariadb -h $mysqltarget -u web --password=web < $mysql_targetdir${pathsep}mysqlds35_createtables.sql");
   #system ("del $mysql_targetdir${pathsep}mysqlds35_createtables.sql");
   }

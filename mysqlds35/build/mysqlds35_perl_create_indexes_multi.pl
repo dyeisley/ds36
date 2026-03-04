@@ -1,12 +1,13 @@
 # mysqlds3_perl_create_indexes_multi.pl
 # Script to create a ds35 indexes in MySQL with a provided number of copies - supporting multiple stores
-# Syntax to run - perl mysqlds3_perl_create_indexes_multi.pl <mysql_target> <number_of_stores>
+# Syntax to run - perl mysqlds3_perl_create_indexes_multi.pl <mysql_target> <number_of_stores> <use_vectors>
 
 use strict;
 use warnings;
 
 my $mysqltarget = $ARGV[0];
 my $numberofstores = $ARGV[1];
+my $use_vectors = $ARGV[2];
 
 my $pathsep;
 my $mybackground;
@@ -24,16 +25,19 @@ system ("mkdir -p $mysql_targetdir");
 
 # This section enables support for Linux and Windows - detecting the type of OS, and then using the proper commands
 if ("$^O" eq "linux")
-        {
-        $pathsep = "/";
-	$mybackground = "&";
-	#$mybackground = "";
-        }
+{
+   $pathsep = "/";
+   $mybackground = "&";
+   if ($use_vectors == 1)
+   {
+      $mybackground = "";
+   } 
+}
 else
-        {
-        $pathsep = "\\\\";
-	$mybackground = "";
-        };
+{
+   $pathsep = "\\\\";
+   $mybackground = "";
+};
 
 $indexfile="mysqlds35_create_customer_indexes.sql";
 foreach my $k (1 .. $numberofstores){
@@ -64,8 +68,8 @@ SET FOREIGN_KEY_CHECKS=1;
 \n";
   close $OUT;
   sleep(1);
-  print ("mysql -h $mysqltarget -u web --password=web < $mysql_targetdir${pathsep}$indexfile\n");
-  system ("mysql -h $mysqltarget -u web --password=web < $mysql_targetdir${pathsep}$indexfile $mybackground");
+  print ("mariadb -h $mysqltarget -u web --password=web < $mysql_targetdir${pathsep}$indexfile\n");
+  system ("mariadb -h $mysqltarget -u web --password=web < $mysql_targetdir${pathsep}$indexfile $mybackground");
   }
 
 $indexfile="mysqlds35_create_orders_indexes.sql";
@@ -105,8 +109,8 @@ SET FOREIGN_KEY_CHECKS=1;
 \n";
   close $OUT;
   sleep(1);
-  print ("mysql -h $mysqltarget -u web --password=web < $mysql_targetdir${pathsep}$indexfile\n");
-  system ("mysql -h $mysqltarget -u web --password=web < $mysql_targetdir${pathsep}$indexfile $mybackground");
+  print ("mariadb -h $mysqltarget -u web --password=web < $mysql_targetdir${pathsep}$indexfile\n");
+  system ("mariadb -h $mysqltarget -u web --password=web < $mysql_targetdir${pathsep}$indexfile $mybackground");
   }
 
 $indexfile="mysqlds35_create_products_indexes.sql";
@@ -132,8 +136,15 @@ CREATE FULLTEXT INDEX IX_PROD_TITLE$k ON PRODUCTS$k
 CREATE INDEX IX_PROD_SPECIAL$k ON PRODUCTS$k
   (
   SPECIAL
-  );
+  );\n";
 
+if ($use_vectors == 1)
+{
+print $OUT
+"\nCREATE VECTOR INDEX idx_v_prod ON PRODUCTS$k(v_embedding) M=16 DISTANCE=cosine;\n"
+}
+
+print $OUT "
 CREATE INDEX IX_PROD_PRODID_COMMON$k ON PRODUCTS$k
   (
   COMMON_PROD_ID
@@ -141,8 +152,8 @@ CREATE INDEX IX_PROD_PRODID_COMMON$k ON PRODUCTS$k
 \n";
   close $OUT;
   sleep(1);
-  print ("mysql -h $mysqltarget -u web --password=web < $mysql_targetdir${pathsep}$indexfile\n");
-  system ("mysql -h $mysqltarget -u web --password=web < $mysql_targetdir${pathsep}$indexfile $mybackground");
+  print ("mariadb -h $mysqltarget -u web --password=web < $mysql_targetdir${pathsep}$indexfile\n");
+  system ("mariadb -h $mysqltarget -u web --password=web < $mysql_targetdir${pathsep}$indexfile $mybackground");
   }
 
 $indexfile="mysqlds35_create_membership_indexes.sql";
@@ -162,8 +173,8 @@ SET FOREIGN_KEY_CHECKS=1;
 \n";
   close $OUT;
   sleep(1);
-  print ("mysql -h $mysqltarget -u web --password=web < $mysql_targetdir${pathsep}$indexfile\n");
-  system ("mysql -h $mysqltarget -u web --password=web < $mysql_targetdir${pathsep}$indexfile $mybackground");
+  print ("mariadb -h $mysqltarget -u web --password=web < $mysql_targetdir${pathsep}$indexfile\n");
+  system ("mariadb -h $mysqltarget -u web --password=web < $mysql_targetdir${pathsep}$indexfile $mybackground");
   }
 
 $indexfile="mysqlds35_create_review_indexes.sql";
@@ -202,8 +213,8 @@ SET FOREIGN_KEY_CHECKS=1;
 \n";
   close $OUT;
   sleep(1);
-  print ("mysql -h $mysqltarget -u web --password=web < $mysql_targetdir${pathsep}$indexfile\n");
-  system ("mysql -h $mysqltarget -u web --password=web < $mysql_targetdir${pathsep}$indexfile");
+  print ("mariadb -h $mysqltarget -u web --password=web < $mysql_targetdir${pathsep}$indexfile\n");
+  system ("mariadb -h $mysqltarget -u web --password=web < $mysql_targetdir${pathsep}$indexfile");
   }
 
 $indexfile="mysqlds35_create_review_helpfulness_indexes.sql";
@@ -240,6 +251,6 @@ CREATE INDEX IX_REORDER_PRODID$k on REORDER$k
 \n";
   close $OUT;
   sleep(1);
-  print ("mysql -h $mysqltarget -u web --password=web < $mysql_targetdir${pathsep}$indexfile\n");
-  system ("mysql -h $mysqltarget -u web --password=web < $mysql_targetdir${pathsep}$indexfile");
-  }
+  print ("mariadb -h $mysqltarget -u web --password=web < $mysql_targetdir${pathsep}$indexfile\n");
+  system ("mariadb -h $mysqltarget -u web --password=web < $mysql_targetdir${pathsep}$indexfile");
+}

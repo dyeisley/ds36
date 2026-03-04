@@ -83,6 +83,7 @@ namespace ds2xdriver
     public static string target = string.Empty , windows_perf_host = string.Empty;
     public static string outfilename = string.Empty;
     public static string ds2_mode_string = string.Empty;
+    public static string use_vectors_string = string.Empty;
     System.IO.StreamWriter? outfile;
 
     public static string[] target_servers = null!;                  //Added by GSK (for single instance of driver program driving multiple database servers)
@@ -92,7 +93,7 @@ namespace ds2xdriver
     public static int n_threads , n_threads_running = 0 , n_threads_connected = 0;
     public static int n_overall = 0 , n_login_overall = 0 , n_newcust_overall = 0 , n_browse_overall = 0 ,
       n_purchase_overall = 0 , n_rollbacks_overall = 0 , n_rollbacks_from_start = 0 , n_purchase_from_start = 0 , n_cpu_pct_samples = 0;
-    public static int n_reviewbrowse_overall = 0, n_newreview_overall = 0, n_newhelpfulness_overall = 0, n_newmember_overall = 0;
+    public static int n_reviewbrowse_overall = 0, n_newreview_overall = 0, n_newhelpfulness_overall = 0, n_newmember_overall = 0, n_browse_vector = 0;
     public static double pct_rollbacks;
     public static int run_time = 0 , warmup_time = 1, log_freq = 1;
 
@@ -165,8 +166,7 @@ namespace ds2xdriver
     public static bool ds2_mode = false;
     // Value for number of stores to support multi stores
     public static int n_stores = 1;
-	
-	
+    public static int n_vectors = 0;
 
     // Variables needed within Controller class
     // Added new Parameter db_size by GSK
@@ -180,7 +180,8 @@ namespace ds2xdriver
     static string[] input_parm_names = new string[] {"config_file", "target", "n_threads", "ramp_rate",
       "run_time", "db_size", "warmup_time", "think_time", "pct_newcustomers", "pct_newmember", "n_searches",
       "search_batch_size", "search_depth", "n_reviews", "pct_newreviews", "pct_newhelpfulness", "n_line_items", "virt_dir", 
-      "page_type", "windows_perf_host", "linux_perf_host", "detailed_view", "out_filename", "ds2_mode", "n_stores", "log_freq", "log_timestamp"};
+      "page_type", "windows_perf_host", "linux_perf_host", "detailed_view", "out_filename", "ds2_mode", "n_stores", "log_freq", "log_timestamp",
+      "use_vectors"};
     static string[] input_parm_desc = new string[] {"config file path", 
       "database/web server hostname or IP address", "number of driver threads", "startup rate (users/sec)",
       "run time (min) - 0 is infinite", "S | M | L or database size (e.g. 30MB, 80GB)", "warmup_time (min)", "think time (sec)", 
@@ -192,9 +193,9 @@ namespace ds2xdriver
       "username:password:target hostname/IP Address for Linux CPU% display (Linux Only)",
       "Detailed statistics View (Y / N)", "output results to specified file in csv format", "run driver in ds2 mode to mimic previous version",
       "Number of stores in DS3 instance", "print output frequency in seconds",
-	  "Detailed timestamp format for log (UTC / LOCAL / NONE) "};
+	  "Detailed timestamp format for log (UTC / LOCAL / NONE) ", "Experimental vectors"};
     static string[] input_parm_values = new string[] {"none", "localhost", "1", "10", "0", "10MB", "1", "0",
-      "20", "1", "3", "5", "500", "3", "5", "10", "5", "ds3", "php", "","","N","","N","1", "10", "NONE"};
+      "20", "1", "3", "5", "500", "3", "5", "10", "5", "ds3", "php", "","","N","","N","1", "10", "NONE", "N"};
 
     int server_id = 0;          //Added by GSK
     
@@ -965,17 +966,31 @@ namespace ds2xdriver
           Console.WriteLine("Error in converting parameter n_stores: {0}", e.Message);
           return;
       }
+      try
+      {
+          use_vectors_string = input_parm_values[Array.IndexOf(input_parm_names, "use_vectors")];
+          if (use_vectors_string.ToUpper() == "Y")
+          {
+              Console.WriteLine("Browse by vectors enabled.");
+              n_vectors = 1;
+          }
+      }
+      catch (System.Exception e)
+      {
+          Console.WriteLine("Error in parsing use_vectors parameter: {0}", e.Message);
+          return;
+      }
       
       Console.WriteLine ( "target= {0}  n_threads= {1}  ramp_rate= {2}  run_time= {3}  db_size= {4}" +
-        "  warmup_time= {5}  think_time= {6} pct_newcustomers= {7} pct_newmembers= {8}  n_searches= {9}  search_batch_size= {10}" +
-        "  search_depth= {11}  n_reviews={12} pct_newreviews={13} pct_newhelpfulness={14} n_line_items{15} virt_dir= {16}" +
-        "  page_type= {17}  windows_perf_host= {18} detailed_view= {19} linux_perf_host= {20} output_file= {21} ds2_mode= {22}" +
-        "  n_stores= {23} log_freq= {24} log_timestamp= {25}"
+        "  warmup_time= {5}  think_time= {6}  pct_newcustomers= {7}  pct_newmembers= {8}  n_searches= {9}  search_batch_size= {10}" +
+        "  search_depth= {11}  n_reviews= {12}  pct_newreviews= {13}  pct_newhelpfulness= {14}  n_line_items= {15}  virt_dir= {16}" +
+        "  page_type= {17}  windows_perf_host= {18}  detailed_view= {19}  linux_perf_host= {20}  output_file= {21}  ds2_mode= {22}" +
+        "  n_stores= {23}  log_freq= {24}  log_timestamp= {25}  use_vectors= {26}"
         ,
         target , n_threads , ramp_rate , run_time , db_size , warmup_time , think_time , pct_newcustomers ,
             pct_newmember, n_searches , search_batch_size , search_depth , n_reviews, pct_newreviews, pct_newhelpfulness,
             n_line_items , virt_dir , page_type , windows_perf_host , detailed_view , linux_perf_host, outfilename, 
-            ds2_mode_string, n_stores, log_freq, log_timestamp);
+            ds2_mode_string, n_stores, log_freq, log_timestamp, use_vectors_string);
 
       max_customer = customer_rows;
       max_product = product_rows;
@@ -1532,6 +1547,7 @@ namespace ds2xdriver
           {
           n_overall = 0; n_login_overall = 0; n_newcust_overall = 0; n_browse_overall = 0; n_purchase_overall = 0;
           n_rollbacks_overall = 0;
+	  n_browse_vector = 0;
           rt_tot_overall = 0.0; rt_login_overall = 0.0; rt_newcust_overall = 0.0; rt_browse_overall = 0.0;
           rt_purchase_overall = 0.0;
           for ( int j = 0 ; j < GlobalConstants.LAST_N ; j++ ) rt_tot_lastn[j] = 0.0;
@@ -1666,16 +1682,25 @@ namespace ds2xdriver
       //  rt_purchase_avg_msec, n_rollbacks_overall, (100.0 * n_rollbacks_overall) / n_overall);
       //Changed on 8/8/2010
       // Changed again on 3/17/2015
-      Console.WriteLine("\nFinal ({0}): et={1,7:F1} n_overall={2} opm={3} rt_tot_lastn_max={4} rt_tot_avg={5} " +
+      Console.Write("\nFinal ({0}): et={1,7:F1} n_overall={2} opm={3} rt_tot_lastn_max={4} rt_tot_avg={5} " +
         "n_login_overall={6} n_newcust_overall={7} n_newmember_overall={8} n_browse_overall={9} " +
         "n_reviewbrowse={10} n_newreviews={11} n_newhelpfulness={12} n_purchase_overall={13} " +
         "rt_login_avg_msec={14} rt_newcust_avg_msec={15} rt_rewmember_avg_msec={16} rt_browse_avg_msec={17} " +
         "rt_reviewbrowse_avg_msec={18} rt_newreview_avg_msec={19} rt_newhelpfulness={20} rt_purchase_avg_msec={21} " +
-        "rt_tot_sampled={22} n_rollbacks_overall={23} rollback_rate = {24,5:F1}%",
+        "rt_tot_sampled={22} n_rollbacks_overall={23} rollback_rate = {24,2:F1}%",
         DateTime.Now, et, n_overall, opm, rt_tot_lastn_max_msec, rt_tot_avg_msec, n_login_overall, n_newcust_overall, n_newmember_overall,
         n_browse_overall, n_reviewbrowse_overall, n_newreview_overall, n_newhelpfulness_overall,  n_purchase_overall, 
         rt_login_avg_msec, rt_newcust_avg_msec, rt_newmember_avg_msec, rt_browse_avg_msec, rt_reviewbrowse_avg_msec, rt_newreview_avg_msec, 
         rt_newhelpfulness_avg_msec, rt_purchase_avg_msec, rt_tot_sampled, n_rollbacks_overall, (100.0 * n_rollbacks_overall) / n_overall);
+
+      if (n_vectors == 1)
+      {
+	Console.WriteLine(" n_browse_vector= {0}",n_browse_vector);
+      }
+      else
+      {
+	Console.WriteLine("");
+      }
 
       if (outfilename != string.Empty)
       {
@@ -1769,7 +1794,7 @@ namespace ds2xdriver
             "n_reviewbrowse_overall={9} n_newreview_overall={10} n_newhelpfulnes_overall={11} n_purchase_overall={12} " +
             "rt_login_avg_msec={13} rt_newcust_avg_msec={14} rt_newmember_avg_msec={15} rt_browse_avg_msec={16} " +
             "rt_reviewbrowse_avg_msec={17} rt_newreview_avg_msec={18} rt_newhelpfulness_avg_msec={19} rt_purchase_avg_msec={20} " +
-            "rt_tot_sampled={21} n_rollbacks_overall={22} rollback_rate = {23,5:F1}%  ",
+            "rt_tot_sampled={21} n_rollbacks_overall={22} rollback_rate = {23,2:F1}%  ",
             et, arr_n_overall[i], arr_opm[i], arr_rt_tot_lastn_max_msec[i], arr_rt_tot_avg_msec[i], arr_n_login_overall[i], arr_n_newcust_overall[i],
             arr_n_newmember_overall[i], arr_n_browse_overall[i], arr_n_reviewbrowse_overall[i], arr_n_newreview_overall[i], arr_n_newhelpfulness_overall[i], 
             arr_n_purchase_overall[i], arr_rt_login_avg_msec[i], arr_rt_newcust_avg_msec[i], arr_rt_newmember_avg_msec[i], arr_rt_browse_avg_msec[i],
@@ -2203,32 +2228,36 @@ namespace ds2xdriver
         for ( int ib = 0 ; ib < n_browse ; ib++ )
           {
           batch_size_in = Random.Shared.Next(1, 2 * Controller.search_batch_size); // request avg of search_batch_size lines
-          int search_type = Random.Shared.Next(3); // randomly select search type
+          int search_type = Random.Shared.Next(3 + Controller.n_vectors); // randomly select search type
+
+          browse_actor_in = "";
+          browse_title_in = "";
+          browse_category_in = "";
+
           switch ( search_type )
             {
             case 0:  // Search by Category
               browse_type_in = "category";
               browse_category_in = (Random.Shared.Next(1, GlobalConstants.MAX_CATEGORY+1)).ToString();
-              browse_actor_in = "";
-              browse_title_in = "";
               browse_criteria = browse_category_in;
               break;
             case 1:  // Search by Actor
               browse_type_in = "actor";
-              browse_category_in = "";
               CreateActor ( );
               browse_actor_in = actor_in;
-              browse_title_in = "";
               browse_criteria = browse_actor_in;
               break;
             case 2:  // Search by Title
               browse_type_in = "title";
-              browse_category_in = "";
-              browse_actor_in = "";
               CreateTitle ( );
               browse_title_in = title_in;
               browse_criteria = browse_title_in;
               break;
+	    case 3: // Vector search
+	      browse_type_in = "vector";
+              browse_criteria = browse_type_in;
+	      Controller.n_browse_vector++;
+	      break;
             }
 
           failures = 0;

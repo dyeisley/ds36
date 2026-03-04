@@ -32,9 +32,11 @@ using System.IO;
 using System.Data;
 //using System.Data.SqlClient;
 using Microsoft.Data.SqlClient;
+using Microsoft.Data.SqlTypes;
 using System.Net;
 using System.Threading;
 using System.Runtime.InteropServices;
+using System.Text.Json;
 
 namespace ds2xdriver
   {
@@ -54,7 +56,7 @@ namespace ds2xdriver
     string target_server;       //Added by GSK
     int target_store_number = 1; //Added to support Multiple stores - default is 1
     SqlConnection objConn;
-    SqlCommand Login, New_Customer, Browse_By_Category, Browse_By_Actor, Browse_By_Title, Purchase;
+    SqlCommand Login, New_Customer, Browse_By_Category, Browse_By_Actor, Browse_By_Vector, Browse_By_Title, Purchase;
     SqlCommand Get_Prod_Reviews, Get_Prod_Reviews_By_Actor, Get_Prod_Reviews_By_Title, Get_Prod_Reviews_By_Date, Get_Prod_Reviews_By_Stars;
     SqlCommand New_Member, New_Prod_Review, New_Review_Helpfulness;
 
@@ -129,6 +131,11 @@ namespace ds2xdriver
       Browse_By_Actor.CommandType = CommandType.StoredProcedure; 
       Browse_By_Actor.Parameters.Add("@batch_size_in", SqlDbType.Int);
       Browse_By_Actor.Parameters.Add("@actor_in", SqlDbType.VarChar, 50);
+
+      Browse_By_Vector = new SqlCommand("BROWSE_BY_VECTOR" + target_store_number, objConn);
+      Browse_By_Vector.CommandType = CommandType.StoredProcedure; 
+      Browse_By_Vector.Parameters.Add("@batch_size_in", SqlDbType.Int);
+      Browse_By_Vector.Parameters.Add("@vector_in", SqlDbType.Vector);
 
       Browse_By_Title = new SqlCommand("BROWSE_BY_TITLE" + target_store_number, objConn);
       Browse_By_Title.CommandType = CommandType.StoredProcedure; 
@@ -429,25 +436,29 @@ namespace ds2xdriver
 
 //
 //-------------------------------------------------------------------------------------------------
-// 
+//
     public bool ds2browse(string browse_type_in, string browse_category_in, string browse_actor_in,
-      string browse_title_in, int batch_size_in, int search_depth_in, int customerid_out, ref int rows_returned, 
-      ref int[] prod_id_out, ref string[] title_out, ref string[] actor_out, ref decimal[] price_out, 
+      string browse_title_in, int batch_size_in, int search_depth_in, int customerid_out, ref int rows_returned,
+      ref int[] prod_id_out, ref string[] title_out, ref string[] actor_out, ref decimal[] price_out,
       ref int[] special_out, ref int[] common_prod_id_out, ref double rt)
       {
-      // Products table: PROD_ID INT, CATEGORY TINYINT, TITLE VARCHAR(50), ACTOR VARCHAR(50), 
+      // Products table: PROD_ID INT, CATEGORY TINYINT, TITLE VARCHAR(50), ACTOR VARCHAR(50),
       //   PRICE DECIMAL(12,2), SPECIAL TINYINT, COMMON_PROD_ID INT
       int i_row;
       string data_in = string.Empty;
       int[] category_out = new int[GlobalConstants.MAX_ROWS];
       SqlDataReader Rdr;
 
+      Random rand = new();
+      int dim = 384;
+      float[] vector = new float[dim];
+
 #if (USE_WIN32_TIMER)
       long ctr0 = 0, ctr = 0, freq = 0;
 #else
       TimeSpan TS = new TimeSpan();
       DateTime DT0;
-#endif  
+#endif
 
       switch(browse_type_in)
         {
@@ -466,19 +477,30 @@ namespace ds2xdriver
           Browse_By_Title.Parameters["@title_in"].Value = "\"" + browse_title_in + "\"";
           data_in = "\"" + browse_title_in + "\"";
           break;
+        case "vector":
+          for (int i = 0; i < dim; i++)
+          {
+             vector[i] = (float)(rand.NextDouble() * 2.0 - 1.0);
+          }
+          var sqlVector = new SqlVector<float>(vector);
+
+          Browse_By_Vector.Parameters["@batch_size_in"].Value = batch_size_in;
+          Browse_By_Vector.Parameters["@vector_in"].Value = sqlVector;
+	  data_in = JsonSerializer.Serialize(sqlVector);
+          break;
         }
 
-//    Console.WriteLine("Thread {0}: Calling Browse w/ browse_type= {1} batch_size_in= {2}  data_in= {3}",  
-//      Thread.CurrentThread.Name, browse_type_in, batch_size_in, data_in); 
+//    Console.WriteLine("Thread {0}: Calling Browse w/ browse_type= {1} batch_size_in= {2}  data_in= {3}",
+//      Thread.CurrentThread.Name, browse_type_in, batch_size_in, data_in);
 
 #if (USE_WIN32_TIMER)
       QueryPerformanceFrequency(ref freq); // obtain system freq (ticks/sec)
-      QueryPerformanceCounter(ref ctr0); // Start response time clock   
+      QueryPerformanceCounter(ref ctr0); // Start response time clock
 #else
       DT0 = DateTime.Now;
-#endif 
-                 
-      try 
+#endif
+
+      try
         {
         switch(browse_type_in)
           {
@@ -487,13 +509,16 @@ namespace ds2xdriver
             Rdr = Browse_By_Category.ExecuteReader();
             break;
           case "actor":
-            Rdr = Browse_By_Actor.ExecuteReader();        
+            Rdr = Browse_By_Actor.ExecuteReader();
             break;
           case "title":
-            Rdr = Browse_By_Title.ExecuteReader();        
+            Rdr = Browse_By_Title.ExecuteReader();
+            break;
+          case "vector":
+            Rdr = Browse_By_Vector.ExecuteReader();
             break;
           }
-        
+
         i_row = 0;
         while (Rdr.Read())
           {
@@ -504,6 +529,7 @@ namespace ds2xdriver
           price_out[i_row] = Rdr.GetDecimal(4);
           special_out[i_row] = Rdr.GetByte(5);
           common_prod_id_out[i_row] = Rdr.GetInt32(6);
+          //Console.WriteLine("\tprod_id_out: {0} category_out: {1} title_out: {2} actor_out: {3} price_out: {4} special_out: {5} common_prod_id_out: {6}",prod_id_out[i_row],category_out[i_row],title_out[i_row],actor_out[i_row],price_out[i_row], special_out[i_row],common_prod_id_out[i_row]);
           ++i_row;
           }
         Rdr.Close();
