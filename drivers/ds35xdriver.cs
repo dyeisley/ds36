@@ -982,10 +982,10 @@ namespace ds2xdriver
       }
       
       Console.WriteLine ( "target= {0}  n_threads= {1}  ramp_rate= {2}  run_time= {3}  db_size= {4}" +
-        "  warmup_time= {5}  think_time= {6} pct_newcustomers= {7} pct_newmembers= {8}  n_searches= {9}  search_batch_size= {10}" +
-        "  search_depth= {11}  n_reviews={12} pct_newreviews={13} pct_newhelpfulness={14} n_line_items{15} virt_dir= {16}" +
-        "  page_type= {17}  windows_perf_host= {18} detailed_view= {19} linux_perf_host= {20} output_file= {21} ds2_mode= {22}" +
-        "  n_stores= {23} log_freq= {24} log_timestamp= {25} use_vectors= {26}"
+        "  warmup_time= {5}  think_time= {6}  pct_newcustomers= {7}  pct_newmembers= {8}  n_searches= {9}  search_batch_size= {10}" +
+        "  search_depth= {11}  n_reviews= {12}  pct_newreviews= {13}  pct_newhelpfulness= {14}  n_line_items= {15}  virt_dir= {16}" +
+        "  page_type= {17}  windows_perf_host= {18}  detailed_view= {19}  linux_perf_host= {20}  output_file= {21}  ds2_mode= {22}" +
+        "  n_stores= {23}  log_freq= {24}  log_timestamp= {25}  use_vectors= {26}"
         ,
         target , n_threads , ramp_rate , run_time , db_size , warmup_time , think_time , pct_newcustomers ,
             pct_newmember, n_searches , search_batch_size , search_depth , n_reviews, pct_newreviews, pct_newhelpfulness,
