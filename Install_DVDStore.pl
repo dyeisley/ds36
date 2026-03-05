@@ -1165,7 +1165,11 @@ elsif($bln_is_DB_MSSQL == 1) 		#For SQL Server
 }
 
 print "\nAll database build scripts(shell and sql) are dumped into their respective folders. \n";
+
+if($bln_is_DB_ORACLE == 1 || $bln_is_DB_MSSQL == 1)
+{
 print "\nThese scripts are created from template files in same folders with '_generic_template' in their name. \n";
 print "\nScripts that are created from template files have '_' $database_size $database_size_str in their name. \n";
-print "\nUser can edit the sql script generated for customizing sql script for more DBFiles per table and change the paths of DBFiles.\n";
-print "\nNow Run CreateConfigFile.pl perl script in ds3 folder which will generate configuration file used as input to the driver program.\n"
+}
+
+print "\nRun 'perl CreateConfigFile.pl' to generate a configuration file to use as input to the driver program.\n"
