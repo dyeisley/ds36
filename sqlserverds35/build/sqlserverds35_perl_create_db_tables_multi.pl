@@ -8,6 +8,7 @@ use warnings;
 my $sqlservertarget = $ARGV[0];
 my $numberofstores = $ARGV[1];
 my $mypassword = $ARGV[2] || 'password';
+my $use_vectors = $ARGV[3] || 0;
 
 #Need seperate target directory so that mulitple DB Targets can be loaded at the same time
 my $sqlservertargetdir;  
@@ -104,6 +105,31 @@ CREATE TABLE ORDERLINES$k
   ) 
   ON DS_ORDERS_FG
 GO
+\n";
+
+if ( $use_vectors == 0 )
+{
+print $OUT  "
+CREATE TABLE PRODUCTS$k
+  (
+  PROD_ID INT IDENTITY NOT NULL,
+  CATEGORY TINYINT NOT NULL,
+  TITLE VARCHAR(50) NOT NULL,
+  ACTOR VARCHAR(50) NOT NULL,
+  PRICE MONEY NOT NULL,
+  SPECIAL TINYINT,
+  COMMON_PROD_ID INT NOT NULL,
+  MEMBERSHIP_ITEM INT NOT NULL
+  )
+  ON DS_MISC_FG
+GO
+\n";
+}
+else
+{
+print $OUT  "
+ALTER DATABASE SCOPED CONFIGURATION SET PREVIEW_FEATURES = ON;
+GO
 
 CREATE TABLE PRODUCTS$k
   (
@@ -114,11 +140,15 @@ CREATE TABLE PRODUCTS$k
   PRICE MONEY NOT NULL, 
   SPECIAL TINYINT,
   COMMON_PROD_ID INT NOT NULL,
-  MEMBERSHIP_ITEM INT NOT NULL
+  MEMBERSHIP_ITEM INT NOT NULL,
+  ProductEmbedding VECTOR(384) NULL
   )
   ON DS_MISC_FG
 GO 
+\n";
+}
 
+print $OUT  "
 CREATE TABLE REVIEWS$k
   (
   REVIEW_ID INT IDENTITY NOT NULL, 
@@ -193,7 +223,12 @@ GO
 -- This keeps the number of items with low QUAN_IN_STOCK constant so that the rollback rate is constant 
 CREATE TRIGGER RESTOCK$k ON INVENTORY$k AFTER UPDATE
 AS
-  DECLARE \@changedPROD_ID INT, \@oldQUAN_IN_STOCK INT, \@newQUAN_IN_STOCK INT;
+  DECLARE \@changedPROD_ID INT, \@oldQUAN_IN_STOCK INT, \@newQUAN_IN_STOCK INT, \@quan_reordered INT;
+  DECLARE \@ReorderTime DATETIME = GETDATE();
+
+  SET \@quan_reordered = cast(rand() * 20 as INT) + 3
+  SET \@ReorderTime = DATEADD(MINUTE, \@quan_reordered, \@ReorderTime);
+
   IF UPDATE(QUAN_IN_STOCK)
     BEGIN
       SELECT \@changedPROD_ID = i.PROD_ID, \@oldQUAN_IN_STOCK = d.QUAN_IN_STOCK, \@newQUAN_IN_STOCK = i.QUAN_IN_STOCK
@@ -204,15 +239,19 @@ AS
             (
             PROD_ID,
             DATE_LOW,
-            QUAN_LOW
+            QUAN_LOW,
+            DATE_REORDERED,
+            QUAN_REORDERED
             )
           VALUES
             (
             \@changedPROD_ID,
             GETDATE(),
-            \@newQUAN_IN_STOCK
+            \@newQUAN_IN_STOCK,
+            \@ReorderTime,
+            \@quan_reordered
             )
-          UPDATE INVENTORY$k SET QUAN_IN_STOCK  = \@oldQUAN_IN_STOCK WHERE PROD_ID = \@changedPROD_ID
+          UPDATE INVENTORY$k SET QUAN_IN_STOCK = \@newQUAN_IN_STOCK + \@quan_reordered WHERE PROD_ID = \@changedPROD_ID
         END
     END
   RETURN

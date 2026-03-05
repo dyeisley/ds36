@@ -32,8 +32,10 @@
 using System;
 using System.IO;
 using System.Data;
-using Oracle.DataAccess.Client;
-using Oracle.DataAccess.Types;
+//using Oracle.DataAccess.Client;
+//using Oracle.DataAccess.Types;
+using Oracle.ManagedDataAccess.Client;
+using Oracle.ManagedDataAccess.Types;
 using System.Net;
 using System.Threading;
 using System.Runtime.InteropServices;
@@ -58,7 +60,6 @@ namespace ds2xdriver
     OracleCommand Login, New_Customer, Browse_By_Category, Browse_By_Actor, Browse_By_Title, Purchase;
     OracleCommand Get_Prod_Reviews, Get_Prod_Reviews_By_Actor, Get_Prod_Reviews_By_Title, Get_Prod_Reviews_By_Date, Get_Prod_Reviews_By_Stars;
     OracleCommand New_Member, New_Prod_Review, New_Review_Helpfulness;
-    OracleCommand Browse_By_Actor_For_Membertype, Browse_by_Title_For_Membertype, Browse_By_Cat_For_Membertype;
     
     OracleParameter[] Login_prm = new OracleParameter[5];
     OracleParameter[] New_Customer_prm = new OracleParameter[20];
@@ -75,9 +76,6 @@ namespace ds2xdriver
     OracleParameter[] Get_Prod_Reviews_By_Stars_prm = new OracleParameter[4];
     OracleParameter[] New_Prod_Review_prm = new OracleParameter[6];
     OracleParameter[] New_Review_Helpfulness_prm = new OracleParameter[4];
-    OracleParameter[] Browse_By_Actor_For_Membertype_prm = new OracleParameter[4];
-    OracleParameter[] Browse_By_Title_For_Membertype_prm = new OracleParameter[4];
-    OracleParameter[] Browse_By_Cat_For_Membertype_prm = new OracleParameter[4];
     
     OracleParameter Login_title_out, Login_actor_out, Login_related_title_out;
     OracleParameter Browse_By_Category_prod_id_out, Browse_By_Category_category_out, Browse_By_Category_title_out,
@@ -171,14 +169,6 @@ namespace ds2xdriver
         
         //Console.WriteLine("ds2Interface {0} created", ds2Interfaceid);
     }
-//
-//-------------------------------------------------------------------------------------------------
-// 
-
-    public  bool ds2initialize()
-      {
-      return(true);
-      } // end ds2initialize()
  
 //
 //-------------------------------------------------------------------------------------------------

@@ -1,10 +1,14 @@
 #!/usr/bin/perl
 use strict;
-#Perl script created by GSK 
+use warnings;
+
+use File::Spec;
+
+#Perl script created by GSK
 #Last updated: 1/4/16
 
-#Purpose of perl script: 
-#			This perl script will achieve following things: 
+#Purpose of perl script:
+#			This perl script will achieve following things:
 #			1)  Calculate number of rows for each of customers, orders and products table according to database size.
 #			2)  Call data generation C programs to create CSV files for each table in their respective folders.
 #			3)  Create database build and cleanup *.sql scripts for the specified database size.
@@ -16,13 +20,15 @@ use strict;
 
 
 #Here We are assuming default values for 10mb small SQL Server Database instance on Windows
-#Though user can specify any valid value  
+#Though user can specify any valid value
 my $database_size = 10;			#Database Size
 my $database_size_str = "mb";		#String to indicate size: MB / GB or mb / gb
 my $database_type = "mssql";		#Type = mssql / mysql / pgsql / oracle / MSSQL / MYSQL / ORACLE /PGSQL
 my $db_sys_type = "win";		#System : win / linux / WIN / LINUX
 my $db_file_path = "c:/";		#User can give any path to store DBFiles
-					# For windows : Path should be C:\sqldbfiles\
+
+my $pathsep = File::Spec->catdir('', '');
+
 my @arr_db_file_paths = ();
 my @arr1_db_file_paths = ();
 
@@ -30,6 +36,7 @@ my $is_GB_Size_S = "gb";
 my $is_MB_Size_S = "mb";
 my $is_Sys_Win_S = "win";
 my $is_Sys_Linux_S = "linux";
+my $is_use_vector_S = "N";
 my $is_DB_SQLServer_S = "mssql";
 my $is_DB_MySQL_S = "mysql";
 my $is_DB_PGSQL_S = "pgsql";
@@ -40,6 +47,7 @@ my $bln_is_Small_DB = 0;
 my $bln_is_Medium_DB = 0;
 my $bln_is_Sys_Win = 0;
 my $bln_is_Sys_Linux = 0;
+my $bln_is_use_vectors = 0;
 my $bln_is_DB_MSSQL = 0;
 my $bln_is_DB_MYSQL = 0;
 my $bln_is_DB_PGSQL = 0;
@@ -52,7 +60,7 @@ my $str_file_name = "";				#Store name of file to be created from template
 
 if(lc($^O) eq lc("linux"))   #If system on which perl script is executing is Linux
 {
-	my $default_db= "";
+	my $default_db = "";
 
 	if (-e "/opt/mssql") {
 		$default_db="MSSQL";
@@ -153,93 +161,140 @@ elsif(lc($database_type) eq lc($is_DB_Oracle_S))
 
 #***************************************************************************************
 
-if($bln_is_DB_ORACLE == 1 || $bln_is_DB_MSSQL == 1)
-{		
-	if($bln_is_DB_ORACLE == 1)
-	{
-		#Only four paths needed - Cust table dbfile, Index dbfile, DS_MISC dbfile, Order table dbfile respectively
-		#Just paths where datafiles will be stored are needed
-		#Paths for oracle on windows should be like this : c:\oracledbfiles\
-		#Paths for oracle on linux should be like this : /oracledbfiles/
+if($bln_is_DB_ORACLE == 1)
+{
+	#Only four paths needed - Cust table dbfile, Index dbfile, DS_MISC dbfile, Order table dbfile respectively
+	#Just paths where datafiles will be stored are needed
+	#Paths for oracle on windows should be like this : c:\oracledbfiles\
+	#Paths for oracle on linux should be like this : /oracledbfiles/
 		
-		print "\nFor Oracle database scripts, total 6 paths needed to specify where cust, index, member, reviews,\n";
-		print "\nds_misc and order dbfiles are stored. \n";
-		print "\nIf only one path is specified, it will be assumed same for all dbfiles. \n";
-		print "\nFor specifying multiple paths use ; character as seperator to specify multiple paths \n";
+	print "\nFor Oracle database scripts, total 6 paths needed to specify where cust, index, member, reviews,\n";
+	print "\nds_misc and order dbfiles are stored. \n";
+	print "\nIf only one path is specified, it will be assumed same for all dbfiles. \n";
+	print "\nFor specifying multiple paths use ; character as seperator to specify multiple paths \n";
 		
-		print "\nPlease enter path(s) (; seperated if more than one path) where Database Files will be stored (ensure that path exists) : ";
-		chomp($db_file_path = <STDIN>); 
-		@arr1_db_file_paths = split(";",$db_file_path);   #Split tokenized string and store paths in array
+	print "\nPlease enter path(s) (; seperated if more than one path) where Database Files will be stored (ensure that path exists) : ";
+	chomp($db_file_path = <STDIN>);
+	@arr1_db_file_paths = split(";",$db_file_path);   #Split tokenized string and store paths in array
 
-		#If number of paths specified are between 2 and 6 or greater than 6 , its an error						 
-		if((scalar(@arr1_db_file_paths) != 1 && scalar(@arr1_db_file_paths) < 6) || (scalar(@arr1_db_file_paths) > 6))
-		{
-			print "\nWrong number of paths entered!!!! \n";
-			print "\nSix paths for following are needed:  Cust table dbfile, Index dbfile, Membership dbfile, Reviews dbfile, \n";
-			print "\n DS_MISC dbfile, Order table dbfile respectively \n";
-			exit(0);
-		}
-		#If single path is specified by user then paths for all dbfiles are assumed same
-		if(scalar(@arr1_db_file_paths) == 1)
-		{
-			$arr_db_file_paths[0] =	$arr_db_file_paths[1] = $arr_db_file_paths[2] = $arr_db_file_paths[3] = $arr_db_file_paths[4] = $arr_db_file_paths[5]  = @arr1_db_file_paths[0];	
-		}
-		else #If 6 paths spacified then 
-		{
-			$arr_db_file_paths[0] = @arr1_db_file_paths[0];
-			$arr_db_file_paths[1] = @arr1_db_file_paths[1];
-			$arr_db_file_paths[2] = @arr1_db_file_paths[2];
-			$arr_db_file_paths[3] = @arr1_db_file_paths[3];
-			$arr_db_file_paths[4] = @arr1_db_file_paths[4];
-                        $arr_db_file_paths[5] = @arr1_db_file_paths[5];
-		}
-		
-	}
-	elsif($bln_is_DB_MSSQL == 1)
+	#If number of paths specified are between 2 and 6 or greater than 6 , it's an error
+	if((scalar(@arr1_db_file_paths) != 1 && scalar(@arr1_db_file_paths) < 6) || (scalar(@arr1_db_file_paths) > 6))
 	{
-		#Nine paths for storing following files are needed: ds.mdf, ds_misc.ndf, cust1.ndf, cust2.ndf, orders1.ndf, orders2.ndf, ind1.ndf, ind2.ndf, member1.ndf, member2.ndf, review1.ndf, review2.ndfds_log.ldf, FULLTEXTCAT_DSPROD(catalog file for full text search)  respectively
-		#Two dbfiles per table are assumed and path for second dbfile of same table is assumed same as that of first dbfile 
-		#Just paths where datafiles will be stored are needed
-		#Paths for SQL Server on windows should be like this : c:\sqldbfiles\
- 
+		print "\nWrong number of paths entered!!!! \n";
+		print "\nSix paths for following are needed:  Cust table dbfile, Index dbfile, Membership dbfile, Reviews dbfile, \n";
+		print "\n DS_MISC dbfile, Order table dbfile respectively \n";
+		exit(0);
+	}
+
+	#If single path is specified by user then paths for all dbfiles are assumed same
+	if(scalar(@arr1_db_file_paths) == 1)
+	{
+		$arr_db_file_paths[0] =	$arr_db_file_paths[1] = $arr_db_file_paths[2] = $arr_db_file_paths[3] = $arr_db_file_paths[4] = $arr_db_file_paths[5]  = $arr1_db_file_paths[0];
+	}
+	else #If 6 paths spacified then
+	{
+		$arr_db_file_paths[0] = $arr1_db_file_paths[0];
+		$arr_db_file_paths[1] = $arr1_db_file_paths[1];
+		$arr_db_file_paths[2] = $arr1_db_file_paths[2];
+		$arr_db_file_paths[3] = $arr1_db_file_paths[3];
+		$arr_db_file_paths[4] = $arr1_db_file_paths[4];
+		$arr_db_file_paths[5] = $arr1_db_file_paths[5];
+	}
 		
-		print "\nFor SQL Server database scripts, total 9 paths needed to specify where ds.mdf,ds_misc,cust,order,index,member,review,log and full text catalog dbfiles are stored. \n";
-		print "\nIf only one path is specified, it will be assumed same for all dbfiles. \n";
-		print "\nFor specifying multiple paths use ; character as seperator to specify multiple paths \n";
+	# Add a trailing path separator if it's needed
+	for(my $i_LoopCount = 0; $i_LoopCount < 6; $i_LoopCount++)
+	{
+                        $arr_db_file_paths[$i_LoopCount] =~ s/\s+$//;           # Remove trailing whitespace
+                        $arr_db_file_paths[$i_LoopCount] =~ s{/?$}{$pathsep};   # Append path separator
+	}
+}
+
+if($bln_is_DB_MSSQL == 1)
+{
+	#Nine paths for storing following files are needed: ds.mdf, ds_misc.ndf, cust1.ndf, cust2.ndf, orders1.ndf, orders2.ndf, ind1.ndf, ind2.ndf, member1.ndf, member2.ndf, review1.ndf, review2.ndfds_log.ldf,
+	#FULLTEXTCAT_DSPROD(catalog file for full text search) respectively
+	#Two dbfiles per table are assumed and path for second dbfile of same table is assumed same as that of first dbfile
+	#Just paths where datafiles will be stored are needed
+	#Paths for SQL Server on windows should be like this : c:\sqldbfiles\
+	#Paths for SQL Server on Linux should be like this : /var/opt/mssql/data/
+		
+	print "\nFor SQL Server database scripts, total 9 paths needed to specify where ds.mdf,ds_misc,cust,order,index,member,review,log and full text catalog dbfiles are stored. \n";
+	print "\nIf only one path is specified, it will be assumed same for all dbfiles. \n";
+	print "\nFor specifying multiple paths use ; character as seperator to specify multiple paths \n";
 				
-		print "\nPlease enter path(s) (; seperated if more than one path) where Database Files will be stored. For example c:\\sql\\dbfiles\ (ensure that path exists) : ";
-		chomp($db_file_path = <STDIN>); 
-		@arr1_db_file_paths = split(";",$db_file_path);   #Split tokenized string and store paths in array
+	if ("$^O" eq "linux") {
+	   print "\nPlease enter path(s) (; seperated if more than one path) where Database Files will be stored. For example: /var/opt/mssql/data/ (ensure that path exists) : ";
+        }
+	else {
+	   print "\nPlease enter path(s) (; seperated if more than one path) where Database Files will be stored. For example: C:\\sql\\dbfiles\ (ensure that path exists) : ";
+	}
+
+	chomp($db_file_path = <STDIN>);
+	@arr1_db_file_paths = split(";",$db_file_path);   #Split tokenized string and store paths in array
 		
-		#If number of paths specified are between 2 and 9 or greater than 9 , its an error
-		if((scalar(@arr1_db_file_paths) != 1 && scalar(@arr1_db_file_paths) < 9) || (scalar(@arr1_db_file_paths) > 9))
+	#If number of paths specified are between 2 and 9 or greater than 9 , its an error
+	if((scalar(@arr1_db_file_paths) != 1 && scalar(@arr1_db_file_paths) < 9) || (scalar(@arr1_db_file_paths) > 9))
+	{
+		print "\nWrong number of paths entered!!!! \n";
+		print "\nNine paths for storing following files are needed: ds.mdf, ds_misc.ndf, cust1.ndf, orders1.ndf, ind1.ndf,member1.ndf, review1.ndf ds_log.ldf, FULLTEXTCAT_DSPROD(catalog file for full text search) respectively \n";
+		exit(0);
+	}
+	#If single path is specified by user then paths for all dbfiles are assumed same
+	if(scalar(@arr1_db_file_paths) == 1)
+	{
+		$arr_db_file_paths[0] =	$arr_db_file_paths[1] = $arr_db_file_paths[2] = $arr_db_file_paths[3] = $arr1_db_file_paths[0];
+		$arr_db_file_paths[4] =	$arr_db_file_paths[5] = $arr_db_file_paths[6] = $arr_db_file_paths[7] = $arr1_db_file_paths[0];
+		$arr_db_file_paths[8] =	$arr_db_file_paths[9] = $arr_db_file_paths[10] = $arr_db_file_paths[11] = $arr1_db_file_paths[0];
+		$arr_db_file_paths[12] = $arr_db_file_paths[13] = $arr1_db_file_paths[0];
+	}
+	else #If 9 paths specified then
+	{
+		$arr_db_file_paths[0] = $arr1_db_file_paths[0];   				#path for ds.mdf
+		$arr_db_file_paths[1] = $arr1_db_file_paths[1];   				#path for ds_misc.ndf
+		$arr_db_file_paths[2] = $arr_db_file_paths[3] = $arr1_db_file_paths[2];		#path for cust1.ndf and cust2.ndf
+		$arr_db_file_paths[4] = $arr_db_file_paths[5] = $arr1_db_file_paths[3];		#path for orders1.ndf and orders2.ndf
+		$arr_db_file_paths[6] = $arr_db_file_paths[7] = $arr1_db_file_paths[4];		#path for ind1.ndf and ind2.ndf
+		$arr_db_file_paths[8] = $arr_db_file_paths[9] = $arr1_db_file_paths[5];		#path for member1.ndf and member2.ndf
+		$arr_db_file_paths[10] = $arr_db_file_paths[11] = $arr1_db_file_paths[6];	#path for review1.ndf and review2.ndf
+		$arr_db_file_paths[12] = $arr1_db_file_paths[7];				#path for ds_log.ldf
+		$arr_db_file_paths[13] = $arr1_db_file_paths[8];				#path for full text catalog file
+	}
+
+        # Add a trailing path separator if it's needed
+        for(my $i_LoopCount = 0; $i_LoopCount < 14; $i_LoopCount++)
+        {
+                $arr_db_file_paths[$i_LoopCount] =~ s/\s+$//;		# Remove trailing whitespace
+                $arr_db_file_paths[$i_LoopCount] =~ s{/?$}{$pathsep};	# Append path separator
+        }
+
+	if(lc($^O) eq lc("linux"))
+	{
+		print "\nEnable vector search (supported in MS SQL Server 2025) (Y / N) [N] : ";
+		chomp($is_use_vector_S = <STDIN>);
+		$is_use_vector_S ||= "N";
+
+		if(lc($is_use_vector_S) eq "y")
 		{
-			print "\nWrong number of paths entered!!!! \n";
-			print "\nNine paths for storing following files are needed: ds.mdf, ds_misc.ndf, cust1.ndf, orders1.ndf, ind1.ndf,member1.ndf, review1.ndf ds_log.ldf, FULLTEXTCAT_DSPROD(catalog file for full text search)  respectively \n";
-			exit(0);
+			$bln_is_use_vectors = 1;
+			print "  Vector search: ENABLED\n";
 		}
-		#If single path is specified by user then paths for all dbfiles are assumed same
-		if(scalar(@arr1_db_file_paths) == 1)
+	}
+}
+
+if($bln_is_DB_MYSQL == 1)
+{
+	if(lc($^O) eq lc("linux"))
+	{
+		print "\nEnable vector search (verify that your version of MySQL supports it.) (Y / N) [N] : ";
+		chomp($is_use_vector_S = <STDIN>);
+		$is_use_vector_S ||= "N";
+
+		if(lc($is_use_vector_S) eq "y")
 		{
-			$arr_db_file_paths[0] =	$arr_db_file_paths[1] = $arr_db_file_paths[2] = $arr_db_file_paths[3] = @arr1_db_file_paths[0];
-			$arr_db_file_paths[4] =	$arr_db_file_paths[5] = $arr_db_file_paths[6] = $arr_db_file_paths[7] = @arr1_db_file_paths[0];		
-			$arr_db_file_paths[8] =	$arr_db_file_paths[9] = $arr_db_file_paths[10] = $arr_db_file_paths[11] = @arr1_db_file_paths[0];
-			$arr_db_file_paths[12] =	$arr_db_file_paths[13] = @arr1_db_file_paths[0];
+			$bln_is_use_vectors = 1;
+			print "  Vector search: ENABLED\n";
 		}
-		else #If 9 paths spacified then 
-		{
-			$arr_db_file_paths[0] = @arr1_db_file_paths[0];   							#path for ds.mdf
-			$arr_db_file_paths[1] = @arr1_db_file_paths[1];   							#path for ds_misc.ndf
-			$arr_db_file_paths[2] = $arr_db_file_paths[3] = @arr1_db_file_paths[2];		#path for cust1.ndf and cust2.ndf
-			$arr_db_file_paths[4] = $arr_db_file_paths[5] = @arr1_db_file_paths[3];		#path for orders1.ndf and orders2.ndf
-			$arr_db_file_paths[6] = $arr_db_file_paths[7] = @arr1_db_file_paths[4];		#path for ind1.ndf and ind2.ndf
-                $arr_db_file_paths[8] = $arr_db_file_paths[9] = @arr1_db_file_paths[5];		#path for member1.ndf and member2.ndf
-                $arr_db_file_paths[10] = $arr_db_file_paths[11] = @arr1_db_file_paths[6];		#path for review1.ndf and review2.ndf
-			$arr_db_file_paths[12] = @arr1_db_file_paths[7];								#path for ds_log.ldf
-			$arr_db_file_paths[13] = @arr1_db_file_paths[8];								#path for full text catalog file
-		}
-		
-	}	
+	}
 }
 
 print "***********************************\n";
@@ -347,7 +402,7 @@ if($bln_is_Small_DB == 1)
 #For medium database with size exactly 1GB
 if($bln_is_Medium_DB == 1)
 {
-	print "Medium size database ( equal to 1 GB) \n";
+	print "Medium size database (equal to 1 GB) \n";
 	$mult_Cust_Rows = 2000000;				# 2 x 10^6
 	$mult_Ord_Rows = 100000;				# 1 x 10^5
 	$mult_Prod_Rows = 100000;				# 1 x 10^5
@@ -357,7 +412,7 @@ if($bln_is_Medium_DB == 1)
 #For large database with size > 1GB
 if($bln_is_Large_DB == 1)
 {
-	print "Large size database ( greater than 1 GB) \n";
+	print "Large size database (greater than 1 GB) \n";
 	$mult_Cust_Rows = 200000000;			# 2 x 10^8
 	$mult_Ord_Rows = 10000000;				# 1 x 10^7
 	$mult_Prod_Rows = 1000000;				# 1 x 10^6
@@ -381,19 +436,17 @@ print "Product Rows: $i_Prod_Rows \n";
 #Start data generation and dump data into CSV files
 # CSV files will be converted into their windows or linux equivalent according to System type
 
-
-
 print "\nCreating CSV files....\n";
 
 #These are parameters to C Program
-# Declaration and Initialization is done here for $par4 and $par_Sys_Type 
+# Declaration and Initialization is done here for $par4 and $par_Sys_Type
 
 my $par1_Start = 0;        #start
 my $par2_End = 0;          #end
-my $par3_Fname = "";       #Name 
+my $par3_Fname = "";       #Name
 #Month Name used for Order table data generation
-my @par3_ArrMonth = ("jan","feb","mar","apr","may","jun","jul","aug","sep","oct","nov","dec");  
-my $par4_DB_Size = "";             #S|M|L 
+my @par3_ArrMonth = ("jan","feb","mar","apr","may","jun","jul","aug","sep","oct","nov","dec");
+my $par4_DB_Size = "";             #S|M|L
 my $par5_Month_Number = 0;			   #parameter used for determining month for Order table data generation(1 to 12)
 my $par_Sys_Type = 0;      #0 (Linux) / 1 (Windows)
 my $par_n_Prod = 0;		   # Number of Product table rows parameter for Product and Inv data generation
@@ -408,7 +461,7 @@ if($bln_is_Small_DB == 1)
 {
 	 $par4_DB_Size = $str_is_Small_DB;
 }
-elsif($bln_is_Medium_DB == 1) 
+elsif($bln_is_Medium_DB == 1)
 {
 	$par4_DB_Size = $str_is_Medium_DB;	
 }
@@ -442,16 +495,17 @@ chdir "./data_files/cust/";
 #Initialize parameters for Customer C Program
 $par1_Start = 1;
 $par2_End = ($i_Cust_Rows / 2);
-$par3_Fname = "US"; 
+$par3_Fname = "US";
 
 print "\nCreating Customer CSV files!!! \n";
 
-print "$par1_Start $par2_End $par3_Fname $par4_DB_Size $par_Sys_Type \n"; 
+print "$par1_Start $par2_End $par3_Fname $par4_DB_Size $par_Sys_Type \n";
 
 #Need to Call exe when System on which perl script is run is Windows
 #We need to check which OS this perl script is being run
 if(lc($^O) eq lc("linux"))   #If system on which perl script is executing is Linux
 {
+	system("gcc -o ds3_create_cust ds3_create_cust.c -lm");
 	system("chmod 755 ds3_create_cust");
 	system("./ds3_create_cust $par1_Start $par2_End $par3_Fname $par4_DB_Size $par_Sys_Type");		
 }
@@ -508,8 +562,8 @@ chdir "./orders/";
 
 print "\nCreating Orders, Orderlines and Cust_Hist csv files!!! \n";
 
-$par1_Start = 0; 
-$par2_End = 0;   
+$par1_Start = 0;
+$par2_End = 0;
 $par3_Fname = "";
 $par5_Month_Number = 0;
 $par_Max_Prod_Id = $i_Prod_Rows;
@@ -529,6 +583,7 @@ for($i_LoopCount = 0; $i_LoopCount < 12; $i_LoopCount++)
 	
 	if(lc($^O) eq lc("linux"))   #If system on which perl script is executing is Linux
 	{
+		system("gcc -o ds3_create_orders ds3_create_orders.c -lm");
 		system("chmod 755 ds3_create_orders");
 		system("./ds3_create_orders $par1_Start $par2_End $par3_ArrMonth[$i_LoopCount] $par4_DB_Size $par5_Month_Number $par_Sys_Type $par_Max_Prod_Id $par_Max_Cust_Id");		
 	}
@@ -560,16 +615,17 @@ print "\nCreating Inventory CSV file!!!! \n";
 
 if(lc($^O) eq lc("linux"))   #If system on which perl script is executing is Linux
 {
+	system("gcc -o ds3_create_inv ds3_create_inv.c -lm");
 	system("chmod 755 ds3_create_inv");
 	system("./ds3_create_inv $par_n_Prod $par_Sys_Type");
-     system("cp inv.csv ../prod/");		
+	system("cp inv.csv ../prod/");
 }
 else   #Windows
 {
 	if($bln_IsCygwin == 1)  #Run through Cygwin Bash Shell
 	{
 		system("./ds3_create_inv.exe $par_n_Prod $par_Sys_Type");
-           system("cp inv.csv ../prod/");	
+		system("cp inv.csv ../prod/");
 	}
 	else  #Run through DOS Shell
 	{
@@ -594,8 +650,9 @@ print "\nCreating product CSV file!!!! \n";
 
 if(lc($^O) eq lc("linux"))   #If system on which perl script is executing is Linux
 {
+	system("gcc -o ds3_create_prod ds3_create_prod.c -lm");
 	system("chmod 755 ds3_create_prod");
-	system("./ds3_create_prod $par_n_Prod $par_Sys_Type");		
+	system("./ds3_create_prod $par_n_Prod $par_Sys_Type $bln_is_use_vectors");
 }
 else   #Windows
 {
@@ -622,6 +679,7 @@ print "\nCreating membership CSV file!!!! \n";
 
 if(lc($^O) eq lc("linux"))   #If system on which perl script is executing is Linux
 {
+	system("gcc -o ds3_create_membership ds3_create_membership.c -lm");
 	system("chmod 755 ds3_create_membership");
         system("./ds3_create_membership $i_Cust_Rows $par_Pct_Member $par_Sys_Type");
 }
@@ -648,10 +706,11 @@ chdir "./reviews/";
 
 print "\nCreating reviews and reviews helpfulness CSV files!!!! \n";
 
-my $par_review_rows = $par_n_Prod * $par_Avg_Reviews; 
+my $par_review_rows = $par_n_Prod * $par_Avg_Reviews;
 
 if(lc($^O) eq lc("linux"))   #If system on which perl script is executing is Linux
 {
+	system("gcc -o ds3_create_reviews ds3_create_reviews.c -lm");
 	system("chmod 755 ds3_create_reviews");
         system("./ds3_create_reviews $par_n_Prod $par_Avg_Reviews $i_Cust_Rows $par_Sys_Type");
 }
@@ -680,8 +739,8 @@ $cust_row_plus_one = ($i_Cust_Rows + 1);
 
 if($bln_is_DB_MYSQL == 1)			#For MySQL
 {
-	chdir "../../mysqlds35/";			#Move to mysql directory
-	chdir "./build/";					#Move to build directory inside mysql directory
+	chdir "../../mysqlds35/";		#Move to mysql directory
+	chdir "./build/";			#Move to build directory inside mysql directory
 	
 	#Open a template file and replace placeholders in it and write new file
 
@@ -704,7 +763,33 @@ if($bln_is_DB_MYSQL == 1)			#For MySQL
 	open (NEWFILE, ">" , $str_file_name) || die "Creating new file to write failed : $!";
 	print NEWFILE @lines;
 	close (NEWFILE);
-	
+
+	if ($bln_is_use_vectors == 1)
+	{
+	   chdir "../";
+
+	   my $filename = 'mysqlds35_create_all.sh';
+	   my $newfile = 'mysqlds35_create_all_vectors.sh';
+
+	   open(my $in,  '<', $filename) or die "Can't open $filename: $!";
+	   open(my $out, '>', $newfile) or die "Can't open $newfile: $!";
+
+	   while (my $line = <$in>)
+	   {
+		$line =~ s/3:-0/3:-1/g;
+		$line =~ s/mysqlds35_create_all.sh/mysqlds35_create_all_vectors.sh/g;
+		print $out $line;
+	   }
+
+	   close($in);
+	   close($out);
+
+	   if(lc($^O) eq lc("linux"))   #If system on which perl script is executing is Linux
+	   {
+	        system("chmod +x $newfile");
+	   }
+	}
+
 	print "\nCompleted creating and writing build scripts for MySQL database... \n";
 	
 }
@@ -755,7 +840,7 @@ elsif($bln_is_DB_ORACLE == 1) 		#For Oracle
 	close (FILE);
 	foreach $line (@lines)
 	{
-		$line =~ s/{CUST_ROW}/$i_Cust_Rows/g;         
+		$line =~ s/{CUST_ROW}/$i_Cust_Rows/g;
 		$line =~ s/{CUST_ROW_PLUS_ONE}/$cust_row_plus_one/g;	
 	}	
 	$str_file_name = "oracleds35_cleanup_".$database_size.$database_size_str."_fk_disabled.sql";
@@ -772,7 +857,7 @@ elsif($bln_is_DB_ORACLE == 1) 		#For Oracle
 	close (FILE);
 	foreach $line (@lines)
 	{
-		$line =~ s/{CUST_ROW}/$i_Cust_Rows/g;         
+		$line =~ s/{CUST_ROW}/$i_Cust_Rows/g;
 		$line =~ s/{CUST_ROW_PLUS_ONE}/$cust_row_plus_one/g;	
 	}	
 	$str_file_name = "oracleds35_cleanup_".$database_size.$database_size_str.".sql";
@@ -807,7 +892,7 @@ elsif($bln_is_DB_ORACLE == 1) 		#For Oracle
 	close (FILE);
 	foreach $line (@lines)
 	{
-		$line =~ s/{CUST_ROW}/$i_Cust_Rows/g;         
+		$line =~ s/{CUST_ROW}/$i_Cust_Rows/g;
 		$line =~ s/{CUST_ROW_PLUS_ONE}/$cust_row_plus_one/g;	
 	}	
 	$str_file_name = "oracleds35_cleanup_".$database_size.$database_size_str."_fk_disabled.sql";
@@ -845,7 +930,7 @@ elsif($bln_is_DB_ORACLE == 1) 		#For Oracle
 	{
 		$line =~ s/{CUST_ROW_PLUS_ONE}/$cust_row_plus_one/g;         			
 	}	
-	$str_file_name = "oracleds35_create_db_tables_multi_".$database_size.$database_size_str.".pl";
+	$str_file_name = "oracleds35_perl_create_db_tables_multi_".$database_size.$database_size_str.".pl";
 	open (NEWFILE, ">", $str_file_name) || die "Creating new file to write failed : $!";
 	print NEWFILE @lines;
 	close (NEWFILE);
@@ -907,7 +992,6 @@ elsif($bln_is_DB_ORACLE == 1) 		#For Oracle
 	print NEWFILE @lines;
 	close (NEWFILE);
 		
-	
 	chdir "../";		#Move to oracle directory to finally edit master shell script
 	
 	#Create new create_all shell script file from template
@@ -920,8 +1004,8 @@ elsif($bln_is_DB_ORACLE == 1) 		#For Oracle
 	foreach $line (@lines)
 	{
 		$str_file_name = "oracleds35_create_tablespaces_".$database_size.$database_size_str.".sql";
-		$line =~ s/{TBLSPACE_SQLFNAME}/$str_file_name/g;  
-		$str_file_name = "oracleds35_perl_create_db_tables_multi_".$database_size.$database_size_str.".pl";     
+		$line =~ s/{TBLSPACE_SQLFNAME}/$str_file_name/g;
+		$str_file_name = "oracleds35_perl_create_db_tables_multi_".$database_size.$database_size_str.".pl";
 		$line =~ s/{CREATEDB_SQLFNAME}/$str_file_name/g;		   		   	
 	}	
 	$str_file_name = "";
@@ -930,6 +1014,11 @@ elsif($bln_is_DB_ORACLE == 1) 		#For Oracle
 	print NEWFILE @lines;
 	close (NEWFILE);
 	
+	if(lc($^O) eq lc("linux"))   #If system on which perl script is executing is Linux
+	{
+		system("chmod +x $str_file_name");
+	}
+
 	#Create new create_all bat script file from template
 	@lines = ();
 	$line = "";	
@@ -940,8 +1029,8 @@ elsif($bln_is_DB_ORACLE == 1) 		#For Oracle
 	foreach $line (@lines)
 	{
 		$str_file_name = "oracleds35_create_tablespaces_".$database_size.$database_size_str.".sql";
-		$line =~ s/{TBLSPACE_SQLFNAME}/$str_file_name/g;  
-		$str_file_name = "oracleds35_perl_create_db_tables_multi".$database_size.$database_size_str.".pl";     
+		$line =~ s/{TBLSPACE_SQLFNAME}/$str_file_name/g;
+		$str_file_name = "oracleds35_perl_create_db_tables_multi".$database_size.$database_size_str.".pl";
 		$line =~ s/{CREATEDB_SQLFNAME}/$str_file_name/g;		   		   	
 	}	
 	$str_file_name = "";
@@ -977,7 +1066,7 @@ elsif($bln_is_DB_MSSQL == 1) 		#For SQL Server
 			#$arr_db_file_paths[$i_Cnt] =~ s/\\//g;    #Replace all backslashes if exists
 			$line =~ s/{DATAFILE_PATH}/$arr_db_file_paths[$i_Cnt]/g;			
 			$i_Cnt = ($i_Cnt + 1);				
-		}			   
+		}
 		if($line =~ m/{FULLTEXTCAT_PATH}/)
 		{
 			$line =~ s/{FULLTEXTCAT_PATH}/$arr_db_file_paths[$i_LastIndex]/g;
@@ -1023,9 +1112,9 @@ elsif($bln_is_DB_MSSQL == 1) 		#For SQL Server
 	open (FILE, "sqlserverds35_create_all_concurrent_generic_template.bat") || die "Can not Open file : $!";	
 	@lines =  <FILE>;
 	close (FILE);
-	my $i_Cnt = 0;
-	my $i_arrCnt = scalar(@arr_db_file_paths);
-	my $i_LastIndex = ($i_arrCnt - 1);
+	$i_Cnt = 0;
+	$i_arrCnt = scalar(@arr_db_file_paths);
+	$i_LastIndex = ($i_arrCnt - 1);
 	foreach $line (@lines)
 	{
 		if($line =~ m/{DB_SIZE}/)
@@ -1046,9 +1135,9 @@ elsif($bln_is_DB_MSSQL == 1) 		#For SQL Server
         open (FILE, "sqlserverds35_create_all_concurrent_generic_template.sh") || die "Can not Open file : $!";
         @lines =  <FILE>;
         close (FILE);
-        my $i_Cnt = 0;
-        my $i_arrCnt = scalar(@arr_db_file_paths);
-        my $i_LastIndex = ($i_arrCnt - 1);
+        $i_Cnt = 0;
+        $i_arrCnt = scalar(@arr_db_file_paths);
+        $i_LastIndex = ($i_arrCnt - 1);
         foreach $line (@lines)
         {
                 if($line =~ m/{DB_SIZE}/)
@@ -1056,11 +1145,21 @@ elsif($bln_is_DB_MSSQL == 1) 		#For SQL Server
                         $line =~ s/{DB_SIZE}/$database_size$database_size_str/g;
                         $i_Cnt = ($i_Cnt + 1);
                 }
+                if($line =~ m/4:-0/ && $bln_is_use_vectors == 1)
+                {
+                        $line =~ s/4:-0/4:-1/g;
+                        $i_Cnt = ($i_Cnt + 1);
+                }
         }
         $str_file_name = "sqlserverds35_create_all_concurrent_".$database_size.$database_size_str.".sh";
         open (NEWFILE, ">", $str_file_name) || die "Creating new file to write failed : $!";
         print NEWFILE @lines;
         close (NEWFILE);
+
+	if(lc($^O) eq lc("linux"))   #If system on which perl script is executing is Linux
+	{
+		system("chmod +x $str_file_name");
+	}
 
 	print "\nCompleted creating and writing build scripts for SQL Server database!!\n";
 }

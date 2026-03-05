@@ -7,6 +7,8 @@ my $DBNAME = "ds3";
 my $SYSDBA = "ds3";
 my $PGPASSWORD = "ds3";
 
+my $pathsep;
+
 #Need seperate target directory so that mulitple DB Targets can be loaded at the same time
 my $pgsql_targetdir;  
 
@@ -15,10 +17,19 @@ $pgsql_targetdir = $pgsql_target;
 # remove any backslashes from string to be used for directory name
 $pgsql_targetdir =~ s/\\//;
 
-system ("mkdir $pgsql_targetdir");
+system ("mkdir -p $pgsql_targetdir");
+
+if ("$^O" eq "linux")
+        {
+        $pathsep = "/";
+        }
+else
+        {
+        $pathsep = "\\\\";
+        };
 
 foreach my $k (1 .. $numStores){
-        open(my $OUT, ">$pgsql_targetdir\\pgsqlds35_reset_seq.sql") || die("Can't open pgsqlds35_reset_seq.sql");
+        open(my $OUT, ">$pgsql_targetdir${pathsep}pgsqlds35_reset_seq.sql") || die("Can't open pgsqlds35_reset_seq.sql");
         print $OUT "-- Reset sequences
 
 \\c ds3;
@@ -38,6 +49,6 @@ SELECT setval(CONCAT('reviews_helpfulness$k','_review_helpfulness_id_seq'),max(r
 \n";
         close $OUT;
         sleep(1);
-        print("psql -h $pgsql_target -U $SYSDBA -d $DBNAME < $pgsql_targetdir\\pgsqlds35_reset_seq.sql\n");
-        system("psql -h $pgsql_target -U $SYSDBA -d $DBNAME < $pgsql_targetdir\\pgsqlds35_reset_seq.sql");
+        print("psql -h $pgsql_target -U $SYSDBA -d $DBNAME < $pgsql_targetdir${pathsep}pgsqlds35_reset_seq.sql\n");
+        system("psql -h $pgsql_target -U $SYSDBA -d $DBNAME < $pgsql_targetdir${pathsep}pgsqlds35_reset_seq.sql");
 }

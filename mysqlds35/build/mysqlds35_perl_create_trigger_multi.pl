@@ -44,10 +44,29 @@ BEGIN
     SET NEW.QUAN_IN_STOCK = (NEW.QUAN_IN_STOCK + 5) ;
  END IF;
 END; $$
+
+DROP TRIGGER IF EXISTS DS3.after_helpfulness_insert$k;
+CREATE TRIGGER DS3.after_helpfulness_insert$k
+AFTER INSERT ON DS3.REVIEWS_HELPFULNESS$k
+FOR EACH ROW
+BEGIN
+    UPDATE DS3.REVIEWS$k
+    SET total_helpfulness = total_helpfulness + NEW.helpfulness
+    WHERE review_id = NEW.review_id;
+END; $$
+
+UPDATE DS3.REVIEWS$k R
+SET total_helpfulness = (
+    SELECT IFNULL(SUM(helpfulness), 0)
+    FROM DS3.REVIEWS_HELPFULNESS$k H
+    WHERE H.review_id = R.review_id
+)
+WHERE R.prod_id IN (SELECT DISTINCT prod_id FROM DS3.REVIEWS_HELPFULNESS$k);
+
 \n";
   close $OUT;
   sleep(1);
-  print ("mysql -h $mysqltarget -u web --password=web < $mysql_targetdir${pathsep}mysqlds35_create_trigger.sql\n");
-  system ("mysql -h $mysqltarget -u web --password=web < $mysql_targetdir${pathsep}mysqlds35_create_trigger.sql");
+  print ("mariadb -h $mysqltarget -u web --password=web < $mysql_targetdir${pathsep}mysqlds35_create_trigger.sql\n");
+  system ("mariadb -h $mysqltarget -u web --password=web < $mysql_targetdir${pathsep}mysqlds35_create_trigger.sql");
   #system ("del $mysql_targetdir${pathsep}mysqlds35_create_trigger.sql");
   }

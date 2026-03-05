@@ -1,5 +1,5 @@
 # ds3_create_mysql_multistore_load_files.pl
-# Script to create a set of ds3 mysql load files for a given number of stores
+# Script to create a set of ds3 mariadb load files for a given number of stores
 # Syntax to run - perl ds3_create_mysql_multistore_load_files.pl <mysql_target> <number_of_stores> 
 
 use strict;
@@ -7,6 +7,7 @@ use warnings;
 
 my $mysqltarget = $ARGV[0];
 my $numberofstores = $ARGV[1];
+my $use_vectors = $ARGV[2];
 
 my $movecommand;
 my $timecommand;
@@ -63,7 +64,7 @@ SET FOREIGN_KEY_CHECKS=1;
 \n";
 	close $OUT;
 	open (my $OUTBAT, ">cust$pathsep$mysql_targetdir${pathsep}remote_mysqlds35_cust_load$k.bat") || die("Can't open cust$pathsep$mysql_targetdir${pathsep}remote_mysqlds35_cust_load$k.bat");
-	print $OUTBAT "mysql -h $mysqltarget -u web --password=web --local_infile DS3 < remote_mysqlds35_cust_load$k.sql\n";
+	print $OUTBAT "mariadb -h $mysqltarget -u web --password=web --local_infile DS3 < remote_mysqlds35_cust_load$k.sql\n";
 	print $OUTBAT "$timecommand > finished$k.txt\n";
 	print $OUTBAT "exit\n";
 	close $OUTBAT;
@@ -100,7 +101,7 @@ SET FOREIGN_KEY_CHECKS=1;
 \n";
 	close $OUT;
 	open (my $OUTBAT, ">orders$pathsep$mysql_targetdir${pathsep}remote_mysqlds35_orders_load$k.bat") || die("Can't open orders$pathsep$mysql_targetdir${pathsep}remote_mysqlds35_orders_load$k.bat");
-	print $OUTBAT "mysql -h $mysqltarget -u web --password=web --local_infile DS3 < remote_mysqlds35_orders_load$k.sql\n";
+	print $OUTBAT "mariadb -h $mysqltarget -u web --password=web --local_infile DS3 < remote_mysqlds35_orders_load$k.sql\n";
 	#print $OUT "$timecommand > finished$k.txt\n";
 	print $OUTBAT "exit\n";
 	close $OUTBAT;
@@ -135,7 +136,7 @@ SET UNIQUE_CHECKS=1;
 SET FOREIGN_KEY_CHECKS=1;\n";
 	close $OUT;
 	open (my $OUTBAT, ">orders$pathsep$mysql_targetdir${pathsep}remote_mysqlds35_orderlines_load$k.bat") || die("Can't open orders$pathsep$mysql_targetdir${pathsep}remote_mysqlds35_orderlines_load$k.bat");
-	print $OUTBAT "mysql -h $mysqltarget -u web --password=web --local_infile DS3 < remote_mysqlds35_orderlines_load$k.sql\n";
+	print $OUTBAT "mariadb -h $mysqltarget -u web --password=web --local_infile DS3 < remote_mysqlds35_orderlines_load$k.sql\n";
 	#print $OUTBAT "$timecommand > finished$k.txt\n";
 	print $OUTBAT "exit\n";
 	close $OUTBAT;
@@ -170,7 +171,7 @@ SET FOREIGN_KEY_CHECKS=1;
 \n";
 	close $OUT;
 	open (my $OUTBAT, ">orders$pathsep$mysql_targetdir${pathsep}remote_mysqlds35_cust_hist_load$k.bat") || die("Can't open orders$pathsep$mysql_targetdir${pathsep}remote_mysqlds35_cust_hist_load$k.bat");
-	print $OUTBAT "mysql -h $mysqltarget -u web --password=web --local_infile DS3 < remote_mysqlds35_cust_hist_load$k.sql\n";
+	print $OUTBAT "mariadb -h $mysqltarget -u web --password=web --local_infile DS3 < remote_mysqlds35_cust_hist_load$k.sql\n";
 	print $OUTBAT "$timecommand > finished$k.txt\n";
 	print $OUTBAT "exit\n";
 	close $OUTBAT;
@@ -185,16 +186,29 @@ foreach my $k (1 .. $numberofstores){
 
 SET UNIQUE_CHECKS=0;
 SET FOREIGN_KEY_CHECKS=0;
-ALTER TABLE PRODUCTS$k DISABLE KEYS;
+ALTER TABLE PRODUCTS$k DISABLE KEYS;\n";
 
-LOAD DATA LOCAL INFILE \"..$pathsep..$pathsep..$pathsep..${pathsep}data_files${pathsep}prod${pathsep}prod.csv\" INTO TABLE PRODUCTS$k FIELDS TERMINATED BY ',' OPTIONALLY ENCLOSED BY '\"';
+if ( $use_vectors == 1 )
+{
+print $OUT "
+LOAD DATA LOCAL INFILE \"..$pathsep..$pathsep..$pathsep..${pathsep}data_files${pathsep}prod${pathsep}prod.csv\" INTO TABLE PRODUCTS$k FIELDS TERMINATED BY ',' OPTIONALLY ENCLOSED BY '\"' 
+(PROD_ID, CATEGORY, TITLE, ACTOR, PRICE, SPECIAL, COMMON_PROD_ID, MEMBERSHIP_ITEM, \@vec_text)
+SET v_embedding = VEC_FromText(\@vec_text);\n";
+}
+else
+{
+print $OUT "
+LOAD DATA LOCAL INFILE \"..$pathsep..$pathsep..$pathsep..${pathsep}data_files${pathsep}prod${pathsep}prod.csv\" INTO TABLE PRODUCTS$k FIELDS TERMINATED BY ',' OPTIONALLY ENCLOSED BY '\"' 
+(PROD_ID, CATEGORY, TITLE, ACTOR, PRICE, SPECIAL, COMMON_PROD_ID, MEMBERSHIP_ITEM);\n";
+}
 
+print $OUT "
 ALTER TABLE PRODUCTS$k ENABLE KEYS;
 SET UNIQUE_CHECKS=1;
 SET FOREIGN_KEY_CHECKS=1;\n";
 	close $OUT;
 	open (my $OUTBAT, ">prod$pathsep$mysql_targetdir${pathsep}remote_mysqlds35_prod_load$k.bat") || die("Can't open prod$pathsep$mysql_targetdir${pathsep}remote_mysqlds35_prod_load$k.bat");
-	print $OUTBAT "mysql -h $mysqltarget -u web --password=web --local_infile DS3 < remote_mysqlds35_prod_load$k.sql\n";
+	print $OUTBAT "mariadb -h $mysqltarget -u web --password=web --local_infile DS3 < remote_mysqlds35_prod_load$k.sql\n";
 	print $OUTBAT "$timecommand > finished$k.txt\n";
 	print $OUTBAT "exit\n";
 	close $OUTBAT;
@@ -218,7 +232,7 @@ SET UNIQUE_CHECKS=1;
 SET FOREIGN_KEY_CHECKS=1;\n";
 	close $OUT;
 	open (my $OUTBAT, ">prod$pathsep$mysql_targetdir${pathsep}remote_mysqlds35_inv_load$k.bat") || die("Can't open prod$pathsep$mysql_targetdir${pathsep}remote_mysqlds35_inv_load$k.bat");
-	print $OUTBAT "mysql -h $mysqltarget -u web --password=web --local_infile DS3 < remote_mysqlds35_inv_load$k.sql\n";
+	print $OUTBAT "mariadb -h $mysqltarget -u web --password=web --local_infile DS3 < remote_mysqlds35_inv_load$k.sql\n";
 	#print $OUTBAT "$timecommand > finished$k.txt\n";
 	print $OUTBAT "exit\n";
 	close $OUTBAT;
@@ -241,7 +255,7 @@ SET UNIQUE_CHECKS=1;
 SET FOREIGN_KEY_CHECKS=1;\n";
 	close $OUT;
 	open (my $OUTBAT, ">membership$pathsep$mysql_targetdir${pathsep}remote_mysqlds35_membership_load$k.bat") || die("Can't open membership$pathsep$mysql_targetdir${pathsep}remote_mysqlds35_membership_load$k.bat");
-	print $OUTBAT "mysql -h $mysqltarget -u web --password=web --local_infile DS3 < remote_mysqlds35_membership_load$k.sql\n";
+	print $OUTBAT "mariadb -h $mysqltarget -u web --password=web --local_infile DS3 < remote_mysqlds35_membership_load$k.sql\n";
 	print $OUTBAT "$timecommand > finished$k.txt\n";
 	print $OUTBAT "exit\n";
 	close $OUTBAT;
@@ -264,7 +278,7 @@ SET UNIQUE_CHECKS=1;
 SET FOREIGN_KEY_CHECKS=1;\n";
 	close $OUT;
 	open (my $OUTBAT, ">reviews$pathsep$mysql_targetdir${pathsep}remote_mysqlds35_reviews_load$k.bat") || die("Can't open reviews$pathsep$mysql_targetdir${pathsep}remote_mysqlds35_reviews_load$k.bat");
-	print $OUTBAT "mysql -h $mysqltarget -u web --password=web --local_infile DS3 < remote_mysqlds35_reviews_load$k.sql\n";
+	print $OUTBAT "mariadb -h $mysqltarget -u web --password=web --local_infile DS3 < remote_mysqlds35_reviews_load$k.sql\n";
 	print $OUTBAT "$timecommand > finishedreview$k.txt\n";
 	print $OUTBAT "exit\n";
 	close $OUTBAT;
@@ -289,7 +303,7 @@ SET UNIQUE_CHECKS=1;
 SET FOREIGN_KEY_CHECKS=1;\n";
 	close $OUT;
 	open (my $OUTBAT, ">reviews$pathsep$mysql_targetdir${pathsep}remote_mysqlds35_reviewshelpful_load$k.bat") || die("Can't open reviews$pathsep$mysql_targetdir${pathsep}remote_mysqlds35_reviewshelpful_load$k.bat");
-	print $OUTBAT "mysql -h $mysqltarget -u web --password=web --local_infile DS3 < remote_mysqlds35_reviewshelpful_load$k.sql\n";
+	print $OUTBAT "mariadb -h $mysqltarget -u web --password=web --local_infile DS3 < remote_mysqlds35_reviewshelpful_load$k.sql\n";
 	print $OUTBAT "$timecommand > finishedhelp$k.txt\n";
 	print $OUTBAT "exit\n";
 	close $OUTBAT;

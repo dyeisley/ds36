@@ -8,6 +8,9 @@ use warnings;
 my $oracletarget = $ARGV [0];
 my $numberofstores = $ARGV[1];
 
+my $pathsep;
+my $startcmd;
+
 #Need seperate target directory so that mulitple DB Targets can be loaded at the same time
 my $oracletargetdir;  
 
@@ -16,17 +19,27 @@ $oracletargetdir = $oracletarget;
 # remove any backslashes from string to be used for directory name
 $oracletargetdir =~ s/\\//;
 
-system ("mkdir $oracletargetdir");
+system ("mkdir -p $oracletargetdir");
 
+# This section enables support for Linux and Windows - detecting the type of OS, and then using the proper commands
+if ("$^O" eq "linux")
+        {
+        $pathsep = "/";
+	$startcmd = "";
+        }
+else
+        {
+        $pathsep = "\\\\";
+	$startcmd = "start";
+        };
 
 foreach my $k (1 .. $numberofstores){
-	open (my $OUT, ">$oracletargetdir\\oracleds35_createsp$k.sql") || die("Can't open oracleds35_createsp$k.sql");
+	open (my $OUT, ">$oracletargetdir${pathsep}oracleds35_createsp$k.sql") || die("Can't open oracleds35_createsp$k.sql");
 	print $OUT "CREATE GLOBAL TEMPORARY TABLE derivedtable1$k 
   ON COMMIT PRESERVE ROWS
   AS SELECT PRODUCTS$k.TITLE, PRODUCTS$k.ACTOR, PRODUCTS$k.PROD_ID, PRODUCTS$k.COMMON_PROD_ID
   FROM DS3.CUST_HIST$k INNER JOIN
     DS3.PRODUCTS$k ON CUST_HIST$k.PROD_ID = PRODUCTS$k.PROD_ID;
-
   
 CREATE OR REPLACE  PROCEDURE \"DS3\".\"NEW_CUSTOMER$k\" 
   (
@@ -855,11 +868,8 @@ CREATE OR REPLACE  PROCEDURE \"DS3\".\"PURCHASE$k\"
         neworderid_out := 0;
         RETURN;
       ELSE
-        IF new_quan < 3 THEN  -- this is kluge to keep rollback rate constant - assumes 1, 2 or 3 quan ordered
-          UPDATE INVENTORY$k SET SALES= new_sales WHERE PROD_ID=prod_id_in(item_id);
-        ELSE
-          UPDATE INVENTORY$k SET QUAN_IN_STOCK = new_quan, SALES= new_sales WHERE PROD_ID=prod_id_in(item_id);
-        END IF;
+        UPDATE INVENTORY$k SET QUAN_IN_STOCK = new_quan, SALES= new_sales WHERE PROD_ID=prod_id_in(item_id);
+
         INSERT INTO CUST_HIST$k
           (
           CUSTOMERID,
@@ -881,16 +891,16 @@ CREATE OR REPLACE  PROCEDURE \"DS3\".\"PURCHASE$k\"
 /
 
 CREATE OR REPLACE TRIGGER \"DS3\".\"RESTOCK$k\" 
-AFTER UPDATE OF \"QUAN_IN_STOCK\" ON \"DS3\".\"INVENTORY$k\" 
-FOR EACH ROW WHEN (NEW.QUAN_IN_STOCK < 10) 
+BEFORE UPDATE OF \"QUAN_IN_STOCK\" ON \"DS3\".\"INVENTORY$k\" 
+FOR EACH ROW WHEN (NEW.QUAN_IN_STOCK < 3) 
 
 DECLARE
-  X NUMBER;
+  X INTEGER;
 BEGIN 
-  SELECT COUNT(*) INTO X FROM DS3.REORDER$k WHERE PROD_ID = :NEW.PROD_ID;
-  IF x = 0 THEN
-    INSERT INTO DS3.REORDER$k(PROD_ID, DATE_LOW, QUAN_LOW) VALUES(:NEW.PROD_ID, SYSDATE, :NEW.QUAN_IN_STOCK);
-  END IF;
+    X := DBMS_RANDOM.VALUE(3, 20);
+    -- INSERT INTO DS3.REORDER$k(PROD_ID, DATE_LOW, QUAN_LOW) VALUES(:NEW.PROD_ID, SYSDATE, :NEW.QUAN_IN_STOCK);
+    INSERT INTO DS3.REORDER$k(PROD_ID, DATE_LOW, QUAN_LOW, DATE_REORDERED, QUAN_REORDERED) VALUES(:NEW.PROD_ID, SYSDATE, :NEW.QUAN_IN_STOCK, SYSDATE + X, X);
+    :NEW.QUAN_IN_STOCK := :NEW.QUAN_IN_STOCK + X;
 END RESTOCK$k;
 /
 
@@ -902,7 +912,7 @@ exit;\n";
 sleep (1);
 
 foreach my $k (1 .. ($numberofstores-1)){
-  system ("start sqlplus \"ds3/ds3\@$oracletarget\" \@$oracletargetdir\\oracleds35_createsp$k.sql");
+  system ("$startcmd sqlplus \"ds3/ds3\@$oracletarget\" \@$oracletargetdir${pathsep}oracleds35_createsp$k.sql");
   }
-  system ("sqlplus \"ds3/ds3\@$oracletarget\" \@$oracletargetdir\\oracleds35_createsp$numberofstores.sql");
+  system ("sqlplus \"ds3/ds3\@$oracletarget\" \@$oracletargetdir${pathsep}oracleds35_createsp$numberofstores.sql");
 
