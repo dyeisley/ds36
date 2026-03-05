@@ -537,8 +537,15 @@ namespace ds2xdriver
         }
       catch (SqlException e) 
         {
-        Console.WriteLine("Thread {0}: Error in Browse: {1}", Thread.CurrentThread.Name, e.Message);
-        return(false);
+           Console.WriteLine("Thread {0}: Error in Browse: {1}", Thread.CurrentThread.Name, e.Message);
+
+           if (e.Number == 2812)
+	   {
+              Console.WriteLine("  Problem with vector search. Disabling. Please try with --use_vectors=n");
+              rows_returned = -1;
+	   }
+
+           return(false);
         }
             
 #if (USE_WIN32_TIMER)
