@@ -520,8 +520,14 @@ namespace ds2xdriver
         }
       catch (MySqlException e)
         {
-        Console.WriteLine("Thread {0}: Error in Browse: {1}", Thread.CurrentThread.Name, e.Message);
-        success = false;
+           Console.WriteLine("Thread {0}: Error in Browse: {1}", Thread.CurrentThread.Name, e.Message);
+           success = false;
+
+           if (e.Number == 1054)
+           {
+	      Console.WriteLine("  Problem with vector search. Disabling. Please try with --use_vectors=n");
+              rows_returned = -1;
+	   }
         }
 
 #if (USE_WIN32_TIMER)

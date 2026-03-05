@@ -1381,7 +1381,7 @@ namespace ds2xdriver
           //  (100.0 * n_rollbacks_overall) / n_overall);
           //Changed on 8/8/2010
 		  //Changed on 1/16/2019 - By Performance Team - Ruban													  
-          Console.Write("{8}et={0,7:F1} n_overall={1} opm={2} rt_tot_lastn_max_msec={3} rt_tot_avg_msec={4} " +
+          Console.Write("{8}et={0,7:F1} n_overall={1} opm={2} rt_tot_lastn_max_msec={3,-3} rt_tot_avg_msec={4} " +
               "rt_tot_sampled={5} " + "rollbacks: n={6} %={7,5:F1} ", et, n_overall, opm, rt_tot_lastn_max_msec, rt_tot_avg_msec,
               rt_tot_sampled,n_rollbacks_overall, pct_rollbacks, cur_datetime);
 
@@ -2269,13 +2269,29 @@ namespace ds2xdriver
               {
                Console.WriteLine ( "Thread {0}: Error in simple product Browse for User {1}, failure {2}, retrying" ,
                 Thread.CurrentThread.Name , username_in, failures);
+
+	       // Assume there's a problem with vector search and disable.
+	       // The ds2browse implimentation must set rows_returned = -1
+	       if (rows_returned == -1 && Controller.n_vectors == 1)
+               {
+                  Controller.n_vectors = 0;
+               }
+
+	       // Browse by category instead of continuing to browse by vector.
+	       // This allows the test to continue with threads exiting.
+	       if (rows_returned == -1)
+	       {
+                  browse_type_in = "category";
+                  browse_category_in = (Random.Shared.Next(1, GlobalConstants.MAX_CATEGORY+1)).ToString();
+                  browse_criteria = browse_category_in;
+	       }
     	      }
-	        else
-	          {
+	    else
+	      {
                Console.WriteLine ( "Thread {0}: Error in simple product Browse for User {1}, failure {2}, exiting" ,
                 Thread.CurrentThread.Name , username_in, failures);
                return;
-	          }
+	      }
             }
 
 //        Console.WriteLine("Thread {0}: Search by {1}={2} returned {3} DVDs ({4} requested), RT= {5,10:F3}", 
