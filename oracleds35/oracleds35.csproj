@@ -2,20 +2,14 @@
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <TargetFramework>net9.0</TargetFramework>
+    <TargetFramework>net7.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
-    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
   </PropertyGroup>
 
   <ItemGroup>
-   <Compile Include="ds35oraclefns.cs" />
-   <Compile Include="../drivers/ds35xdriver.cs" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <PackageReference Include="Oracle.ManagedDataAccess" Version="23.26.100" />
-    <PackageReference Include="Oracle.ManagedDataAccess.Core" Version="23.26.100" />
+    <PackageReference Include="Oracle.ManagedDataAccess" Version="23.9.1" />
+    <PackageReference Include="Oracle.ManagedDataAccess.Core" Version="23.9.1" />
   </ItemGroup>
 
 </Project>
