@@ -1,6 +1,6 @@
-# oracleds35_perl_create_db_tables_multi.pl
+# oracle_ds_perl_create_db_tables_multi.pl
 # Script to create a ds3 tables in oracle with a provided number of copies - supporting multiple stores
-# Syntax to run - perl oracleds35_perl_create_db_tables_multi.pl <oracle_target> <number_of_stores> 
+# Syntax to run - perl oracle_ds_perl_create_db_tables_multi.pl <oracle_target> <number_of_stores> 
 
 use strict;
 use warnings;
@@ -8,12 +8,34 @@ use warnings;
 my $oracletarget = $ARGV [0];
 my $numberofstores = $ARGV[1];
 
+my $pathsep;
+
+#Need seperate target directory so that mulitple DB Targets can be loaded at the same time
+my $oracletargetdir;  
+
+$oracletargetdir = $oracletarget;
+
+# remove any backslashes from string to be used for directory name
+$oracletargetdir =~ s/\\//;
+
+system ("mkdir -p $oracletargetdir");
+
+# This section enables support for Linux and Windows - detecting the type of OS, and then using the proper commands
+if ("$^O" eq "linux")
+        {
+        $pathsep = "/";
+        }
+else
+        {
+        $pathsep = "\\\\";
+        };
+
 #First call the script to prepare for the creation of the database - which will delete any existing DS3 database
 
-system ("sqlplus \"sys/oracle\@$oracletarget as sysdba \" \@oracleds35_prep_create_db.sql"); 
+system ("sqlplus \"sys/oracle\@$oracletarget as sysdba \" \@oracle_ds_prep_create_db.sql"); 
 
 foreach my $k (1 .. $numberofstores){
-	open (my $OUT, ">oracleds35_createtables.sql") || die("Can't open oracleds35_createtables.sql");
+	open (my $OUT, ">$oracletargetdir${pathsep}oracle_ds_createtables.sql") || die("Can't open oracle_ds_createtables.sql");
 	print $OUT "CREATE TABLE \"DS3\".\"CUSTOMERS$k\"
   (
   \"CUSTOMERID\" NUMBER NOT NULL, 
@@ -180,7 +202,7 @@ CREATE TABLE \"DS3\".\"REORDER$k\"
 
 CREATE SEQUENCE \"DS3\".\"CUSTOMERID_SEQ$k\" 
   INCREMENT BY 1 
-  START WITH {CUST_ROW_PLUS_ONE}
+  START WITH 20000001
   MAXVALUE 1.0E28 
   MINVALUE 1 
   NOCYCLE 
@@ -190,7 +212,7 @@ CREATE SEQUENCE \"DS3\".\"CUSTOMERID_SEQ$k\"
 
 CREATE SEQUENCE \"DS3\".\"ORDERID_SEQ$k\" 
   INCREMENT BY 1 
-  START WITH {CUST_ROW_PLUS_ONE} 
+  START WITH 20000001 
   MAXVALUE 1.0E28 
   MINVALUE 1 
   NOCYCLE 
@@ -203,7 +225,7 @@ CREATE SEQUENCE \"DS3\".\"ORDERID_SEQ$k\"
   \n";
   close $OUT;
   sleep(1);
-  system ("sqlplus \"sys/oracle\@$oracletarget as sysdba \" \@oracleds35_createtables.sql");
-  #system ("del oracleds35_createtables.sql");
+  system ("sqlplus \"sys/oracle\@$oracletarget as sysdba \" \@$oracletargetdir${pathsep}oracle_ds_createtables.sql");
+  #system ("del oracle_ds_createtables.sql");
   }
 

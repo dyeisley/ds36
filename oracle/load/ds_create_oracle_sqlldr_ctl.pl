@@ -1,4 +1,4 @@
-# ds35_create_oracle_sqlldr_ctl.pl
+# ds_create_oracle_sqlldr_ctl.pl
 # Script to create an oracle sqlldr ctl file that defines the bulk load with table and definition of data
 # Syntax to run - perl ds3_create_oracle_sqlldr_ctl.pl <tablename> <ds3_tabletype> <ctl_filename> <partitionname - only needed for orders, orderlines, and cust types>
 # The ds3_tabletype options are CUST ORDERS ORDERLINES CUST_HIST REVIEWS REVIEWHELPFULNESS MEMBERS PROD INV 

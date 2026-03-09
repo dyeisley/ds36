@@ -1,6 +1,6 @@
 # ds3_execute_oracle_multistore_sqlldr.pl
 # Script to execute sqlldr in parallel for a set of ds3 oracle sqlldr ctl files for a given number of stores
-# Syntax to run - perl ds35_execute_oracle_multistore_sqlldr.pl <oracle_target> <number_of_stores> 
+# Syntax to run - perl ds_execute_oracle_multistore_sqlldr.pl <oracle_target> <number_of_stores> 
 
 use strict;
 use warnings;
@@ -44,30 +44,30 @@ print "Load started at ".(localtime), "\n";
 
 chdir("$base_dir/membership/$oracletargetdir");
 foreach my $k (1 .. $numberofstores){
-	system ("sh ./remote_oracleds35_membership_sqlldr$k.sh");
+	system ("sh ./remote_oracle_ds_membership_sqlldr$k.sh");
 	}
 
 chdir("$base_dir/prod/$oracletargetdir");
 foreach my $k (1 .. $numberofstores){
-	system ("sh remote_oracleds35_prod_sqlldr$k.sh");
-	system ("sh remote_oracleds35_inv_sqlldr$k.sh");
+	system ("sh remote_oracle_ds_prod_sqlldr$k.sh");
+	system ("sh remote_oracle_ds_inv_sqlldr$k.sh");
 	}
 	
 	chdir("$base_dir/reviews/$oracletargetdir");
 foreach my $k (1 .. $numberofstores){
-	system ("sh remote_oracleds35_reviews_sqlldr$k.sh");
+	system ("sh remote_oracle_ds_reviews_sqlldr$k.sh");
 	}
 	
 	chdir("$base_dir/orders/$oracletargetdir");
 foreach my $k (1 .. $numberofstores){
-	system ("sh remote_oracleds35_orders_sqlldr$k.sh");
-	system ("sh remote_oracleds35_orderlines_sqlldr$k.sh");
-	system ("sh remote_oracleds35_cust_hist_sqlldr$k.sh");
+	system ("sh remote_oracle_ds_orders_sqlldr$k.sh");
+	system ("sh remote_oracle_ds_orderlines_sqlldr$k.sh");
+	system ("sh remote_oracle_ds_cust_hist_sqlldr$k.sh");
 	}
 	
 	chdir("$base_dir/cust/$oracletargetdir");
 foreach my $k (1 .. $numberofstores){
-	system ("sh remote_oracleds35_cust_sqlldr$k.sh");
+	system ("sh remote_oracle_ds_cust_sqlldr$k.sh");
 	}
 	
 # Each load file creates a finishedxx.txt file after completing it's load.  The code

@@ -34,7 +34,7 @@ else
         };
 
 foreach my $k (1 .. $numberofstores){
-	open (my $OUT, ">$oracletargetdir${pathsep}oracleds35_createsp$k.sql") || die("Can't open oracleds35_createsp$k.sql");
+	open (my $OUT, ">$oracletargetdir${pathsep}oracle_ds_createsp$k.sql") || die("Can't open oracle_ds_createsp$k.sql");
 	print $OUT "CREATE GLOBAL TEMPORARY TABLE derivedtable1$k 
   ON COMMIT PRESERVE ROWS
   AS SELECT PRODUCTS$k.TITLE, PRODUCTS$k.ACTOR, PRODUCTS$k.PROD_ID, PRODUCTS$k.COMMON_PROD_ID
@@ -912,7 +912,7 @@ exit;\n";
 sleep (1);
 
 foreach my $k (1 .. ($numberofstores-1)){
-  system ("$startcmd sqlplus \"ds3/ds3\@$oracletarget\" \@$oracletargetdir${pathsep}oracleds35_createsp$k.sql");
+  system ("$startcmd sqlplus \"ds3/ds3\@$oracletarget\" \@$oracletargetdir${pathsep}oracle_ds_createsp$k.sql");
   }
-  system ("sqlplus \"ds3/ds3\@$oracletarget\" \@$oracletargetdir${pathsep}oracleds35_createsp$numberofstores.sql");
+  system ("sqlplus \"ds3/ds3\@$oracletarget\" \@$oracletargetdir${pathsep}oracle_ds_createsp$numberofstores.sql");
 

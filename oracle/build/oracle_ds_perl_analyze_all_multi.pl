@@ -34,7 +34,7 @@ else
         };
 
 foreach my $k (1 .. $numberofstores){
-	open (my $OUT, ">$oracletargetdir${pathsep}oracleds35_analyzeall$k.sql") || die("Can't open oracleds35_analyzeall$k.sql");
+	open (my $OUT, ">$oracletargetdir${pathsep}oracle_ds_analyzeall$k.sql") || die("Can't open oracle_ds_analyzeall$k.sql");
 	print $OUT "declare
 begin
 dbms_stats.gather_table_stats(ownname=> 'DS3', tabname=> 'CATEGORIES$k', partname=> NULL );
@@ -81,6 +81,6 @@ close $OUT;
 sleep(1);
 
 foreach my $k (1 .. ($numberofstores-1)){
-  system ("$startcmd sqlplus \"ds3/ds3\@$oracletarget \" \@$oracletargetdir${pathsep}oracleds35_analyzeall$k.sql");
+  system ("$startcmd sqlplus \"ds3/ds3\@$oracletarget \" \@$oracletargetdir${pathsep}oracle_ds_analyzeall$k.sql");
   }
-  system ("sqlplus \"ds3/ds3\@$oracletarget \" \@$oracletargetdir${pathsep}oracleds35_analyzeall$numberofstores.sql");
+  system ("sqlplus \"ds3/ds3\@$oracletarget \" \@$oracletargetdir${pathsep}oracle_ds_analyzeall$numberofstores.sql");

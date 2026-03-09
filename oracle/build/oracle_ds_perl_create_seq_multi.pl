@@ -34,7 +34,7 @@ else
         };
 
 foreach my $k (1 .. $numberofstores){
-	open (my $OUT, ">$oracletargetdir${pathsep}oracleds35_createseq$k.sql") || die("Can't open oracleds35_createseq$k.sql");
+	open (my $OUT, ">$oracletargetdir${pathsep}oracle_ds_createseq$k.sql") || die("Can't open oracle_ds_createseq$k.sql");
 	print $OUT "DECLARE 
   REVIEW_ROWS$k NUMBER;
   HELP_ROWS$k NUMBER;
@@ -81,6 +81,6 @@ close $OUT;
 sleep(1);
 
 foreach my $k (1 .. ($numberofstores-1)){
-  system ("$startcmd sqlplus \"sys/oracle\@$oracletarget as sysdba \" \@$oracletargetdir${pathsep}oracleds35_createseq$k.sql");
+  system ("$startcmd sqlplus \"sys/oracle\@$oracletarget as sysdba \" \@$oracletargetdir${pathsep}oracle_ds_createseq$k.sql");
   }
-  system ("sqlplus \"sys/oracle\@$oracletarget as sysdba \" \@$oracletargetdir${pathsep}oracleds35_createseq$numberofstores.sql");
+  system ("sqlplus \"sys/oracle\@$oracletarget as sysdba \" \@$oracletargetdir${pathsep}oracle_ds_createseq$numberofstores.sql");

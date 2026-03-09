@@ -34,7 +34,7 @@ else
         };
 
 foreach my $k (1 .. $numberofstores){
-	open (my $OUT, ">$oracletargetdir${pathsep}oracleds35_createfulltextindexes$k.sql") || die("Can't open oracleds35_fulltextindexes$k.sql");
+	open (my $OUT, ">$oracletargetdir${pathsep}oracle_ds_createfulltextindexes$k.sql") || die("Can't open oracle_ds_fulltextindexes$k.sql");
 	print $OUT "CREATE INDEX \"DS3\".\"IX_ACTOR_TEXT$k\" ON 
 \"DS3\".\"PRODUCTS$k\"(actor) INDEXTYPE IS CTXSYS.CONTEXT
 ;
@@ -50,6 +50,6 @@ exit;\n";
 sleep (1);
 
 foreach my $k (1 .. ($numberofstores-1)){
-  system ("$startcmd sqlplus \"ds3/ds3\@$oracletarget\" \@$oracletargetdir${pathsep}oracleds35_createfulltextindexes$k.sql");
+  system ("$startcmd sqlplus \"ds3/ds3\@$oracletarget\" \@$oracletargetdir${pathsep}oracle_ds_createfulltextindexes$k.sql");
   }
-  system ("sqlplus \"ds3/ds3\@$oracletarget\" \@$oracletargetdir${pathsep}oracleds35_createfulltextindexes$numberofstores.sql");
+  system ("sqlplus \"ds3/ds3\@$oracletarget\" \@$oracletargetdir${pathsep}oracle_ds_createfulltextindexes$numberofstores.sql");

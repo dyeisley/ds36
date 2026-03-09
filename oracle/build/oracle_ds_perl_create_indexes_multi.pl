@@ -34,7 +34,7 @@ else
         };
 
 foreach my $k (1 .. $numberofstores){
-	open (my $OUT, ">$oracletargetdir${pathsep}oracleds35_createindexes$k.sql") || die("Can't open oracleds35_indexes$k.sql");
+	open (my $OUT, ">$oracletargetdir${pathsep}oracle_ds_createindexes$k.sql") || die("Can't open oracle_ds_indexes$k.sql");
 	print $OUT "CREATE UNIQUE INDEX \"DS3\".\"PK_CUSTOMERS$k\" 
   ON \"DS3\".\"CUSTOMERS$k\"  (\"CUSTOMERID\")
   PARALLEL ( DEGREE DEFAULT )
@@ -216,6 +216,6 @@ EXIT;
 sleep(1);
   
 foreach my $k (1 .. ($numberofstores-1)){
-  system ("$startcmd sqlplus \"ds3/ds3\@$oracletarget \" \@$oracletargetdir${pathsep}oracleds35_createindexes$k.sql");
+  system ("$startcmd sqlplus \"ds3/ds3\@$oracletarget \" \@$oracletargetdir${pathsep}oracle_ds_createindexes$k.sql");
   }
-  system ("sqlplus \"ds3/ds3\@$oracletarget \" \@$oracletargetdir${pathsep}oracleds35_createindexes$numberofstores.sql");
+  system ("sqlplus \"ds3/ds3\@$oracletarget \" \@$oracletargetdir${pathsep}oracle_ds_createindexes$numberofstores.sql");
