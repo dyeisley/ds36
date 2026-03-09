@@ -353,10 +353,10 @@ if(lc($^O) ne lc("linux"))  #If System on which perl script executes is windows
 # /ds35/data_files/orders/
 # /ds35/data_files/prod/
 # /ds35/drivers/
-# /ds35/mysqlds35/
-# /ds35/mysqlds35/build/
-# /ds35/mysqlds35/load/
-# /ds35/mysqlds35/web/
+# /ds35/mysql/
+# /ds35/mysql/build/
+# /ds35/mysql/load/
+# /ds35/mysql/web/
 # /ds35/oracleds35/
 # /ds35/oracleds35/build/
 # /ds35/oracleds35/load/
@@ -739,7 +739,7 @@ $cust_row_plus_one = ($i_Cust_Rows + 1);
 
 if($bln_is_DB_MYSQL == 1)			#For MySQL
 {
-	chdir "../../mysqlds35/";		#Move to mysql directory
+	chdir "../../mysql/";			#Move to mysql directory
 	chdir "./build/";			#Move to build directory inside mysql directory
 	
 	#Open a template file and replace placeholders in it and write new file
@@ -751,7 +751,7 @@ if($bln_is_DB_MYSQL == 1)			#For MySQL
 	@lines = ();
 	$line = "";
 	$str_file_name = "";
-	open (FILE, "mysqlds35_cleanup_generic_template.sql") || die "Can not Open file : $!";	
+	open (FILE, "mysql_ds_cleanup_generic_template.sql") || die "Can not Open file : $!";	
 	@lines =  <FILE>;
 	close (FILE);
 	foreach $line (@lines)
@@ -768,8 +768,8 @@ if($bln_is_DB_MYSQL == 1)			#For MySQL
 	{
 	   chdir "../";
 
-	   my $filename = 'mysqlds35_create_all.sh';
-	   my $newfile = 'mysqlds35_create_all_vectors.sh';
+	   my $filename = 'mysql_ds_create_all.sh';
+	   my $newfile = 'mysql_ds_create_all_vectors.sh';
 
 	   open(my $in,  '<', $filename) or die "Can't open $filename: $!";
 	   open(my $out, '>', $newfile) or die "Can't open $newfile: $!";
@@ -777,7 +777,7 @@ if($bln_is_DB_MYSQL == 1)			#For MySQL
 	   while (my $line = <$in>)
 	   {
 		$line =~ s/3:-0/3:-1/g;
-		$line =~ s/mysqlds35_create_all.sh/mysqlds35_create_all_vectors.sh/g;
+		$line =~ s/mysql_ds_create_all.sh/mysql_ds_create_all_vectors.sh/g;
 		print $out $line;
 	   }
 
