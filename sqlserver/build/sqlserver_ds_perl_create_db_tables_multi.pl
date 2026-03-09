@@ -1,6 +1,6 @@
-# sqlserverds35_perl_create_db_tables_multi.pl
-# Script to create a ds35 tables in sqlserver with a provided number of copies - supporting multiple stores
-# Syntax to run - perl sqlserverds35_perl_create_db_tables_multi.pl <sqlserver_target> <number_of_stores> <sqlserver_password>
+# sqlserver_ds_perl_create_db_tables_multi.pl
+# Script to create a ds36 tables in sqlserver with a provided number of copies - supporting multiple stores
+# Syntax to run - perl sqlserver_ds_perl_create_db_tables_multi.pl <sqlserver_target> <number_of_stores> <sqlserver_password>
 
 use strict;
 use warnings;
@@ -33,7 +33,7 @@ else
 system ("mkdir -p $sqlservertargetdir");
 
 foreach my $k (1 .. $numberofstores){
-	open (my $OUT, ">$sqlservertargetdir${pathsep}sqlserverds35_createtables.sql") || die("Can't open sqlserverds35_createtables.sql");
+	open (my $OUT, ">$sqlservertargetdir${pathsep}sqlserver_ds_createtables.sql") || die("Can't open sqlserver_ds_createtables.sql");
 	print $OUT  "-- Tables
 USE DS3
 GO
@@ -271,7 +271,6 @@ GO
 \n";
   close $OUT;
   sleep(1);
-  print ("sqlcmd -C -S $sqlservertarget -U sa -P $mypassword -i $sqlservertargetdir${pathsep}sqlserverds35_createtables.sql\n");
-  system ("sqlcmd -C -S $sqlservertarget -U sa -P $mypassword -i $sqlservertargetdir${pathsep}sqlserverds35_createtables.sql");
-  #system ("del $sqlservertargetdir${pathsep}sqlserverds35_createtables.sql");
+  print ("sqlcmd -C -S $sqlservertarget -U sa -P $mypassword -i $sqlservertargetdir${pathsep}sqlserver_ds_createtables.sql\n");
+  system ("sqlcmd -C -S $sqlservertarget -U sa -P $mypassword -i $sqlservertargetdir${pathsep}sqlserver_ds_createtables.sql");
   }

@@ -361,10 +361,10 @@ if(lc($^O) ne lc("linux"))  #If System on which perl script executes is windows
 # /ds35/oracle/build/
 # /ds35/oracle/load/
 # /ds35/oracle/web/
-# /ds35/sqlserverds35/
-# /ds35/sqlserverds35/build/
-# /ds35/sqlserverds35/load/
-# /ds35/sqlserverds35/web/
+# /ds35/sqlserver/
+# /ds35/sqlserver/build/
+# /ds35/sqlserver/load/
+# /ds35/sqlserver/web/
 
 #On Windows ds35 folder will be at <Driveletter>: and rest of folder structure will be same
 
@@ -1046,14 +1046,14 @@ elsif($bln_is_DB_MSSQL == 1) 		#For SQL Server
 {
 	print "\nStarted creating and writing build scripts for SQL Server database...\n";
 	
-	chdir "../../sqlserverds35/";		#Move to mssql directory
+	chdir "../../sqlserver/";		#Move to mssql directory
 	
 	#Create new create_all sql script file from template
 	@lines = ();
 	$line = "";	
 	$str_file_name = "";
 	chdir "./build/";
-	open (FILE, "sqlserverds35_create_all_init_generic_template.sql") || die "Can not Open file : $!";	
+	open (FILE, "sqlserver_ds_create_all_init_generic_template.sql") || die "Can not Open file : $!";	
 	@lines =  <FILE>;
 	close (FILE);
 	my $i_Cnt = 0;
@@ -1076,7 +1076,7 @@ elsif($bln_is_DB_MSSQL == 1) 		#For SQL Server
 			$line =~ s/{DRIVELETTER}/$str_driveletter/g;
 		}            			
 	}	
-	$str_file_name = "sqlserverds35_create_all_init_".$database_size.$database_size_str.".sql";
+	$str_file_name = "sqlserver_ds_create_all_init_".$database_size.$database_size_str.".sql";
 	open (NEWFILE, ">", $str_file_name) || die "Creating new file to write failed : $!";
 	print NEWFILE @lines;
 	close (NEWFILE);
@@ -1109,7 +1109,7 @@ elsif($bln_is_DB_MSSQL == 1) 		#For SQL Server
 	@lines = ();
 	$line = "";	
 	$str_file_name = "";
-	open (FILE, "sqlserverds35_create_all_concurrent_generic_template.bat") || die "Can not Open file : $!";	
+	open (FILE, "sqlserver_ds_create_all_concurrent_generic_template.bat") || die "Can not Open file : $!";	
 	@lines =  <FILE>;
 	close (FILE);
 	$i_Cnt = 0;
@@ -1124,7 +1124,7 @@ elsif($bln_is_DB_MSSQL == 1) 		#For SQL Server
 			$i_Cnt = ($i_Cnt + 1);				
 		}			   		    			
 	}	
-	$str_file_name = "sqlserverds35_create_all_concurrent_".$database_size.$database_size_str.".bat";
+	$str_file_name = "sqlserver_ds_create_all_concurrent_".$database_size.$database_size_str.".bat";
 	open (NEWFILE, ">", $str_file_name) || die "Creating new file to write failed : $!";
 	print NEWFILE @lines;
 	close (NEWFILE);
@@ -1132,7 +1132,7 @@ elsif($bln_is_DB_MSSQL == 1) 		#For SQL Server
         @lines = ();
         $line = "";
         $str_file_name = "";
-        open (FILE, "sqlserverds35_create_all_concurrent_generic_template.sh") || die "Can not Open file : $!";
+        open (FILE, "sqlserver_ds_create_all_concurrent_generic_template.sh") || die "Can not Open file : $!";
         @lines =  <FILE>;
         close (FILE);
         $i_Cnt = 0;
@@ -1151,7 +1151,7 @@ elsif($bln_is_DB_MSSQL == 1) 		#For SQL Server
                         $i_Cnt = ($i_Cnt + 1);
                 }
         }
-        $str_file_name = "sqlserverds35_create_all_concurrent_".$database_size.$database_size_str.".sh";
+        $str_file_name = "sqlserver_ds_create_all_concurrent_".$database_size.$database_size_str.".sh";
         open (NEWFILE, ">", $str_file_name) || die "Creating new file to write failed : $!";
         print NEWFILE @lines;
         close (NEWFILE);

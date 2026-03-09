@@ -1,6 +1,6 @@
-# ds35_create_osqlserver_multistore_ctl_files.pl
-# Script to create a set of ds35 sqlserver load files for a given number of stores
-# Syntax to run - perl ds35_create_sqlserver_multistore_load_files.pl <sqlserver_target> <number_of_stores> <password>
+# ds_create_osqlserver_multistore_ctl_files.pl
+# Script to create a set of ds sqlserver load files for a given number of stores
+# Syntax to run - perl ds_create_sqlserver_multistore_load_files.pl <sqlserver_target> <number_of_stores> <password>
 
 use strict;
 use warnings;
@@ -31,7 +31,7 @@ system ("mkdir -p reviews/$sqlservertargetdir");
 #customers 
 
 foreach my $k (1 .. $numberofstores){
-	open (my $OUT, ">cust/$sqlservertargetdir/remote_sqlserverds35_cust_load$k.sh") || die("Can't open remote_sqlserverds35_cust_load$k.sh");
+	open (my $OUT, ">cust/$sqlservertargetdir/remote_sqlserver_ds_cust_load$k.sh") || die("Can't open remote_sqlserver_ds_cust_load$k.sh");
 	print $OUT "bcp ds3..customers$k in ../../../../data_files/cust/us_cust.csv -b 10000 -h TABLOCK -S $sqlservertarget -u -U sa -P $password -c -t , > us_cust$k.log\n";
 	print $OUT "bcp ds3..customers$k in ../../../../data_files/cust/row_cust.csv -b 10000 -h TABLOCK -S $sqlservertarget -u -U sa -P $password -c -t , > row_cust$k.log\n";	
 	print $OUT "date > finished$k.txt\n";
@@ -43,7 +43,7 @@ foreach my $k (1 .. $numberofstores){
 
 # Orders 
 foreach my $k (1 .. $numberofstores){
-	open (my $OUT, ">orders/$sqlservertargetdir/remote_sqlserverds35_orders_load$k.sh") || die("Can't open remote_sqlserverds35_orders_load$k.sh");
+	open (my $OUT, ">orders/$sqlservertargetdir/remote_sqlserver_ds_orders_load$k.sh") || die("Can't open remote_sqlserver_ds_orders_load$k.sh");
 	print $OUT "bcp ds3..orders$k in ../../../../data_files/orders/jan_orders.csv -b 10000 -h TABLOCK -S $sqlservertarget -u -U sa -P $password -c -t , > jan_orders$k.log\n"; 
 	print $OUT "bcp ds3..orders$k in ../../../../data_files/orders/feb_orders.csv -b 10000 -h TABLOCK -S $sqlservertarget -u -U sa -P $password -c -t , > feb_orders$k.log\n"; 
 	print $OUT "bcp ds3..orders$k in ../../../../data_files/orders/mar_orders.csv -b 10000 -h TABLOCK -S $sqlservertarget -u -U sa -P $password -c -t , > mar_orders$k.log\n"; 
@@ -64,7 +64,7 @@ foreach my $k (1 .. $numberofstores){
 
 # Orderlines 
 foreach my $k (1 .. $numberofstores){
-	open (my $OUT, ">orders/$sqlservertargetdir/remote_sqlserverds35_orderlines_load$k.sh") || die("Can't open remote_sqlserverds35_orderlines_load$k.sh");
+	open (my $OUT, ">orders/$sqlservertargetdir/remote_sqlserver_ds_orderlines_load$k.sh") || die("Can't open remote_sqlserver_ds_orderlines_load$k.sh");
 	print $OUT "bcp ds3..orderlines$k in ../../../../data_files/orders/jan_orderlines.csv -b 10000 -h TABLOCK -S $sqlservertarget -u -U sa -P $password -c -t ,> jan_orderlines$k.log\n"; 
 	print $OUT "bcp ds3..orderlines$k in ../../../../data_files/orders/feb_orderlines.csv -b 10000 -h TABLOCK -S $sqlservertarget -u -U sa -P $password -c -t ,> feb_orderlines$k.log\n"; 
 	print $OUT "bcp ds3..orderlines$k in ../../../../data_files/orders/mar_orderlines.csv -b 10000 -h TABLOCK -S $sqlservertarget -u -U sa -P $password -c -t ,> mar_orderlines$k.log\n"; 
@@ -83,7 +83,7 @@ foreach my $k (1 .. $numberofstores){
 }
 # cust_hist 
 foreach my $k (1 .. $numberofstores){
-	open (my $OUT, ">orders/$sqlservertargetdir/remote_sqlserverds35_cust_hist_load$k.sh") || die("Can't open remote_sqlserverds35_cust_hist_load$k.sh");
+	open (my $OUT, ">orders/$sqlservertargetdir/remote_sqlserver_ds_cust_hist_load$k.sh") || die("Can't open remote_sqlserver_ds_cust_hist_load$k.sh");
 	print $OUT "bcp ds3..cust_hist$k in ../../../../data_files/orders/jan_cust_hist.csv -b 10000 -h TABLOCK -S $sqlservertarget -u -U sa -P $password -c -t ,> jan_cust_hist$k.log\n"; 
 	print $OUT "bcp ds3..cust_hist$k in ../../../../data_files/orders/feb_cust_hist.csv -b 10000 -h TABLOCK -S $sqlservertarget -u -U sa -P $password -c -t ,> feb_cust_hist$k.log\n"; 
 	print $OUT "bcp ds3..cust_hist$k in ../../../../data_files/orders/mar_cust_hist.csv -b 10000 -h TABLOCK -S $sqlservertarget -u -U sa -P $password -c -t ,> mar_cust_hist$k.log\n"; 
@@ -104,7 +104,7 @@ foreach my $k (1 .. $numberofstores){
 }
 # prod
 foreach my $k (1 .. $numberofstores){
-	open (my $OUT, ">prod/$sqlservertargetdir/remote_sqlserverds35_prod_load$k.sh") || die("Can't open remote_sqlserverds35_prod_load$k.sh");
+	open (my $OUT, ">prod/$sqlservertargetdir/remote_sqlserver_ds_prod_load$k.sh") || die("Can't open remote_sqlserver_ds_prod_load$k.sh");
 	#print $OUT "bcp ds3..products$k in ../../../../data_files/prod/prod.csv -b 10000 -h TABLOCK -S $sqlservertarget -u -U sa -P $password -c -t ,> prod$k.log\n";
 	print $OUT "bcp ds3..products1 in ../../../../data_files/prod/prod.csv -S $sqlservertarget -U sa -P $password -c -t ',' -u > prod$k.log\n";
 	print $OUT "date > finished$k.txt\n";
@@ -115,7 +115,7 @@ foreach my $k (1 .. $numberofstores){
 }
 # inv
 foreach my $k (1 .. $numberofstores){
-	open (my $OUT, ">prod/$sqlservertargetdir/remote_sqlserverds35_inv_load$k.sh") || die("Can't open remote_sqlserverds35_inv_load$k.sh");
+	open (my $OUT, ">prod/$sqlservertargetdir/remote_sqlserver_ds_inv_load$k.sh") || die("Can't open remote_sqlserver_ds_inv_load$k.sh");
 	print $OUT "bcp ds3..inventory$k in ../../../../data_files/prod/inv.csv -b 10000 -h TABLOCK -S $sqlservertarget -u -U sa -P $password -c -t ,> inv$k.log\n"; 
 	print $OUT "exit\n";
 	close $OUT;
@@ -124,7 +124,7 @@ foreach my $k (1 .. $numberofstores){
 }
 #membership
 foreach my $k (1 .. $numberofstores){
-	open (my $OUT, ">membership/$sqlservertargetdir/remote_sqlserverds35_membership_load$k.sh") || die("Can't open remote_sqlserverds35_membership_load$k.sh");
+	open (my $OUT, ">membership/$sqlservertargetdir/remote_sqlserver_ds_membership_load$k.sh") || die("Can't open remote_sqlserver_ds_membership_load$k.sh");
 	print $OUT "bcp ds3..membership$k in ../../../../data_files/membership/membership.csv -b 10000 -h TABLOCK -S $sqlservertarget -u -U sa -P $password -c -t ,> membership$k.log\n";
 	print $OUT "date > finished$k.txt\n";
 	print $OUT "exit\n";
@@ -134,7 +134,7 @@ foreach my $k (1 .. $numberofstores){
 }
 #reviews
 foreach my $k (1 .. $numberofstores){
-	open (my $OUT, ">reviews/$sqlservertargetdir/remote_sqlserverds35_reviews_load$k.sh") || die("Can't open remote_sqlserverds35_reviews_load$k.sh");
+	open (my $OUT, ">reviews/$sqlservertargetdir/remote_sqlserver_ds_reviews_load$k.sh") || die("Can't open remote_sqlserver_ds_reviews_load$k.sh");
 	print $OUT "bcp ds3..reviews$k in ../../../../data_files/reviews/reviews.csv -b 10000 -h TABLOCK -S $sqlservertarget -u -U sa -P $password -c -t ,> reviews$k.log\n";
 	print $OUT "bcp ds3..reviews_helpfulness$k in ../../../../data_files/reviews/review_helpfulness.csv -b 10000 -h TABLOCK -S $sqlservertarget -u -U sa -P $password -c -t ,> review_helpfulness$k.log\n";
 	print $OUT "date > finished$k.txt\n";

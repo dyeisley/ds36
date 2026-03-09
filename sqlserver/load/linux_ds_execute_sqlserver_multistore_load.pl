@@ -1,6 +1,6 @@
-# ds35_execute_sqlserver_multistore_load.pl
-# Script to execute bcp in parallel for a set of ds35 sqlserver tables files for a given number of stores
-# Syntax to run - perl ds35_execute_sqlserver_multistore_load.pl <sqlserver_target> <number_of_stores> <password>
+# ds_execute_sqlserver_multistore_load.pl
+# Script to execute bcp in parallel for a set of ds sqlserver tables files for a given number of stores
+# Syntax to run - perl ds_execute_sqlserver_multistore_load.pl <sqlserver_target> <number_of_stores> <password>
 
 use strict;
 use warnings;
@@ -44,38 +44,38 @@ my $startloadtime = time;
 
 chdir("$base_dir/membership/$sqlservertargetdir");
 foreach my $k (1 .. $numberofstores){
-	print "executing remote_sqlserverds35_membership_load$k.sh\n";
-	system ("sh remote_sqlserverds35_membership_load$k.sh");
+	print "executing remote_sqlserver_ds_membership_load$k.sh\n";
+	system ("sh remote_sqlserver_ds_membership_load$k.sh");
 	}
 
 chdir("$base_dir/prod/$sqlservertargetdir");
 foreach my $k (1 .. $numberofstores){
-	print "starting remote_sqlserverds35_prod_load$k.sh\n";
-	system ("sh remote_sqlserverds35_prod_load$k.sh");
-	print "starting remote_sqlserverds35_inv_load$k.sh\n";
-	system ("sh remote_sqlserverds35_inv_load$k.sh");
+	print "starting remote_sqlserver_ds_prod_load$k.sh\n";
+	system ("sh remote_sqlserver_ds_prod_load$k.sh");
+	print "starting remote_sqlserver_ds_inv_load$k.sh\n";
+	system ("sh remote_sqlserver_ds_inv_load$k.sh");
 	}
 	
 	chdir("$base_dir/reviews/$sqlservertargetdir");
 foreach my $k (1 .. $numberofstores){
-	print "running remote_sqlserverds35_reviews_load$k.sh\n";
-	system ("sh remote_sqlserverds35_reviews_load$k.sh");
+	print "running remote_sqlserver_ds_reviews_load$k.sh\n";
+	system ("sh remote_sqlserver_ds_reviews_load$k.sh");
 	}
 	
 	chdir("$base_dir/orders/$sqlservertargetdir");
 foreach my $k (1 .. $numberofstores){
-	print "Running:\n  remote_sqlserverds35_orders_load$k.sh\n";
-	system ("sh remote_sqlserverds35_orders_load$k.sh");
-	print "  remote_sqlserverds35_orderlines_load$k.sh\n";
-	system ("sh remote_sqlserverds35_orderlines_load$k.sh");
-	print "  remote_sqlserverds35_cust_hist_load$k.sh\n";
-	system ("sh remote_sqlserverds35_cust_hist_load$k.sh");
+	print "Running:\n  remote_sqlserver_ds_orders_load$k.sh\n";
+	system ("sh remote_sqlserver_ds_orders_load$k.sh");
+	print "  remote_sqlserver_ds_orderlines_load$k.sh\n";
+	system ("sh remote_sqlserver_ds_orderlines_load$k.sh");
+	print "  remote_sqlserver_ds_cust_hist_load$k.sh\n";
+	system ("sh remote_sqlserver_ds_cust_hist_load$k.sh");
 	}
 	
 	chdir("$base_dir/cust/$sqlservertargetdir");
 foreach my $k (1 .. $numberofstores){
-	print "Executing remote_sqlserverds35_cust_load$k.sh\n";
-	system ("sh remote_sqlserverds35_cust_load$k.sh");
+	print "Executing remote_sqlserver_ds_cust_load$k.sh\n";
+	system ("sh remote_sqlserver_ds_cust_load$k.sh");
 	}
 	
 # Each load file creates a finishedxx.txt file after completing it's load.  The code

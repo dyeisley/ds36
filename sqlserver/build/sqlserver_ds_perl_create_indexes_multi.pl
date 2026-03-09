@@ -1,6 +1,6 @@
 # sqlserverds3_perl_create_indexes_multi.pl
 # Script to create a ds3 indexes in sqlserver with a provided number of copies - supporting multiple stores
-# Syntax to run - perl sqlserverds35_perl_create_indexes_multi.pl <sqlserver_target> <number_of_stores> <password>
+# Syntax to run - perl sqlserver_ds_perl_create_indexes_multi.pl <sqlserver_target> <number_of_stores> <password>
 
 use strict;
 use warnings;
@@ -32,7 +32,7 @@ else
         };
 
 foreach my $k (1 .. $numberofstores){
-	open (my $OUT, ">$sqlservertargetdir${pathsep}sqlserverds35_createindexes$k.sql") || die("Can't open sqlserverds35_indexes$k.sql");
+	open (my $OUT, ">$sqlservertargetdir${pathsep}sqlserver_ds_createindexes$k.sql") || die("Can't open sqlserver_ds_indexes$k.sql");
 	print $OUT "USE DS3
 GO
 
@@ -342,7 +342,7 @@ GO
 sleep(1);
   
 foreach my $k (1 .. ($numberofstores-1)){
-  system ("start sqlcmd -C -S $sqlservertarget -U sa -P $password -i $sqlservertargetdir${pathsep}sqlserverds35_createindexes$k.sql");
+  system ("start sqlcmd -C -S $sqlservertarget -U sa -P $password -i $sqlservertargetdir${pathsep}sqlserver_ds_createindexes$k.sql");
   }
-  system ("sqlcmd -C -S $sqlservertarget -U sa -P $password -i $sqlservertargetdir${pathsep}sqlserverds35_createindexes$numberofstores.sql");
+  system ("sqlcmd -C -S $sqlservertarget -U sa -P $password -i $sqlservertargetdir${pathsep}sqlserver_ds_createindexes$numberofstores.sql");
 sleep(180);    # Make sure that all indexes are created before finishing

@@ -1,6 +1,6 @@
-# ds35_execute_sqlserver_multistore_load.pl
-# Script to execute bcp in parallel for a set of ds35 sqlserver tables files for a given number of stores
-# Syntax to run - perl ds35_execute_sqlserver_multistore_load.pl <sqlserver_target> <number_of_stores> 
+# ds_execute_sqlserver_multistore_load.pl
+# Script to execute bcp in parallel for a set of ds sqlserver tables files for a given number of stores
+# Syntax to run - perl ds_execute_sqlserver_multistore_load.pl <sqlserver_target> <number_of_stores> 
 
 use strict;
 use warnings;
@@ -43,30 +43,30 @@ my $startloadtime = time;
 
 chdir("$base_dir\\membership\\$sqlservertargetdir");
 foreach my $k (1 .. $numberofstores){
-	system ("start remote_sqlserverds35_membership_load$k.bat");
+	system ("start remote_sqlserver_ds_membership_load$k.bat");
 	}
 
 chdir("$base_dir\\prod\\$sqlservertargetdir");
 foreach my $k (1 .. $numberofstores){
-	system ("start remote_sqlserverds35_prod_load$k.bat");
-	system ("start remote_sqlserverds35_inv_load$k.bat");
+	system ("start remote_sqlserver_ds_prod_load$k.bat");
+	system ("start remote_sqlserver_ds_inv_load$k.bat");
 	}
 	
 	chdir("$base_dir\\reviews\\$sqlservertargetdir");
 foreach my $k (1 .. $numberofstores){
-	system ("start remote_sqlserverds35_reviews_load$k.bat");
+	system ("start remote_sqlserver_ds_reviews_load$k.bat");
 	}
 	
 	chdir("$base_dir\\orders\\$sqlservertargetdir");
 foreach my $k (1 .. $numberofstores){
-	system ("start remote_sqlserverds35_orders_load$k.bat");
-	system ("start remote_sqlserverds35_orderlines_load$k.bat");
-	system ("start remote_sqlserverds35_cust_hist_load$k.bat");
+	system ("start remote_sqlserver_ds_orders_load$k.bat");
+	system ("start remote_sqlserver_ds_orderlines_load$k.bat");
+	system ("start remote_sqlserver_ds_cust_hist_load$k.bat");
 	}
 	
 	chdir("$base_dir\\cust\\$sqlservertargetdir");
 foreach my $k (1 .. $numberofstores){
-	system ("start remote_sqlserverds35_cust_load$k.bat");
+	system ("start remote_sqlserver_ds_cust_load$k.bat");
 	}
 	
 # Each load file creates a finishedxx.txt file after completing it's load.  The code

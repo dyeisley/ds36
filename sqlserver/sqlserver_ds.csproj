@@ -9,7 +9,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-   <Compile Include="ds35sqlserverfns.cs" />
+   <Compile Include="ds36sqlserverfns.cs" />
    <Compile Include="../drivers/ds35xdriver.cs" />
   </ItemGroup>
 
