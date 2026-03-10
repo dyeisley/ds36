@@ -1,13 +1,13 @@
 /*
- * Generalized DVD Store 3.5 Driver Program - ds35xdriver.cs
+ * Generalized DVD Store 3.6 Driver Program - ds36xdriver.cs
  *
  * Copyright (C) 2005 Dell, Inc. <davejaffe7@gmail.com> and <tmuirhead@vmware.com>
  *
- * Generates orders against DVD Store Database 3.5 through web interface or directly against database
+ * Generates orders against DVD Store Database 3.6 through web interface or directly against database
  * Simulates users logging in to store or creating new customer data; browsing for DVDs by title, actor or
  * category; creating new product reviews, browsing product reviews, and purchasing selected DVDs
  *
- * To see syntax: ds35xdriver   where x= web, mysql, sqlserver or oracle
+ * To see syntax: ds36xdriver   where x= web, mysql, sqlserver or oracle
  *
  * Compile with appropriate functions file to generate driver for web, SQL Server, MySQL, Oracle or PostgreSQL target:
  *  csc /out:ds35webdriver.exe       ds35xdriver.cs ds35webfns.cs       /d:USE_WIN32_TIMER /d:GEN_PERF_CTRS
@@ -24,7 +24,8 @@
  * Updated 6/14/2010 by GSK(girish.khadke@gmail.com)
  * Updated 5/12/11 by DJ (cleaned up output; minor fixes)
  * Updated 5/15/15 by TM - updated for DS3 from DS2- support for new order process with reviews and membership.
- * Las Upated 6/24/19 by TM - updated for support for DS3.5 with multi store option
+ * Last Upated 6/24/19 by TM - updated for support for DS3.5 with multi store option
+ * Updated 03/26 by DY - Removed compiler warnings, added search by vectors
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -39,7 +40,6 @@
  *  You should have received a copy of the GNU General Public License
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA  */
-
 
 
 using System;

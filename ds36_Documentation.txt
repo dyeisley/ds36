@@ -1,4 +1,4 @@
-DVD Store 3.5 Documentation
+DVD Store 3.6 Documentation
 
 Dave Jaffe <davejaffe7@gmail.com> and Todd Muirhead <tmuirhead@vmware.com>
 DS2.1 features added by Girish Khadke
@@ -19,7 +19,7 @@ Contents
 
 1. Introduction
 
-The DVD Store Version 3.5 (DS35) is a complete open source online e-commerce test
+The DVD Store Version 3.6 (DS36) is a complete open source online e-commerce test
 application, with a backend database component, a web application
 layer, and driver programs.  The goal in designing the database
 component as well as the midtier application was to utilize many
@@ -37,13 +37,13 @@ database build scripts and stored procedure, PHP web pages, and a C# driver prog
 Load data for the small DVD Store database is included in the kit.
 
 The DS35 files are separated into database-independent data load files
-under ./ds35/data_files and driver programs under ./ds35/drivers
+under ./ds36/data_files and driver programs under ./ds36/drivers
 and database-specific build scripts, loader programs, and driver
 programs in directories
-./ds35/mysqlds35
-./ds35/oracleds35
-./ds35/sqlserverds35
-./ds35/pgsqlds35
+./ds36/mysql
+./ds36/oracle
+./ds36/sqlserver
+./ds36/pgsql
 
 The DVD Store kit is available at github.com/dvdstore
 
@@ -54,7 +54,7 @@ github or use the github clone feature to get a local copy.
 To install:
 
 Unzip the file in the directory where you wish.  The document will assume that
-everything is in a \ds35\ directory.
+everything is in a \ds36\ directory.
 
 DS3 has 3 'standard' sizes (based on the original standard sizes from DS2):
 
@@ -145,7 +145,7 @@ procedures, and new indexes.
 
 Simple instructions for building the small DVDStore database using the data 
 included in the kit without use of the Perl scripts are given in each 
-database directory, for example, .\ds35\sqlserverds35\ds35_sqlserver_readme.txt
+database directory, for example, .\ds36\sqlserver\ds36_sqlserver_readme.txt
 
 This section gives an overview of the steps needed to get a DVDStore of any 
 size up and running quickly using the new Perl scripts.
