@@ -1,6 +1,6 @@
-# pgsqlds35_perl_create_sp_multi.pl
-# Script to create a ds35 stored procedures in PostgresQL with a provided number of copies - supporting multiple stores
-# Syntax to run - perl pgsqlds35_perl_create_sp_multi.pl <psql_target> <number_of_stores>
+# pgsql_ds_perl_create_sp_multi.pl
+# Script to create a ds36 stored procedures in PostgresQL with a provided number of copies - supporting multiple stores
+# Syntax to run - perl pgsql_ds_perl_create_sp_multi.pl <psql_target> <number_of_stores>
 
 use strict;
 use warnings;
@@ -34,7 +34,7 @@ else
 system ("mkdir -p $pgsql_targetdir");
 
 foreach my $k (1 .. $numStores){
-	open(my $OUT, ">$pgsql_targetdir${pathsep}pgsqlds35_createsp.sql") || die("Can't open pgsqlds35_createsp.sql");
+	open(my $OUT, ">$pgsql_targetdir${pathsep}pgsql_ds_createsp.sql") || die("Can't open pgsql_ds_createsp.sql");
 	print $OUT "
 \\c $DBNAME;
 
@@ -556,6 +556,6 @@ CREATE OR REPLACE FUNCTION get_prod_reviews_by_title$k
 \n";
 	close $OUT;
 	sleep(1);
-	print("psql -h $pgsql_target -U $SYSDBA -d $DBNAME < $pgsql_targetdir${pathsep}pgsqlds35_createsp.sql\n");
-        system("psql -h $pgsql_target -U $SYSDBA -d $DBNAME < $pgsql_targetdir${pathsep}pgsqlds35_createsp.sql");
+	print("psql -h $pgsql_target -U $SYSDBA -d $DBNAME < $pgsql_targetdir${pathsep}pgsql_ds_createsp.sql\n");
+        system("psql -h $pgsql_target -U $SYSDBA -d $DBNAME < $pgsql_targetdir${pathsep}pgsql_ds_createsp.sql");
 }

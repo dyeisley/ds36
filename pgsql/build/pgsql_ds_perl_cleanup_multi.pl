@@ -1,6 +1,6 @@
-# pgsqlds35_perl_cleanup_multi.pl
-# Script to cleanup or reset ds35 tables in PostgresQL with a provided number of copies -- supporting multiple stores
-# Syntax to run: perl pgsqlds35_perl_cleanup_multi.pl <psql_target> <number_of_stores> <DB size - example 10> <DB size units - MB or GB>
+# pgsql_ds_perl_cleanup_multi.pl
+# Script to cleanup or reset ds36 tables in PostgresQL with a provided number of copies -- supporting multiple stores
+# Syntax to run: perl pgsql_ds_perl_cleanup_multi.pl <psql_target> <number_of_stores> <DB size - example 10> <DB size units - MB or GB>
 
 use strict;
 use warnings;
@@ -133,7 +133,7 @@ print "Product Rows: $i_Prod_Rows \n";
 
 
 foreach my $k (1 .. $numberofstores){
-	open(my $OUT, ">pgsqlds35_cleanuptables.sql") || die("Can't open pgsqlds35_cleanuptables.sql");
+	open(my $OUT, ">pgsql_ds_cleanuptables.sql") || die("Can't open pgsql_ds_cleanuptables.sql");
 	my $i_Member_Rows = $i_Cust_Rows / 10;
 	print $OUT "-- Clean up Tables
 \\c ds3;
@@ -183,6 +183,6 @@ GRANT ALL PRIVILEGES on INVENTORY$k to ds3;
 	close $OUT;
 	sleep(1);
 	print ("Cleaning Store number $k\n");
-  	print ("psql -h $psqltarget -U $SYSDBA -d $DBNAME < pgsqlds35_cleanuptables.sql\n");
-  	system ("PGPASSWORD=$PGPASSWORD psql -h $psqltarget -U $SYSDBA -d $DBNAME < pgsqlds35_cleanuptables.sql");
+  	print ("psql -h $psqltarget -U $SYSDBA -d $DBNAME < pgsql_ds_cleanuptables.sql\n");
+  	system ("PGPASSWORD=$PGPASSWORD psql -h $psqltarget -U $SYSDBA -d $DBNAME < pgsql_ds_cleanuptables.sql");
 }

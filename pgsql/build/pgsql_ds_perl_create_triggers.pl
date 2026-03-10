@@ -29,7 +29,7 @@ else
         };
 
 foreach my $k (1 .. $numStores){
-        open(my $OUT, ">$pgsql_targetdir${pathsep}pgsqlds35_createtriggers.sql") || die("Can't open pgsqlds35_createtriggers.sql");
+        open(my $OUT, ">$pgsql_targetdir${pathsep}pgsql_ds_createtriggers.sql") || die("Can't open pgsql_ds_createtriggers.sql");
         print $OUT "-- Triggers
 
 \\c ds3;
@@ -72,8 +72,8 @@ EXECUTE PROCEDURE  RESTOCK_ORDER$k();
 
 close $OUT;
         sleep(1);
-        print("psql -h $pgsql_target -U $SYSDBA -d $DBNAME < $pgsql_targetdir${pathsep}pgsqlds35_createtriggers.sql\n");
-        system("psql -h $pgsql_target -U $SYSDBA -d $DBNAME < $pgsql_targetdir${pathsep}pgsqlds35_createtriggers.sql");
+        print("psql -h $pgsql_target -U $SYSDBA -d $DBNAME < $pgsql_targetdir${pathsep}pgsql_ds_createtriggers.sql\n");
+        system("psql -h $pgsql_target -U $SYSDBA -d $DBNAME < $pgsql_targetdir${pathsep}pgsql_ds_createtriggers.sql");
 }
 
 

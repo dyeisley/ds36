@@ -1,6 +1,6 @@
-# pgsqlds35_perl_create_indexes_multi.pl
-# Script to create a ds35 indexes in PostgresQL with a provided number of copies - supporting multiple stores
-# Syntax to run - perl pgsqlds35_perl_create_indexes_multi.pl <psql_target> <number_of_stores>
+# pgsql_ds_perl_create_indexes_multi.pl
+# Script to create a ds36 indexes in PostgresQL with a provided number of copies - supporting multiple stores
+# Syntax to run - perl pgsql_ds_perl_create_indexes_multi.pl <psql_target> <number_of_stores>
 
 use strict;
 use warnings;
@@ -50,7 +50,7 @@ $pgsql_targetdir =~ s/\\//;
 system ("mkdir -p $pgsql_targetdir");
 
 foreach my $k(1 .. $numStores){
-	open (my $OUT, ">$pgsql_targetdir${pathsep}pgsqlds35_createindexes$k.sql") || die("Can't open pgsqlds35_createindexes$k.sql");
+	open (my $OUT, ">$pgsql_targetdir${pathsep}pgsql_ds_createindexes$k.sql") || die("Can't open pgsql_ds_createindexes$k.sql");
 	print $OUT "-- Tables
 \\c ds3;
 
@@ -201,9 +201,9 @@ CREATE INDEX IX_REORDER_PRODID$k ON REORDER$k
 \n";
 	close $OUT;
 	              
-open (my $OUTBAT, ">$pgsql_targetdir${pathsep}pgsqlds35_createindexes$k.bat") || die("Can't open pgsqlds35_createindexes$k.bat");
+open (my $OUTBAT, ">$pgsql_targetdir${pathsep}pgsql_ds_createindexes$k.bat") || die("Can't open pgsql_ds_createindexes$k.bat");
 		print $OUTBAT "set PGPASSWORD=ds3\n";
-		print $OUTBAT "psql -h $psqltarget -U $SYSDBA -d $DBNAME < $pgsql_targetdir${pathsep}pgsqlds35_createindexes$k.sql\n";
+		print $OUTBAT "psql -h $psqltarget -U $SYSDBA -d $DBNAME < $pgsql_targetdir${pathsep}pgsql_ds_createindexes$k.sql\n";
         print $OUTBAT "$timecommand > $pgsql_targetdir${pathsep}finished$k.txt\n";
         print $OUTBAT "exit\n";
         close $OUTBAT;
@@ -214,8 +214,8 @@ system ("${delcommand} $pgsql_targetdir${pathsep}finished*.txt");
 print "Load started at " .(localtime) , "\n";
 
 foreach my $k (1 .. ($numStores)){
-  print("psql -h $psqltarget -U $SYSDBA -d $DBNAME < $pgsql_targetdir${pathsep}pgsqlds35_createindexes$k.sql\n");
-  system("$startcommand $pgsql_targetdir${pathsep}pgsqlds35_createindexes$k.bat ");
+  print("psql -h $psqltarget -U $SYSDBA -d $DBNAME < $pgsql_targetdir${pathsep}pgsql_ds_createindexes$k.sql\n");
+  system("$startcommand $pgsql_targetdir${pathsep}pgsql_ds_createindexes$k.bat ");
   }
 
 my $num_finished = 0;

@@ -1,4 +1,4 @@
--- pgsqlds35_prep_create_db.sql: DVD Store Database version 3.5 build script - PostgresQL verson
+-- pgsql_ds_prep_create_db.sql: DVD Store Database version 3.5 build script - PostgresQL verson
 -- <lalvarezsanc@vmware.com>
 -- Last updated 11/1/21
 

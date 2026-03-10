@@ -1,6 +1,6 @@
-# pgsqlds35_perl_create_db_tables_multi.pl
-# Script to create ds35 tables in PostgresQL with a provided number of copies - supporting multiple stores
-# Syntax to run: perl pgsqlds35_perl_create_db_tables_multi.pl <pgsql_target> <number of stores>
+# pgsql_ds_perl_create_db_tables_multi.pl
+# Script to create ds36 tables in PostgresQL with a provided number of copies - supporting multiple stores
+# Syntax to run: perl pgsql_ds_perl_create_db_tables_multi.pl <pgsql_target> <number of stores>
 # Last updated 11/2/21
 
 use strict;
@@ -36,11 +36,11 @@ else
 
 # First call the script to prepare for the creation of the database which will delete any existing DS35 database
 
-#system("PGPASSWORD=$PGPASSWORD psql -h $pgsql_target -U postgres -d postgres < pgsqlds35_prep_create_db.sql");
-system("psql -h $pgsql_target -U postgres -d postgres < pgsqlds35_prep_create_db.sql");
+#system("PGPASSWORD=$PGPASSWORD psql -h $pgsql_target -U postgres -d postgres < pgsql_ds_prep_create_db.sql");
+system("psql -h $pgsql_target -U postgres -d postgres < pgsql_ds_prep_create_db.sql");
 
 foreach my $k (1 .. $numStores){
-	open(my $OUT, ">$pgsql_targetdir${pathsep}pgsqlds35_createtables.sql") || die("Can't open pgsqlds35_createtables.sql");
+	open(my $OUT, ">$pgsql_targetdir${pathsep}pgsql_ds_createtables.sql") || die("Can't open pgsql_ds_createtables.sql");
 	print $OUT "-- Tables
 
 \\c ds3;
@@ -177,8 +177,8 @@ foreach my $k (1 .. $numStores){
 \n";
 	close $OUT;
 	sleep(1);
-	print("psql -h $pgsql_target -U $SYSDBA -d $DBNAME < $pgsql_targetdir${pathsep}pgsqlds35_createtables.sql\n");
-      	#system("PGPASSWORD=$PGPASSWORD psql -h $pgsql_target -U $SYSDBA -d $DBNAME < pgsqlds35_createtables.sql");
-		system("psql -h $pgsql_target -U $SYSDBA -d $DBNAME < $pgsql_targetdir${pathsep}pgsqlds35_createtables.sql");
+	print("psql -h $pgsql_target -U $SYSDBA -d $DBNAME < $pgsql_targetdir${pathsep}pgsql_ds_createtables.sql\n");
+      	#system("PGPASSWORD=$PGPASSWORD psql -h $pgsql_target -U $SYSDBA -d $DBNAME < pgsql_ds_createtables.sql");
+	system("psql -h $pgsql_target -U $SYSDBA -d $DBNAME < $pgsql_targetdir${pathsep}pgsql_ds_createtables.sql");
 }
 

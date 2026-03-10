@@ -345,28 +345,28 @@ if(lc($^O) ne lc("linux"))  #If System on which perl script executes is windows
 
 
 #This script assumes directory/folder structure as follows
-# On linux ds35 folder will be at root
+# On linux ds36 folder will be at root
 # /
-# /ds35/
-# /ds35/data_files/
-# /ds35/data_files/cust/
-# /ds35/data_files/orders/
-# /ds35/data_files/prod/
-# /ds35/drivers/
-# /ds35/mysql/
-# /ds35/mysql/build/
-# /ds35/mysql/load/
-# /ds35/mysql/web/
-# /ds35/oracled/
-# /ds35/oracle/build/
-# /ds35/oracle/load/
-# /ds35/oracle/web/
-# /ds35/sqlserver/
-# /ds35/sqlserver/build/
-# /ds35/sqlserver/load/
-# /ds35/sqlserver/web/
+# /ds36/
+# /ds36/data_files/
+# /ds36/data_files/cust/
+# /ds36/data_files/orders/
+# /ds36/data_files/prod/
+# /ds36/drivers/
+# /ds36/mysql/
+# /ds36/mysql/build/
+# /ds36/mysql/load/
+# /ds36/mysql/web/
+# /ds36/oracled/
+# /ds36/oracle/build/
+# /ds36/oracle/load/
+# /ds36/oracle/web/
+# /ds36/sqlserver/
+# /ds36/sqlserver/build/
+# /ds36/sqlserver/load/
+# /ds36/sqlserver/web/
 
-#On Windows ds35 folder will be at <Driveletter>: and rest of folder structure will be same
+#On Windows ds36 folder will be at <Driveletter>: and rest of folder structure will be same
 
 
 #***************************************************************************************
@@ -795,8 +795,8 @@ if($bln_is_DB_MYSQL == 1)			#For MySQL
 }
 elsif($bln_is_DB_PGSQL == 1)			#For PGSQL
 {
-	chdir "../../pgsqlds35/";		#Move to postgres directory
-	chdir "./build/";			#Move to build directory inside postgres directory
+	chdir "../../pgsql/";		#Move to postgres directory
+	chdir "./build/";		#Move to build directory inside postgres directory
 	
 	#Open a template file and replace placeholders in it and write new file
 
@@ -807,7 +807,7 @@ elsif($bln_is_DB_PGSQL == 1)			#For PGSQL
 	@lines = ();
 	$line = "";
 	$str_file_name = "";
-	open (FILE, "pgsqlds35_cleanup_generic_template.sql") || die "Can not Open file : $!";
+	open (FILE, "pgsql_ds_cleanup_generic_template.sql") || die "Can not Open file : $!";
 	@lines =  <FILE>;
 	close (FILE);
 	foreach $line (@lines)
@@ -815,7 +815,7 @@ elsif($bln_is_DB_PGSQL == 1)			#For PGSQL
 		$line =~ s/{CUST_ROW}/$i_Cust_Rows/g;
 		$line =~ s/{ORD_ROW}/$ord_row/g;
 	}	
-	$str_file_name = "pgsqlds35_cleanup_".$database_size.$database_size_str.".sql";
+	$str_file_name = "pgsql_ds_cleanup_".$database_size.$database_size_str.".sql";
 	open (NEWFILE, ">" , $str_file_name) || die "Creating new file to write failed : $!";
 	print NEWFILE @lines;
 	close (NEWFILE);

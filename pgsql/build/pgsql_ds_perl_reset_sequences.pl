@@ -29,7 +29,7 @@ else
         };
 
 foreach my $k (1 .. $numStores){
-        open(my $OUT, ">$pgsql_targetdir${pathsep}pgsqlds35_reset_seq.sql") || die("Can't open pgsqlds35_reset_seq.sql");
+        open(my $OUT, ">$pgsql_targetdir${pathsep}pgsql_ds_reset_seq.sql") || die("Can't open pgsql_ds_reset_seq.sql");
         print $OUT "-- Reset sequences
 
 \\c ds3;
@@ -49,6 +49,6 @@ SELECT setval(CONCAT('reviews_helpfulness$k','_review_helpfulness_id_seq'),max(r
 \n";
         close $OUT;
         sleep(1);
-        print("psql -h $pgsql_target -U $SYSDBA -d $DBNAME < $pgsql_targetdir${pathsep}pgsqlds35_reset_seq.sql\n");
-        system("psql -h $pgsql_target -U $SYSDBA -d $DBNAME < $pgsql_targetdir${pathsep}pgsqlds35_reset_seq.sql");
+        print("psql -h $pgsql_target -U $SYSDBA -d $DBNAME < $pgsql_targetdir${pathsep}pgsql_ds_reset_seq.sql\n");
+        system("psql -h $pgsql_target -U $SYSDBA -d $DBNAME < $pgsql_targetdir${pathsep}pgsql_ds_reset_seq.sql");
 }

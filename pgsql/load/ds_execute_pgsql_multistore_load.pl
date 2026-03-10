@@ -1,6 +1,6 @@
-# ds35_execute_psql_multistore_load.pl
-# Script to execute psql data loads in parallel for a set of ds35 psql tables files for a given number of stores
-# Syntax to run - perl ds35_execute_psql_multistore_load.pl <psql_target> <number_of_stores> 
+# ds_execute_psql_multistore_load.pl
+# Script to execute psql data loads in parallel for a set of ds psql tables files for a given number of stores
+# Syntax to run - perl ds_execute_psql_multistore_load.pl <psql_target> <number_of_stores> 
 
 use strict;
 use warnings;
@@ -37,7 +37,7 @@ if ("$^O" eq "linux")
         {                    #Linux version
         my $num_finished = 0;
 
-        #Load data into tables using scripts created by ds35_create_psql_multistore_load_files.pl
+        #Load data into tables using scripts created by ds_create_psql_multistore_load_files.pl
 
         my $base_dir = getcwd;    #get the current working directory
 
@@ -55,31 +55,31 @@ if ("$^O" eq "linux")
 
         chdir("$base_dir/membership/$psqltarget");
         foreach my $k (1 .. $numStores){
-                system ("sh remote_pgsqlds35_membership_load$k.bat &");
+                system ("sh remote_pgsql_ds_membership_load$k.bat &");
                 }
 
         chdir("$base_dir/prod/$psqltarget");
         foreach my $k (1 .. $numStores){
-                system ("sh remote_pgsqlds35_prod_load$k.bat &");
-                system ("sh remote_pgsqlds35_inv_load$k.bat &");
+                system ("sh remote_pgsql_ds_prod_load$k.bat &");
+                system ("sh remote_pgsql_ds_inv_load$k.bat &");
                 }
 
         chdir("$base_dir/reviews/$psqltarget");
         foreach my $k (1 .. $numStores){
-                system ("sh remote_pgsqlds35_reviews_load$k.bat &");
-                system ("sh remote_pgsqlds35_reviewshelpful_load$k.bat &");
+                system ("sh remote_pgsql_ds_reviews_load$k.bat &");
+                system ("sh remote_pgsql_ds_reviewshelpful_load$k.bat &");
                 }
 
         chdir("$base_dir/orders/$psqltarget");
 	foreach my $k (1 .. $numStores){
-                system ("sh remote_pgsqlds35_orders_load$k.bat &");
-                system ("sh remote_pgsqlds35_orderlines_load$k.bat &");
-                system ("sh remote_pgsqlds35_cust_hist_load$k.bat &");
+                system ("sh remote_pgsql_ds_orders_load$k.bat &");
+                system ("sh remote_pgsql_ds_orderlines_load$k.bat &");
+                system ("sh remote_pgsql_ds_cust_hist_load$k.bat &");
                 }
 
         chdir("$base_dir/cust/$psqltarget");
         foreach my $k (1 .. $numStores){
-                system ("sh remote_pgsqlds35_cust_load$k.bat &");
+                system ("sh remote_pgsql_ds_cust_load$k.bat &");
                 }
 
         # Each load file creates a finishedxx.txt file after completing it's load.  The code
@@ -124,7 +124,7 @@ else         # Windows Version
         {
         my $num_finished = 0;
 
-        #Load data into tables using scripts created by ds35_create_psql_multistore_load_files.pl
+        #Load data into tables using scripts created by ds_create_psql_multistore_load_files.pl
 
         my $base_dir = getcwd;    #get the current working directory 
 
@@ -142,31 +142,31 @@ else         # Windows Version
 
         chdir("$base_dir\\membership\\$pgsql_targetdir");
         foreach my $k (1 .. $numStores){
-                system ("start remote_pgsqlds35_membership_load$k.bat");
+                system ("start remote_pgsql_ds_membership_load$k.bat");
                 }
 
         chdir("$base_dir\\prod\\$pgsql_targetdir");
         foreach my $k (1 .. $numStores){
-                system ("start remote_pgsqlds35_prod_load$k.bat");
-                system ("start remote_pgsqlds35_inv_load$k.bat");
+                system ("start remote_pgsql_ds_prod_load$k.bat");
+                system ("start remote_pgsql_ds_inv_load$k.bat");
                 }
 
         chdir("$base_dir\\reviews\\$pgsql_targetdir");
         foreach my $k (1 .. $numStores){
-                system ("start remote_pgsqlds35_reviews_load$k.bat");
-                system ("start remote_pgsqlds35_reviewshelpful_load$k.bat");
+                system ("start remote_pgsql_ds_reviews_load$k.bat");
+                system ("start remote_pgsql_ds_reviewshelpful_load$k.bat");
                 }
 
         chdir("$base_dir\\orders\\$pgsql_targetdir");
         foreach my $k (1 .. $numStores){
-                system ("start remote_pgsqlds35_orders_load$k.bat");
-                system ("start remote_pgsqlds35_orderlines_load$k.bat");
-                system ("start remote_pgsqlds35_cust_hist_load$k.bat");
+                system ("start remote_pgsql_ds_orders_load$k.bat");
+                system ("start remote_pgsql_ds_orderlines_load$k.bat");
+                system ("start remote_pgsql_ds_cust_hist_load$k.bat");
                 }
 
         chdir("$base_dir\\cust\\$pgsql_targetdir");
         foreach my $k (1 .. $numStores){
-		system ("start remote_pgsqlds35_cust_load$k.bat");
+		system ("start remote_pgsql_ds_cust_load$k.bat");
                 }
 
         # Each load file creates a finishedxx.txt file after completing it's load.  The code
