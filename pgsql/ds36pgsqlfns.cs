@@ -494,6 +494,11 @@ namespace ds2xdriver
           Browse_By_Title.Parameters["title_in"].Value = "\"" + browse_title_in + "\"";
           data_in = "\"" + browse_title_in + "\"";
           break;
+        default:
+          Console.WriteLine("  Browse type '{0}' unsupported.",browse_type_in);
+          rows_returned = -1;
+          return false;
+          break;
         }
 
 //    Console.WriteLine("Thread {0}: Calling Browse w/ browse_type= {1} batch_size_in= {2}  data_in= {3}",  

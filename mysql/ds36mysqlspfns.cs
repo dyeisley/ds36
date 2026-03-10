@@ -523,9 +523,9 @@ namespace ds2xdriver
            Console.WriteLine("Thread {0}: Error in Browse: {1}", Thread.CurrentThread.Name, e.Message);
            success = false;
 
-           if (e.Number == 1054)
+	   if (e.Message.ToLower().Contains("vec"))
            {
-	      Console.WriteLine("  Problem with vector search. Disabling. Please try with --use_vectors=n");
+              Console.WriteLine("  Problem with vector search. Please try with --use_vectors=n");
               rows_returned = -1;
 	   }
         }

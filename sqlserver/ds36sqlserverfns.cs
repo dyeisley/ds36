@@ -541,7 +541,7 @@ namespace ds2xdriver
 
            if (e.Number == 2812)
 	   {
-              Console.WriteLine("  Problem with vector search. Disabling. Please try with --use_vectors=n");
+              Console.WriteLine("  Problem with vector search. Please try with --use_vectors=n");
               rows_returned = -1;
 	   }
 

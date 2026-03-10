@@ -2274,6 +2274,7 @@ namespace ds2xdriver
 	       // The ds2browse implimentation must set rows_returned = -1
 	       if (rows_returned == -1 && Controller.n_vectors == 1)
                {
+                  Console.WriteLine("  Disabling Browse by vector.");
                   Controller.n_vectors = 0;
                }
 
