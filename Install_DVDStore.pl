@@ -345,28 +345,28 @@ if(lc($^O) ne lc("linux"))  #If System on which perl script executes is windows
 
 
 #This script assumes directory/folder structure as follows
-# On linux ds35 folder will be at root
+# On linux ds36 folder will be at root
 # /
-# /ds35/
-# /ds35/data_files/
-# /ds35/data_files/cust/
-# /ds35/data_files/orders/
-# /ds35/data_files/prod/
-# /ds35/drivers/
-# /ds35/mysqlds35/
-# /ds35/mysqlds35/build/
-# /ds35/mysqlds35/load/
-# /ds35/mysqlds35/web/
-# /ds35/oracleds35/
-# /ds35/oracleds35/build/
-# /ds35/oracleds35/load/
-# /ds35/oracleds35/web/
-# /ds35/sqlserverds35/
-# /ds35/sqlserverds35/build/
-# /ds35/sqlserverds35/load/
-# /ds35/sqlserverds35/web/
+# /ds36/
+# /ds36/data_files/
+# /ds36/data_files/cust/
+# /ds36/data_files/orders/
+# /ds36/data_files/prod/
+# /ds36/drivers/
+# /ds36/mysql/
+# /ds36/mysql/build/
+# /ds36/mysql/load/
+# /ds36/mysql/web/
+# /ds36/oracled/
+# /ds36/oracle/build/
+# /ds36/oracle/load/
+# /ds36/oracle/web/
+# /ds36/sqlserver/
+# /ds36/sqlserver/build/
+# /ds36/sqlserver/load/
+# /ds36/sqlserver/web/
 
-#On Windows ds35 folder will be at <Driveletter>: and rest of folder structure will be same
+#On Windows ds36 folder will be at <Driveletter>: and rest of folder structure will be same
 
 
 #***************************************************************************************
@@ -739,7 +739,7 @@ $cust_row_plus_one = ($i_Cust_Rows + 1);
 
 if($bln_is_DB_MYSQL == 1)			#For MySQL
 {
-	chdir "../../mysqlds35/";		#Move to mysql directory
+	chdir "../../mysql/";			#Move to mysql directory
 	chdir "./build/";			#Move to build directory inside mysql directory
 	
 	#Open a template file and replace placeholders in it and write new file
@@ -751,7 +751,7 @@ if($bln_is_DB_MYSQL == 1)			#For MySQL
 	@lines = ();
 	$line = "";
 	$str_file_name = "";
-	open (FILE, "mysqlds35_cleanup_generic_template.sql") || die "Can not Open file : $!";	
+	open (FILE, "mysql_ds_cleanup_generic_template.sql") || die "Can not Open file : $!";	
 	@lines =  <FILE>;
 	close (FILE);
 	foreach $line (@lines)
@@ -768,8 +768,8 @@ if($bln_is_DB_MYSQL == 1)			#For MySQL
 	{
 	   chdir "../";
 
-	   my $filename = 'mysqlds35_create_all.sh';
-	   my $newfile = 'mysqlds35_create_all_vectors.sh';
+	   my $filename = 'mysql_ds_create_all.sh';
+	   my $newfile = 'mysql_ds_create_all_vectors.sh';
 
 	   open(my $in,  '<', $filename) or die "Can't open $filename: $!";
 	   open(my $out, '>', $newfile) or die "Can't open $newfile: $!";
@@ -777,7 +777,7 @@ if($bln_is_DB_MYSQL == 1)			#For MySQL
 	   while (my $line = <$in>)
 	   {
 		$line =~ s/3:-0/3:-1/g;
-		$line =~ s/mysqlds35_create_all.sh/mysqlds35_create_all_vectors.sh/g;
+		$line =~ s/mysql_ds_create_all.sh/mysql_ds_create_all_vectors.sh/g;
 		print $out $line;
 	   }
 
@@ -795,8 +795,8 @@ if($bln_is_DB_MYSQL == 1)			#For MySQL
 }
 elsif($bln_is_DB_PGSQL == 1)			#For PGSQL
 {
-	chdir "../../pgsqlds35/";		#Move to postgres directory
-	chdir "./build/";			#Move to build directory inside postgres directory
+	chdir "../../pgsql/";		#Move to postgres directory
+	chdir "./build/";		#Move to build directory inside postgres directory
 	
 	#Open a template file and replace placeholders in it and write new file
 
@@ -807,7 +807,7 @@ elsif($bln_is_DB_PGSQL == 1)			#For PGSQL
 	@lines = ();
 	$line = "";
 	$str_file_name = "";
-	open (FILE, "pgsqlds35_cleanup_generic_template.sql") || die "Can not Open file : $!";
+	open (FILE, "pgsql_ds_cleanup_generic_template.sql") || die "Can not Open file : $!";
 	@lines =  <FILE>;
 	close (FILE);
 	foreach $line (@lines)
@@ -815,7 +815,7 @@ elsif($bln_is_DB_PGSQL == 1)			#For PGSQL
 		$line =~ s/{CUST_ROW}/$i_Cust_Rows/g;
 		$line =~ s/{ORD_ROW}/$ord_row/g;
 	}	
-	$str_file_name = "pgsqlds35_cleanup_".$database_size.$database_size_str.".sql";
+	$str_file_name = "pgsql_ds_cleanup_".$database_size.$database_size_str.".sql";
 	open (NEWFILE, ">" , $str_file_name) || die "Creating new file to write failed : $!";
 	print NEWFILE @lines;
 	close (NEWFILE);
@@ -826,7 +826,7 @@ elsif($bln_is_DB_PGSQL == 1)			#For PGSQL
 elsif($bln_is_DB_ORACLE == 1) 		#For Oracle
 {
 	
-	chdir "../../oracleds35/";		#Move to oracle directory
+	chdir "../../oracle/";		#Move to oracle directory
 	chdir "./build/";				#Move to build directory
 
 	print "\nStarted creating and writing build scripts for Oracle database... \n";
@@ -835,7 +835,7 @@ elsif($bln_is_DB_ORACLE == 1) 		#For Oracle
 	@lines = ();
 	$line = "";
 	$str_file_name = "";
-	open (FILE, "oracleds35_cleanup_generic_fk_disabled_template.sql") || die "Can not Open file : $!";	
+	open (FILE, "oracle_ds_cleanup_generic_fk_disabled_template.sql") || die "Can not Open file : $!";	
 	@lines =  <FILE>;
 	close (FILE);
 	foreach $line (@lines)
@@ -843,7 +843,7 @@ elsif($bln_is_DB_ORACLE == 1) 		#For Oracle
 		$line =~ s/{CUST_ROW}/$i_Cust_Rows/g;
 		$line =~ s/{CUST_ROW_PLUS_ONE}/$cust_row_plus_one/g;	
 	}	
-	$str_file_name = "oracleds35_cleanup_".$database_size.$database_size_str."_fk_disabled.sql";
+	$str_file_name = "oracle_ds_cleanup_".$database_size.$database_size_str."_fk_disabled.sql";
 	open (NEWFILE, ">", $str_file_name) || die "Creating new file to write failed : $!";
 	print NEWFILE @lines;
 	close (NEWFILE);
@@ -852,7 +852,7 @@ elsif($bln_is_DB_ORACLE == 1) 		#For Oracle
 	@lines = ();
 	$line = "";
 	$str_file_name = "";
-	open (FILE, "oracleds35_cleanup_generic_template.sql") || die "Can not Open file : $!";	
+	open (FILE, "oracle_ds_cleanup_generic_template.sql") || die "Can not Open file : $!";	
 	@lines =  <FILE>;
 	close (FILE);
 	foreach $line (@lines)
@@ -860,7 +860,7 @@ elsif($bln_is_DB_ORACLE == 1) 		#For Oracle
 		$line =~ s/{CUST_ROW}/$i_Cust_Rows/g;
 		$line =~ s/{CUST_ROW_PLUS_ONE}/$cust_row_plus_one/g;	
 	}	
-	$str_file_name = "oracleds35_cleanup_".$database_size.$database_size_str.".sql";
+	$str_file_name = "oracle_ds_cleanup_".$database_size.$database_size_str.".sql";
 	open (NEWFILE, ">", $str_file_name) || die "Creating new file to write failed : $!";
 	print NEWFILE @lines;
 	close (NEWFILE);
@@ -869,16 +869,16 @@ elsif($bln_is_DB_ORACLE == 1) 		#For Oracle
 	@lines = ();
 	$line = "";
 	$str_file_name = "";
-	open (FILE, "oracleds35_cleanup_generic_template.sh") || die "Can not Open file : $!";	
+	open (FILE, "oracle_ds_cleanup_generic_template.sh") || die "Can not Open file : $!";	
 	@lines =  <FILE>;
 	close (FILE);
-	$str_file_name = "oracleds35_cleanup_".$database_size.$database_size_str.".sql";
+	$str_file_name = "oracle_ds_cleanup_".$database_size.$database_size_str.".sql";
 	foreach $line (@lines)
 	{
 		$line =~ s/{SQL_FNAME}/$str_file_name/g;	
 	}		
 	$str_file_name = "";
-	$str_file_name = "oracleds35_cleanup_".$database_size.$database_size_str.".sh";
+	$str_file_name = "oracle_ds_cleanup_".$database_size.$database_size_str.".sh";
 	open (NEWFILE, ">", $str_file_name) || die "Creating new file to write failed : $!";
 	print NEWFILE @lines;
 	close (NEWFILE);
@@ -887,7 +887,7 @@ elsif($bln_is_DB_ORACLE == 1) 		#For Oracle
 	@lines = ();
 	$line = "";
 	$str_file_name = "";
-	open (FILE, "oracleds35_cleanup_generic_fk_disabled_template.sql") || die "Can not Open file : $!";	
+	open (FILE, "oracle_ds_cleanup_generic_fk_disabled_template.sql") || die "Can not Open file : $!";	
 	@lines =  <FILE>;
 	close (FILE);
 	foreach $line (@lines)
@@ -895,7 +895,7 @@ elsif($bln_is_DB_ORACLE == 1) 		#For Oracle
 		$line =~ s/{CUST_ROW}/$i_Cust_Rows/g;
 		$line =~ s/{CUST_ROW_PLUS_ONE}/$cust_row_plus_one/g;	
 	}	
-	$str_file_name = "oracleds35_cleanup_".$database_size.$database_size_str."_fk_disabled.sql";
+	$str_file_name = "oracle_ds_cleanup_".$database_size.$database_size_str."_fk_disabled.sql";
 	open (NEWFILE, ">", $str_file_name) || die "Creating new file to write failed : $!";
 	print NEWFILE @lines;
 	close (NEWFILE);
@@ -904,16 +904,16 @@ elsif($bln_is_DB_ORACLE == 1) 		#For Oracle
 	@lines = ();
 	$line = "";
 	$str_file_name = "";
-	open (FILE, "oracleds35_cleanup_generic_fk_disabled_template.sh") || die "Can not Open file : $!";	
+	open (FILE, "oracle_ds_cleanup_generic_fk_disabled_template.sh") || die "Can not Open file : $!";	
 	@lines =  <FILE>;
 	close (FILE);
-	$str_file_name = "oracleds35_cleanup_".$database_size.$database_size_str."_fk_disabled.sql";
+	$str_file_name = "oracle_ds_cleanup_".$database_size.$database_size_str."_fk_disabled.sql";
 	foreach $line (@lines)
 	{
 		$line =~ s/{SQL_FNAME}/$str_file_name/g;         			
 	}	
 	$str_file_name = "";
-	$str_file_name = "oracleds35_cleanup_".$database_size.$database_size_str."_fk_disabled.sh";
+	$str_file_name = "oracle_ds_cleanup_".$database_size.$database_size_str."_fk_disabled.sh";
 	open (NEWFILE, ">", $str_file_name) || die "Creating new file to write failed : $!";
 	print NEWFILE @lines;
 	close (NEWFILE);
@@ -923,14 +923,14 @@ elsif($bln_is_DB_ORACLE == 1) 		#For Oracle
 	@lines = ();
 	$line = "";
 	$str_file_name = "";
-	open (FILE, "oracleds35_perl_create_db_tables_multi_generic_template.pl") || die "Can not Open file : $!";	
+	open (FILE, "oracle_ds_perl_create_db_tables_multi_generic_template.pl") || die "Can not Open file : $!";	
 	@lines =  <FILE>;
 	close (FILE);
 	foreach $line (@lines)
 	{
 		$line =~ s/{CUST_ROW_PLUS_ONE}/$cust_row_plus_one/g;         			
 	}	
-	$str_file_name = "oracleds35_perl_create_db_tables_multi_".$database_size.$database_size_str.".pl";
+	$str_file_name = "oracle_ds_perl_create_db_tables_multi_".$database_size.$database_size_str.".pl";
 	open (NEWFILE, ">", $str_file_name) || die "Creating new file to write failed : $!";
 	print NEWFILE @lines;
 	close (NEWFILE);
@@ -940,7 +940,7 @@ elsif($bln_is_DB_ORACLE == 1) 		#For Oracle
 	@lines = ();
 	$line = "";
 	$str_file_name = "";
-	open (FILE, "oracleds35_create_tablespaces_generic_template.sql") || die "Can not Open file : $!";	
+	open (FILE, "oracle_ds_create_tablespaces_generic_template.sql") || die "Can not Open file : $!";	
 	@lines =  <FILE>;
 	close (FILE);	
 	my $i_Cnt = 0;
@@ -987,7 +987,7 @@ elsif($bln_is_DB_ORACLE == 1) 		#For Oracle
 			$line =~ s/{ORDER2DATAFILE_PATH}/$arr_db_file_paths[5]/g;						
 		}	
 	}	
-	$str_file_name = "oracleds35_create_tablespaces_".$database_size.$database_size_str.".sql";
+	$str_file_name = "oracle_ds_create_tablespaces_".$database_size.$database_size_str.".sql";
 	open (NEWFILE, ">", $str_file_name) || die "Creating new file to write failed : $!";
 	print NEWFILE @lines;
 	close (NEWFILE);
@@ -998,18 +998,18 @@ elsif($bln_is_DB_ORACLE == 1) 		#For Oracle
 	@lines = ();
 	$line = "";	
 	$str_file_name = "";
-	open (FILE, "oracleds35_create_all_concurrent_generic_template.sh") || die "Can not Open file : $!";	
+	open (FILE, "oracle_ds_create_all_concurrent_generic_template.sh") || die "Can not Open file : $!";	
 	@lines =  <FILE>;
 	close (FILE);
 	foreach $line (@lines)
 	{
-		$str_file_name = "oracleds35_create_tablespaces_".$database_size.$database_size_str.".sql";
+		$str_file_name = "oracle_ds_create_tablespaces_".$database_size.$database_size_str.".sql";
 		$line =~ s/{TBLSPACE_SQLFNAME}/$str_file_name/g;
-		$str_file_name = "oracleds35_perl_create_db_tables_multi_".$database_size.$database_size_str.".pl";
+		$str_file_name = "oracle_ds_perl_create_db_tables_multi_".$database_size.$database_size_str.".pl";
 		$line =~ s/{CREATEDB_SQLFNAME}/$str_file_name/g;		   		   	
 	}	
 	$str_file_name = "";
-	$str_file_name = "oracleds35_create_all_".$database_size.$database_size_str.".sh";
+	$str_file_name = "oracle_ds_create_all_".$database_size.$database_size_str.".sh";
 	open (NEWFILE, ">", $str_file_name) || die "Creating new file to write failed : $!";
 	print NEWFILE @lines;
 	close (NEWFILE);
@@ -1023,18 +1023,18 @@ elsif($bln_is_DB_ORACLE == 1) 		#For Oracle
 	@lines = ();
 	$line = "";	
 	$str_file_name = "";
-	open (FILE, "oracleds35_create_all_concurrent_generic_template.bat") || die "Can not Open file : $!";	
+	open (FILE, "oracle_ds_create_all_concurrent_generic_template.bat") || die "Can not Open file : $!";	
 	@lines =  <FILE>;
 	close (FILE);
 	foreach $line (@lines)
 	{
-		$str_file_name = "oracleds35_create_tablespaces_".$database_size.$database_size_str.".sql";
+		$str_file_name = "oracle_ds_create_tablespaces_".$database_size.$database_size_str.".sql";
 		$line =~ s/{TBLSPACE_SQLFNAME}/$str_file_name/g;
-		$str_file_name = "oracleds35_perl_create_db_tables_multi".$database_size.$database_size_str.".pl";
+		$str_file_name = "oracle_ds_perl_create_db_tables_multi".$database_size.$database_size_str.".pl";
 		$line =~ s/{CREATEDB_SQLFNAME}/$str_file_name/g;		   		   	
 	}	
 	$str_file_name = "";
-	$str_file_name = "oracleds35_create_all_".$database_size.$database_size_str.".bat";
+	$str_file_name = "oracle_ds_create_all_".$database_size.$database_size_str.".bat";
 	open (NEWFILE, ">", $str_file_name) || die "Creating new file to write failed : $!";
 	print NEWFILE @lines;
 	close (NEWFILE);
@@ -1046,14 +1046,14 @@ elsif($bln_is_DB_MSSQL == 1) 		#For SQL Server
 {
 	print "\nStarted creating and writing build scripts for SQL Server database...\n";
 	
-	chdir "../../sqlserverds35/";		#Move to mssql directory
+	chdir "../../sqlserver/";		#Move to mssql directory
 	
 	#Create new create_all sql script file from template
 	@lines = ();
 	$line = "";	
 	$str_file_name = "";
 	chdir "./build/";
-	open (FILE, "sqlserverds35_create_all_init_generic_template.sql") || die "Can not Open file : $!";	
+	open (FILE, "sqlserver_ds_create_all_init_generic_template.sql") || die "Can not Open file : $!";	
 	@lines =  <FILE>;
 	close (FILE);
 	my $i_Cnt = 0;
@@ -1076,7 +1076,7 @@ elsif($bln_is_DB_MSSQL == 1) 		#For SQL Server
 			$line =~ s/{DRIVELETTER}/$str_driveletter/g;
 		}            			
 	}	
-	$str_file_name = "sqlserverds35_create_all_init_".$database_size.$database_size_str.".sql";
+	$str_file_name = "sqlserver_ds_create_all_init_".$database_size.$database_size_str.".sql";
 	open (NEWFILE, ">", $str_file_name) || die "Creating new file to write failed : $!";
 	print NEWFILE @lines;
 	close (NEWFILE);
@@ -1109,7 +1109,7 @@ elsif($bln_is_DB_MSSQL == 1) 		#For SQL Server
 	@lines = ();
 	$line = "";	
 	$str_file_name = "";
-	open (FILE, "sqlserverds35_create_all_concurrent_generic_template.bat") || die "Can not Open file : $!";	
+	open (FILE, "sqlserver_ds_create_all_concurrent_generic_template.bat") || die "Can not Open file : $!";	
 	@lines =  <FILE>;
 	close (FILE);
 	$i_Cnt = 0;
@@ -1124,7 +1124,7 @@ elsif($bln_is_DB_MSSQL == 1) 		#For SQL Server
 			$i_Cnt = ($i_Cnt + 1);				
 		}			   		    			
 	}	
-	$str_file_name = "sqlserverds35_create_all_concurrent_".$database_size.$database_size_str.".bat";
+	$str_file_name = "sqlserver_ds_create_all_concurrent_".$database_size.$database_size_str.".bat";
 	open (NEWFILE, ">", $str_file_name) || die "Creating new file to write failed : $!";
 	print NEWFILE @lines;
 	close (NEWFILE);
@@ -1132,7 +1132,7 @@ elsif($bln_is_DB_MSSQL == 1) 		#For SQL Server
         @lines = ();
         $line = "";
         $str_file_name = "";
-        open (FILE, "sqlserverds35_create_all_concurrent_generic_template.sh") || die "Can not Open file : $!";
+        open (FILE, "sqlserver_ds_create_all_concurrent_generic_template.sh") || die "Can not Open file : $!";
         @lines =  <FILE>;
         close (FILE);
         $i_Cnt = 0;
@@ -1151,7 +1151,7 @@ elsif($bln_is_DB_MSSQL == 1) 		#For SQL Server
                         $i_Cnt = ($i_Cnt + 1);
                 }
         }
-        $str_file_name = "sqlserverds35_create_all_concurrent_".$database_size.$database_size_str.".sh";
+        $str_file_name = "sqlserver_ds_create_all_concurrent_".$database_size.$database_size_str.".sh";
         open (NEWFILE, ">", $str_file_name) || die "Creating new file to write failed : $!";
         print NEWFILE @lines;
         close (NEWFILE);
