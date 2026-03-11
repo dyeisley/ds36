@@ -1150,7 +1150,7 @@ namespace ds2xdriver
     {
         // Reviews Table: "REVIEW_ID" NUMBER,  "PROD_ID" NUMBER,  "REVIEW_DATE" DATE, "STARS" NUMBER,
         // "CUSTOMERID" NUMBER,  "REVIEW_SUMMARY" VARCHAR2(50 byte), "REVIEW_TEXT" VARCHAR2(1000 byte)
-	string data_in = string.Empty;
+        string data_in = string.Empty;
         int[] category_out = new int[GlobalConstants.MAX_ROWS];
 
 #if (USE_WIN32_TIMER)
@@ -1307,29 +1307,68 @@ namespace ds2xdriver
     {
         // Reviews Table: "REVIEW_ID" NUMBER,  "PROD_ID" NUMBER,  "REVIEW_DATE" DATE, "STARS" NUMBER,
         // "CUSTOMERID" NUMBER,  "REVIEW_SUMMARY" VARCHAR2(50 byte), "REVIEW_TEXT" VARCHAR2(1000 byte)
-	string data_in = string.Empty;
+        string data_in = string.Empty;
         int[] category_out = new int[GlobalConstants.MAX_ROWS];
 
+        OracleCommand cmd;
+        OracleParameter[] prms;
+        OracleParameter prmReviewId, prmProdId, prmStars, prmCustId, prmHelpSum, prmDate, prmSumm, prmText;
+
 #if (USE_WIN32_TIMER)
-      long ctr0 = 0, ctr = 0, freq = 0;
+        long ctr0 = 0, ctr = 0, freq = 0;
 #else
         TimeSpan TS = new TimeSpan();
         DateTime DT0;
 #endif
+
         switch (get_review_type_in)
         {
             case "noorder":
+            default:
                 Get_Prod_Reviews_prm[0].Value = batch_size_in;
                 Get_Prod_Reviews_prm[2].Value = get_review_prod_in;
+
+                cmd = Get_Prod_Reviews;
+                prms = Get_Prod_Reviews_prm;
+                prmReviewId = Get_Prod_Reviews_review_id_out;
+                prmProdId = Get_Prod_Reviews_prod_id_out;
+                prmStars = Get_Prod_Reviews_review_stars_out;
+                prmCustId = Get_Prod_Reviews_review_customerid_out;
+                prmHelpSum = Get_Prod_Reviews_review_helpfulness_sum_out;
+                prmDate = Get_Prod_Reviews_review_date_out;
+                prmSumm = Get_Prod_Reviews_review_summary_out;
+                prmText = Get_Prod_Reviews_review_text_out;
                 break;
             case "star":
                 Get_Prod_Reviews_By_Stars_prm[0].Value = batch_size_in;
                 Get_Prod_Reviews_By_Stars_prm[2].Value = get_review_prod_in;
                 Get_Prod_Reviews_By_Stars_prm[3].Value = get_review_stars_in;
+
+                cmd = Get_Prod_Reviews_By_Stars;
+                prms = Get_Prod_Reviews_By_Stars_prm;
+                prmReviewId = Get_Prod_Reviews_By_Stars_review_id_out;
+                prmProdId = Get_Prod_Reviews_By_Stars_prod_id_out;
+                prmStars = Get_Prod_Reviews_By_Stars_review_stars_out;
+                prmCustId = Get_Prod_Reviews_By_Stars_review_customerid_out;
+                prmHelpSum = Get_Prod_Reviews_By_Stars_review_helpfulness_sum_out;
+                prmDate = Get_Prod_Reviews_By_Stars_review_date_out;
+                prmSumm = Get_Prod_Reviews_By_Stars_review_summary_out;
+                prmText = Get_Prod_Reviews_By_Stars_review_text_out;
                 break;
             case "date":
                 Get_Prod_Reviews_By_Date_prm[0].Value = batch_size_in;
                 Get_Prod_Reviews_By_Date_prm[2].Value = get_review_prod_in;
+
+                cmd = Get_Prod_Reviews_By_Date;
+                prms = Get_Prod_Reviews_By_Date_prm;
+                prmReviewId = Get_Prod_Reviews_By_Date_review_id_out;
+                prmProdId = Get_Prod_Reviews_By_Date_prod_id_out;
+                prmStars = Get_Prod_Reviews_By_Date_review_stars_out;
+                prmCustId = Get_Prod_Reviews_By_Date_review_customerid_out;
+                prmHelpSum = Get_Prod_Reviews_By_Date_review_helpfulness_sum_out;
+                prmDate = Get_Prod_Reviews_By_Date_review_date_out;
+                prmSumm = Get_Prod_Reviews_By_Date_review_summary_out;
+                prmText = Get_Prod_Reviews_By_Date_review_text_out;
                 break;
         }
 
@@ -1337,63 +1376,36 @@ namespace ds2xdriver
         //      Thread.CurrentThread.Name, browse_type_in, batch_size_in, data_in);
 
 #if (USE_WIN32_TIMER)
-      QueryPerformanceFrequency(ref freq); // obtain system freq (ticks/sec)
-      QueryPerformanceCounter(ref ctr0); // Start response time clock
+        QueryPerformanceFrequency(ref freq); // obtain system freq (ticks/sec)
+        QueryPerformanceCounter(ref ctr0); // Start response time clock
 #else
         DT0 = DateTime.Now;
 #endif
 
         try
         {
-            switch (get_review_type_in)
-            {
-                case "noorder":
-                    Get_Prod_Reviews.ExecuteNonQuery();
-                    rows_returned = Convert.ToInt32(Get_Prod_Reviews_prm[1].Value.ToString());
-                    for (i = 0; i < rows_returned; i++)
-                    {
-                        o_review_id_out[i] = Convert.ToInt32(((Get_Prod_Reviews_review_id_out.Value as Array).GetValue(i)).ToString());
-                        o_prod_id_out[i] = Convert.ToInt32(((Get_Prod_Reviews_prod_id_out.Value as Array).GetValue(i)).ToString());
-                        o_review_stars_out[i] = Convert.ToInt32(((Get_Prod_Reviews_review_stars_out.Value as Array).GetValue(i)).ToString());
-                        o_review_customerid_out[i] = Convert.ToInt32(((Get_Prod_Reviews_review_customerid_out.Value as Array).GetValue(i)).ToString());
-                        o_review_helpfulness_sum_out[i] = Convert.ToInt32(((Get_Prod_Reviews_review_helpfulness_sum_out.Value as Array).GetValue(i)).ToString());
-                    }
-                    o_review_date_out = (OracleString[])Get_Prod_Reviews_review_date_out.Value;
-                    o_review_summary_out = (OracleString[])Get_Prod_Reviews_review_summary_out.Value;
-                    o_review_text_out = (OracleString[])Get_Prod_Reviews_review_text_out.Value;
-                    break;
-                case "star":
-                    Get_Prod_Reviews_By_Stars.ExecuteNonQuery();
-                    rows_returned = Convert.ToInt32(Get_Prod_Reviews_By_Stars_prm[1].Value.ToString());
-                    for (i = 0; i < rows_returned; i++)
-                    {
-                        o_review_id_out[i] = Convert.ToInt32(((Get_Prod_Reviews_By_Stars_review_id_out.Value as Array).GetValue(i)).ToString());
-                        o_prod_id_out[i] = Convert.ToInt32(((Get_Prod_Reviews_By_Stars_prod_id_out.Value as Array).GetValue(i)).ToString());
-                        o_review_stars_out[i] = Convert.ToInt32(((Get_Prod_Reviews_By_Stars_review_stars_out.Value as Array).GetValue(i)).ToString());
-                        o_review_customerid_out[i] = Convert.ToInt32(((Get_Prod_Reviews_By_Stars_review_customerid_out.Value as Array).GetValue(i)).ToString());
-                        o_review_helpfulness_sum_out[i] = Convert.ToInt32(((Get_Prod_Reviews_By_Stars_review_helpfulness_sum_out.Value as Array).GetValue(i)).ToString());
-                    }
+           cmd.ExecuteNonQuery();
+           rows_returned = Convert.ToInt32(prms[1].Value.ToString());
 
-                    o_review_date_out = (OracleString[])Get_Prod_Reviews_By_Stars_review_date_out.Value;
-                    o_review_summary_out = (OracleString[])Get_Prod_Reviews_By_Stars_review_summary_out.Value;
-                    o_review_text_out = (OracleString[])Get_Prod_Reviews_By_Stars_review_text_out.Value;
-                    break;
-                case "date":
-                    Get_Prod_Reviews_By_Date.ExecuteNonQuery();
-                    rows_returned = Convert.ToInt32(Get_Prod_Reviews_By_Date_prm[1].Value.ToString());
-                    for (i = 0; i < rows_returned; i++)
-                    {
-                        o_review_id_out[i] = Convert.ToInt32(((Get_Prod_Reviews_By_Date_review_id_out.Value as Array).GetValue(i)).ToString());
-                        o_prod_id_out[i] = Convert.ToInt32(((Get_Prod_Reviews_By_Date_prod_id_out.Value as Array).GetValue(i)).ToString());
-                        o_review_stars_out[i] = Convert.ToInt32(((Get_Prod_Reviews_By_Date_review_stars_out.Value as Array).GetValue(i)).ToString());
-                        o_review_customerid_out[i] = Convert.ToInt32(((Get_Prod_Reviews_By_Date_review_customerid_out.Value as Array).GetValue(i)).ToString());
-                        o_review_helpfulness_sum_out[i] = Convert.ToInt32(((Get_Prod_Reviews_By_Date_review_helpfulness_sum_out.Value as Array).GetValue(i)).ToString());
-                    }
-                    o_review_date_out = (OracleString[])Get_Prod_Reviews_By_Date_review_date_out.Value;
-                    o_review_summary_out = (OracleString[])Get_Prod_Reviews_By_Date_review_summary_out.Value;
-                    o_review_text_out = (OracleString[])Get_Prod_Reviews_By_Date_review_text_out.Value;
-                    break;
-            }
+           // declare the arrays outside of the loop.
+           var idArr   = prmReviewId.Value as Array;
+           var prodArr = prmProdId.Value as Array;
+           var starArr = prmStars.Value as Array;
+           var custArr = prmCustId.Value as Array;
+           var helpArr = prmHelpSum.Value as Array;
+
+           for (int i = 0; i < rows_returned; i++)
+           {
+               o_review_id_out[i]         = Convert.ToInt32(idArr?.GetValue(i)?.ToString());
+               o_prod_id_out[i]           = Convert.ToInt32(prodArr?.GetValue(i)?.ToString());
+               o_review_stars_out[i]      = Convert.ToInt32(starArr?.GetValue(i)?.ToString());
+               o_review_customerid_out[i] = Convert.ToInt32(custArr?.GetValue(i)?.ToString());
+               o_review_helpfulness_sum_out[i] = Convert.ToInt32(helpArr?.GetValue(i)?.ToString());
+           }
+
+           o_review_date_out = (OracleString[])prmDate.Value;
+           o_review_summary_out = (OracleString[])prmSumm.Value;
+           o_review_text_out = (OracleString[])prmText.Value;
         }
         catch (OracleException e)
         {
@@ -1415,7 +1427,7 @@ namespace ds2xdriver
 #endif
 
         //    Console.WriteLine("Thread {0}: Browse successful: type= {1}  rows_returned={2}",
-        //       Thread.CurrentThread.Name, browse_type_in, rows_returned);
+        //       Thread.CurrentThread.Name, get_review_type_in, rows_returned);
         for (int i_row = 0; i_row < rows_returned; i_row++)
         {
             prod_id_out[i_row] = o_prod_id_out[i_row];
@@ -1427,9 +1439,8 @@ namespace ds2xdriver
             review_text_out[i_row] = o_review_text_out[i_row].ToString();
             review_helpfulness_sum_out[i_row] = o_review_helpfulness_sum_out[i_row];
 
-            //    Console.WriteLine("  prod_id= {0} category= {1} title= {2} actor= {3} price= {4} special= {5} common_prod_id= {6}",
-            //      prod_id_out[i_row], category_out[i_row], title_out[i_row], actor_out[i_row], price_out[i_row],
-            //      special_out[i_row], common_prod_id_out[i_row]);
+            //Console.WriteLine("\treview_id_out: {0} prod_id_out: {1} review_date_out: {2} review_stars_out: {3} review_customerid_out: {4} review_summary_out: {5} review_text_out: {6} review_helpfulness_sum_out: {7}",
+            //  review_id_out[i_row], prod_id_out[i_row], review_date_out[i_row], review_stars_out[i_row], review_customerid_out[i_row], review_summary_out[i_row], review_text_out[i_row], review_helpfulness_sum_out[i_row]);
         }
 
         switch (get_review_type_in)
@@ -1443,7 +1454,6 @@ namespace ds2xdriver
                 Get_Prod_Reviews_review_date_out.Size = GlobalConstants.MAX_ROWS;
                 Get_Prod_Reviews_review_summary_out.Size = GlobalConstants.MAX_ROWS;
                 Get_Prod_Reviews_review_text_out.Size = GlobalConstants.MAX_ROWS;
-
                 break;
             case "star":
                 Get_Prod_Reviews_By_Stars_review_id_out.Size = GlobalConstants.MAX_ROWS;
@@ -1454,7 +1464,6 @@ namespace ds2xdriver
                 Get_Prod_Reviews_By_Stars_review_date_out.Size = GlobalConstants.MAX_ROWS;
                 Get_Prod_Reviews_By_Stars_review_summary_out.Size = GlobalConstants.MAX_ROWS;
                 Get_Prod_Reviews_By_Stars_review_text_out.Size = GlobalConstants.MAX_ROWS;
-
                 break;
             case "date":
                 Get_Prod_Reviews_By_Date_review_id_out.Size = GlobalConstants.MAX_ROWS;
@@ -1465,7 +1474,6 @@ namespace ds2xdriver
                 Get_Prod_Reviews_By_Date_review_date_out.Size = GlobalConstants.MAX_ROWS;
                 Get_Prod_Reviews_By_Date_review_summary_out.Size = GlobalConstants.MAX_ROWS;
                 Get_Prod_Reviews_By_Date_review_text_out.Size = GlobalConstants.MAX_ROWS;
-
                 break;
         }
 
