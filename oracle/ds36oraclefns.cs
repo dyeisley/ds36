@@ -978,6 +978,8 @@ namespace ds2xdriver
       string data_in = string.Empty;
       int[] category_out = new int[GlobalConstants.MAX_ROWS];
 
+      OracleParameter prmProdId, prmCategory, prmPrice, prmSpec, prmCommProd, prmTitle, prmActor;
+
 #if (USE_WIN32_TIMER)
       long ctr0 = 0, ctr = 0, freq = 0;
 #else
@@ -990,16 +992,37 @@ namespace ds2xdriver
           Browse_By_Category_prm[0].Value = batch_size_in;
           Browse_By_Category_prm[2].Value = Convert.ToInt32(browse_category_in);
           data_in = browse_category_in;
+          prmProdId = Browse_By_Category_prod_id_out;
+          prmCategory = Browse_By_Category_category_out;
+          prmPrice = Browse_By_Category_price_out;
+          prmSpec = Browse_By_Category_special_out;
+          prmCommProd = Browse_By_Category_common_prod_id_out;
+          prmTitle = Browse_By_Category_title_out;
+          prmActor = Browse_By_Category_actor_out;
           break;
         case "actor":
           Browse_By_Actor_prm[0].Value = batch_size_in;
           Browse_By_Actor_prm[2].Value = browse_actor_in;
           data_in = browse_actor_in;
+          prmProdId = Browse_By_Actor_prod_id_out;
+          prmCategory = Browse_By_Actor_category_out;
+          prmPrice = Browse_By_Actor_price_out;
+          prmSpec = Browse_By_Actor_special_out;
+          prmCommProd = Browse_By_Actor_common_prod_id_out;
+          prmTitle = Browse_By_Actor_title_out;
+          prmActor = Browse_By_Actor_actor_out;
           break;
         case "title":
           Browse_By_Title_prm[0].Value = batch_size_in;
           Browse_By_Title_prm[2].Value = browse_title_in;
           data_in = browse_title_in;
+          prmProdId = Browse_By_Title_prod_id_out;
+          prmCategory = Browse_By_Title_category_out;
+          prmPrice = Browse_By_Title_price_out;
+          prmSpec = Browse_By_Title_special_out;
+          prmCommProd = Browse_By_Title_common_prod_id_out;
+          prmTitle = Browse_By_Title_title_out;
+          prmActor = Browse_By_Title_actor_out;
           break;
         default:
           Console.WriteLine("  Browse type '{0}' unsupported.",browse_type_in);
@@ -1024,46 +1047,27 @@ namespace ds2xdriver
           case "category":
             Browse_By_Category.ExecuteNonQuery();
             rows_returned = Convert.ToInt32(Browse_By_Category_prm[1].Value.ToString());
-            for (i=0; i<rows_returned; i++)
-              {
-              o_prod_id_out[i] = Convert.ToInt32(((Browse_By_Category_prod_id_out.Value as Array).GetValue(i)).ToString());
-              o_category_out[i] = Convert.ToByte(((Browse_By_Category_category_out.Value as Array).GetValue(i)).ToString());
-              o_price_out[i] = Convert.ToDecimal(((Browse_By_Category_price_out.Value as Array).GetValue(i)).ToString());
-              o_special_out[i] = Convert.ToInt32(((Browse_By_Category_special_out.Value as Array).GetValue(i)).ToString());
-              o_common_prod_id_out[i] = Convert.ToInt32(((Browse_By_Category_common_prod_id_out.Value as Array).GetValue(i)).ToString());
-              }
-            o_title_out = (OracleString[]) Browse_By_Category_title_out.Value;
-            o_actor_out = (OracleString[]) Browse_By_Category_actor_out.Value;
             break;
           case "actor":
             Browse_By_Actor.ExecuteNonQuery();
             rows_returned = Convert.ToInt32(Browse_By_Actor_prm[1].Value.ToString());
-            for (i=0; i<rows_returned; i++)
-              {
-              o_prod_id_out[i] = Convert.ToInt32(((Browse_By_Actor_prod_id_out.Value as Array).GetValue(i)).ToString());
-              o_category_out[i] = Convert.ToByte(((Browse_By_Actor_category_out.Value as Array).GetValue(i)).ToString());
-              o_price_out[i] = Convert.ToDecimal(((Browse_By_Actor_price_out.Value as Array).GetValue(i)).ToString());
-              o_special_out[i] = Convert.ToInt32(((Browse_By_Actor_special_out.Value as Array).GetValue(i)).ToString());
-              o_common_prod_id_out[i] = Convert.ToInt32(((Browse_By_Actor_common_prod_id_out.Value as Array).GetValue(i)).ToString());
-              }
-            o_title_out = (OracleString[]) Browse_By_Actor_title_out.Value;
-            o_actor_out = (OracleString[]) Browse_By_Actor_actor_out.Value;
             break;
           case "title":
             Browse_By_Title.ExecuteNonQuery();
             rows_returned = Convert.ToInt32(Browse_By_Title_prm[1].Value.ToString());
-            for (i=0; i<rows_returned; i++)
-              {
-              o_prod_id_out[i] = Convert.ToInt32(((Browse_By_Title_prod_id_out.Value as Array).GetValue(i)).ToString());
-              o_category_out[i] = Convert.ToByte(((Browse_By_Title_category_out.Value as Array).GetValue(i)).ToString());
-              o_price_out[i] = Convert.ToDecimal(((Browse_By_Title_price_out.Value as Array).GetValue(i)).ToString());
-              o_special_out[i] = Convert.ToInt32(((Browse_By_Title_special_out.Value as Array).GetValue(i)).ToString());
-              o_common_prod_id_out[i] = Convert.ToInt32(((Browse_By_Title_common_prod_id_out.Value as Array).GetValue(i)).ToString());
-              }
-            o_title_out = (OracleString[]) Browse_By_Title_title_out.Value;
-            o_actor_out = (OracleString[]) Browse_By_Title_actor_out.Value;
             break;
           }
+
+          for (int i=0; i<rows_returned; i++)
+            {
+              o_prod_id_out[i] = Convert.ToInt32(((prmProdId.Value as Array)?.GetValue(i))?.ToString());
+              o_category_out[i] = Convert.ToByte(((prmCategory.Value as Array)?.GetValue(i))?.ToString());
+              o_price_out[i] = Convert.ToDecimal(((prmPrice.Value as Array)?.GetValue(i))?.ToString());
+              o_special_out[i] = Convert.ToInt32(((prmSpec.Value as Array)?.GetValue(i))?.ToString());
+              o_common_prod_id_out[i] = Convert.ToInt32(((prmCommProd.Value as Array)?.GetValue(i))?.ToString());
+            }
+          o_title_out = (OracleString[]) prmTitle.Value;
+          o_actor_out = (OracleString[]) prmActor.Value;
         }
       catch (OracleException e)
         {
@@ -1223,11 +1227,11 @@ namespace ds2xdriver
 
            for (i = 0; i < rows_returned; i++)
            {
-               o_review_id_out[i] = Convert.ToInt32(((prmReviewId.Value as Array).GetValue(i)).ToString());
-               o_prod_id_out[i] = Convert.ToInt32(((prmProdId.Value as Array).GetValue(i)).ToString());
-               o_review_stars_out[i] = Convert.ToInt32(((prmStars.Value as Array).GetValue(i)).ToString());
-               o_review_customerid_out[i] = Convert.ToInt32(((prmCustId.Value as Array).GetValue(i)).ToString());
-               o_review_helpfulness_sum_out[i] = Convert.ToInt32(((prmHelpSum.Value as Array).GetValue(i)).ToString());
+               o_review_id_out[i] = Convert.ToInt32(((prmReviewId.Value as Array)?.GetValue(i))?.ToString());
+               o_prod_id_out[i] = Convert.ToInt32(((prmProdId.Value as Array)?.GetValue(i))?.ToString());
+               o_review_stars_out[i] = Convert.ToInt32(((prmStars.Value as Array)?.GetValue(i))?.ToString());
+               o_review_customerid_out[i] = Convert.ToInt32(((prmCustId.Value as Array)?.GetValue(i))?.ToString());
+               o_review_helpfulness_sum_out[i] = Convert.ToInt32(((prmHelpSum.Value as Array)?.GetValue(i))?.ToString());
            }
            o_title_out = (OracleString[])prmTitle.Value;
            o_actor_out = (OracleString[])prmActor.Value;
