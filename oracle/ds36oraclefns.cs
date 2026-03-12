@@ -74,7 +74,6 @@ namespace ds2xdriver
     OracleParameter[] New_Prod_Review_prm = new OracleParameter[6];
     OracleParameter[] New_Review_Helpfulness_prm = new OracleParameter[4];
 
-    OracleParameter Login_title_out, Login_actor_out, Login_related_title_out;
     OracleParameter Browse_By_Category_prod_id_out, Browse_By_Category_category_out, Browse_By_Category_title_out,
        Browse_By_Category_actor_out, Browse_By_Category_price_out,
        Browse_By_Category_special_out, Browse_By_Category_common_prod_id_out, Browse_By_Category_membership_item_out;
@@ -151,35 +150,12 @@ namespace ds2xdriver
       // Set up Oracle stored procedure calls and associated parameters
 
       // Login
-      Login = new OracleCommand("", objConn);
-      Login.CommandText = "Login" + target_store_number;
+      Login = new OracleCommand("LOGIN" + target_store_number, objConn);
       Login.CommandType = CommandType.StoredProcedure;
-      Login_prm[0] = Login.Parameters.Add("username_in", OracleDbType.Varchar2, ParameterDirection.Input);
-      Login_prm[1] = Login.Parameters.Add("password_in", OracleDbType.Varchar2, ParameterDirection.Input);
-      Login_prm[2] = Login.Parameters.Add("batch_size", OracleDbType.Int32, ParameterDirection.Input);
-      Login_prm[3] = Login.Parameters.Add("found", OracleDbType.Int32, ParameterDirection.Output);
-      Login_prm[4] = Login.Parameters.Add("customerid_out", OracleDbType.Int32, ParameterDirection.Output);
-
-      Login_title_out = Login.Parameters.Add("title_out", OracleDbType.Varchar2, ParameterDirection.Output);
-      Login_title_out.CollectionType = OracleCollectionType.PLSQLAssociativeArray;
-      Login_title_out.Value = null;
-      Login_title_out.Size = GlobalConstants.MAX_ROWS;
-      Login_title_out.ArrayBindSize = new int [GlobalConstants.MAX_ROWS];
-      for (i=0; i<GlobalConstants.MAX_ROWS; i++) Login_title_out.ArrayBindSize[i] = 50;
-
-      Login_actor_out = Login.Parameters.Add("actor_out", OracleDbType.Varchar2, ParameterDirection.Output);
-      Login_actor_out.CollectionType = OracleCollectionType.PLSQLAssociativeArray;
-      Login_actor_out.Value = null;
-      Login_actor_out.Size = GlobalConstants.MAX_ROWS;
-      Login_actor_out.ArrayBindSize = new int [GlobalConstants.MAX_ROWS];
-      for (i=0; i<GlobalConstants.MAX_ROWS; i++) Login_actor_out.ArrayBindSize[i] = 50;
-
-      Login_related_title_out = Login.Parameters.Add("related_title_out", OracleDbType.Varchar2, ParameterDirection.Output);
-      Login_related_title_out.CollectionType = OracleCollectionType.PLSQLAssociativeArray;
-      Login_related_title_out.Value = null;
-      Login_related_title_out.Size = GlobalConstants.MAX_ROWS;
-      Login_related_title_out.ArrayBindSize = new int [GlobalConstants.MAX_ROWS];
-      for (i=0; i<GlobalConstants.MAX_ROWS; i++) Login_related_title_out.ArrayBindSize[i] = 50;
+      Login.Parameters.Add("p_username_in", OracleDbType.Varchar2);
+      Login.Parameters.Add("p_password_in", OracleDbType.Varchar2);
+      Login.Parameters.Add("p_customerid", OracleDbType.Int32, ParameterDirection.Output);
+      Login.BindByName = true;
 
       // New_Customer
       New_Customer = new OracleCommand("", objConn);
@@ -771,11 +747,9 @@ namespace ds2xdriver
       DateTime DT0;
 #endif
 
-      int batch_size = 10;
-
-      Login_prm[0].Value = username_in;
-      Login_prm[1].Value = password_in;
-      Login_prm[2].Value = batch_size;
+      OracleDataReader Rdr;
+      Login.Parameters["p_username_in"].Value = username_in;
+      Login.Parameters["p_password_in"].Value = password_in;
 
 #if (USE_WIN32_TIMER)
       QueryPerformanceFrequency(ref freq); // obtain system freq (ticks/sec)
@@ -786,19 +760,29 @@ namespace ds2xdriver
 
       try
         {
-        Login.ExecuteNonQuery();
-        rows_returned = Convert.ToInt32(Login_prm[3].Value.ToString());
-        customerid_out = Convert.ToInt32(Login_prm[4].Value.ToString());
-        o_title_out = (OracleString[]) Login_title_out.Value;
-        o_actor_out = (OracleString[]) Login_actor_out.Value;
-        o_related_title_out = (OracleString[]) Login_related_title_out.Value;
+        Rdr = Login.ExecuteReader();
+
+        customerid_out = Convert.ToInt32(Login.Parameters["p_customerid"].Value.ToString());
+        int i_row = 0;
+
+        while (Rdr.Read() && (i_row < GlobalConstants.MAX_ROWS))
+        {
+           title_out[i_row] = Rdr.GetString(0);
+           actor_out[i_row] = Rdr.GetString(1);
+           related_title_out[i_row] = Rdr.GetString(2);
+           // Console.WriteLine("  title= {0}  actor= {1}  related_title= {2}", title_out[i_row], actor_out[i_row], related_title_out[i_row]);
+           i_row++;
+        }
+
+        Rdr.Close();
+        rows_returned = i_row;
         }
       catch (OracleException e)
         {
         Console.WriteLine("Thread {0}: Oracle Error in Login: {1}", Thread.CurrentThread.Name, e.Message);
         return (false);
         }
-      catch (System.Exception e)
+      catch (Exception e)
         {
         Console.WriteLine("Thread {0}: System Error in Login: {1}", Thread.CurrentThread.Name, e.Message);
         return (false);
@@ -812,20 +796,7 @@ namespace ds2xdriver
       rt = TS.TotalSeconds; // Calculate response time
 #endif
 
-//    Console.WriteLine("Thread {0}: {1} successfully logged in;   rows_returned={2}  customerid_out={3}",
-//     Thread.CurrentThread.Name, username_in, rows_returned, customerid_out);
-      for (int i_row=0; i_row<rows_returned; i_row++)
-        {
-        title_out[i_row] = o_title_out[i_row].ToString();
-        actor_out[i_row] = o_actor_out[i_row].ToString();
-        related_title_out[i_row] = o_related_title_out[i_row].ToString();
-//      Console.WriteLine("  title= {0}  actor= {1}  related_title= {2}",
-//        title_out[i_row], actor_out[i_row], related_title_out[i_row]);
-        }
-
-      Login_title_out.Size=GlobalConstants.MAX_ROWS;
-      Login_actor_out.Size=GlobalConstants.MAX_ROWS;
-      Login_related_title_out.Size=GlobalConstants.MAX_ROWS;
+      // Console.WriteLine("Thread {0}: {1} successfully logged in;   rows_returned={2}  customerid_out={3}", Thread.CurrentThread.Name, username_in, rows_returned, customerid_out);
 
       return(true);
       }  // end ds2login
@@ -1613,7 +1584,6 @@ namespace ds2xdriver
       DateTime DT0;
 #endif
 
-
       //Cap cart_items at 10 for this implementation of stored procedure
       cart_items = System.Math.Min(10, cart_items);
 
@@ -1671,8 +1641,7 @@ namespace ds2xdriver
       Purchase_prod_id_in.Value = prod_id_in;
       Purchase_qty_in.Value = qty_in;
 
-//    Console.WriteLine("Thread {0}: Calling Purchase w/ customerid = {1}  number_items= {2}",
-//      Thread.CurrentThread.Name, customerid_out, cart_items);
+    //Console.WriteLine("Thread {0}: Calling Purchase w/ customerid = {1}  number_items= {2}", Thread.CurrentThread.Name, customerid_out, cart_items);
 
 #if (USE_WIN32_TIMER)
       QueryPerformanceFrequency(ref freq); // obtain system freq (ticks/sec)

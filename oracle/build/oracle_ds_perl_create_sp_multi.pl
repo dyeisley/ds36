@@ -234,55 +234,36 @@ CREATE OR REPLACE PROCEDURE \"DS3\".\"NEW_REVIEW_HELPFULNESS$k\"
 END NEW_REVIEW_HELPFULNESS$k;
 /
 
-
-CREATE OR REPLACE  PROCEDURE \"DS3\".\"LOGIN$k\" 
+CREATE OR REPLACE PROCEDURE \"DS3\".\"LOGIN$k\"
   (
-  username_in        IN  DS3.CUSTOMERS$k.USERNAME%TYPE,
-  password_in        IN  DS3.CUSTOMERS$k.PASSWORD%TYPE,
-  batch_size         IN  INTEGER,
-  found              OUT INTEGER,
-  customerid_out     OUT INTEGER,
-  title_out          OUT DS3_TYPES.ARRAY_TYPE,
-  actor_out          OUT DS3_TYPES.ARRAY_TYPE,
-  related_title_out  OUT DS3_TYPES.ARRAY_TYPE
+  p_username_in  IN  VARCHAR2,
+  p_password_in  IN  VARCHAR2,
+  p_customerid   OUT INTEGER
   )
-  AS
-  result_cv DS3_TYPES.DS3_CURSOR;
-  i INTEGER;
-
+AS
+  v_history_rc SYS_REFCURSOR;
+BEGIN
   BEGIN
-    
-    SELECT CUSTOMERID INTO customerid_out FROM CUSTOMERS$k WHERE USERNAME = username_in AND PASSWORD = password_in;
-    
-    delete from derivedtable1$k;
-
-    insert into derivedtable1$k select products$k.title, products$k.actor, products$k.prod_id, products$k.common_prod_id
-        from cust_hist$k inner join products$k on cust_hist$k.prod_id = products$k.prod_id
-       where (cust_hist$k.customerid = customerid_out);
-    OPEN result_cv FOR
-      SELECT derivedtable1$k.TITLE, derivedtable1$k.ACTOR, PRODUCTS$k.TITLE AS RelatedTitle
-        FROM
-          derivedtable1$k INNER JOIN
-            PRODUCTS$k ON derivedtable1$k.COMMON_PROD_ID = PRODUCTS$k.PROD_ID;
-    
-    found := 0;
-    FOR i IN 1..batch_size LOOP
-      FETCH result_cv INTO title_out(i), actor_out(i), related_title_out(i);
-      IF result_cv%NOTFOUND THEN
-        CLOSE result_cv;
-        EXIT;
-      ELSE
-        found := found + 1;
-      END IF;
-    END LOOP;
-
+    SELECT CUSTOMERID INTO p_customerid
+    FROM CUSTOMERS1
+    WHERE USERNAME = p_username_in AND PASSWORD = p_password_in;
   EXCEPTION
     WHEN NO_DATA_FOUND THEN
-    customerid_out := 0;
-  
+      p_customerid := 0;
+      RETURN;
+  END;
+
+  OPEN v_history_rc FOR
+    SELECT p1.TITLE, p1.ACTOR, p2.TITLE AS RelatedTitle
+    FROM cust_hist1 ch
+    JOIN products1 p1 ON ch.prod_id = p1.prod_id
+    LEFT JOIN products1 p2 ON p1.common_prod_id = p2.prod_id
+    WHERE ch.customerid = p_customerid;
+
+  DBMS_SQL.RETURN_RESULT(v_history_rc);
+
   END LOGIN$k;
 /
-
 
 CREATE OR REPLACE PROCEDURE \"DS3\".\"BROWSE_BY_CATEGORY$k\" 
   (
