@@ -60,9 +60,6 @@ namespace ds2xdriver
 
     OracleParameter[] Login_prm = new OracleParameter[5];
     OracleParameter[] New_Customer_prm = new OracleParameter[20];
-    OracleParameter[] Browse_By_Category_prm = new OracleParameter[3];
-    OracleParameter[] Browse_By_Actor_prm = new OracleParameter[3];
-    OracleParameter[] Browse_By_Title_prm = new OracleParameter[3];
     OracleParameter[] Purchase_prm = new OracleParameter[6];
 
     OracleParameter[] New_Member_prm = new OracleParameter[3];
@@ -74,15 +71,6 @@ namespace ds2xdriver
     OracleParameter[] New_Prod_Review_prm = new OracleParameter[6];
     OracleParameter[] New_Review_Helpfulness_prm = new OracleParameter[4];
 
-    OracleParameter Browse_By_Category_prod_id_out, Browse_By_Category_category_out, Browse_By_Category_title_out,
-       Browse_By_Category_actor_out, Browse_By_Category_price_out,
-       Browse_By_Category_special_out, Browse_By_Category_common_prod_id_out, Browse_By_Category_membership_item_out;
-    OracleParameter Browse_By_Actor_prod_id_out, Browse_By_Actor_category_out, Browse_By_Actor_title_out,
-       Browse_By_Actor_actor_out, Browse_By_Actor_price_out,
-       Browse_By_Actor_special_out, Browse_By_Actor_common_prod_id_out, Browse_By_Actor_membership_item_out;
-    OracleParameter Browse_By_Title_prod_id_out, Browse_By_Title_category_out, Browse_By_Title_title_out,
-       Browse_By_Title_actor_out, Browse_By_Title_price_out,
-       Browse_By_Title_special_out, Browse_By_Title_common_prod_id_out, Browse_By_Title_membership_item_out;
     OracleParameter Purchase_prod_id_in, Purchase_qty_in;
 
     OracleParameter Get_Prod_Reviews_review_id_out, Get_Prod_Reviews_prod_id_out,
@@ -191,163 +179,22 @@ namespace ds2xdriver
       New_Member_prm[2] = New_Member.Parameters.Add("customerid_out", OracleDbType.Int32, ParameterDirection.Output);
 
       //Browse_By_Category
-      Browse_By_Category = new OracleCommand("", objConn);
-      Browse_By_Category.CommandText = "Browse_By_Category" + target_store_number;
+      Browse_By_Category = new OracleCommand("Browse_By_Category" + target_store_number, objConn);
       Browse_By_Category.CommandType = CommandType.StoredProcedure;
-
-      Browse_By_Category_prm[0] = Browse_By_Category.Parameters.Add("batch_size", OracleDbType.Int32, ParameterDirection.Input);
-      Browse_By_Category_prm[1] = Browse_By_Category.Parameters.Add("found", OracleDbType.Int32, ParameterDirection.Output);
-      Browse_By_Category_prm[2] = Browse_By_Category.Parameters.Add("category_in", OracleDbType.Int32, ParameterDirection.Input);
-
-      Browse_By_Category_prod_id_out = Browse_By_Category.Parameters.Add("prod_id_out", OracleDbType.Int32, ParameterDirection.Output);
-      Browse_By_Category_prod_id_out.CollectionType = OracleCollectionType.PLSQLAssociativeArray;
-      Browse_By_Category_prod_id_out.Value = 0;
-      Browse_By_Category_prod_id_out.Size = GlobalConstants.MAX_ROWS;
-
-      Browse_By_Category_category_out = Browse_By_Category.Parameters.Add("category_out", OracleDbType.Byte, ParameterDirection.Output);
-      Browse_By_Category_category_out.CollectionType = OracleCollectionType.PLSQLAssociativeArray;
-      Browse_By_Category_category_out.Value = 0;
-      Browse_By_Category_category_out.Size = GlobalConstants.MAX_ROWS;
-
-      Browse_By_Category_title_out = Browse_By_Category.Parameters.Add("title_out", OracleDbType.Varchar2, ParameterDirection.Output);
-      Browse_By_Category_title_out.CollectionType = OracleCollectionType.PLSQLAssociativeArray;
-      Browse_By_Category_title_out.Value = null;
-      Browse_By_Category_title_out.Size = GlobalConstants.MAX_ROWS;
-      Browse_By_Category_title_out.ArrayBindSize = new int [GlobalConstants.MAX_ROWS];
-      for (i=0; i<GlobalConstants.MAX_ROWS; i++) Browse_By_Category_title_out.ArrayBindSize[i] = 50;
-
-      Browse_By_Category_actor_out = Browse_By_Category.Parameters.Add("actor_out", OracleDbType.Varchar2, ParameterDirection.Output);
-      Browse_By_Category_actor_out.CollectionType = OracleCollectionType.PLSQLAssociativeArray;
-      Browse_By_Category_actor_out.Value = null;
-      Browse_By_Category_actor_out.Size = GlobalConstants.MAX_ROWS;
-      Browse_By_Category_actor_out.ArrayBindSize = new int [GlobalConstants.MAX_ROWS];
-      for (i=0; i<GlobalConstants.MAX_ROWS; i++) Browse_By_Category_actor_out.ArrayBindSize[i] = 50;
-
-      Browse_By_Category_price_out = Browse_By_Category.Parameters.Add("price_out", OracleDbType.Decimal, ParameterDirection.Output);
-      Browse_By_Category_price_out.CollectionType = OracleCollectionType.PLSQLAssociativeArray;
-      Browse_By_Category_price_out.Value = 0;
-      Browse_By_Category_price_out.Size = GlobalConstants.MAX_ROWS;
-
-      Browse_By_Category_special_out = Browse_By_Category.Parameters.Add("special_out", OracleDbType.Int32, ParameterDirection.Output);
-      Browse_By_Category_special_out.CollectionType = OracleCollectionType.PLSQLAssociativeArray;
-      Browse_By_Category_special_out.Value = 0;
-      Browse_By_Category_special_out.Size = GlobalConstants.MAX_ROWS;
-
-      Browse_By_Category_common_prod_id_out = Browse_By_Category.Parameters.Add("common_prod_id_out", OracleDbType.Int32, ParameterDirection.Output);
-      Browse_By_Category_common_prod_id_out.CollectionType = OracleCollectionType.PLSQLAssociativeArray;
-      Browse_By_Category_common_prod_id_out.Value = 0;
-      Browse_By_Category_common_prod_id_out.Size = GlobalConstants.MAX_ROWS;
-
-      Browse_By_Category_membership_item_out = Browse_By_Category.Parameters.Add("membership_item_out", OracleDbType.Int32, ParameterDirection.Output);
-      Browse_By_Category_membership_item_out.CollectionType = OracleCollectionType.PLSQLAssociativeArray;
-      Browse_By_Category_membership_item_out.Value = 0;
-      Browse_By_Category_membership_item_out.Size = GlobalConstants.MAX_ROWS;
+      Browse_By_Category.Parameters.Add("p_category_in", OracleDbType.Int32);
+      Browse_By_Category.Parameters.Add("p_batch_size", OracleDbType.Int32);
 
       //Browse_By_Actor
-      Browse_By_Actor = new OracleCommand("", objConn);
-      Browse_By_Actor.CommandText = "Browse_By_Actor" + target_store_number;
+      Browse_By_Actor = new OracleCommand("Browse_By_Actor" + target_store_number, objConn);
       Browse_By_Actor.CommandType = CommandType.StoredProcedure;
-
-      Browse_By_Actor_prm[0] = Browse_By_Actor.Parameters.Add("batch_size", OracleDbType.Int32, ParameterDirection.Input);
-      Browse_By_Actor_prm[1] = Browse_By_Actor.Parameters.Add("found", OracleDbType.Int32, ParameterDirection.Output);
-      Browse_By_Actor_prm[2] = Browse_By_Actor.Parameters.Add("actor_in", OracleDbType.Varchar2, ParameterDirection.Input);
-
-      Browse_By_Actor_prod_id_out = Browse_By_Actor.Parameters.Add("prod_id_out", OracleDbType.Int32, ParameterDirection.Output);
-      Browse_By_Actor_prod_id_out.CollectionType = OracleCollectionType.PLSQLAssociativeArray;
-      Browse_By_Actor_prod_id_out.Value = 0;
-      Browse_By_Actor_prod_id_out.Size = GlobalConstants.MAX_ROWS;
-
-      Browse_By_Actor_category_out = Browse_By_Actor.Parameters.Add("category_out", OracleDbType.Byte, ParameterDirection.Output);
-      Browse_By_Actor_category_out.CollectionType = OracleCollectionType.PLSQLAssociativeArray;
-      Browse_By_Actor_category_out.Value = 0;
-      Browse_By_Actor_category_out.Size = GlobalConstants.MAX_ROWS;
-
-      Browse_By_Actor_title_out = Browse_By_Actor.Parameters.Add("title_out", OracleDbType.Varchar2, ParameterDirection.Output);
-      Browse_By_Actor_title_out.CollectionType = OracleCollectionType.PLSQLAssociativeArray;
-      Browse_By_Actor_title_out.Value = null;
-      Browse_By_Actor_title_out.Size = GlobalConstants.MAX_ROWS;
-      Browse_By_Actor_title_out.ArrayBindSize = new int [GlobalConstants.MAX_ROWS];
-      for (i=0; i<GlobalConstants.MAX_ROWS; i++) Browse_By_Actor_title_out.ArrayBindSize[i] = 50;
-
-      Browse_By_Actor_actor_out = Browse_By_Actor.Parameters.Add("actor_out", OracleDbType.Varchar2, ParameterDirection.Output);
-      Browse_By_Actor_actor_out.CollectionType = OracleCollectionType.PLSQLAssociativeArray;
-      Browse_By_Actor_actor_out.Value = null;
-      Browse_By_Actor_actor_out.Size = GlobalConstants.MAX_ROWS;
-      Browse_By_Actor_actor_out.ArrayBindSize = new int [GlobalConstants.MAX_ROWS];
-      for (i=0; i<GlobalConstants.MAX_ROWS; i++) Browse_By_Actor_actor_out.ArrayBindSize[i] = 50;
-
-      Browse_By_Actor_price_out = Browse_By_Actor.Parameters.Add("price_out", OracleDbType.Decimal, ParameterDirection.Output);
-      Browse_By_Actor_price_out.CollectionType = OracleCollectionType.PLSQLAssociativeArray;
-      Browse_By_Actor_price_out.Value = null;
-      Browse_By_Actor_price_out.Size = GlobalConstants.MAX_ROWS;
-
-      Browse_By_Actor_special_out = Browse_By_Actor.Parameters.Add("special_out", OracleDbType.Int32, ParameterDirection.Output);
-      Browse_By_Actor_special_out.CollectionType = OracleCollectionType.PLSQLAssociativeArray;
-      Browse_By_Actor_special_out.Value = 0;
-      Browse_By_Actor_special_out.Size = GlobalConstants.MAX_ROWS;
-
-      Browse_By_Actor_common_prod_id_out = Browse_By_Actor.Parameters.Add("common_prod_id_out", OracleDbType.Int32, ParameterDirection.Output);
-      Browse_By_Actor_common_prod_id_out.CollectionType = OracleCollectionType.PLSQLAssociativeArray;
-      Browse_By_Actor_common_prod_id_out.Value = 0;
-      Browse_By_Actor_common_prod_id_out.Size = GlobalConstants.MAX_ROWS;
-
-      Browse_By_Actor_membership_item_out = Browse_By_Actor.Parameters.Add("membership_item_out", OracleDbType.Int32, ParameterDirection.Output);
-      Browse_By_Actor_membership_item_out.CollectionType = OracleCollectionType.PLSQLAssociativeArray;
-      Browse_By_Actor_membership_item_out.Value = 0;
-      Browse_By_Actor_membership_item_out.Size = GlobalConstants.MAX_ROWS;
+      Browse_By_Actor.Parameters.Add("p_actor_in", OracleDbType.Varchar2);
+      Browse_By_Actor.Parameters.Add("p_batch_size", OracleDbType.Int32);
 
       //Browse_By_Title
-      Browse_By_Title = new OracleCommand("", objConn);
-      Browse_By_Title.CommandText = "Browse_By_Title" + target_store_number;
+      Browse_By_Title = new OracleCommand("Browse_By_Title" + target_store_number, objConn);
       Browse_By_Title.CommandType = CommandType.StoredProcedure;
-
-      Browse_By_Title_prm[0] = Browse_By_Title.Parameters.Add("batch_size", OracleDbType.Int32, ParameterDirection.Input);
-      Browse_By_Title_prm[1] = Browse_By_Title.Parameters.Add("found", OracleDbType.Int32, ParameterDirection.Output);
-      Browse_By_Title_prm[2] = Browse_By_Title.Parameters.Add("title_in", OracleDbType.Varchar2, ParameterDirection.Input);
-
-      Browse_By_Title_prod_id_out = Browse_By_Title.Parameters.Add("prod_id_out", OracleDbType.Int32, ParameterDirection.Output);
-      Browse_By_Title_prod_id_out.CollectionType = OracleCollectionType.PLSQLAssociativeArray;
-      Browse_By_Title_prod_id_out.Value = 0;
-      Browse_By_Title_prod_id_out.Size = GlobalConstants.MAX_ROWS;
-
-      Browse_By_Title_category_out = Browse_By_Title.Parameters.Add("category_out", OracleDbType.Byte, ParameterDirection.Output);
-      Browse_By_Title_category_out.CollectionType = OracleCollectionType.PLSQLAssociativeArray;
-      Browse_By_Title_category_out.Value = 0;
-      Browse_By_Title_category_out.Size = GlobalConstants.MAX_ROWS;
-
-      Browse_By_Title_title_out = Browse_By_Title.Parameters.Add("title_out", OracleDbType.Varchar2, ParameterDirection.Output);
-      Browse_By_Title_title_out.CollectionType = OracleCollectionType.PLSQLAssociativeArray;
-      Browse_By_Title_title_out.Value = null;
-      Browse_By_Title_title_out.Size = GlobalConstants.MAX_ROWS;
-      Browse_By_Title_title_out.ArrayBindSize = new int [GlobalConstants.MAX_ROWS];
-      for (i=0; i<GlobalConstants.MAX_ROWS; i++) Browse_By_Title_title_out.ArrayBindSize[i] = 50;
-
-      Browse_By_Title_actor_out = Browse_By_Title.Parameters.Add("actor_out", OracleDbType.Varchar2, ParameterDirection.Output);
-      Browse_By_Title_actor_out.CollectionType = OracleCollectionType.PLSQLAssociativeArray;
-      Browse_By_Title_actor_out.Value = string.Empty;
-      Browse_By_Title_actor_out.Size = GlobalConstants.MAX_ROWS;
-      Browse_By_Title_actor_out.ArrayBindSize = new int [GlobalConstants.MAX_ROWS];
-      for (i=0; i<GlobalConstants.MAX_ROWS; i++) Browse_By_Title_actor_out.ArrayBindSize[i] = 50;
-
-      Browse_By_Title_price_out = Browse_By_Title.Parameters.Add("price_out", OracleDbType.Decimal, ParameterDirection.Output);
-      Browse_By_Title_price_out.CollectionType = OracleCollectionType.PLSQLAssociativeArray;
-      Browse_By_Title_price_out.Value = 0;
-      Browse_By_Title_price_out.Size = GlobalConstants.MAX_ROWS;
-
-      Browse_By_Title_special_out = Browse_By_Title.Parameters.Add("special_out", OracleDbType.Int32, ParameterDirection.Output);
-      Browse_By_Title_special_out.CollectionType = OracleCollectionType.PLSQLAssociativeArray;
-      Browse_By_Title_special_out.Value = 0;
-      Browse_By_Title_special_out.Size = GlobalConstants.MAX_ROWS;
-
-      Browse_By_Title_common_prod_id_out = Browse_By_Title.Parameters.Add("common_prod_id_out", OracleDbType.Int32, ParameterDirection.Output);
-      Browse_By_Title_common_prod_id_out.CollectionType = OracleCollectionType.PLSQLAssociativeArray;
-      Browse_By_Title_common_prod_id_out.Value = 0;
-      Browse_By_Title_common_prod_id_out.Size = GlobalConstants.MAX_ROWS;
-
-      Browse_By_Title_membership_item_out = Browse_By_Title.Parameters.Add("membership_item_out", OracleDbType.Int32, ParameterDirection.Output);
-      Browse_By_Title_membership_item_out.CollectionType = OracleCollectionType.PLSQLAssociativeArray;
-      Browse_By_Title_membership_item_out.Value = 0;
-      Browse_By_Title_membership_item_out.Size = GlobalConstants.MAX_ROWS;
+      Browse_By_Title.Parameters.Add("p_title_in", OracleDbType.Varchar2);
+      Browse_By_Title.Parameters.Add("p_batch_size", OracleDbType.Int32);
 
       // Get_Prod_Reviews
 
@@ -949,7 +796,7 @@ namespace ds2xdriver
       string data_in = string.Empty;
       int[] category_out = new int[GlobalConstants.MAX_ROWS];
 
-      OracleParameter prmProdId, prmCategory, prmPrice, prmSpec, prmCommProd, prmTitle, prmActor;
+      OracleDataReader Rdr;
 
 #if (USE_WIN32_TIMER)
       long ctr0 = 0, ctr = 0, freq = 0;
@@ -957,43 +804,23 @@ namespace ds2xdriver
       TimeSpan TS = new TimeSpan();
       DateTime DT0;
 #endif
+
       switch(browse_type_in)
         {
         case "category":
-          Browse_By_Category_prm[0].Value = batch_size_in;
-          Browse_By_Category_prm[2].Value = Convert.ToInt32(browse_category_in);
+          Browse_By_Category.Parameters["p_category_in"].Value = Convert.ToInt32(browse_category_in);
+          Browse_By_Category.Parameters["p_batch_size"].Value = batch_size_in;
           data_in = browse_category_in;
-          prmProdId = Browse_By_Category_prod_id_out;
-          prmCategory = Browse_By_Category_category_out;
-          prmPrice = Browse_By_Category_price_out;
-          prmSpec = Browse_By_Category_special_out;
-          prmCommProd = Browse_By_Category_common_prod_id_out;
-          prmTitle = Browse_By_Category_title_out;
-          prmActor = Browse_By_Category_actor_out;
           break;
         case "actor":
-          Browse_By_Actor_prm[0].Value = batch_size_in;
-          Browse_By_Actor_prm[2].Value = browse_actor_in;
+          Browse_By_Actor.Parameters["p_actor_in"].Value = browse_actor_in.Split(' ')[0];;
+          Browse_By_Actor.Parameters["p_batch_size"].Value = batch_size_in;
           data_in = browse_actor_in;
-          prmProdId = Browse_By_Actor_prod_id_out;
-          prmCategory = Browse_By_Actor_category_out;
-          prmPrice = Browse_By_Actor_price_out;
-          prmSpec = Browse_By_Actor_special_out;
-          prmCommProd = Browse_By_Actor_common_prod_id_out;
-          prmTitle = Browse_By_Actor_title_out;
-          prmActor = Browse_By_Actor_actor_out;
           break;
         case "title":
-          Browse_By_Title_prm[0].Value = batch_size_in;
-          Browse_By_Title_prm[2].Value = browse_title_in;
+          Browse_By_Title.Parameters["p_title_in"].Value = browse_title_in.Split(' ')[0];
+          Browse_By_Title.Parameters["p_batch_size"].Value = batch_size_in;
           data_in = browse_title_in;
-          prmProdId = Browse_By_Title_prod_id_out;
-          prmCategory = Browse_By_Title_category_out;
-          prmPrice = Browse_By_Title_price_out;
-          prmSpec = Browse_By_Title_special_out;
-          prmCommProd = Browse_By_Title_common_prod_id_out;
-          prmTitle = Browse_By_Title_title_out;
-          prmActor = Browse_By_Title_actor_out;
           break;
         default:
           Console.WriteLine("  Browse type '{0}' unsupported.",browse_type_in);
@@ -1001,8 +828,7 @@ namespace ds2xdriver
           return false;
         }
 
-//    Console.WriteLine("Thread {0}: Calling Browse w/ browse_type= {1}  batch_size_in= {2}  data_in= {3}",
-//      Thread.CurrentThread.Name, browse_type_in, batch_size_in, data_in);
+      //Console.WriteLine("Thread {0}: Calling Browse w/ browse_type= {1}  batch_size_in= {2}  data_in= {3}", Thread.CurrentThread.Name, browse_type_in, batch_size_in, data_in);
 
 #if (USE_WIN32_TIMER)
       QueryPerformanceFrequency(ref freq); // obtain system freq (ticks/sec)
@@ -1015,30 +841,33 @@ namespace ds2xdriver
         {
         switch(browse_type_in)
           {
+          default:
           case "category":
-            Browse_By_Category.ExecuteNonQuery();
-            rows_returned = Convert.ToInt32(Browse_By_Category_prm[1].Value.ToString());
+            Rdr = Browse_By_Category.ExecuteReader();
             break;
           case "actor":
-            Browse_By_Actor.ExecuteNonQuery();
-            rows_returned = Convert.ToInt32(Browse_By_Actor_prm[1].Value.ToString());
+            Rdr = Browse_By_Actor.ExecuteReader();
             break;
           case "title":
-            Browse_By_Title.ExecuteNonQuery();
-            rows_returned = Convert.ToInt32(Browse_By_Title_prm[1].Value.ToString());
+            Rdr = Browse_By_Title.ExecuteReader();
             break;
           }
 
-          for (int i=0; i<rows_returned; i++)
-            {
-              o_prod_id_out[i] = Convert.ToInt32(((prmProdId.Value as Array)?.GetValue(i))?.ToString());
-              o_category_out[i] = Convert.ToByte(((prmCategory.Value as Array)?.GetValue(i))?.ToString());
-              o_price_out[i] = Convert.ToDecimal(((prmPrice.Value as Array)?.GetValue(i))?.ToString());
-              o_special_out[i] = Convert.ToInt32(((prmSpec.Value as Array)?.GetValue(i))?.ToString());
-              o_common_prod_id_out[i] = Convert.ToInt32(((prmCommProd.Value as Array)?.GetValue(i))?.ToString());
-            }
-          o_title_out = (OracleString[]) prmTitle.Value;
-          o_actor_out = (OracleString[]) prmActor.Value;
+        int i_row = 0;
+        while (Rdr.Read())
+          {
+          prod_id_out[i_row] = Rdr.GetInt32(0);
+          category_out[i_row] = Rdr.GetByte(1);
+          title_out[i_row] = Rdr.GetString(2);
+          actor_out[i_row] = Rdr.GetString(3);
+          price_out[i_row] = Rdr.GetDecimal(4);
+          special_out[i_row] = Rdr.GetByte(5);
+          common_prod_id_out[i_row] = Rdr.GetInt32(6);
+          // Console.WriteLine("\tprod_id_out: {0} category_out: {1} title_out: {2} actor_out: {3} price_out: {4} special_out: {5} common_prod_id_out: {6}",prod_id_out[i_row],category_out[i_row],title_out[i_row],actor_out[i_row],price_out[i_row], special_out[i_row],common_prod_id_out[i_row]);
+          ++i_row;
+          }
+        Rdr.Close();
+        rows_returned = i_row;
         }
       catch (OracleException e)
         {
@@ -1058,57 +887,6 @@ namespace ds2xdriver
       TS = DateTime.Now - DT0;
       rt = TS.TotalSeconds; // Calculate response time
 #endif
-
-//    Console.WriteLine("Thread {0}: Browse successful: type= {1}  rows_returned={2}",
-//       Thread.CurrentThread.Name, browse_type_in, rows_returned);
-      for (int i_row=0; i_row<rows_returned; i_row++)
-        {
-        prod_id_out[i_row] = o_prod_id_out[i_row];
-        category_out[i_row] = o_category_out[i_row];
-        title_out[i_row] = o_title_out[i_row].ToString();
-        actor_out[i_row] = o_actor_out[i_row].ToString();
-        price_out[i_row] = o_price_out[i_row];
-        special_out[i_row] = o_special_out[i_row];
-        common_prod_id_out[i_row] = o_common_prod_id_out[i_row];
-
-//    Console.WriteLine("  prod_id= {0} category= {1} title= {2} actor= {3} price= {4} special= {5} common_prod_id= {6}",
-//      prod_id_out[i_row], category_out[i_row], title_out[i_row], actor_out[i_row], price_out[i_row],
-//      special_out[i_row], common_prod_id_out[i_row]);
-        }
-
-      switch(browse_type_in)
-        {
-        case "category":
-          Browse_By_Category_prod_id_out.Size=GlobalConstants.MAX_ROWS;
-          Browse_By_Category_category_out.Size=GlobalConstants.MAX_ROWS;
-          Browse_By_Category_title_out.Size=GlobalConstants.MAX_ROWS;
-          Browse_By_Category_actor_out.Size=GlobalConstants.MAX_ROWS;
-          Browse_By_Category_price_out.Size=GlobalConstants.MAX_ROWS;
-          Browse_By_Category_special_out.Size=GlobalConstants.MAX_ROWS;
-          Browse_By_Category_common_prod_id_out.Size=GlobalConstants.MAX_ROWS;
-          Browse_By_Category_membership_item_out.Size = GlobalConstants.MAX_ROWS;
-          break;
-        case "actor":
-          Browse_By_Actor_prod_id_out.Size=GlobalConstants.MAX_ROWS;
-          Browse_By_Actor_category_out.Size=GlobalConstants.MAX_ROWS;
-          Browse_By_Actor_title_out.Size=GlobalConstants.MAX_ROWS;
-          Browse_By_Actor_actor_out.Size=GlobalConstants.MAX_ROWS;
-          Browse_By_Actor_price_out.Size=GlobalConstants.MAX_ROWS;
-          Browse_By_Actor_special_out.Size=GlobalConstants.MAX_ROWS;
-          Browse_By_Actor_common_prod_id_out.Size=GlobalConstants.MAX_ROWS;
-          Browse_By_Actor_membership_item_out.Size = GlobalConstants.MAX_ROWS;
-          break;
-        case "title":
-          Browse_By_Title_prod_id_out.Size=GlobalConstants.MAX_ROWS;
-          Browse_By_Title_category_out.Size=GlobalConstants.MAX_ROWS;
-          Browse_By_Title_title_out.Size=GlobalConstants.MAX_ROWS;
-          Browse_By_Title_actor_out.Size=GlobalConstants.MAX_ROWS;
-          Browse_By_Title_price_out.Size=GlobalConstants.MAX_ROWS;
-          Browse_By_Title_special_out.Size=GlobalConstants.MAX_ROWS;
-          Browse_By_Title_common_prod_id_out.Size=GlobalConstants.MAX_ROWS;
-          Browse_By_Title_membership_item_out.Size = GlobalConstants.MAX_ROWS;
-          break;
-        }
 
       return(true);
       } // end ds2browse()

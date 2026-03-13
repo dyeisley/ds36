@@ -265,44 +265,33 @@ BEGIN
   END LOGIN$k;
 /
 
-CREATE OR REPLACE PROCEDURE \"DS3\".\"BROWSE_BY_CATEGORY$k\" 
+CREATE OR REPLACE PROCEDURE \"DS3\".\"BROWSE_BY_CATEGORY$k\"
   (
-  batch_size   IN INTEGER,
-  found        OUT INTEGER,
-  category_in  IN INTEGER,
-  prod_id_out  OUT DS3_TYPES.N_TYPE,
-  category_out OUT DS3_TYPES.N_TYPE,
-  title_out    OUT DS3_TYPES.ARRAY_TYPE,
-  actor_out    OUT DS3_TYPES.ARRAY_TYPE,
-  price_out    OUT DS3_TYPES.N_TYPE,
-  special_out  OUT DS3_TYPES.N_TYPE,
-  common_prod_id_out  OUT DS3_TYPES.N_TYPE,
-  membership_item_out OUT DS3_TYPES.N_TYPE
+  p_category_in  IN  INTEGER,
+  p_batch_size   IN  INTEGER
   )
-  AS
-  result_cv DS3_TYPES.DS3_CURSOR;
-  i INTEGER;
-  
-  BEGIN
-  
-    IF NOT result_cv%ISOPEN THEN
-      OPEN result_cv FOR
-      SELECT * FROM PRODUCTS$k WHERE CATEGORY = category_in AND SPECIAL = 1;
-    END IF;
-  
-    found := 0;
-    FOR i IN 1..batch_size LOOP
-      FETCH result_cv INTO prod_id_out(i), category_out(i), title_out(i), actor_out(i), price_out(i), special_out(i), common_prod_id_out(i), membership_item_out(i);
-      IF result_cv%NOTFOUND THEN 
-        CLOSE result_cv;
-        EXIT;
-      ELSE
-        found := found + 1;
-      END IF;
-    END LOOP;
-  END BROWSE_BY_CATEGORY$k;
-/  
+AS
+  v_cursor SYS_REFCURSOR;
+BEGIN
+  OPEN v_cursor FOR
+    SELECT
+        PROD_ID,
+        CATEGORY,
+        TITLE,
+        ACTOR,
+        PRICE,
+        SPECIAL,
+        COMMON_PROD_ID,
+        MEMBERSHIP_ITEM
+    FROM PRODUCTS$k
+    WHERE CATEGORY = p_category_in
+      AND SPECIAL = 1
+    ORDER BY TITLE
+    FETCH NEXT p_batch_size ROWS ONLY;
 
+  DBMS_SQL.RETURN_RESULT(v_cursor);
+END;
+/
 
 CREATE OR REPLACE PROCEDURE \"DS3\".\"BROWSE_BY_CAT_FOR_MEMBERTY$k\"
   (
@@ -603,46 +592,32 @@ CREATE OR REPLACE  PROCEDURE \"DS3\".\"GET_PROD_REVIEWS_BY_TITLE$k\"
   END GET_PROD_REVIEWS_BY_TITLE$k;
 /
 
-
-
-
-CREATE OR REPLACE  PROCEDURE \"DS3\".\"BROWSE_BY_ACTOR$k\"
+CREATE OR REPLACE PROCEDURE \"DS3\".\"BROWSE_BY_ACTOR$k\"
   (
-  batch_size   IN INTEGER,
-  found        OUT INTEGER,
-  actor_in     IN  VARCHAR2,
-  prod_id_out  OUT DS3_TYPES.N_TYPE,
-  category_out OUT DS3_TYPES.N_TYPE,
-  title_out    OUT DS3_TYPES.ARRAY_TYPE,
-  actor_out    OUT DS3_TYPES.ARRAY_TYPE,
-  price_out    OUT DS3_TYPES.N_TYPE,
-  special_out  OUT DS3_TYPES.N_TYPE,
-  common_prod_id_out  OUT DS3_TYPES.N_TYPE,
-  membership_item_out OUT DS3_TYPES.N_TYPE
+  p_actor_in   IN  VARCHAR2,
+  p_batch_size IN  INTEGER
   )
-  AS
-  result_cv DS3_TYPES.DS3_CURSOR;
-  i INTEGER;
-  
-  BEGIN
-    IF NOT result_cv%ISOPEN THEN
-      OPEN result_cv FOR
-      SELECT * FROM PRODUCTS$k WHERE CONTAINS(ACTOR, actor_in) > 0;
-    END IF;
-  
-    found := 0;
-    FOR i IN 1..batch_size LOOP
-      FETCH result_cv INTO prod_id_out(i), category_out(i), title_out(i), actor_out(i), price_out(i), special_out(i), common_prod_id_out(i), membership_item_out(i);
-      IF result_cv%NOTFOUND THEN 
-        CLOSE result_cv;
-        EXIT;
-      ELSE
-        found := found + 1;
-      END IF;
-    END LOOP;
-  END BROWSE_BY_ACTOR$k;
-/
+AS
+  v_cursor SYS_REFCURSOR;
+BEGIN
+  OPEN v_cursor FOR
+    SELECT
+        PROD_ID,
+        CATEGORY,
+        TITLE,
+        ACTOR,
+        PRICE,
+        SPECIAL,
+        COMMON_PROD_ID,
+        MEMBERSHIP_ITEM
+    FROM PRODUCTS$k
+    WHERE CONTAINS(ACTOR, p_actor_in) > 0
+    ORDER BY TITLE
+    FETCH NEXT p_batch_size ROWS ONLY;
 
+  DBMS_SQL.RETURN_RESULT(v_cursor);
+END;
+/
 
 CREATE OR REPLACE  PROCEDURE \"DS3\".\"BROWSE_BY_ACTOR_FOR_MEMBERTY$k\"
   (
@@ -682,46 +657,32 @@ CREATE OR REPLACE  PROCEDURE \"DS3\".\"BROWSE_BY_ACTOR_FOR_MEMBERTY$k\"
   END BROWSE_BY_ACTOR_FOR_MEMBERTY$k;
 /
 
-  
-  
-CREATE OR REPLACE  PROCEDURE \"DS3\".\"BROWSE_BY_TITLE$k\"
+CREATE OR REPLACE PROCEDURE \"DS3\".\"BROWSE_BY_TITLE$k\"
   (
-  batch_size   IN  INTEGER,
-  found        OUT INTEGER,
-  title_in     IN  VARCHAR2,
-  prod_id_out  OUT DS3_TYPES.N_TYPE,
-  category_out OUT DS3_TYPES.N_TYPE,
-  title_out    OUT DS3_TYPES.ARRAY_TYPE,
-  actor_out    OUT DS3_TYPES.ARRAY_TYPE,
-  price_out    OUT DS3_TYPES.N_TYPE,
-  special_out  OUT DS3_TYPES.N_TYPE,
-  common_prod_id_out  OUT DS3_TYPES.N_TYPE,
-  membership_item_out OUT DS3_TYPES.N_TYPE
+  p_title_in   IN  VARCHAR2,
+  p_batch_size IN  INTEGER
   )
-  AS
-  result_cv DS3_TYPES.DS3_CURSOR;
-  i INTEGER;
-  
-  BEGIN
-  
-    IF NOT result_cv%ISOPEN THEN
-      OPEN result_cv FOR
-      SELECT * FROM PRODUCTS$k WHERE CONTAINS(TITLE, title_in) > 0;
-    END IF;
-  
-    found := 0;
-    FOR i IN 1..batch_size LOOP
-      FETCH result_cv INTO prod_id_out(i), category_out(i), title_out(i), actor_out(i), price_out(i), special_out(i), common_prod_id_out(i), membership_item_out(i);
-      IF result_cv%NOTFOUND THEN 
-        CLOSE result_cv;
-        EXIT;
-      ELSE
-        found := found + 1;
-      END IF;
-    END LOOP;
-  END BROWSE_BY_TITLE$k;
+AS
+  v_cursor SYS_REFCURSOR;
+BEGIN
+  OPEN v_cursor FOR
+    SELECT
+        PROD_ID,
+        CATEGORY,
+        TITLE,
+        ACTOR,
+        PRICE,
+        SPECIAL,
+        COMMON_PROD_ID,
+        MEMBERSHIP_ITEM
+    FROM PRODUCTS$k
+    WHERE CONTAINS(TITLE, p_title_in) > 0
+    ORDER BY TITLE
+    FETCH NEXT p_batch_size ROWS ONLY;
+
+  DBMS_SQL.RETURN_RESULT(v_cursor);
+END;
 /
- 
 
 CREATE OR REPLACE  PROCEDURE \"DS3\".\"BROWSE_BY_TITLE_FOR_MEMBERTY$k\"
   (
