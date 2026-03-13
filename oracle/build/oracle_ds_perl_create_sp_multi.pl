@@ -416,112 +416,77 @@ BEGIN
 
   DBMS_SQL.RETURN_RESULT(v_cursor);
 
-END GET_PROD_REVIEWS_BY_DATE1;
+END GET_PROD_REVIEWS_BY_DATE$k;
 /
 
-CREATE OR REPLACE  PROCEDURE \"DS3\".\"GET_PROD_REVIEWS_BY_ACTOR$k\"
+CREATE OR REPLACE PROCEDURE \"DS3\".\"GET_PROD_REVIEWS_BY_ACTOR$k\"
   (
-   batch_size                  IN INTEGER,
-   search_depth				   IN INTEGER DEFAULT 10,
-   found                       OUT INTEGER,
-   actor_in                    IN  VARCHAR2,
-   title_out		       OUT DS3_TYPES.ARRAY_TYPE,
-   actor_out		       OUT DS3_TYPES.ARRAY_TYPE,
-   review_id_out               OUT DS3_TYPES.N_TYPE,
-   prod_id_out                 OUT DS3_TYPES.N_TYPE,
-   review_date_out             OUT DS3_TYPES.ARRAY_TYPE,
-   review_stars_out            OUT DS3_TYPES.N_TYPE,
-   review_customerid_out       OUT DS3_TYPES.N_TYPE,
-   review_summary_out          OUT DS3_TYPES.ARRAY_TYPE,
-   review_text_out             OUT DS3_TYPES.LONG_ARRAY_TYPE,
-   review_helpfulness_sum_out  OUT DS3_TYPES.N_TYPE
+   p_actor_in     IN  VARCHAR2,
+   p_batch_size   IN  INTEGER,
+   p_search_depth IN  INTEGER DEFAULT 10
   )
-  AS
-  result_cv DS3_TYPES.DS3_CURSOR;
-  i INTEGER;
+AS
+  v_cursor SYS_REFCURSOR;
+BEGIN
+  OPEN v_cursor FOR
+    WITH Search_Filtered AS (
+      SELECT
+          P.TITLE,
+          P.ACTOR,
+          R.REVIEW_ID,
+          R.PROD_ID,
+          R.REVIEW_DATE,
+          R.STARS,
+          R.CUSTOMERID,
+          R.REVIEW_SUMMARY,
+          R.REVIEW_TEXT,
+          NVL(R.TOTAL_HELPFULNESS, 0) AS HELPFULNESS_TOTAL
+      FROM PRODUCTS$k P
+      INNER JOIN REVIEWS$k R ON P.PROD_ID = R.PROD_ID
+      WHERE CONTAINS(P.ACTOR, p_actor_in) > 0
+      FETCH NEXT p_search_depth ROWS ONLY -- Respect search_depth
+    )
+    SELECT * FROM Search_Filtered
+    ORDER BY HELPFULNESS_TOTAL DESC
+    FETCH NEXT p_batch_size ROWS ONLY; -- Respect batch_size
 
-  BEGIN
-
-    IF NOT result_cv%ISOPEN THEN
-      OPEN result_cv FOR
-	WITH T1 AS 
-          (SELECT PRODUCTS$k.TITLE, PRODUCTS$k.ACTOR, PRODUCTS$k.PROD_ID, REVIEWS$k.REVIEW_DATE, REVIEWS$k.STARS, REVIEWS$k.REVIEW_ID,
-           REVIEWS$k.CUSTOMERID, REVIEWS$k.REVIEW_SUMMARY, REVIEWS$k.REVIEW_TEXT 
-           FROM PRODUCTS$k INNER JOIN REVIEWS$k on PRODUCTS$k.PROD_ID = REVIEWS$k.PROD_ID where CONTAINS (ACTOR, actor_in) > 0 AND ROWNUM<= search_depth )
-         select T1.title, T1.actor, T1.REVIEW_ID, T1.prod_id, T1.review_date, T1.stars, 
-                T1.customerid, T1.review_summary, T1.review_text, SUM(helpfulness) AS totalhelp from REVIEWS_HELPFULNESS$k 
-         inner join T1 on REVIEWS_HELPFULNESS$k.REVIEW_ID = T1.review_id
-	 GROUP BY T1.REVIEW_ID, T1.prod_id, t1.title, t1.actor, t1.review_date, t1.stars, t1.customerid, t1.review_summary, t1.review_text
-	 ORDER BY totalhelp DESC;       
-    END IF;
-
-    found := 0;
-    FOR i IN 1..batch_size LOOP
-      FETCH result_cv INTO title_out(i), actor_out(i),review_id_out(i), prod_id_out(i), review_date_out(i), review_stars_out(i), review_customerid_out(i), review_summary_out(i), review_text_out(i), review_helpfulness_sum_out(i);
-      IF result_cv%NOTFOUND THEN
-        CLOSE result_cv;
-        EXIT;
-      ELSE
-	    IF review_helpfulness_sum_out(i) IS NULL THEN
-          review_helpfulness_sum_out(i) := 0;
-        END IF;
-        found := found + 1;
-      END IF;
-    END LOOP;
-  END GET_PROD_REVIEWS_BY_ACTOR$k;
+  DBMS_SQL.RETURN_RESULT(v_cursor);
+END GET_PROD_REVIEWS_BY_ACTOR$k;
 /
 
-
-CREATE OR REPLACE  PROCEDURE \"DS3\".\"GET_PROD_REVIEWS_BY_TITLE$k\"
+CREATE OR REPLACE PROCEDURE \"DS3\".\"GET_PROD_REVIEWS_BY_TITLE$k\"
   (
-   batch_size                  IN INTEGER,
-   search_depth				   IN INTEGER DEFAULT 10,
-   found                       OUT INTEGER,
-   title_in                    IN  VARCHAR2,
-   title_out                   OUT DS3_TYPES.ARRAY_TYPE,
-   actor_out                   OUT DS3_TYPES.ARRAY_TYPE,
-   review_id_out               OUT DS3_TYPES.N_TYPE,
-   prod_id_out                 OUT DS3_TYPES.N_TYPE,
-   review_date_out             OUT DS3_TYPES.ARRAY_TYPE,
-   review_stars_out            OUT DS3_TYPES.N_TYPE,
-   review_customerid_out       OUT DS3_TYPES.N_TYPE,
-   review_summary_out          OUT DS3_TYPES.ARRAY_TYPE,
-   review_text_out             OUT DS3_TYPES.LONG_ARRAY_TYPE,
-   review_helpfulness_sum_out  OUT DS3_TYPES.N_TYPE
+   p_title_in     IN  VARCHAR2,
+   p_batch_size   IN  INTEGER,
+   p_search_depth IN  INTEGER DEFAULT 10
   )
-  AS
-  result_cv DS3_TYPES.DS3_CURSOR;
-  i INTEGER;
+AS
+  v_cursor SYS_REFCURSOR;
+BEGIN
+  OPEN v_cursor FOR
+    WITH Title_Search AS (
+      SELECT
+          P.TITLE,
+          P.ACTOR,
+          R.REVIEW_ID,
+          R.PROD_ID,
+          R.REVIEW_DATE,
+          R.STARS,
+          R.CUSTOMERID,
+          R.REVIEW_SUMMARY,
+          R.REVIEW_TEXT,
+          NVL(R.TOTAL_HELPFULNESS, 0) AS HELPFULNESS_TOTAL
+      FROM PRODUCTS1 P
+      INNER JOIN REVIEWS$k R ON P.PROD_ID = R.PROD_ID
+      WHERE CONTAINS(P.TITLE, p_title_in) > 0
+      FETCH NEXT p_search_depth ROWS ONLY
+    )
+    SELECT * FROM Title_Search
+    ORDER BY HELPFULNESS_TOTAL DESC
+    FETCH NEXT p_batch_size ROWS ONLY;
 
-  BEGIN
-
-    IF NOT result_cv%ISOPEN THEN
-      OPEN result_cv FOR
-	WITH T1 AS
-          (SELECT PRODUCTS$k.TITLE, PRODUCTS$k.ACTOR, PRODUCTS$k.PROD_ID, REVIEWS$k.REVIEW_DATE, REVIEWS$k.STARS, REVIEWS$k.REVIEW_ID,
-           REVIEWS$k.CUSTOMERID, REVIEWS$k.REVIEW_SUMMARY, REVIEWS$k.REVIEW_TEXT
-           FROM PRODUCTS$k INNER JOIN REVIEWS$k on PRODUCTS$k.PROD_ID = REVIEWS$k.PROD_ID where CONTAINS (TITLE, title_in) > 0 AND ROWNUM<= search_depth )
-         select T1.title, T1.actor, T1.REVIEW_ID, T1.prod_id, T1.review_date, T1.stars,
-                T1.customerid, T1.review_summary, T1.review_text, SUM(helpfulness) AS totalhelp from REVIEWS_HELPFULNESS$k
-         inner join T1 on REVIEWS_HELPFULNESS$k.REVIEW_ID = T1.review_id
-         GROUP BY T1.REVIEW_ID, T1.prod_id, t1.title, t1.actor, t1.review_date, t1.stars, t1.customerid, t1.review_summary, t1.review_text
-         ORDER BY totalhelp DESC;
-    END IF;
-
-    found := 0;
-    FOR i IN 1..batch_size LOOP
-      FETCH result_cv INTO title_out(i), actor_out(i),review_id_out(i), prod_id_out(i), review_date_out(i), review_stars_out(i), review_customerid_out(i), review_summary_out(i), review_text_out(i), review_helpfulness_sum_out(i);
-      IF result_cv%NOTFOUND THEN
-        CLOSE result_cv;
-        EXIT;
-      ELSE
-	    IF review_helpfulness_sum_out(i) IS NULL THEN
-          review_helpfulness_sum_out(i) := 0;
-        END IF;
-        found := found + 1;
-      END IF;
-    END LOOP;
-  END GET_PROD_REVIEWS_BY_TITLE$k;
+  DBMS_SQL.RETURN_RESULT(v_cursor);
+END GET_PROD_REVIEWS_BY_TITLE$k;
 /
 
 CREATE OR REPLACE PROCEDURE \"DS3\".\"BROWSE_BY_ACTOR$k\"
@@ -681,7 +646,6 @@ CREATE OR REPLACE  PROCEDURE \"DS3\".\"PURCHASE$k\"
     SELECT ORDERID_SEQ$k.NEXTVAL INTO neworderid_out FROM DUAL;
 
     date_in := SYSDATE;
---  date_in := TO_DATE('2005/1/1', 'YYYY/MM/DD');
 
     COMMIT;
 

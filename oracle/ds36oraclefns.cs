@@ -52,7 +52,7 @@ namespace ds2xdriver
     extern static short QueryPerformanceFrequency(ref long x);
 #endif
 
-    int ds2Interfaceid, i;
+    int ds2Interfaceid;
     OracleConnection objConn;
     OracleCommand Login, New_Customer, Browse_By_Category, Browse_By_Actor, Browse_By_Title, Purchase;
     OracleCommand Get_Prod_Reviews, Get_Prod_Reviews_By_Actor, Get_Prod_Reviews_By_Title, Get_Prod_Reviews_By_Date, Get_Prod_Reviews_By_Stars;
@@ -72,7 +72,7 @@ namespace ds2xdriver
     OracleParameter[] New_Review_Helpfulness_prm = new OracleParameter[4];
 
     OracleParameter Purchase_prod_id_in, Purchase_qty_in;
-
+/*
     OracleParameter Get_Prod_Reviews_By_Title_title_out, Get_Prod_Reviews_By_Title_actor_out,
         Get_Prod_Reviews_By_Title_review_id_out, Get_Prod_Reviews_By_Title_prod_id_out,
         Get_Prod_Reviews_By_Title_review_date_out, Get_Prod_Reviews_By_Title_review_stars_out,
@@ -83,7 +83,7 @@ namespace ds2xdriver
         Get_Prod_Reviews_By_Actor_review_date_out, Get_Prod_Reviews_By_Actor_review_stars_out,
         Get_Prod_Reviews_By_Actor_review_customerid_out, Get_Prod_Reviews_By_Actor_review_summary_out,
         Get_Prod_Reviews_By_Actor_review_text_out, Get_Prod_Reviews_By_Actor_review_helpfulness_sum_out;
-
+*/
     OracleString[] o_title_out = new OracleString[GlobalConstants.MAX_ROWS];
     OracleString[] o_actor_out = new OracleString[GlobalConstants.MAX_ROWS];
     OracleString[] o_related_title_out = new OracleString[GlobalConstants.MAX_ROWS];
@@ -205,144 +205,18 @@ namespace ds2xdriver
       Get_Prod_Reviews_By_Stars.Parameters.Add("p_batch_size", OracleDbType.Int32, ParameterDirection.Input);
 
       //Get_Prod_Reviews_By_Title
-      Get_Prod_Reviews_By_Title = new OracleCommand("", objConn);
-      Get_Prod_Reviews_By_Title.CommandText = "Get_Prod_Reviews_By_Title" + target_store_number;
+      Get_Prod_Reviews_By_Title = new OracleCommand("Get_Prod_Reviews_By_Title" + target_store_number, objConn);
       Get_Prod_Reviews_By_Title.CommandType = CommandType.StoredProcedure;
-
-      Get_Prod_Reviews_By_Title_prm[0] = Get_Prod_Reviews_By_Title.Parameters.Add("batch_size", OracleDbType.Int32, ParameterDirection.Input);
-      Get_Prod_Reviews_By_Title_prm[1] = Get_Prod_Reviews_By_Title.Parameters.Add("search_depth", OracleDbType.Int32, ParameterDirection.Input);
-      Get_Prod_Reviews_By_Title_prm[2] = Get_Prod_Reviews_By_Title.Parameters.Add("found", OracleDbType.Int32, ParameterDirection.Output);
-      Get_Prod_Reviews_By_Title_prm[3] = Get_Prod_Reviews_By_Title.Parameters.Add("title_in", OracleDbType.Varchar2, ParameterDirection.Input);
-
-      Get_Prod_Reviews_By_Title_title_out = Get_Prod_Reviews_By_Title.Parameters.Add("title_out", OracleDbType.Varchar2, ParameterDirection.Output);
-      Get_Prod_Reviews_By_Title_title_out.CollectionType = OracleCollectionType.PLSQLAssociativeArray;
-      Get_Prod_Reviews_By_Title_title_out.Value = string.Empty;
-      Get_Prod_Reviews_By_Title_title_out.Size = GlobalConstants.MAX_ROWS;
-      Get_Prod_Reviews_By_Title_title_out.ArrayBindSize = new int[GlobalConstants.MAX_ROWS];
-      for (i = 0; i < GlobalConstants.MAX_ROWS; i++) Get_Prod_Reviews_By_Title_title_out.ArrayBindSize[i] = 50;
-
-      Get_Prod_Reviews_By_Title_actor_out = Get_Prod_Reviews_By_Title.Parameters.Add("actor_out", OracleDbType.Varchar2, ParameterDirection.Output);
-      Get_Prod_Reviews_By_Title_actor_out.CollectionType = OracleCollectionType.PLSQLAssociativeArray;
-      Get_Prod_Reviews_By_Title_actor_out.Value = null;
-      Get_Prod_Reviews_By_Title_actor_out.Size = GlobalConstants.MAX_ROWS;
-      Get_Prod_Reviews_By_Title_actor_out.ArrayBindSize = new int[GlobalConstants.MAX_ROWS];
-      for (i = 0; i < GlobalConstants.MAX_ROWS; i++) Get_Prod_Reviews_By_Title_actor_out.ArrayBindSize[i] = 50;
-
-      Get_Prod_Reviews_By_Title_review_id_out = Get_Prod_Reviews_By_Title.Parameters.Add("review_id_out", OracleDbType.Int32, ParameterDirection.Output);
-      Get_Prod_Reviews_By_Title_review_id_out.CollectionType = OracleCollectionType.PLSQLAssociativeArray;
-      Get_Prod_Reviews_By_Title_review_id_out.Value = 0;
-      Get_Prod_Reviews_By_Title_review_id_out.Size = GlobalConstants.MAX_ROWS;
-
-      Get_Prod_Reviews_By_Title_prod_id_out = Get_Prod_Reviews_By_Title.Parameters.Add("prod_id_out", OracleDbType.Int32, ParameterDirection.Output);
-      Get_Prod_Reviews_By_Title_prod_id_out.CollectionType = OracleCollectionType.PLSQLAssociativeArray;
-      Get_Prod_Reviews_By_Title_prod_id_out.Value = 0;
-      Get_Prod_Reviews_By_Title_prod_id_out.Size = GlobalConstants.MAX_ROWS;
-
-      Get_Prod_Reviews_By_Title_review_date_out = Get_Prod_Reviews_By_Title.Parameters.Add("review_date_out", OracleDbType.Varchar2, ParameterDirection.Output);
-      Get_Prod_Reviews_By_Title_review_date_out.CollectionType = OracleCollectionType.PLSQLAssociativeArray;
-      Get_Prod_Reviews_By_Title_review_date_out.Value = null;
-      Get_Prod_Reviews_By_Title_review_date_out.Size = GlobalConstants.MAX_ROWS;
-      Get_Prod_Reviews_By_Title_review_date_out.ArrayBindSize = new int[GlobalConstants.MAX_ROWS];
-      for (i = 0; i < GlobalConstants.MAX_ROWS; i++) Get_Prod_Reviews_By_Title_review_date_out.ArrayBindSize[i] = 50;
-
-      Get_Prod_Reviews_By_Title_review_stars_out = Get_Prod_Reviews_By_Title.Parameters.Add("review_stars_out", OracleDbType.Int32, ParameterDirection.Output);
-      Get_Prod_Reviews_By_Title_review_stars_out.CollectionType = OracleCollectionType.PLSQLAssociativeArray;
-      Get_Prod_Reviews_By_Title_review_stars_out.Value = 0;
-      Get_Prod_Reviews_By_Title_review_stars_out.Size = GlobalConstants.MAX_ROWS;
-
-      Get_Prod_Reviews_By_Title_review_customerid_out = Get_Prod_Reviews_By_Title.Parameters.Add("review_customerid_out", OracleDbType.Int32, ParameterDirection.Output);
-      Get_Prod_Reviews_By_Title_review_customerid_out.CollectionType = OracleCollectionType.PLSQLAssociativeArray;
-      Get_Prod_Reviews_By_Title_review_customerid_out.Value = null;
-      Get_Prod_Reviews_By_Title_review_customerid_out.Size = GlobalConstants.MAX_ROWS;
-
-      Get_Prod_Reviews_By_Title_review_summary_out = Get_Prod_Reviews_By_Title.Parameters.Add("review_summary_out", OracleDbType.Varchar2, ParameterDirection.Output);
-      Get_Prod_Reviews_By_Title_review_summary_out.CollectionType = OracleCollectionType.PLSQLAssociativeArray;
-      Get_Prod_Reviews_By_Title_review_summary_out.Value = null;
-      Get_Prod_Reviews_By_Title_review_summary_out.Size = GlobalConstants.MAX_ROWS;
-      Get_Prod_Reviews_By_Title_review_summary_out.ArrayBindSize = new int[GlobalConstants.MAX_ROWS];
-      for (i = 0; i < GlobalConstants.MAX_ROWS; i++) Get_Prod_Reviews_By_Title_review_summary_out.ArrayBindSize[i] = 50;
-
-      Get_Prod_Reviews_By_Title_review_text_out = Get_Prod_Reviews_By_Title.Parameters.Add("review_text_out", OracleDbType.Varchar2, ParameterDirection.Output);
-      Get_Prod_Reviews_By_Title_review_text_out.CollectionType = OracleCollectionType.PLSQLAssociativeArray;
-      Get_Prod_Reviews_By_Title_review_text_out.Value = null;
-      Get_Prod_Reviews_By_Title_review_text_out.Size = GlobalConstants.MAX_ROWS;
-      Get_Prod_Reviews_By_Title_review_text_out.ArrayBindSize = new int[GlobalConstants.MAX_ROWS];
-      for (i = 0; i < GlobalConstants.MAX_ROWS; i++) Get_Prod_Reviews_By_Title_review_text_out.ArrayBindSize[i] = 1000;
-
-      Get_Prod_Reviews_By_Title_review_helpfulness_sum_out = Get_Prod_Reviews_By_Title.Parameters.Add("review_helpfulness_sum_out", OracleDbType.Int32, ParameterDirection.Output);
-      Get_Prod_Reviews_By_Title_review_helpfulness_sum_out.CollectionType = OracleCollectionType.PLSQLAssociativeArray;
-      Get_Prod_Reviews_By_Title_review_helpfulness_sum_out.Value = null;
-      Get_Prod_Reviews_By_Title_review_helpfulness_sum_out.Size = GlobalConstants.MAX_ROWS;
+      Get_Prod_Reviews_By_Title.Parameters.Add("p_title_in", OracleDbType.Varchar2, ParameterDirection.Input);
+      Get_Prod_Reviews_By_Title.Parameters.Add("p_batch_size", OracleDbType.Int32, ParameterDirection.Input);
+      Get_Prod_Reviews_By_Title.Parameters.Add("p_search_depth", OracleDbType.Int32, ParameterDirection.Input);
 
       //Get_Prod_Reviews_By_Actor
-      Get_Prod_Reviews_By_Actor = new OracleCommand("", objConn);
-      Get_Prod_Reviews_By_Actor.CommandText = "Get_Prod_Reviews_By_Actor" + target_store_number;
+      Get_Prod_Reviews_By_Actor = new OracleCommand("Get_Prod_Reviews_By_Actor" + target_store_number, objConn);
       Get_Prod_Reviews_By_Actor.CommandType = CommandType.StoredProcedure;
-
-      Get_Prod_Reviews_By_Actor_prm[0] = Get_Prod_Reviews_By_Actor.Parameters.Add("batch_size", OracleDbType.Int32, ParameterDirection.Input);
-      Get_Prod_Reviews_By_Actor_prm[1] = Get_Prod_Reviews_By_Actor.Parameters.Add("search_depth", OracleDbType.Int32, ParameterDirection.Input);
-      Get_Prod_Reviews_By_Actor_prm[2] = Get_Prod_Reviews_By_Actor.Parameters.Add("found", OracleDbType.Int32, ParameterDirection.Output);
-      Get_Prod_Reviews_By_Actor_prm[3] = Get_Prod_Reviews_By_Actor.Parameters.Add("actor_in", OracleDbType.Varchar2, ParameterDirection.Input);
-
-      Get_Prod_Reviews_By_Actor_title_out = Get_Prod_Reviews_By_Actor.Parameters.Add("title_out", OracleDbType.Varchar2, ParameterDirection.Output);
-      Get_Prod_Reviews_By_Actor_title_out.CollectionType = OracleCollectionType.PLSQLAssociativeArray;
-      Get_Prod_Reviews_By_Actor_title_out.Value = string.Empty;
-      Get_Prod_Reviews_By_Actor_title_out.Size = GlobalConstants.MAX_ROWS;
-      Get_Prod_Reviews_By_Actor_title_out.ArrayBindSize = new int[GlobalConstants.MAX_ROWS];
-      for (i = 0; i < GlobalConstants.MAX_ROWS; i++) Get_Prod_Reviews_By_Actor_title_out.ArrayBindSize[i] = 50;
-
-      Get_Prod_Reviews_By_Actor_actor_out = Get_Prod_Reviews_By_Actor.Parameters.Add("actor_out", OracleDbType.Varchar2, ParameterDirection.Output);
-      Get_Prod_Reviews_By_Actor_actor_out.CollectionType = OracleCollectionType.PLSQLAssociativeArray;
-      Get_Prod_Reviews_By_Actor_actor_out.Value = null;
-      Get_Prod_Reviews_By_Actor_actor_out.Size = GlobalConstants.MAX_ROWS;
-      Get_Prod_Reviews_By_Actor_actor_out.ArrayBindSize = new int[GlobalConstants.MAX_ROWS];
-      for (i = 0; i < GlobalConstants.MAX_ROWS; i++) Get_Prod_Reviews_By_Actor_actor_out.ArrayBindSize[i] = 50;
-
-      Get_Prod_Reviews_By_Actor_review_id_out = Get_Prod_Reviews_By_Actor.Parameters.Add("review_id_out", OracleDbType.Int32, ParameterDirection.Output);
-      Get_Prod_Reviews_By_Actor_review_id_out.CollectionType = OracleCollectionType.PLSQLAssociativeArray;
-      Get_Prod_Reviews_By_Actor_review_id_out.Value = null;
-      Get_Prod_Reviews_By_Actor_review_id_out.Size = GlobalConstants.MAX_ROWS;
-
-      Get_Prod_Reviews_By_Actor_prod_id_out = Get_Prod_Reviews_By_Actor.Parameters.Add("prod_id_out", OracleDbType.Int32, ParameterDirection.Output);
-      Get_Prod_Reviews_By_Actor_prod_id_out.CollectionType = OracleCollectionType.PLSQLAssociativeArray;
-      Get_Prod_Reviews_By_Actor_prod_id_out.Value = null;
-      Get_Prod_Reviews_By_Actor_prod_id_out.Size = GlobalConstants.MAX_ROWS;
-
-      Get_Prod_Reviews_By_Actor_review_date_out = Get_Prod_Reviews_By_Actor.Parameters.Add("review_date_out", OracleDbType.Varchar2, ParameterDirection.Output);
-      Get_Prod_Reviews_By_Actor_review_date_out.CollectionType = OracleCollectionType.PLSQLAssociativeArray;
-      Get_Prod_Reviews_By_Actor_review_date_out.Value = null;
-      Get_Prod_Reviews_By_Actor_review_date_out.Size = GlobalConstants.MAX_ROWS;
-      Get_Prod_Reviews_By_Actor_review_date_out.ArrayBindSize = new int[GlobalConstants.MAX_ROWS];
-      for (i = 0; i < GlobalConstants.MAX_ROWS; i++) Get_Prod_Reviews_By_Actor_review_date_out.ArrayBindSize[i] = 50;
-
-      Get_Prod_Reviews_By_Actor_review_stars_out = Get_Prod_Reviews_By_Actor.Parameters.Add("review_stars_out", OracleDbType.Int32, ParameterDirection.Output);
-      Get_Prod_Reviews_By_Actor_review_stars_out.CollectionType = OracleCollectionType.PLSQLAssociativeArray;
-      Get_Prod_Reviews_By_Actor_review_stars_out.Value = null;
-      Get_Prod_Reviews_By_Actor_review_stars_out.Size = GlobalConstants.MAX_ROWS;
-
-      Get_Prod_Reviews_By_Actor_review_customerid_out = Get_Prod_Reviews_By_Actor.Parameters.Add("review_customerid_out", OracleDbType.Int32, ParameterDirection.Output);
-      Get_Prod_Reviews_By_Actor_review_customerid_out.CollectionType = OracleCollectionType.PLSQLAssociativeArray;
-      Get_Prod_Reviews_By_Actor_review_customerid_out.Value = null;
-      Get_Prod_Reviews_By_Actor_review_customerid_out.Size = GlobalConstants.MAX_ROWS;
-
-      Get_Prod_Reviews_By_Actor_review_summary_out = Get_Prod_Reviews_By_Actor.Parameters.Add("review_summary_out", OracleDbType.Varchar2, ParameterDirection.Output);
-      Get_Prod_Reviews_By_Actor_review_summary_out.CollectionType = OracleCollectionType.PLSQLAssociativeArray;
-      Get_Prod_Reviews_By_Actor_review_summary_out.Value = null;
-      Get_Prod_Reviews_By_Actor_review_summary_out.Size = GlobalConstants.MAX_ROWS;
-      Get_Prod_Reviews_By_Actor_review_summary_out.ArrayBindSize = new int[GlobalConstants.MAX_ROWS];
-      for (i = 0; i < GlobalConstants.MAX_ROWS; i++) Get_Prod_Reviews_By_Actor_review_summary_out.ArrayBindSize[i] = 50;
-
-      Get_Prod_Reviews_By_Actor_review_text_out = Get_Prod_Reviews_By_Actor.Parameters.Add("review_text_out", OracleDbType.Varchar2, ParameterDirection.Output);
-      Get_Prod_Reviews_By_Actor_review_text_out.CollectionType = OracleCollectionType.PLSQLAssociativeArray;
-      Get_Prod_Reviews_By_Actor_review_text_out.Value = null;
-      Get_Prod_Reviews_By_Actor_review_text_out.Size = GlobalConstants.MAX_ROWS;
-      Get_Prod_Reviews_By_Actor_review_text_out.ArrayBindSize = new int[GlobalConstants.MAX_ROWS];
-      for (i = 0; i < GlobalConstants.MAX_ROWS; i++) Get_Prod_Reviews_By_Actor_review_text_out.ArrayBindSize[i] = 1000;
-
-      Get_Prod_Reviews_By_Actor_review_helpfulness_sum_out = Get_Prod_Reviews_By_Actor.Parameters.Add("review_helpfulness_sum_out", OracleDbType.Int32, ParameterDirection.Output);
-      Get_Prod_Reviews_By_Actor_review_helpfulness_sum_out.CollectionType = OracleCollectionType.PLSQLAssociativeArray;
-      Get_Prod_Reviews_By_Actor_review_helpfulness_sum_out.Value = 0;
-      Get_Prod_Reviews_By_Actor_review_helpfulness_sum_out.Size = GlobalConstants.MAX_ROWS;
+      Get_Prod_Reviews_By_Actor.Parameters.Add("p_actor_in", OracleDbType.Varchar2, ParameterDirection.Input);
+      Get_Prod_Reviews_By_Actor.Parameters.Add("p_batch_size", OracleDbType.Int32, ParameterDirection.Input);
+      Get_Prod_Reviews_By_Actor.Parameters.Add("p_search_depth", OracleDbType.Int32, ParameterDirection.Input);
 
        //New Prod Reviews
       New_Prod_Review = new OracleCommand("", objConn);
@@ -745,9 +619,7 @@ namespace ds2xdriver
         string data_in = string.Empty;
         int[] category_out = new int[GlobalConstants.MAX_ROWS];
 
-        OracleCommand cmd;
-        OracleParameter[] prms;
-        OracleParameter prmReviewId, prmProdId, prmStars, prmCustId, prmHelpSum, prmDate, prmSumm, prmText, prmActor, prmTitle;
+        OracleDataReader Rdr;
 
 #if (USE_WIN32_TIMER)
       long ctr0 = 0, ctr = 0, freq = 0;
@@ -759,47 +631,20 @@ namespace ds2xdriver
         {
             default:
             case "actor":
-                Get_Prod_Reviews_By_Actor_prm[0].Value = batch_size_in;
-                Get_Prod_Reviews_By_Actor_prm[1].Value = search_depth_in;
-                Get_Prod_Reviews_By_Actor_prm[3].Value = get_review_actor_in;
+                Get_Prod_Reviews_By_Actor.Parameters["p_actor_in"].Value = get_review_actor_in;
+                Get_Prod_Reviews_By_Actor.Parameters["p_batch_size"].Value = batch_size_in;
+                Get_Prod_Reviews_By_Actor.Parameters["p_search_depth"].Value = search_depth_in;
                 data_in = get_review_actor_in;
-
-                cmd = Get_Prod_Reviews_By_Actor;
-                prms = Get_Prod_Reviews_By_Actor_prm;
-                prmReviewId = Get_Prod_Reviews_By_Actor_review_id_out;
-                prmProdId = Get_Prod_Reviews_By_Actor_prod_id_out;
-                prmStars = Get_Prod_Reviews_By_Actor_review_stars_out;
-                prmCustId = Get_Prod_Reviews_By_Actor_review_customerid_out;
-                prmHelpSum = Get_Prod_Reviews_By_Actor_review_helpfulness_sum_out;
-                prmTitle = Get_Prod_Reviews_By_Actor_title_out;
-                prmActor = Get_Prod_Reviews_By_Actor_actor_out;
-                prmDate = Get_Prod_Reviews_By_Actor_review_date_out;
-                prmSumm = Get_Prod_Reviews_By_Actor_review_summary_out;
-                prmText = Get_Prod_Reviews_By_Actor_review_text_out;
                 break;
             case "title":
-                Get_Prod_Reviews_By_Title_prm[0].Value = batch_size_in;
-                Get_Prod_Reviews_By_Title_prm[1].Value = search_depth_in;
-                Get_Prod_Reviews_By_Title_prm[3].Value = get_review_title_in;
+                Get_Prod_Reviews_By_Title.Parameters["p_title_in"].Value = get_review_title_in;
+                Get_Prod_Reviews_By_Title.Parameters["p_batch_size"].Value = batch_size_in;
+                Get_Prod_Reviews_By_Title.Parameters["p_search_depth"].Value = search_depth_in;
                 data_in = get_review_title_in;
-
-                cmd = Get_Prod_Reviews_By_Title;
-                prms = Get_Prod_Reviews_By_Title_prm;
-                prmReviewId = Get_Prod_Reviews_By_Title_review_id_out;
-                prmProdId = Get_Prod_Reviews_By_Title_prod_id_out;
-                prmStars = Get_Prod_Reviews_By_Title_review_stars_out;
-                prmCustId = Get_Prod_Reviews_By_Title_review_customerid_out;
-                prmHelpSum = Get_Prod_Reviews_By_Title_review_helpfulness_sum_out;
-                prmTitle = Get_Prod_Reviews_By_Title_title_out;
-                prmActor = Get_Prod_Reviews_By_Title_actor_out;
-                prmDate = Get_Prod_Reviews_By_Title_review_date_out;
-                prmSumm = Get_Prod_Reviews_By_Title_review_summary_out;
-                prmText = Get_Prod_Reviews_By_Title_review_text_out;
                 break;
         }
 
-        //    Console.WriteLine("Thread {0}: Calling Browse w/ browse_type= {1}  batch_size_in= {2}  data_in= {3}",
-        //      Thread.CurrentThread.Name, browse_type_in, batch_size_in, data_in);
+        //Console.WriteLine("Thread {0}: Calling Browse w/ browse_review_type_in= {1}  batch_size_in= {2}  data_in= {3}",Thread.CurrentThread.Name, browse_review_type_in, batch_size_in, data_in);
 
 #if (USE_WIN32_TIMER)
       QueryPerformanceFrequency(ref freq); // obtain system freq (ticks/sec)
@@ -810,22 +655,35 @@ namespace ds2xdriver
 
         try
         {
-           cmd.ExecuteNonQuery();
-           rows_returned = Convert.ToInt32(prms[2].Value.ToString());
+            switch (browse_review_type_in)
+            {
+               case "actor":
+                  Rdr = Get_Prod_Reviews_By_Actor.ExecuteReader();
+                  break;
+               case "title":
+               default:
+                  Rdr = Get_Prod_Reviews_By_Title.ExecuteReader();
+                  break;
+            }
 
-           for (i = 0; i < rows_returned; i++)
-           {
-               o_review_id_out[i] = Convert.ToInt32(((prmReviewId.Value as Array)?.GetValue(i))?.ToString());
-               o_prod_id_out[i] = Convert.ToInt32(((prmProdId.Value as Array)?.GetValue(i))?.ToString());
-               o_review_stars_out[i] = Convert.ToInt32(((prmStars.Value as Array)?.GetValue(i))?.ToString());
-               o_review_customerid_out[i] = Convert.ToInt32(((prmCustId.Value as Array)?.GetValue(i))?.ToString());
-               o_review_helpfulness_sum_out[i] = Convert.ToInt32(((prmHelpSum.Value as Array)?.GetValue(i))?.ToString());
-           }
-           o_title_out = (OracleString[])prmTitle.Value;
-           o_actor_out = (OracleString[])prmActor.Value;
-           o_review_date_out = (OracleString[])prmDate.Value;
-           o_review_summary_out = (OracleString[])prmSumm.Value;
-           o_review_text_out = (OracleString[])prmText.Value;
+            int i_row = 0;
+            while (Rdr.Read())
+            {
+                title_out[i_row] = Rdr.GetString(0);
+                actor_out[i_row] = Rdr.GetString(1);
+                review_id_out[i_row] = Rdr.GetInt32(2);
+                prod_id_out[i_row] = Rdr.GetInt32(3);
+                review_date_out[i_row] = Rdr.GetDateTime(4).ToString();
+                review_stars_out[i_row] = Rdr.GetInt32(5);
+                review_customerid_out[i_row] = Rdr.GetInt32(6);
+                review_summary_out[i_row] = Rdr.GetString(7);
+                review_text_out[i_row] = Rdr.GetString(8);
+                review_helpfulness_sum_out[i_row] = Rdr.GetInt32(9);
+                //Console.WriteLine("\tprod_id_out: {0} title_out: {1} actor_out: {2} review_id_out: {3} review_date_out: {4} review_stars_out: {5} review_customerid_out: {6} review_summary_out: {7}\n\treview_text_out: {8} review_helpfulness_sum_out: {9}\n", prod_id_out[i_row], title_out[i_row], actor_out[i_row], review_id_out[i_row], review_date_out[i_row], review_stars_out[i_row], review_customerid_out[i_row], review_summary_out[i_row], review_text_out[i_row], review_helpfulness_sum_out[i_row] );
+                ++i_row;
+            } // end while rdr.read()
+            Rdr.Close();
+            rows_returned = i_row;
         }
         catch (OracleException e)
         {
@@ -848,49 +706,6 @@ namespace ds2xdriver
 
         //    Console.WriteLine("Thread {0}: Browse successful: type= {1}  rows_returned={2}",
         //       Thread.CurrentThread.Name, browse_type_in, rows_returned);
-        for (int i_row = 0; i_row < rows_returned; i_row++)
-        {
-            prod_id_out[i_row] = o_prod_id_out[i_row];
-            title_out[i_row] = o_title_out[i_row].ToString();
-            actor_out[i_row] = o_actor_out[i_row].ToString();
-            review_id_out[i_row] = o_review_id_out[i_row];
-            review_date_out[i_row] = o_review_date_out[i_row].ToString();
-            review_stars_out[i_row] = o_review_stars_out[i_row];
-            review_customerid_out[i_row] = o_review_customerid_out[i_row];
-            review_summary_out[i_row] = o_review_summary_out[i_row].ToString();
-            review_text_out[i_row] = o_review_text_out[i_row].ToString();
-            review_helpfulness_sum_out[i_row] = o_review_helpfulness_sum_out[i_row];
-
-            // Console.WriteLine("\tprod_id_out: {0} title_out: {1} actor_out: {2} review_id_out: {3} review_date_out: {4} review_stars_out: {5} review_customerid_out: {6} review_summary_out: {7}\n\treview_text_out: {8} review_helpfulness_sum_out: {9}\n", prod_id_out[i_row], title_out[i_row], actor_out[i_row], review_id_out[i_row], review_date_out[i_row], review_stars_out[i_row], review_customerid_out[i_row], review_summary_out[i_row], review_text_out[i_row], review_helpfulness_sum_out[i_row] );
-        }
-
-        switch (browse_review_type_in)
-        {
-            case "actor":
-                Get_Prod_Reviews_By_Actor_review_id_out.Size = GlobalConstants.MAX_ROWS;
-                Get_Prod_Reviews_By_Actor_prod_id_out.Size = GlobalConstants.MAX_ROWS;
-                Get_Prod_Reviews_By_Actor_review_stars_out.Size = GlobalConstants.MAX_ROWS;
-                Get_Prod_Reviews_By_Actor_review_customerid_out.Size = GlobalConstants.MAX_ROWS;
-                Get_Prod_Reviews_By_Actor_review_helpfulness_sum_out.Size = GlobalConstants.MAX_ROWS;
-                Get_Prod_Reviews_By_Actor_title_out.Size = GlobalConstants.MAX_ROWS;
-                Get_Prod_Reviews_By_Actor_actor_out.Size = GlobalConstants.MAX_ROWS;
-                Get_Prod_Reviews_By_Actor_review_date_out.Size = GlobalConstants.MAX_ROWS;
-                Get_Prod_Reviews_By_Actor_review_summary_out.Size = GlobalConstants.MAX_ROWS;
-                Get_Prod_Reviews_By_Actor_review_text_out.Size = GlobalConstants.MAX_ROWS;
-                break;
-            case "title":
-                Get_Prod_Reviews_By_Title_review_id_out.Size = GlobalConstants.MAX_ROWS;
-                Get_Prod_Reviews_By_Title_prod_id_out.Size = GlobalConstants.MAX_ROWS;
-                Get_Prod_Reviews_By_Title_review_stars_out.Size = GlobalConstants.MAX_ROWS;
-                Get_Prod_Reviews_By_Title_review_customerid_out.Size = GlobalConstants.MAX_ROWS;
-                Get_Prod_Reviews_By_Title_review_helpfulness_sum_out.Size = GlobalConstants.MAX_ROWS;
-                Get_Prod_Reviews_By_Title_title_out.Size = GlobalConstants.MAX_ROWS;
-                Get_Prod_Reviews_By_Title_actor_out.Size = GlobalConstants.MAX_ROWS;
-                Get_Prod_Reviews_By_Title_review_date_out.Size = GlobalConstants.MAX_ROWS;
-                Get_Prod_Reviews_By_Title_review_summary_out.Size = GlobalConstants.MAX_ROWS;
-                Get_Prod_Reviews_By_Title_review_text_out.Size = GlobalConstants.MAX_ROWS;
-                break;
-        }
 
         return (true);
     } // end ds2browsereview()
