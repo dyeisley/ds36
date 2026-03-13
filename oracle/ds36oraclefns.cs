@@ -58,50 +58,13 @@ namespace ds2xdriver
     OracleCommand Get_Prod_Reviews, Get_Prod_Reviews_By_Actor, Get_Prod_Reviews_By_Title, Get_Prod_Reviews_By_Date, Get_Prod_Reviews_By_Stars;
     OracleCommand New_Member, New_Prod_Review, New_Review_Helpfulness;
 
-    OracleParameter[] Login_prm = new OracleParameter[5];
     OracleParameter[] New_Customer_prm = new OracleParameter[20];
     OracleParameter[] Purchase_prm = new OracleParameter[6];
-
     OracleParameter[] New_Member_prm = new OracleParameter[3];
-    OracleParameter[] Get_Prod_Reviews_prm = new OracleParameter[3];
-    OracleParameter[] Get_Prod_Reviews_By_Actor_prm = new OracleParameter[4];
-    OracleParameter[] Get_Prod_Reviews_By_Title_prm = new OracleParameter[4];
-    OracleParameter[] Get_Prod_Reviews_By_Date_prm = new OracleParameter[3];
-    OracleParameter[] Get_Prod_Reviews_By_Stars_prm = new OracleParameter[4];
     OracleParameter[] New_Prod_Review_prm = new OracleParameter[6];
     OracleParameter[] New_Review_Helpfulness_prm = new OracleParameter[4];
 
     OracleParameter Purchase_prod_id_in, Purchase_qty_in;
-/*
-    OracleParameter Get_Prod_Reviews_By_Title_title_out, Get_Prod_Reviews_By_Title_actor_out,
-        Get_Prod_Reviews_By_Title_review_id_out, Get_Prod_Reviews_By_Title_prod_id_out,
-        Get_Prod_Reviews_By_Title_review_date_out, Get_Prod_Reviews_By_Title_review_stars_out,
-        Get_Prod_Reviews_By_Title_review_customerid_out, Get_Prod_Reviews_By_Title_review_summary_out,
-        Get_Prod_Reviews_By_Title_review_text_out, Get_Prod_Reviews_By_Title_review_helpfulness_sum_out;
-    OracleParameter Get_Prod_Reviews_By_Actor_title_out, Get_Prod_Reviews_By_Actor_actor_out,
-        Get_Prod_Reviews_By_Actor_review_id_out, Get_Prod_Reviews_By_Actor_prod_id_out,
-        Get_Prod_Reviews_By_Actor_review_date_out, Get_Prod_Reviews_By_Actor_review_stars_out,
-        Get_Prod_Reviews_By_Actor_review_customerid_out, Get_Prod_Reviews_By_Actor_review_summary_out,
-        Get_Prod_Reviews_By_Actor_review_text_out, Get_Prod_Reviews_By_Actor_review_helpfulness_sum_out;
-*/
-    OracleString[] o_title_out = new OracleString[GlobalConstants.MAX_ROWS];
-    OracleString[] o_actor_out = new OracleString[GlobalConstants.MAX_ROWS];
-    OracleString[] o_related_title_out = new OracleString[GlobalConstants.MAX_ROWS];
-    int[] o_prod_id_out = new int[GlobalConstants.MAX_ROWS];
-    int[] o_special_out = new int[GlobalConstants.MAX_ROWS];
-    int[] o_common_prod_id_out = new int[GlobalConstants.MAX_ROWS];
-    int[] o_membership_item_out = new int[GlobalConstants.MAX_ROWS];
-    byte[] o_category_out = new byte[GlobalConstants.MAX_ROWS];
-    decimal[] o_price_out = new decimal[GlobalConstants.MAX_ROWS];
-
-    int[] o_review_id_out = new int[GlobalConstants.MAX_ROWS];
-    OracleString[] o_review_date_out = new OracleString[GlobalConstants.MAX_ROWS];
-    int[] o_review_stars_out = new int[GlobalConstants.MAX_ROWS];
-    int[] o_review_customerid_out = new int[GlobalConstants.MAX_ROWS];
-    OracleString[] o_review_summary_out = new OracleString[GlobalConstants.MAX_ROWS];
-    OracleString[] o_review_text_out = new OracleString[1000];
-    int[] o_review_helpfulness_sum_out = new int[GlobalConstants.MAX_ROWS];
-    int[] o_review_helpfulness_id_out = new int[GlobalConstants.MAX_ROWS];
 
     //Added by GSK (This variable will have target server name to which thread is tied to and users will login to the database on this server)
     string target_server_name;
