@@ -83,4 +83,4 @@ sleep(1);
 foreach my $k (1 .. ($numberofstores-1)){
   system ("$startcmd sqlplus \"sys/oracle\@$oracletarget as sysdba \" \@$oracletargetdir${pathsep}oracle_ds_createseq$k.sql");
   }
-  system ("sqlplus \"sys/oracle\@$oracletarget as sysdba \" \@$oracletargetdir${pathsep}oracle_ds_createseq$numberofstores.sql");
+  system ("sqlplus -S \"sys/oracle\@$oracletarget as sysdba \" \@$oracletargetdir${pathsep}oracle_ds_createseq$numberofstores.sql");

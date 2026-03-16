@@ -755,6 +755,13 @@ BEGIN
 END;
 /
 
+SET SERVEROUTPUT ON;
+
+BEGIN
+    DBMS_OUTPUT.PUT_LINE('Calculating total_helpfulness for reviews!');
+END;
+/
+
 UPDATE DS3.REVIEWS$k R
 SET TOTAL_HELPFULNESS = (
     SELECT NVL(SUM(H.HELPFULNESS), 0)
@@ -776,5 +783,5 @@ sleep (1);
 foreach my $k (1 .. ($numberofstores-1)){
   system ("$startcmd sqlplus \"ds3/ds3\@$oracletarget\" \@$oracletargetdir${pathsep}oracle_ds_createsp$k.sql");
   }
-  system ("sqlplus \"ds3/ds3\@$oracletarget\" \@$oracletargetdir${pathsep}oracle_ds_createsp$numberofstores.sql");
+  system ("sqlplus -S \"ds3/ds3\@$oracletarget\" \@$oracletargetdir${pathsep}oracle_ds_createsp$numberofstores.sql");
 

@@ -204,7 +204,7 @@ CREATE SEQUENCE \"DS3\".\"ORDERID_SEQ$k\"
   \n";
   close $OUT;
   sleep(1);
-  system ("sqlplus \"sys/oracle\@$oracletarget as sysdba \" \@oracle_ds_createtables.sql");
+  system ("sqlplus -S \"sys/oracle\@$oracletarget as sysdba \" \@oracle_ds_createtables.sql");
   #system ("del oracle_ds_createtables.sql");
   }
 

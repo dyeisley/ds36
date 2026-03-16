@@ -9,9 +9,9 @@ STORES=${2:-1}
 
 cd build
 sqlplus "sys/oracle@$TARGET as sysdba" @oracle_ds_drop_tablespaces.sql
-sqlplus "sys/oracle@$TARGET as sysdba" @{TBLSPACE_SQLFNAME}
+sqlplus -S "sys/oracle@$TARGET as sysdba" @{TBLSPACE_SQLFNAME}
 perl {CREATEDB_SQLFNAME} $TARGET $STORES
-sqlplus "sys/oracle@$TARGET as sysdba" @oracle_ds_create_datatypes.sql
+sqlplus -S "sys/oracle@$TARGET as sysdba" @oracle_ds_create_datatypes.sql
 cd ../load
 perl linux_ds_create_oracle_multistore_ctl_files.pl $TARGET $STORES
 perl linux_ds_execute_oracle_multistore_sqlldr.pl $TARGET $STORES

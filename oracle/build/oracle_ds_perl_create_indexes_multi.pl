@@ -218,4 +218,4 @@ sleep(1);
 foreach my $k (1 .. ($numberofstores-1)){
   system ("$startcmd sqlplus \"ds3/ds3\@$oracletarget \" \@$oracletargetdir${pathsep}oracle_ds_createindexes$k.sql");
   }
-  system ("sqlplus \"ds3/ds3\@$oracletarget \" \@$oracletargetdir${pathsep}oracle_ds_createindexes$numberofstores.sql");
+  system ("sqlplus -S \"ds3/ds3\@$oracletarget \" \@$oracletargetdir${pathsep}oracle_ds_createindexes$numberofstores.sql");
