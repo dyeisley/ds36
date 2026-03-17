@@ -97,7 +97,7 @@ int main(int argc, char* argv[])
       r_month = random2(1, 12);
       sprintf(r_membership_exp,"%4d/%02d/15", r_year, r_month);
 
-      fprintf(FP_member, "%d,%d,%s\n",r_custid, r_membership_type, r_membership_exp);
+      fprintf(FP_member, "%d,%d,%s\r\n",r_custid, r_membership_type, r_membership_exp);
     } //End of For
 
     fclose(FP_member);

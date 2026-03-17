@@ -137,7 +137,7 @@ int main(int argc, char* argv[])
        }
        fprintf(FP_prod, "]\"");
     }
-    fprintf(FP_prod, "\n");
+    fprintf(FP_prod, "\r\n");
 #endif
 
     } // end for

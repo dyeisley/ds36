@@ -85,7 +85,7 @@ int main(int argc, char* argv[]) {
 	}
     }
 
-    FP_cust = fopen(fn_cust, "wb");
+    FP_cust = fopen(fn_cust, "w");
 
     for (i = n_first; i <= n_last; i++) {
         int use_female = rand() % 2;
@@ -149,9 +149,9 @@ int main(int argc, char* argv[]) {
 #ifdef NICE
 	printf("%d,%-12s,%-12s,%-33s,,%-20s,%s,%05d,%-12s,%d,%-32s,%s,%d,%8s,%s,%s,password,%d,%6d,%s\n",
 #else
-	fprintf(FP_cust, "%d,%s,%s,%s,,%s,%s,%05d,%s,%d,%s,%s,%d,%s,%s,%s,password,%d,%d,%s\n",
+	fprintf(FP_cust, "%d,%s,%s,%s,,%s,%s,%05d,%s,%d,%s,%s,%d,%s,%s,%s,password,%d,%d,%s\r\n",
 #endif
-	       i,
+               i,
                first_name,
                last_name,
                street,
