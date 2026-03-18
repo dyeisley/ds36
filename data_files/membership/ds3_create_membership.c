@@ -4,7 +4,7 @@
  * Copyright (C) 2014 VMware, Inc. <tmuirhead@vmware.com>
  *
  * Creates premier membership data files for DVD Store Database V.3
- * Syntax: ds3_create_membership n_customers n_pct
+ * Syntax: ds3_create_membership n_customers n_pct S|M|L n_Sys_Type > output_file
  *         (see details below)
  * Run on Linux to use large RAND_MAX (2e31-1)
  * To compile: gcc -o ds3_create_membership ds3_create_membership.c -lm
@@ -49,14 +49,17 @@ int main(int argc, char* argv[])
   time_t seconds=time(NULL);
   struct tm* current_time=localtime(&seconds);
 
+  int i_Sys_Type = 0;   //0 for Linux, 1 for Windows
+
   // Check syntax
-    if (argc < 3)
+    if (argc < 4)
     {
-    fprintf(stderr, "Syntax: ds3_create_membership n_cust n_pct\n");
+    fprintf(stderr, "Syntax: %s n_cust n_pct n_Sys_Type\n",argv[0]);  //Changed Syntax by GSK
     fprintf(stderr, "        where n_cust is the total number of customers and can contain M or m for millions\n");
     fprintf(stderr, "Creates customer data membership files for DS3 database\n");
-    fprintf(stderr, "Examples: ds3_create_membership  1000  20  =>  20%% of 1000 users are premier members \n");
-    fprintf(stderr, "          ds3_create_membership  1M    50  =>  50%% of 1 million users are premier members\n");
+    fprintf(stderr, "n_Sys_Type can be 0 (Linux) or 1 (Windows)\n");            //Changed Syntax by GSK
+    fprintf(stderr, "Examples: ds3_create_membership  1000  20  0  =>  20% of 1000 users are premier members \n");
+    fprintf(stderr, "          ds3_create_membership  1M    50  0  =>  50% of 1 million users are premier members\n");
     exit(-1);
     }
 
@@ -72,6 +75,8 @@ int main(int argc, char* argv[])
 
   strcpy(n_pct_str, argv[2]);
   n_pct = atoi(n_pct_str);
+
+  i_Sys_Type = atoi(argv[3]);
 
   FP_member = fopen("membership.csv", "wb");
 
@@ -97,7 +102,17 @@ int main(int argc, char* argv[])
       r_month = random2(1, 12);
       sprintf(r_membership_exp,"%4d/%02d/15", r_year, r_month);
 
-      fprintf(FP_member, "%d,%d,%s\r\n",r_custid, r_membership_type, r_membership_exp);
+      if(i_Sys_Type == 0)   //If System is Linux, Append LF only
+       {
+         fprintf(FP_member, "%d,%d,%s%c",
+         r_custid, r_membership_type, r_membership_exp, 10);
+       }
+       else if(i_Sys_Type == 1) //If System is Windows, Append CR+LF
+       {
+         fprintf(FP_member, "%d,%d,%s%c%c",
+	 r_custid, r_membership_type, r_membership_exp, 13, 10);
+       }
+
     } //End of For
 
     fclose(FP_member);

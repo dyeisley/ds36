@@ -62,6 +62,9 @@ int main(int argc, char* argv[])
   int n_prods, i;
   int i_Sys_Type = 0;	 //0 for Linux, 1 for Windows        //Added by GSK
   int i_gen_vectors = 0;
+  char newline[4];
+
+  sprintf(newline, "%s", "\n");
 
   srand((unsigned int)time(NULL));
 
@@ -76,6 +79,11 @@ int main(int argc, char* argv[])
 
   n_prods = atoi(argv[1]);
   i_Sys_Type = atoi(argv[2]);    //Added by GSK
+
+  if (i_Sys_Type == 1)
+  {
+    sprintf(newline, "%s", "\r\n");
+  }
 
   if (argc == 4) 
   {
@@ -137,7 +145,7 @@ int main(int argc, char* argv[])
        }
        fprintf(FP_prod, "]\"");
     }
-    fprintf(FP_prod, "\r\n");
+    fprintf(FP_prod, "%s",newline);
 #endif
 
     } // end for
