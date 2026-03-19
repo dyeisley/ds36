@@ -339,22 +339,23 @@ USE DS3
 GO
 
 CREATE PROCEDURE GET_PROD_REVIEWS$k
-  (
-  \@batch_size_in            INT,
-  \@prod_in              INT
-  )
+(
+    \@batch_size_in INT,
+    \@prod_in       INT
+)
+AS
+BEGIN
+    SET NOCOUNT ON;
 
-  AS 
-  SET ROWCOUNT \@batch_size_in
-
-  SELECT REVIEWS$k.REVIEW_ID, REVIEWS$k.PROD_ID, REVIEWS$k.REVIEW_DATE, REVIEWS$k.STARS, REVIEWS$k.CUSTOMERID, 
-  REVIEWS$k.REVIEW_SUMMARY, REVIEWS$k.REVIEW_TEXT, SUM(REVIEWS_HELPFULNESS$k.helpfulness) as total
-  FROM REVIEWS$k 
-  INNER JOIN REVIEWS_HELPFULNESS$k on REVIEWS$k.REVIEW_ID=REVIEWS_HELPFULNESS$k.REVIEW_ID
-  WHERE REVIEWS$k.PROD_ID = \@prod_in GROUP BY REVIEWS$k.REVIEW_ID, REVIEWS$k.PROD_ID, REVIEWS$k.REVIEW_DATE, 
-  REVIEWS$k.STARS, REVIEWS$k.CUSTOMERID, REVIEWS$k.REVIEW_SUMMARY, REVIEWS$k.REVIEW_TEXT
-  ORDER BY total DESC
-  SET ROWCOUNT 0
+    SELECT
+        REVIEW_ID, PROD_ID, REVIEW_DATE, STARS,
+        CUSTOMERID, REVIEW_SUMMARY, REVIEW_TEXT,
+        TOTAL_HELPFULNESS
+    FROM REVIEWS$k
+    WHERE PROD_ID = \@prod_in
+    ORDER BY TOTAL_HELPFULNESS DESC
+    OFFSET 0 ROWS FETCH NEXT \@batch_size_in ROWS ONLY;
+END
 GO
 
 -- get prod reviews by stars
@@ -368,23 +369,30 @@ USE DS3
 GO
 
 CREATE PROCEDURE GET_PROD_REVIEWS_BY_STARS$k
-  (
-  \@batch_size_in            INT,
-  \@prod_in					INT,
-  \@stars_in					INT
-  )
+(
+    \@batch_size_in INT,
+    \@prod_in       INT,
+    \@stars_in      INT
+)
+AS
+BEGIN
+    SET NOCOUNT ON;
 
-  AS 
-  SET ROWCOUNT \@batch_size_in
-
-  SELECT REVIEWS$k.REVIEW_ID, REVIEWS$k.PROD_ID, REVIEWS$k.REVIEW_DATE, REVIEWS$k.STARS, REVIEWS$k.CUSTOMERID, 
-  REVIEWS$k.REVIEW_SUMMARY, REVIEWS$k.REVIEW_TEXT, SUM(REVIEWS_HELPFULNESS$k.helpfulness) as total
-  FROM REVIEWS$k 
-  INNER JOIN REVIEWS_HELPFULNESS$k on REVIEWS$k.REVIEW_ID=REVIEWS_HELPFULNESS$k.REVIEW_ID
-  WHERE REVIEWS$k.PROD_ID = \@prod_in AND REVIEWS$k.STARS = \@stars_in GROUP BY REVIEWS$k.REVIEW_ID, REVIEWS$k.PROD_ID, REVIEWS$k.REVIEW_DATE, 
-  REVIEWS$k.STARS, REVIEWS$k.CUSTOMERID, REVIEWS$k.REVIEW_SUMMARY, REVIEWS$k.REVIEW_TEXT
-  ORDER BY total DESC
-  SET ROWCOUNT 0
+    SELECT
+        REVIEW_ID,
+        PROD_ID,
+        REVIEW_DATE,
+        STARS,
+        CUSTOMERID,
+        REVIEW_SUMMARY,
+        REVIEW_TEXT,
+        TOTAL_HELPFULNESS
+    FROM REVIEWS$k
+    WHERE PROD_ID = \@prod_in
+      AND STARS = \@stars_in
+    ORDER BY TOTAL_HELPFULNESS DESC
+    OFFSET 0 ROWS FETCH NEXT \@batch_size_in ROWS ONLY;
+END
 GO
 
 -- get prod reviews by date
@@ -398,22 +406,28 @@ USE DS3
 GO
 
 CREATE PROCEDURE GET_PROD_REVIEWS_BY_DATE$k
-  (
-  \@batch_size_in            INT,
-  \@prod_in					INT
-  )
+(
+    \@batch_size_in INT,
+    \@prod_in       INT
+)
+AS
+BEGIN
+    SET NOCOUNT ON;
 
-  AS 
-  SET ROWCOUNT \@batch_size_in
-
-  SELECT REVIEWS$k.REVIEW_ID, REVIEWS$k.PROD_ID, REVIEWS$k.REVIEW_DATE, REVIEWS$k.STARS, REVIEWS$k.CUSTOMERID, 
-  REVIEWS$k.REVIEW_SUMMARY, REVIEWS$k.REVIEW_TEXT, SUM(REVIEWS_HELPFULNESS$k.helpfulness) as total
-  FROM REVIEWS$k 
-  INNER JOIN REVIEWS_HELPFULNESS$k on REVIEWS$k.REVIEW_ID=REVIEWS_HELPFULNESS$k.REVIEW_ID
-  WHERE REVIEWS$k.PROD_ID = \@prod_in GROUP BY REVIEWS$k.REVIEW_ID, REVIEWS$k.PROD_ID, REVIEWS$k.REVIEW_DATE, 
-  REVIEWS$k.STARS, REVIEWS$k.CUSTOMERID, REVIEWS$k.REVIEW_SUMMARY, REVIEWS$k.REVIEW_TEXT
-  ORDER BY REVIEWS$k.REVIEW_DATE DESC
-  SET ROWCOUNT 0
+    SELECT
+        REVIEW_ID,
+        PROD_ID,
+        REVIEW_DATE,
+        STARS,
+        CUSTOMERID,
+        REVIEW_SUMMARY,
+        REVIEW_TEXT,
+        TOTAL_HELPFULNESS
+    FROM REVIEWS$k
+    WHERE PROD_ID = \@prod_in
+    ORDER BY REVIEW_DATE DESC
+    OFFSET 0 ROWS FETCH NEXT \@batch_size_in ROWS ONLY;
+END
 GO
 
 -- get prod reviews by actor
@@ -423,29 +437,50 @@ IF EXISTS (SELECT name FROM sysobjects WHERE name = 'GET_PROD_REVIEWS_BY_ACTOR$k
   DROP PROCEDURE GET_PROD_REVIEWS_BY_ACTOR$k
 GO
 
-USE DS3
+CREATE PROCEDURE GET_PROD_REVIEWS_BY_ACTOR$k
+(
+    \@batch_size_in   INT,
+    \@actor_in        VARCHAR(50),
+    \@search_depth_in INT = 500
+)
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    WITH T1 AS (
+        SELECT TOP (\@search_depth_in) 
+            P.TITLE, 
+            P.ACTOR, 
+            P.PROD_ID, 
+            R.REVIEW_ID,
+            R.REVIEW_DATE, 
+            R.STARS, 
+            R.CUSTOMERID, 
+            R.REVIEW_SUMMARY, 
+            R.REVIEW_TEXT,
+            R.TOTAL_HELPFULNESS
+        FROM PRODUCTS$k AS P
+        INNER JOIN REVIEWS$k AS R ON P.PROD_ID = R.PROD_ID
+        WHERE CONTAINS(P.ACTOR, \@actor_in)
+    )
+    SELECT 
+        PROD_ID, 
+        TITLE, 
+        ACTOR, 
+        REVIEW_ID, 
+        REVIEW_DATE, 
+        STARS, 
+        CUSTOMERID, 
+        REVIEW_SUMMARY, 
+        REVIEW_TEXT, 
+        TOTAL_HELPFULNESS AS totalhelp
+    FROM T1
+    ORDER BY totalhelp DESC
+    OFFSET 0 ROWS FETCH NEXT \@batch_size_in ROWS ONLY;
+END
 GO
 
-CREATE PROCEDURE GET_PROD_REVIEWS_BY_ACTOR$k
-  (
-  \@batch_size_in            INT,
-  \@actor_in					VARCHAR(50),
-  \@search_depth_in					 INT = 500
-  )
-
-  AS 
-  SET ROWCOUNT \@batch_size_in;
-
-  WITH T1 (title, actor, prod_id, review_date, stars, review_id, customerid, review_summary, review_text) 
-AS (SELECT TOP (\@search_depth_in) PRODUCTS$k.TITLE, PRODUCTS$k.ACTOR, PRODUCTS$k.PROD_ID, REVIEWS$k.REVIEW_DATE, REVIEWS$k.STARS, REVIEWS$k.REVIEW_ID,
-           REVIEWS$k.CUSTOMERID, REVIEWS$k.REVIEW_SUMMARY, REVIEWS$k.REVIEW_TEXT 
-    FROM PRODUCTS$k INNER JOIN REVIEWS$k on PRODUCTS$k.PROD_ID = REVIEWS$k.PROD_ID where CONTAINS (ACTOR, \@actor_in))
-select T1.prod_id, T1.title, T1.actor, REVIEWS_HELPFULNESS$k.REVIEW_ID, T1.review_date, T1.stars, 
-                    T1.customerid, T1.review_summary, T1.review_text, SUM(helpfulness) AS totalhelp from REVIEWS_HELPFULNESS$k 
-                    inner join T1 on REVIEWS_HELPFULNESS$k.REVIEW_ID = T1.review_id
-					GROUP BY T1.REVIEW_ID, T1.prod_id, t1.title, t1.actor, REVIEWS_HELPFULNESS$k.REVIEW_ID, t1.review_date, t1.stars, t1.customerid, t1.review_summary, t1.review_text
-					ORDER BY totalhelp DESC;
-  SET ROWCOUNT 0
+USE DS3
 GO
 
 -- get prod reviews by title
@@ -459,25 +494,46 @@ USE DS3
 GO
 
 CREATE PROCEDURE GET_PROD_REVIEWS_BY_TITLE$k
-  (
-  \@batch_size_in       INT,
-  \@title_in		VARCHAR(50),
-  \@search_depth_in	INT = 500
-  )
+(
+    \@batch_size_in   INT,
+    \@title_in        VARCHAR(50),
+    \@search_depth_in INT = 500
+)
+AS
+BEGIN
+    SET NOCOUNT ON;
 
-  AS 
-  SET ROWCOUNT \@batch_size_in;
-
-  WITH T1 (title, actor, prod_id, review_date, stars, review_id, customerid, review_summary, review_text) 
-AS (SELECT TOP (\@search_depth_in) PRODUCTS$k.TITLE, PRODUCTS$k.ACTOR, PRODUCTS$k.PROD_ID, REVIEWS$k.REVIEW_DATE, REVIEWS$k.STARS, REVIEWS$k.REVIEW_ID,
-           REVIEWS$k.CUSTOMERID, REVIEWS$k.REVIEW_SUMMARY, REVIEWS$k.REVIEW_TEXT 
-    FROM PRODUCTS$k INNER JOIN REVIEWS$k on PRODUCTS$k.PROD_ID = REVIEWS$k.PROD_ID where CONTAINS (TITLE, \@title_in))
-select T1.prod_id, T1.title, T1.actor, REVIEWS_HELPFULNESS$k.REVIEW_ID, T1.review_date, T1.stars, 
-                    T1.customerid, T1.review_summary, T1.review_text, SUM(helpfulness) AS totalhelp from REVIEWS_HELPFULNESS$k 
-                    inner join T1 on REVIEWS_HELPFULNESS$k.REVIEW_ID = T1.review_id
-					GROUP BY T1.REVIEW_ID, T1.prod_id, t1.title, t1.actor, REVIEWS_HELPFULNESS$k.REVIEW_ID, t1.review_date, t1.stars, t1.customerid, t1.review_summary, t1.review_text
-					ORDER BY totalhelp DESC;
-  SET ROWCOUNT 0
+    WITH T1 AS (
+        SELECT TOP (\@search_depth_in)
+            P.TITLE,
+            P.ACTOR,
+            P.PROD_ID,
+            R.REVIEW_ID,
+            R.REVIEW_DATE,
+            R.STARS,
+            R.CUSTOMERID,
+            R.REVIEW_SUMMARY,
+            R.REVIEW_TEXT,
+            R.TOTAL_HELPFULNESS
+        FROM PRODUCTS$k AS P
+        INNER JOIN REVIEWS$k AS R ON P.PROD_ID = R.PROD_ID
+        WHERE CONTAINS(P.TITLE, \@title_in)
+    )
+    SELECT
+        PROD_ID,
+        TITLE,
+        ACTOR,
+        REVIEW_ID,
+        REVIEW_DATE,
+        STARS,
+        CUSTOMERID,
+        REVIEW_SUMMARY,
+        REVIEW_TEXT,
+        TOTAL_HELPFULNESS AS totalhelp
+    FROM T1
+    ORDER BY totalhelp DESC
+    OFFSET 0 ROWS FETCH NEXT \@batch_size_in ROWS ONLY;
+END
 GO
 \n";
 
@@ -713,6 +769,19 @@ CREATE PROCEDURE PURCHASE$k
 
   SELECT \@neworderid
 GO
+
+PRINT 'Update TOTAL_HELPFULNESS in REVIEWS$k.';
+
+UPDATE R
+SET R.TOTAL_HELPFULNESS = H.CalculatedTotal
+FROM REVIEWS$k R
+INNER JOIN (
+    -- Calculate current sum for every review
+    SELECT REVIEW_ID, SUM(HELPFULNESS) AS CalculatedTotal
+    FROM REVIEWS_HELPFULNESS$k
+    GROUP BY REVIEW_ID
+) AS H ON R.REVIEW_ID = H.REVIEW_ID;
+
 \n";
   close $OUT;
 }
