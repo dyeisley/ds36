@@ -611,33 +611,27 @@ namespace ds2xdriver
 
         try
         {
-            switch (browse_review_type_in)
-              {
-		default:
-                case "actor":
-                    Rdr = Get_Prod_Reviews_By_Actor.ExecuteReader();
-                    break;
-                case "title":
-                    Rdr = Get_Prod_Reviews_By_Title.ExecuteReader();
-                    break;
-              }
-            i_row = 0;
-            while (Rdr.Read())
-              {
-                  prod_id_out[i_row] = Rdr.GetInt32(0);
-                  title_out[i_row] = Rdr.GetString(1);
-                  actor_out[i_row] = Rdr.GetString(2);
-                  review_id_out[i_row] = Rdr.GetInt32(3);
-                  review_date_out[i_row] = Convert.ToString(Rdr.GetSqlDateTime(4));
-                  review_stars_out[i_row] = Rdr.GetInt32(5);
-                  review_customerid_out[i_row] = Rdr.GetInt32(6);
-                  review_summary_out[i_row] = Rdr.GetString(7);
-                  review_text_out[i_row] = Rdr.GetString(8);
-                  review_helpfulness_sum_out[i_row] = Rdr.GetInt32(9);
-                  //Console.WriteLine("\tprod_id_out: {0} title_out: {1} actor_out: {2} review_id_out: {3} review_date_out: {4} review_stars_out: {5} review_customerid_out: {6} review_summary_out: {7}\n\treview_text_out: {8} review_helpfulness_sum_out: {9}\n", prod_id_out[i_row], title_out[i_row], actor_out[i_row], review_id_out[i_row], review_date_out[i_row], review_stars_out[i_row], review_customerid_out[i_row], review_summary_out[i_row], review_text_out[i_row], review_helpfulness_sum_out[i_row] );
-                  ++i_row;
-              }
-            Rdr.Close();
+            Rdr = (browse_review_type_in == "title") ? Get_Prod_Reviews_By_Title.ExecuteReader() : Get_Prod_Reviews_By_Actor.ExecuteReader();
+
+            using (Rdr)
+            {
+               i_row = 0;
+               while (Rdr.Read())
+                 {
+                     prod_id_out[i_row] = Rdr.GetInt32(0);
+                     title_out[i_row] = Rdr.GetString(1);
+                     actor_out[i_row] = Rdr.GetString(2);
+                     review_id_out[i_row] = Rdr.GetInt32(3);
+                     review_date_out[i_row] = Convert.ToString(Rdr.GetSqlDateTime(4));
+                     review_stars_out[i_row] = Rdr.GetInt32(5);
+                     review_customerid_out[i_row] = Rdr.GetInt32(6);
+                     review_summary_out[i_row] = Rdr.GetString(7);
+                     review_text_out[i_row] = Rdr.GetString(8);
+                     review_helpfulness_sum_out[i_row] = Rdr.GetInt32(9);
+                     //Console.WriteLine("\tprod_id_out: {0} title_out: {1} actor_out: {2} review_id_out: {3} review_date_out: {4} review_stars_out: {5} review_customerid_out: {6} review_summary_out: {7}\n\treview_text_out: {8} review_helpfulness_sum_out: {9}\n", prod_id_out[i_row], title_out[i_row], actor_out[i_row], review_id_out[i_row], review_date_out[i_row], review_stars_out[i_row], review_customerid_out[i_row], review_summary_out[i_row], review_text_out[i_row], review_helpfulness_sum_out[i_row] );
+                     ++i_row;
+                 }
+	    }
             rows_returned = i_row;
         }
         catch (SqlException e)
