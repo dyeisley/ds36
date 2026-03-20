@@ -1,0 +1,9 @@
+14.0
+7
+1       SQLCHAR             0       12      ","      1     REVIEW_ID                ""
+2       SQLCHAR             0       12      ","      2     PROD_ID                  ""
+3       SQLCHAR             0       24      ","      3     REVIEW_DATE              ""
+4       SQLCHAR             0       12      ","      4     STARS                    ""
+5       SQLCHAR             0       12      ","      5     CUSTOMERID               ""
+6       SQLCHAR             0       50      ","      6     REVIEW_SUMMARY           SQL_Latin1_General_CP1_CI_AS
+7       SQLCHAR             0       1000    "\n"     7     REVIEW_TEXT              SQL_Latin1_General_CP1_CI_AS
