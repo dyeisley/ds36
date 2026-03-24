@@ -530,7 +530,7 @@ BEGIN
     DECLARE v_common_id INT;
     DECLARE v_membership TINYINT;
 
-    SELECT COUNT(*) INTO v_max_id FROM PRODUCTS1;
+    SELECT COUNT(*) INTO v_max_id FROM PRODUCTS$k;
 
     IF v_max_id = 0 THEN
         SET v_common_id = 1;
