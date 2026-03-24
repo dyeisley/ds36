@@ -47,14 +47,14 @@ namespace ds2xdriver
     string target_server_name;
     int target_store_number = 1; //Added to support Multiple stores - default is 1
 
-    MySqlCommand Login, New_Customer, New_Member, New_Review, New_Helpfulness, Purchase;
+    MySqlCommand Login, New_Customer, New_Member, New_Review, New_Helpfulness, New_Product, Purchase;
     MySqlCommand BrowseReviews_by_title, BrowseReviews_by_actor, Get_Prod_Reviews, Get_Reviews_by_stars;
     MySqlCommand Get_Reviews_by_date, Browse_by_title, Browse_by_actor, Browse_by_category, Browse_by_vector;
     MySqlParameter cust_out_param, member_out_param, reviewid_out_param, helpfulnessid_out_param, neworder_out_param;
 
 //
 //-------------------------------------------------------------------------------------------------
-// 
+//
     // (Overloaded constructor to support multiple stores within single DS3 instance)
     public ds2Interface(int ds2interfaceid, string target_name, int target_store)
     {
@@ -134,6 +134,14 @@ namespace ds2xdriver
       New_Helpfulness.Parameters.Add("customerid_in", MySqlDbType.Int32);
       New_Helpfulness.Parameters.Add("review_helpfulness_in", MySqlDbType.Int32);
       New_Helpfulness.Parameters.Add(helpfulnessid_out_param);
+
+      New_Product = new MySqlCommand("sp_AddNewInventoryProduct" + target_store_number, objConn);
+      New_Product.CommandType = CommandType.StoredProcedure;
+      New_Product.Parameters.Add("p_cat", MySqlDbType.Int32);
+      New_Product.Parameters.Add("p_title", MySqlDbType.VarChar,50);
+      New_Product.Parameters.Add("p_actor", MySqlDbType.VarChar,50);
+      New_Product.Parameters.Add("p_price", MySqlDbType.Decimal);
+      New_Product.Parameters.Add("p_stock", MySqlDbType.Int32);
 
       Purchase = new MySqlCommand("PURCHASE" + target_store_number, objConn);
       Purchase.CommandType = CommandType.StoredProcedure;
@@ -958,12 +966,70 @@ namespace ds2xdriver
 //
 //-------------------------------------------------------------------------------------------------
 // 
+    public bool ds2newproduct(int new_category_in, string new_title_in, string new_actor_in, decimal new_price_in, int new_stock_in, ref double rt)
+    {
+      bool success = true;
+
+      New_Product.Parameters["p_cat"].Value = new_category_in;
+      New_Product.Parameters["p_title"].Value = new_title_in;
+      New_Product.Parameters["p_actor"].Value = new_actor_in;
+      New_Product.Parameters["p_price"].Value = new_price_in;
+      New_Product.Parameters["p_stock"].Value = new_stock_in;
+
+      bool deadlocked = false;
+
+#if (USE_WIN32_TIMER)
+      long ctr0 = 0, ctr = 0, freq = 0;
+      QueryPerformanceFrequency(ref freq); // obtain system freq (ticks/sec)
+      QueryPerformanceCounter(ref ctr0); // Start response time clock
+#else
+      TimeSpan TS = new TimeSpan();
+      DateTime DT0 = DateTime.Now;
+#endif
+
+      do
+      {
+          try
+          {
+              deadlocked = false;
+              New_Product.ExecuteNonQuery();
+          }
+          catch (MySqlException e)
+          {
+              if (e.Number == 1205)
+              {
+                  deadlocked = true;
+                  int wait = Random.Shared.Next(1000);
+                  Console.WriteLine("Thread {0}: New_Product deadlocked...waiting {1} msec, then will retry",Thread.CurrentThread.Name, wait);
+                  Thread.Sleep(wait); // Wait up to 1 sec, then try again
+              }
+              else
+              {
+                  Console.WriteLine("Thread {0}: MySql Error {1} in New_Product: {2}",
+                    Thread.CurrentThread.Name, e.Number, e.Message);
+                  success = false;
+              }
+          }
+      } while (deadlocked);
+
+#if (USE_WIN32_TIMER)
+      QueryPerformanceCounter(ref ctr); // Stop response time clock
+      rt = (ctr - ctr0)/(double) freq; // Calculate response time
+#else
+      TS = DateTime.Now - DT0;
+      rt = TS.TotalSeconds; // Calculate response time
+#endif
+
+      return (success);
+    }
+
+//
+//-------------------------------------------------------------------------------------------------
+//
     public bool ds2close()
       {
-      objConn.Close();   
-      return(true);   
+      objConn.Close();
+      return(true);
       } // end ds2close()
     } // end Class ds2Interface
   } // end namespace ds2xdriver
-  
-        

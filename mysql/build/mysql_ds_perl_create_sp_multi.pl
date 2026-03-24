@@ -513,6 +513,48 @@ LIMIT batch_size_in;
 
 END; $$
 
+DELIMITER $$
+
+DROP PROCEDURE IF EXISTS DS3.sp_AddNewInventoryProduct$k $$
+CREATE PROCEDURE DS3.sp_AddNewInventoryProduct$k 
+(
+    IN p_cat TINYINT,
+    IN p_title VARCHAR(50),
+    IN p_actor VARCHAR(50),
+    IN p_price NUMERIC(12,2),
+    IN p_stock INT
+)
+BEGIN
+    DECLARE v_new_id INT;
+    DECLARE v_max_id INT;
+    DECLARE v_common_id INT;
+    DECLARE v_membership TINYINT;
+
+    SELECT COUNT(*) INTO v_max_id FROM PRODUCTS1;
+
+    IF v_max_id = 0 THEN
+        SET v_common_id = 1;
+    ELSE
+        SET v_common_id = FLOOR(1 + (RAND() * v_max_id));
+    END IF;
+
+    SET v_membership = FLOOR(1 + (RAND() * 3));
+
+    START TRANSACTION;
+
+    INSERT INTO PRODUCTS$k (CATEGORY, TITLE, ACTOR, PRICE, SPECIAL, COMMON_PROD_ID, MEMBERSHIP_ITEM)
+    VALUES (p_cat, p_title, p_actor, p_price, 0, v_common_id, v_membership);
+
+    SET v_new_id = LAST_INSERT_ID();
+
+    INSERT INTO INVENTORY$k (PROD_ID, QUAN_IN_STOCK, SALES)
+    VALUES (v_new_id, p_stock, 0);
+
+    COMMIT;
+
+    SELECT v_new_id AS generated_id;
+END $$
+
 \n";
   close $OUT;
   sleep(1);

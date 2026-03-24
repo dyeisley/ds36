@@ -123,7 +123,7 @@ print $OUT  ",
 
 print $OUT  "
   )
-  ENGINE = MyISAM;
+  ENGINE = InnoDB;
 
 CREATE TABLE REVIEWS$k
   (

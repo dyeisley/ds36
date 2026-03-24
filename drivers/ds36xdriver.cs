@@ -175,16 +175,16 @@ namespace ds2xdriver
     //Instead at same place we need db_size parameter
     //Added new parameter detailed_view by GSK default value = N
     //Added new parameter log_timestamp by Performance Team - Ruban default value = N
-    //Added new parameter log_freq by Performance Team - Ruban default value = 10																				
-    //Added new parameter linux_perf_host by GSK 
+    //Added new parameter log_freq by Performance Team - Ruban default value = 10
+    //Added new parameter linux_perf_host by GSK
     static string[] input_parm_names = new string[] {"config_file", "target", "n_threads", "ramp_rate",
       "run_time", "db_size", "warmup_time", "think_time", "pct_newcustomers", "pct_newmember", "n_searches",
-      "search_batch_size", "search_depth", "n_reviews", "pct_newreviews", "pct_newhelpfulness", "n_line_items", "virt_dir", 
+      "search_batch_size", "search_depth", "n_reviews", "pct_newreviews", "pct_newhelpfulness", "n_line_items", "virt_dir",
       "page_type", "windows_perf_host", "linux_perf_host", "detailed_view", "out_filename", "ds2_mode", "n_stores", "log_freq", "log_timestamp",
       "use_vectors"};
-    static string[] input_parm_desc = new string[] {"config file path", 
+    static string[] input_parm_desc = new string[] {"config file path",
       "database/web server hostname or IP address", "number of driver threads", "startup rate (users/sec)",
-      "run time (min) - 0 is infinite", "S | M | L or database size (e.g. 30MB, 80GB)", "warmup_time (min)", "think time (sec)", 
+      "run time (min) - 0 is infinite", "S | M | L or database size (e.g. 30MB, 80GB)", "warmup_time (min)", "think time (sec)",
       "percent of customers that are new customers", "percent of orders with cust membership upgrade",
       "average number of searches per order", "average number of items returned in each search", "max search query depth",
       "average number of product review searches per order", "percent of orders where customer creates a review",
@@ -198,10 +198,10 @@ namespace ds2xdriver
       "20", "1", "3", "5", "500", "3", "5", "10", "5", "ds3", "php", "","","N","","N","1", "10", "NONE", "N"};
 
     int server_id = 0;          //Added by GSK
-    
+
     //
     //-------------------------------------------------------------------------------------------------
-    //    
+    //
     [STAThread]
     static void Main ( string[] args )
       {
@@ -245,7 +245,7 @@ namespace ds2xdriver
 
     //
     //-------------------------------------------------------------------------------------------------
-    //      
+    //
 
     //Run BackGround Mpstat to target machine
     void RunBackGroundmpStat ( string machine_name , string user , string passwd )
@@ -273,7 +273,7 @@ namespace ds2xdriver
       catch ( System.Exception e )
         {
             Console.Error.WriteLine("Error: {0}", e.Message);
-        }                
+        }
       }
 
     //Read remove text file to get CPUutilization
@@ -282,7 +282,7 @@ namespace ds2xdriver
       double cpuutilizn = 0.0;
       try
         {
-        String s_retValue;                    
+        String s_retValue;
         Process p = new Process ( );
         //These arguments will ensure than yes = y will automatically be answered
         // -l root -pw password 11.22.33.44 exit
@@ -310,19 +310,19 @@ namespace ds2xdriver
         //String after: Average: all 13.56 0.00 1.16 4.50 0.06 0.16 0.00 0.00 80.55
         s_retValue = System.Text.RegularExpressions.Regex.Replace(s_retValue,@"\s{2,}", " ");
         String[] arr_strSplit = s_retValue.Split(' ');
-                    
+
         //Get User, Nice, System values from string and add to get CPU utilization
-        cpuutilizn = Convert.ToDouble(arr_strSplit[2]) + Convert.ToDouble(arr_strSplit[3]) + Convert.ToDouble(arr_strSplit[4]);                    
+        cpuutilizn = Convert.ToDouble(arr_strSplit[2]) + Convert.ToDouble(arr_strSplit[3]) + Convert.ToDouble(arr_strSplit[4]);
         }
       catch ( System.Exception e )
         {
             Console.Error.WriteLine("Error: {0}", e.Message);
-        }    
+        }
       return cpuutilizn;
       }
 
     //-------------------------------------------------------------------------------------------------
-    //    
+    //
     //Function written by GSK to calculate number of Rows in tables of database according to database size
     void CalculateNumberOfRows ( string str_db_size )
       {
@@ -405,42 +405,16 @@ namespace ds2xdriver
 
       }
 
-    //    
+    //
     //-------------------------------------------------------------------------------------------------
-    //   
+    //
     public Controller ( string[] argarray )
       {
       //Console.WriteLine("Controller constructor: " + argarray.Length + " args");
 
       int i;
       string errmsg = string.Empty;
-/*
-      //Added by GSK
-      int old_n_overall = 0;
-      int[] arr_old_n_overall;
-      int diff_n_overall = 0;
-      int[] arr_diff_n_overall;
-      double old_rt_tot_overall = 0.0;
-      double[] arr_old_rt_tot_overall;
-      double diff_rt_tot_overall = 0.0;
-      double[] arr_diff_rt_tot_overall;
-      int[] arr_rt_tot_sampled;
-      int rt_tot_sampled = 0;
 
-      //Added by GSK
-      int[] arr_opm;
-      int[] arr_rt_login_avg_msec;
-      int[] arr_rt_newcust_avg_msec;
-      int[] arr_rt_browse_avg_msec;
-      int[] arr_rt_reviewbrowse_avg_msec;
-      int[] arr_rt_newreview_avg_msec;
-      int[] arr_rt_newhelpfulness_avg_msec;
-      int[] arr_rt_newmember_avg_msec;
-      int[] arr_rt_purchase_avg_msec;
-      int[] arr_rt_tot_lastn_max_msec;
-      int[] arr_rt_tot_avg_msec;
-      double arr_rt_tot_lastn_max;
-*/
       if ( argarray.Length == 0 )
         {
         // display input parameter info
@@ -458,8 +432,8 @@ namespace ds2xdriver
       // send args to parse_args, return 0 or # of parms set, error_message if any
       // parsed values are in array input_parm_values
       i = parse_args ( argarray , ref errmsg );
-      if ( i != 0 ) 
-        { 
+      if ( i != 0 )
+        {
 	//Console.WriteLine("{0} parameters parsed", i);
 	}
       else
@@ -468,11 +442,11 @@ namespace ds2xdriver
         return;
         }
 
-      // Set parameters from input_parm_values 
+      // Set parameters from input_parm_values
       //target = input_parm_values[Array.IndexOf ( input_parm_names , "target" )];
       try
         {
-        target = input_parm_values[Array.IndexOf ( input_parm_names , "target" )];                
+        target = input_parm_values[Array.IndexOf ( input_parm_names , "target" )];
         target_servers = target.Split ( ';' );
         n_target_servers = target_servers.Length;   //Added by GSK to keep track of number of Target Servers
         }
@@ -506,86 +480,10 @@ namespace ds2xdriver
         arr_n_purchase_from_start = new int[n_target_servers];
         arr_n_rollbacks_from_start = new int[n_target_servers];
         arr_rt_tot_lastn = new double[n_target_servers,GlobalConstants.LAST_N];
-/*
-        arr_opm = new int[n_target_servers];
-        arr_rt_login_avg_msec = new int[n_target_servers];
-        arr_rt_newcust_avg_msec = new int[n_target_servers];
-        arr_rt_browse_avg_msec = new int[n_target_servers];
-        arr_rt_reviewbrowse_avg_msec = new int[n_target_servers];
-        arr_rt_newreview_avg_msec = new int[n_target_servers];
-        arr_rt_newhelpfulness_avg_msec = new int[n_target_servers];
-        arr_rt_newmember_avg_msec = new int[n_target_servers];
-        arr_rt_purchase_avg_msec = new int[n_target_servers];
-        arr_rt_tot_lastn_max_msec = new int[n_target_servers];
-        arr_rt_tot_avg_msec = new int[n_target_servers];
-
-        arr_rt_tot_lastn_max = 0.0;
-
-        old_n_overall = 0;
-        diff_n_overall = 0;
-        old_rt_tot_overall = 0.0;
-        diff_rt_tot_overall = 0.0;
-
-        //Added on 8/8/2010
-        arr_old_n_overall = new int[n_target_servers];
-        arr_diff_n_overall = new int[n_target_servers];
-        arr_old_rt_tot_overall = new double[n_target_servers];
-        arr_diff_rt_tot_overall = new double[n_target_servers];
-        arr_rt_tot_sampled = new int[n_target_servers];
-
-        for ( i = 0 ; i < n_target_servers ; i++ )
-          {
-          arr_n_login_overall[i] = 0;
-          arr_rt_login_overall[i] = 0.0;
-          arr_n_newcust_overall[i] = 0;
-          arr_rt_newcust_overall[i] = 0.0;
-          arr_n_newmember_overall[i] = 0;
-          arr_rt_newmember_overall[i] = 0.0;
-          arr_n_browse_overall[i] = 0;
-          arr_rt_browse_overall[i] = 0.0;
-          arr_n_reviewbrowse_overall[i] = 0;
-          arr_rt_reviewbrowse_overall[i] = 0.0;
-          arr_n_newreview_overall[i] = 0;
-          arr_rt_newreview_overall[i] = 0.0;
-          arr_n_newhelpfulness_overall[i] = 0;
-          arr_rt_newhelpfulness_overall[i] = 0.0;
-          arr_n_purchase_overall[i] = 0;
-          arr_rt_purchase_overall[i] = 0.0;
-          arr_n_rollbacks_overall[i] = 0;
-          arr_n_overall[i] = 0;
-          arr_rt_tot_overall[i] = 0.0;
-          arr_n_purchase_from_start[i] = 0;
-          arr_n_rollbacks_from_start[i] = 0;
-
-          arr_opm[i] = 0;
-          arr_rt_login_avg_msec[i] = 0;
-          arr_rt_newcust_avg_msec[i] = 0;
-          arr_rt_newmember_avg_msec[i] = 0;
-          arr_rt_browse_avg_msec[i] = 0;
-          arr_rt_reviewbrowse_avg_msec[i] = 0;
-          arr_rt_newreview_avg_msec[i] = 0;
-          arr_rt_newhelpfulness_avg_msec[i] = 0;
-          arr_rt_purchase_avg_msec[i] = 0;
-          arr_rt_tot_lastn_max_msec[i] = 0;
-          arr_rt_tot_avg_msec[i] = 0;
-
-          //Added on 8/8/2010
-          arr_old_n_overall[i] = 0;
-          arr_diff_n_overall[i] = 0;
-          arr_old_rt_tot_overall[i] = 0.0;
-          arr_diff_rt_tot_overall[i] = 0.0;
-          arr_rt_tot_sampled[i] = 0;
-
-          for ( int l = 0 ; l < GlobalConstants.LAST_N ; l++ )
-            {
-            arr_rt_tot_lastn[i,l] = 0.0;
-            }
-          }                
-	  */
 
       try
         {
-        n_threads = Convert.ToInt32 ( input_parm_values[Array.IndexOf ( input_parm_names , "n_threads" )] );                
+        n_threads = Convert.ToInt32 ( input_parm_values[Array.IndexOf ( input_parm_names , "n_threads" )] );
         //Changed by GSK -- n_threads represents threads spawned per DB/Web Server
         //Hence total number of threads spawned by Controller Driver Program = no of threads per Server * number of servers to Drive Workload on
         n_threads = n_threads * n_target_servers;
@@ -614,7 +512,7 @@ namespace ds2xdriver
         Console.WriteLine ( "Error in converting parameter run_time: {0}" , e.Message );
         return;
         }
-      try	 
+      try
         {
         log_freq = Convert.ToInt32(input_parm_values[Array.IndexOf(input_parm_names, "log_freq")]);
         }
@@ -627,15 +525,15 @@ namespace ds2xdriver
       //db_size_str = input_parm_values[Array.IndexOf(input_parm_names, "db_size_str")];
 
       //Changed by GSK
-      //This parameter db_size_str will not be used in case of Custom database size since CalculateNumberOfRows() calculates rows in tables 
-      //on the fly according to database size passed as parameter            
+      //This parameter db_size_str will not be used in case of Custom database size since CalculateNumberOfRows() calculates rows in tables
+      //on the fly according to database size passed as parameter
       //string sizes= "SML";
       //if ((db_size = sizes.IndexOf(db_size_str.ToUpper())) < 0)
       //  {
       //      Console.WriteLine("Error: db_size_str must be one of S, M or L");
       //      return;
       //  }
-      //Code for new parameter and new function to initialize number of rows 
+      //Code for new parameter and new function to initialize number of rows
       //Added by GSK
       db_size = input_parm_values[Array.IndexOf ( input_parm_names , "db_size" )];
       if ( db_size == "" )
@@ -747,7 +645,7 @@ namespace ds2xdriver
 
       virt_dir = input_parm_values[Array.IndexOf ( input_parm_names , "virt_dir" )];
       page_type = input_parm_values[Array.IndexOf ( input_parm_names , "page_type" )];
-           
+
       //windows_perf_host = input_parm_values[Array.IndexOf ( input_parm_names , "windows_perf_host" )];
       //if ( windows_perf_host == "" ) windows_perf_host = null;
 
@@ -799,7 +697,7 @@ namespace ds2xdriver
           string []str_SplitSemiColons;
 
           str_SplitSemiColons = linux_perf_host.Split ( ';' );
-                    
+
           n_linux_servers = str_SplitSemiColons.Length;
 
           linux_unames = new String[n_linux_servers];
@@ -876,7 +774,7 @@ namespace ds2xdriver
         Console.WriteLine("Error in converting parameter log_timestamp: {0}", e.Message);
         return;
         }
-									 
+
       try
       {
           pct_newreviews =
@@ -909,7 +807,7 @@ namespace ds2xdriver
       {
           Console.WriteLine("Error in converting parameter pct_newhelpfulness: {0}", e.Message);
           return;
-      } 
+      }
       try
       {
           pct_newmember = Convert.ToInt32(input_parm_values[Array.IndexOf(input_parm_names, "pct_newmember")]);
@@ -919,14 +817,14 @@ namespace ds2xdriver
           Console.WriteLine("Error in converting parameter pct_newmember: {0}", e.Message);
           return;
       }
-      try 
+      try
       {
           outfilename = input_parm_values[Array.IndexOf(input_parm_names, "out_filename")];
-          if (outfilename == "") 
-            { 
+          if (outfilename == "")
+            {
               outfilename = string.Empty;
             }
-          else 
+          else
            {
               outfile = new System.IO.StreamWriter(outfilename);
               outfile?.WriteLine("datetime et, n_overall, opm, rt_tot_lastn_max_msec, rt_tot_avg_msec, rt_tot_sampled," +
@@ -945,7 +843,7 @@ namespace ds2xdriver
           {
               Console.WriteLine("Running in DS2 mode.");
               ds2_mode = true;
-          }          
+          }
       }
       catch (System.Exception e)
       {
@@ -980,7 +878,7 @@ namespace ds2xdriver
           Console.WriteLine("Error in parsing use_vectors parameter: {0}", e.Message);
           return;
       }
-      
+
       Console.WriteLine ( "target= {0}  n_threads= {1}  ramp_rate= {2}  run_time= {3}  db_size= {4}" +
         "  warmup_time= {5}  think_time= {6}  pct_newcustomers= {7}  pct_newmembers= {8}  n_searches= {9}  search_batch_size= {10}" +
         "  search_depth= {11}  n_reviews= {12}  pct_newreviews= {13}  pct_newhelpfulness= {14}  n_line_items= {15}  virt_dir= {16}" +
@@ -989,7 +887,7 @@ namespace ds2xdriver
         ,
         target , n_threads , ramp_rate , run_time , db_size , warmup_time , think_time , pct_newcustomers ,
             pct_newmember, n_searches , search_batch_size , search_depth , n_reviews, pct_newreviews, pct_newhelpfulness,
-            n_line_items , virt_dir , page_type , windows_perf_host , detailed_view , linux_perf_host, outfilename, 
+            n_line_items , virt_dir , page_type , windows_perf_host , detailed_view , linux_perf_host, outfilename,
             ds2_mode_string, n_stores, log_freq, log_timestamp, use_vectors_string);
 
       max_customer = customer_rows;
@@ -1010,22 +908,22 @@ namespace ds2xdriver
         }
       prod_array_size = i;
       //Console.WriteLine("{0} products in array", prod_array_size);
-      
+
      } // end of Controller constructor
 
-    //    
+    //
     //-------------------------------------------------------------------------------------------------
-    //   
-    public void do_work () 
+    //
+    public void do_work ()
     {
       int i = 0, z = 0;
-      int i_sec; 
+      int i_sec;
       double et;
       int opm , rt_login_avg_msec , rt_newcust_avg_msec , rt_browse_avg_msec , rt_purchase_avg_msec ,
         rt_tot_lastn_max_msec , rt_tot_avg_msec;
       int rt_reviewbrowse_avg_msec, rt_newreview_avg_msec, rt_newhelpfulness_avg_msec, rt_newmember_avg_msec;
       double rt_tot_lastn_max;
-      
+
       //Added by GSK
       int old_n_overall = 0;
       int[] arr_old_n_overall;
@@ -1091,15 +989,15 @@ namespace ds2xdriver
 #else
       TimeSpan TS = new TimeSpan ( );
       DateTime DT0;
-      Console.WriteLine ( "\nUsing .NET DateTime for measuring response time\n" );
+      Console.WriteLine("\nUsing .NET DateTime for measuring response time\n");
 #endif
 
-      for ( i = 0 ; i < GlobalConstants.LAST_N ; i++ ) 
-      { 
-        rt_tot_lastn[i] = 0.0; 
+      for ( i = 0 ; i < GlobalConstants.LAST_N ; i++ )
+      {
+        rt_tot_lastn[i] = 0.0;
       }
 
-#if (GEN_PERF_CTRS)      
+#if (GEN_PERF_CTRS)
       if (!PerformanceCounterCategory.Exists("Test")) // Create Performance Counter object if necessary
         {
         CounterCreationDataCollection CCDC = new CounterCreationDataCollection();
@@ -1110,16 +1008,16 @@ namespace ds2xdriver
         CounterCreationData OPM = new CounterCreationData();
         OPM.CounterType = PerformanceCounterType.NumberOfItems32;
         OPM.CounterName = "OPM";
-        CCDC.Add(OPM);       
+        CCDC.Add(OPM);
     // For Visual Studio 2003: PerformanceCounterCategory.Create("Test", "DB Stress Data", CCDC);
         PerformanceCounterCategory.Create("Test", "DB Stress Data", PerformanceCounterCategoryType.SingleInstance, CCDC);
         Console.WriteLine("Performance Counter Category Test and Counters MaxRT and OPM created");
-        }          
+        }
       else
         {
-        if ( !( PerformanceCounterCategory.CounterExists("MaxRT", "Test") && 
+        if ( !( PerformanceCounterCategory.CounterExists("MaxRT", "Test") &&
           PerformanceCounterCategory.CounterExists("OPM", "Test")) )
-          { 
+          {
           PerformanceCounterCategory.Delete("Test");
           CounterCreationDataCollection CCDC = new CounterCreationDataCollection();
           CounterCreationData MaxRT = new CounterCreationData();
@@ -1129,9 +1027,9 @@ namespace ds2xdriver
           CounterCreationData OPM = new CounterCreationData();
           OPM.CounterType = PerformanceCounterType.NumberOfItems32;
           OPM.CounterName = "OPM";
-          CCDC.Add(OPM);       
+          CCDC.Add(OPM);
       // For Visual Studio 2003: PerformanceCounterCategory.Create("Test", "DB Stress Data", CCDC);
-          PerformanceCounterCategory.Create("Test", "DB Stress Data", PerformanceCounterCategoryType.SingleInstance, CCDC); 
+          PerformanceCounterCategory.Create("Test", "DB Stress Data", PerformanceCounterCategoryType.SingleInstance, CCDC);
           Console.WriteLine
             ("Performance Counter Category Test deleted; Category Test and Counters MaxRT/OPM created");
           }
@@ -1142,24 +1040,24 @@ namespace ds2xdriver
         }
       PerformanceCounter MaxRTC = new PerformanceCounter("Test", "MaxRT", false); // Max response time
       PerformanceCounter OPMC = new PerformanceCounter("Test", "OPM", false); // Orders per minute
-      
+
       // Read CPU Utilization % of target host (if Windows)
       //PerformanceCounter CPU_PCT = null;
       //if (windows_perf_host != null)
         //CPU_PCT = new PerformanceCounter("Processor", "% Processor Time", "_Total", windows_perf_host);
-      
+
       //Changed by GSK
       //Need an array of PerfCounter Class objects to capture Processor Time for each Machine
 
       PerformanceCounter[] CPU_PCT = new PerformanceCounter[n_windows_servers];
       if (windows_perf_host != string.Empty)
-        {           
+        {
         //Create PerfMon counter on Each target machine
 
         for ( i = 0 ; i < n_windows_servers ; i++)
           {
           CPU_PCT[i] = new PerformanceCounter("Processor", "% Processor Time", "_Total", windows_perf_host_servers[i]);
-          }            
+          }
         }
 #else
             Console.WriteLine ( "Not generating Windows Performance Monitor Counters" );
@@ -1167,7 +1065,7 @@ namespace ds2xdriver
 
       for ( i = 0 , server_id = 0 ; i < n_threads ; i++ ) // Create User objects; associate each with new Thread running Emulate method
         {
-        
+
         if ( server_id < n_target_servers )
           {
           users[i] = new User ( i , server_id, ((i % n_stores)+1 ));
@@ -1188,7 +1086,7 @@ namespace ds2xdriver
       //We will plink all linux targets if there are any
       //this will ensure each target is registered in registry of machine on which driver program runs
       //This will avoid giving any add RSA fingerprint message when actual run stats are getting printed out
-      // 
+      //
       if (linux_perf_host != string.Empty)     //Added by GSK for getting Linux CPU Utilization
         {
         for (i = 0; i < n_linux_servers; i++)
@@ -1219,10 +1117,10 @@ namespace ds2xdriver
         Thread.Sleep ( 1000 );
         }
       Console.WriteLine ( "Controller ({0}): all threads running" , DateTime.Now );
-      //for (i=0; i<n_threads; i++) Console.WriteLine("  Thread {0}: {1}", i, threads[i].ThreadState);   
+      //for (i=0; i<n_threads; i++) Console.WriteLine("  Thread {0}: {1}", i, threads[i].ThreadState);
 
       int ConnectTimeout = 60;  // Used to limit the amount of time that driver program will try to get all threads conencted
-      while ( (n_threads_connected < n_threads) && (ConnectTimeout > 0) )   
+      while ( (n_threads_connected < n_threads) && (ConnectTimeout > 0) )
         {
         for ( int j = 0 ; j < n_threads ; j++ )  // If one of the threads has stopped quit
           if ( threads[j].ThreadState == System.Threading.ThreadState.Stopped ) return;
@@ -1230,29 +1128,29 @@ namespace ds2xdriver
         Thread.Sleep ( 1000 );
         --ConnectTimeout;
         }
-      
+
       if (n_threads_connected < n_threads)   // If all threads are not connected, then timeout was exceeded
-        { 
+        {
         Console.WriteLine ( "Controller: ConnectTimeout reached : could not connect all threads, Aborting...");
         Thread.Sleep ( 500 );
         return;
         }
-      
+
       Console.WriteLine ( "Controller ({0}): all threads connected - issuing Start" , DateTime.Now );
       Start = true;
 
 #if (USE_WIN32_TIMER)
       QueryPerformanceFrequency(ref freq); // obtain system freq (ticks/sec)
-      QueryPerformanceCounter(ref ctr0); // Start response time clock   
+      QueryPerformanceCounter(ref ctr0); // Start response time clock
 #else
       DT0 = DateTime.Now;
 #endif
 
       if ( run_time == 0 ) run_time = 1000000;  // test run time in minutes, 0 => forever
       run_time += warmup_time;  // Add warmup time for total run time
-            
+
       for ( i_sec = 1 ; i_sec <= run_time * 60 ; i_sec++ ) // run for run_time*60 seconds
-        {          
+        {
         //Call plink to execute mpstat on remote linux machine to store CPU data in File on remote system
         if (i_sec % log_freq == 1)  //At start as per log_freq interval, start background process for mpstat CPU monitoring on each linux machine
           {
@@ -1274,23 +1172,23 @@ namespace ds2xdriver
           }
 
         Thread.Sleep ( 1000 );     // Update perfmon stats about every second
-        Monitor.Enter ( UpdateLock );  // Block User threads from accessing code to update these values (below)       
+        Monitor.Enter ( UpdateLock );  // Block User threads from accessing code to update these values (below)
 
 #if (USE_WIN32_TIMER)
         QueryPerformanceCounter(ref ctr);
-        et = (ctr-ctr0)/(double) freq;   
+        et = (ctr-ctr0)/(double) freq;
 #else
         TS = DateTime.Now - DT0;
         et = TS.TotalSeconds;
-#endif          
-      
+#endif
+
         //opm, rt_tot_lastn_max_msec will maintain overall runtime stats for all threads that connect to DB Servers on multiple VM's
         opm = ( int ) Math.Floor ( 60.0 * n_overall / et );
         rt_tot_lastn_max = 0.0;
         for ( int j = 0 ; j < GlobalConstants.LAST_N ; j++ )
             rt_tot_lastn_max = ( rt_tot_lastn[j] > rt_tot_lastn_max ) ? rt_tot_lastn[j] : rt_tot_lastn_max;
         rt_tot_lastn_max_msec = ( int ) Math.Floor ( 1000 * rt_tot_lastn_max );
-           
+
         //Following code will maintain runtime stats for threads that connect to DB Servers on individual VM's
         for ( i = 0 ; i < n_target_servers ; i++ )
           {
@@ -1302,8 +1200,8 @@ namespace ds2xdriver
             }
           arr_rt_tot_lastn_max_msec[i] = ( int ) Math.Floor ( 1000 * arr_rt_tot_lastn_max );
           }
-                
-#if (GEN_PERF_CTRS)  
+
+#if (GEN_PERF_CTRS)
           MaxRTC.RawValue = rt_tot_lastn_max_msec;
           OPMC.RawValue = opm;
           //Changed by GSK
@@ -1318,7 +1216,7 @@ namespace ds2xdriver
                     ++arr_n_cpu_pct_samples[i];
                 }
             }
-#endif               
+#endif
 
         if ( i_sec % log_freq == 0 ) // print out stats as per log_freq seconds
           {
@@ -1341,7 +1239,7 @@ namespace ds2xdriver
           //Added on 8/8/2010
           diff_n_overall = Math.Abs(n_overall - old_n_overall);
           old_n_overall = n_overall;
-          diff_rt_tot_overall = Math.Abs(rt_tot_overall - old_rt_tot_overall);                    
+          diff_rt_tot_overall = Math.Abs(rt_tot_overall - old_rt_tot_overall);
           old_rt_tot_overall = rt_tot_overall;
 
           if (diff_n_overall > 0)
@@ -1352,7 +1250,7 @@ namespace ds2xdriver
             {
             rt_tot_sampled = 0;
             }
- 
+
 	    if (n_overall > 0)
             {
             pct_rollbacks = (100.0 * n_rollbacks_overall) / n_overall;
@@ -1362,25 +1260,25 @@ namespace ds2xdriver
             pct_rollbacks = 0.0;
 	    }
 
-	    switch (log_timestamp)  // Switch to determine the type of time stamps to put on each log line 
+	    switch (log_timestamp)  // Switch to determine the type of time stamps to put on each log line
                 {
                     case "UTC":   // Call UtcNow.ToString to get UTC based time
                         cur_datetime = DateTime.UtcNow.ToString("yyyy-MM-ddTHH\\:mm\\:ss.fff'Z' ");
                         break;
-                    case "LOCAL":  // Call Now.ToString to get time zone based time 
+                    case "LOCAL":  // Call Now.ToString to get time zone based time
                         cur_datetime = DateTime.Now.ToString("MM/dd/yyyy h:mm:ss tt ");
                         break;
                     case "NONE":  // Set string to nothing so that no date time is printed
                         cur_datetime = "";
                         break;
                 }
-		  																					   
-          //Console.Error.Write ( "\n" );      
+
+          //Console.Error.Write ( "\n" );
           //Console.WriteLine("et={0,7:F1} n_overall={1} opm={2} rt_tot_lastn_max_msec={3} rt_tot_avg_msec={4} " +
           //  "rollbacks: n={5} %={6,5:F1}  ", et, n_overall, opm, rt_tot_lastn_max_msec, rt_tot_avg_msec, n_rollbacks_overall,
           //  (100.0 * n_rollbacks_overall) / n_overall);
           //Changed on 8/8/2010
-		  //Changed on 1/16/2019 - By Performance Team - Ruban													  
+          //Changed on 1/16/2019 - By Performance Team - Ruban
           Console.Write("{8}et={0,7:F1} n_overall={1} opm={2} rt_tot_lastn_max_msec={3,-3} rt_tot_avg_msec={4} " +
               "rt_tot_sampled={5} " + "rollbacks: n={6} %={7,5:F1} ", et, n_overall, opm, rt_tot_lastn_max_msec, rt_tot_avg_msec,
               rt_tot_sampled,n_rollbacks_overall, pct_rollbacks, cur_datetime);
@@ -1397,20 +1295,20 @@ namespace ds2xdriver
 
           if ( windows_perf_host != string.Empty)
           {
-            //Changed by GSK to get total average cpu utilization                                                
+            //Changed by GSK to get total average cpu utilization
             for ( i = 0 ; i < n_windows_servers ; i++ )
               {
               total_win_cpu_utilzn += ( arr_cpu_pct_tot[i] / arr_n_cpu_pct_samples[i] );
-              }                        
-          }                     
+              }
+          }
           if ( linux_perf_host != string.Empty)     //Added by GSK for getting Linux CPU Utilization
-          {                        
+          {
             for ( i = 0 ; i < n_linux_servers ; i++ )
               {
               try
                 {
                 //Call plink to Read mpstat data in a text file on remote linux machine to give CPU data
-                //Store CPU utilization for each linux target for bookkeeping                    
+                //Store CPU utilization for each linux target for bookkeeping
                 arr_linux_cpu_utilization[i] = ReadRemoteTextFile(linux_perf_host_servers[i].ToString(), linux_unames[i].ToString(), linux_passwd[i].ToString());
                 total_lin_cpu_utilzn += arr_linux_cpu_utilization[i];
                 }
@@ -1419,10 +1317,10 @@ namespace ds2xdriver
                 Console.WriteLine ( "Error in getting CPU Utilization for host: {0}: {1}" , linux_perf_host_servers[i].ToString ( ) , e.Message);
                 return;
                 }
-              }                        
+              }
           }
 
-          if ( is_Win_VM == true && is_Lin_VM == true )       //Get perf stats from both linux and windows machines                        
+          if ( is_Win_VM == true && is_Lin_VM == true )       //Get perf stats from both linux and windows machines
             {
             total_cpu_utilzn = total_win_cpu_utilzn + total_lin_cpu_utilzn;
             //Instead of getting Sum of cpu utilization of all machines, we take average of total since it is good indication of utilization of Physical Processor
@@ -1438,21 +1336,21 @@ namespace ds2xdriver
 			  outfile?.WriteLine(",{0,5:F1}" , total_cpu_utilzn );
 			  }
             }
-          else if ( is_Win_VM == true && is_Lin_VM == false )  //Get perf stats from windows machines                        
+          else if ( is_Win_VM == true && is_Lin_VM == false )  //Get perf stats from windows machines
             {
             total_cpu_utilzn = total_win_cpu_utilzn;
-                        
+
             total_cpu_utilzn = total_cpu_utilzn / n_target_servers;
             Console.WriteLine ( "host {0} CPU%= {1,5:F1}" , windows_perf_host  , total_cpu_utilzn );
-		if (outfilename != string.Empty) 
+		if (outfilename != string.Empty)
 		  {
 		     outfile?.WriteLine(",{0,5:F1}" , total_cpu_utilzn );
                   }
             }
-          else if ( is_Lin_VM == true && is_Win_VM == false )  //Get perf stats from linux machines                        
+          else if ( is_Lin_VM == true && is_Win_VM == false )  //Get perf stats from linux machines
             {
             total_cpu_utilzn = total_lin_cpu_utilzn;
-                        
+
             total_cpu_utilzn = total_cpu_utilzn / n_target_servers;
             StringBuilder sb_linux = new StringBuilder ( );
             for ( z = 0 ; z < n_linux_servers ; z++ )
@@ -1475,7 +1373,7 @@ namespace ds2xdriver
             }
 
           //Added by GSK
-          //Call Write individual stats only when detailed_view parameter is YES and more than one target servers                   
+          //Call Write individual stats only when detailed_view parameter is YES and more than one target servers
           if ( is_detailed_view == true && n_target_servers > 1)
             {
             Console.WriteLine ( "\nIndividual Stats for each DB / Web Server: " );
@@ -1499,9 +1397,9 @@ namespace ds2xdriver
                 "rt_tot_sampled={5} " +
                 "rollbacks: n={6} %={7,5:F1} ",
                 et, arr_n_overall[i], arr_opm[i], arr_rt_tot_lastn_max_msec[i], arr_rt_tot_avg_msec[i], arr_rt_tot_sampled[i],
-                arr_n_rollbacks_overall[i],(100.0 * arr_n_rollbacks_overall[i]) / arr_n_overall[i]                              
+                arr_n_rollbacks_overall[i],(100.0 * arr_n_rollbacks_overall[i]) / arr_n_overall[i]
                 );
-                            
+
 
               //Added by GSK
               //Following condition i < n_windows_servers ensure that stats for windows VM's will be outputted first and then linux VM's
@@ -1526,10 +1424,10 @@ namespace ds2xdriver
                   }
                 }
               //else Console.Error.Write ( "\n" );
-              }                        
+              }
 	      Console.Error.Write ( "\n" );
             }
-      //Till this point Added by GSK                    
+      //Till this point Added by GSK
 
           for ( int j = 0 ; j < n_threads ; j++ )
             {
@@ -1564,15 +1462,15 @@ namespace ds2xdriver
           //Added by GSK
           for ( i = 0 ; i < n_target_servers ; i++ )
             {
-            arr_n_overall[i] = 0; 
-            arr_n_login_overall[i] = 0; 
+            arr_n_overall[i] = 0;
+            arr_n_login_overall[i] = 0;
             arr_n_newcust_overall[i] = 0;
-            arr_n_browse_overall[i] = 0; 
+            arr_n_browse_overall[i] = 0;
             arr_n_purchase_overall[i] = 0;
             arr_n_rollbacks_overall[i] = 0;
-            arr_rt_tot_overall[i] = 0.0; 
-            arr_rt_login_overall[i] = 0.0; 
-            arr_rt_newcust_overall[i] = 0.0; 
+            arr_rt_tot_overall[i] = 0.0;
+            arr_rt_login_overall[i] = 0.0;
+            arr_rt_newcust_overall[i] = 0.0;
             arr_rt_browse_overall[i] = 0.0;
             arr_rt_purchase_overall[i] = 0.0;
 
@@ -1586,7 +1484,6 @@ namespace ds2xdriver
             arr_rt_newhelpfulness_overall[i] = 0.0;
             arr_rt_newmember_overall[i] = 0.0;
 
-
             //Added on 8/8/2010
             arr_old_n_overall[i] = 0;
             arr_diff_n_overall[i] = 0;
@@ -1595,7 +1492,7 @@ namespace ds2xdriver
             arr_rt_tot_sampled[i] = 0;
 
             for ( int n = 0 ; n < GlobalConstants.LAST_N ; n++ ) arr_rt_tot_lastn[i,n] = 0.0;
-            
+
             cpu_pct_tot = 0.0;
             n_cpu_pct_samples = 0;
             }
@@ -1613,7 +1510,7 @@ namespace ds2xdriver
           //Till this point Added by GSK
 
 #if (USE_WIN32_TIMER)
-          QueryPerformanceCounter(ref ctr0);   
+          QueryPerformanceCounter(ref ctr0);
 #else
           DT0 = DateTime.Now;
 #endif
@@ -1626,12 +1523,12 @@ namespace ds2xdriver
 
 #if (USE_WIN32_TIMER)
       QueryPerformanceCounter(ref ctr);
-      et = (ctr-ctr0)/(double) freq;   
+      et = (ctr-ctr0)/(double) freq;
 #else
       TS = DateTime.Now - DT0;
       et = TS.TotalSeconds;
 #endif
-            
+
       //Variables below will maintain Aggregate Final stats data for all DB servers running on all VM's
       opm = ( int ) Math.Floor ( 60.0 * n_overall / et );
       rt_login_avg_msec = ( int ) Math.Floor ( 1000 * rt_login_overall / n_login_overall );
@@ -1669,7 +1566,7 @@ namespace ds2xdriver
         }
       //Till this point Added by GSK
 
-#if (GEN_PERF_CTRS)  
+#if (GEN_PERF_CTRS)
         MaxRTC.RawValue = rt_tot_lastn_max_msec;
         OPMC.RawValue = opm;
 #endif
@@ -1689,8 +1586,8 @@ namespace ds2xdriver
         "rt_reviewbrowse_avg_msec={18} rt_newreview_avg_msec={19} rt_newhelpfulness={20} rt_purchase_avg_msec={21} " +
         "rt_tot_sampled={22} n_rollbacks_overall={23} rollback_rate = {24,2:F1}%",
         DateTime.Now, et, n_overall, opm, rt_tot_lastn_max_msec, rt_tot_avg_msec, n_login_overall, n_newcust_overall, n_newmember_overall,
-        n_browse_overall, n_reviewbrowse_overall, n_newreview_overall, n_newhelpfulness_overall,  n_purchase_overall, 
-        rt_login_avg_msec, rt_newcust_avg_msec, rt_newmember_avg_msec, rt_browse_avg_msec, rt_reviewbrowse_avg_msec, rt_newreview_avg_msec, 
+        n_browse_overall, n_reviewbrowse_overall, n_newreview_overall, n_newhelpfulness_overall,  n_purchase_overall,
+        rt_login_avg_msec, rt_newcust_avg_msec, rt_newmember_avg_msec, rt_browse_avg_msec, rt_reviewbrowse_avg_msec, rt_newreview_avg_msec,
         rt_newhelpfulness_avg_msec, rt_purchase_avg_msec, rt_tot_sampled, n_rollbacks_overall, (100.0 * n_rollbacks_overall) / n_overall);
 
       if (n_vectors == 1)
@@ -1713,20 +1610,20 @@ namespace ds2xdriver
 
       if ( windows_perf_host != string.Empty )
         {
-        //Changed by GSK to get total average cpu utilization                                        
+        //Changed by GSK to get total average cpu utilization
         for ( i = 0 ; i < n_windows_servers ; i++ )
           {
           total_win_cpu_utilzn += ( arr_cpu_pct_tot[i] / arr_n_cpu_pct_samples[i] );
-          }                
-        }            
+          }
+        }
 
       if ( linux_perf_host != string.Empty )     //Added by GSK for getting Linux CPU Utilization
-        {                
+        {
         for ( i = 0 ; i < n_linux_servers ; i++ )
           {
           try
               {
-              //Use bookkeeped CPU utilization 
+              //Use bookkeeped CPU utilization
               total_lin_cpu_utilzn += arr_linux_cpu_utilization[i];
               }
           catch ( System.Exception e )
@@ -1734,10 +1631,10 @@ namespace ds2xdriver
               Console.WriteLine ( "Error in getting CPU Utilization for host: {0}: {1}" , linux_perf_host_servers[i].ToString ( ) , e.Message );
               return;
               }
-            }                
+            }
           }
 
-      if ( is_Win_VM == true && is_Lin_VM == true )       //Get perf stats from both linux and windows machines                        
+      if ( is_Win_VM == true && is_Lin_VM == true )       //Get perf stats from both linux and windows machines
         {
         total_cpu_utilzn = total_win_cpu_utilzn + total_lin_cpu_utilzn;
         //Instead of getting Sum of cpu utilization of all machines, we take average of total since it is good indication of utilization of Physical Processor
@@ -1749,17 +1646,17 @@ namespace ds2xdriver
           }
         Console.WriteLine ( "host {0} CPU%= {1,5:F1}" , windows_perf_host + ";" + sb_linux.ToString() , total_cpu_utilzn );
         }
-      else if ( is_Win_VM == true && is_Lin_VM == false )  //Get perf stats from windows machines                        
+      else if ( is_Win_VM == true && is_Lin_VM == false )  //Get perf stats from windows machines
         {
         total_cpu_utilzn = total_win_cpu_utilzn;
-                
+
         total_cpu_utilzn = total_cpu_utilzn / n_target_servers;
         Console.WriteLine ( "host {0} CPU%= {1,5:F1}" , windows_perf_host , total_cpu_utilzn );
         }
-      else if ( is_Lin_VM == true && is_Win_VM == false )  //Get perf stats from linux machines                        
+      else if ( is_Lin_VM == true && is_Win_VM == false )  //Get perf stats from linux machines
         {
         total_cpu_utilzn = total_lin_cpu_utilzn;
-                
+
         total_cpu_utilzn = total_cpu_utilzn / n_target_servers;
         StringBuilder sb_linux = new StringBuilder ( );
         for ( z = 0 ; z < n_linux_servers ; z++ )
@@ -1771,10 +1668,10 @@ namespace ds2xdriver
       else
         {
         Console.Error.Write ( "\n" );
-        }           
+        }
 
       //Added by GSK
-      //Call Write individual stats only when there are more than one target servers                   
+      //Call Write individual stats only when there are more than one target servers
       if ( n_target_servers > 1 )
         {
         Console.WriteLine ( "\nIndividual Stats for each DB / Web Server: " );
@@ -1796,10 +1693,10 @@ namespace ds2xdriver
             "rt_reviewbrowse_avg_msec={17} rt_newreview_avg_msec={18} rt_newhelpfulness_avg_msec={19} rt_purchase_avg_msec={20} " +
             "rt_tot_sampled={21} n_rollbacks_overall={22} rollback_rate = {23,2:F1}%  ",
             et, arr_n_overall[i], arr_opm[i], arr_rt_tot_lastn_max_msec[i], arr_rt_tot_avg_msec[i], arr_n_login_overall[i], arr_n_newcust_overall[i],
-            arr_n_newmember_overall[i], arr_n_browse_overall[i], arr_n_reviewbrowse_overall[i], arr_n_newreview_overall[i], arr_n_newhelpfulness_overall[i], 
+            arr_n_newmember_overall[i], arr_n_browse_overall[i], arr_n_reviewbrowse_overall[i], arr_n_newreview_overall[i], arr_n_newhelpfulness_overall[i],
             arr_n_purchase_overall[i], arr_rt_login_avg_msec[i], arr_rt_newcust_avg_msec[i], arr_rt_newmember_avg_msec[i], arr_rt_browse_avg_msec[i],
-            arr_rt_reviewbrowse_avg_msec[i], arr_rt_newreview_avg_msec[i], arr_rt_newhelpfulness_avg_msec[i], arr_rt_purchase_avg_msec[i], arr_rt_tot_sampled[i], 
-            arr_n_rollbacks_overall[i], (100.0 * arr_n_rollbacks_overall[i]) / arr_n_overall[i]                      
+            arr_rt_reviewbrowse_avg_msec[i], arr_rt_newreview_avg_msec[i], arr_rt_newhelpfulness_avg_msec[i], arr_rt_purchase_avg_msec[i], arr_rt_tot_sampled[i],
+            arr_n_rollbacks_overall[i], (100.0 * arr_n_rollbacks_overall[i]) / arr_n_overall[i]
             );
 
           //Added by GSK
@@ -1811,7 +1708,7 @@ namespace ds2xdriver
             Console.WriteLine ( "host {0} CPU%= {1,5:F1}" , windows_perf_host_servers[i] , arr_cpu_pct_tot[i] / arr_n_cpu_pct_samples[i] );
             }
           else if ( linux_perf_host != string.Empty && i >= n_windows_servers )     //Added by GSK for getting CPU Utilization of Linux Systems
-            {          
+            {
             try
               {
               //We only get CPU Utilization data which is book keeped in array arr_linux_cpu_utilization above
@@ -1826,7 +1723,7 @@ namespace ds2xdriver
             }
           else Console.Error.Write ( "\n" );
           }
-        }                      
+        }
       //Till this point Added by GSK
 
       Monitor.Exit ( UpdateLock );
@@ -1845,18 +1742,18 @@ namespace ds2xdriver
       Console.WriteLine ( "n_purchase_from_start= {0} n_rollbacks_from_start= {1}" , n_purchase_from_start , n_rollbacks_from_start );
 
       //Added by GSK
-      //Call Write individual stats only when there are more than one target servers                   
+      //Call Write individual stats only when there are more than one target servers
       if ( n_target_servers > 1 )
         {
         Console.WriteLine ( "\nIndividual Stats for each DB / Web Server: " );
         for ( i = 0 ; i < n_target_servers ; i++ )
-          Console.WriteLine ( "n_purchase_from_start= {0} n_rollbacks_from_start= {1}", 
+          Console.WriteLine ( "n_purchase_from_start= {0} n_rollbacks_from_start= {1}",
             arr_n_purchase_from_start[i] , arr_n_rollbacks_from_start[i] );
-        }            
+        }
       //Till this point Added by GSK
 
   Console.WriteLine ( "Run over" );
-#if (GEN_PERF_CTRS)  
+#if (GEN_PERF_CTRS)
       MaxRTC.RawValue = 0;
       OPMC.RawValue = 0;
 #endif
@@ -1864,53 +1761,50 @@ namespace ds2xdriver
 
     //
     //-------------------------------------------------------------------------------------------------
-    //      
+    //
     static int parse_args ( string[] argstring , ref string errmsg )
       {
       int parm_idx = -1 , parm_count = 0;
       string[] split;
-      string config_fname, parmline;
-      char[] delimeter = { '=' };
+      string config_fname;
+      char[] delimiter = { '=' };
 
       for ( int i = 0 ; i < argstring.Length ; i++ )
         {
+	if (argstring[i].Length < 3) continue;
+
         //Console.WriteLine(argstring[i]);
         if ( ( argstring[i].StartsWith ( "--" ) ) && ( argstring[i].IndexOf ( '=' ) > 2 ) )
           {
-          split = argstring[i].Substring ( 2 ).Split ( delimeter );
+          split = argstring[i].Substring ( 2 ).Split ( delimiter );
           if ( split[0] == "config_file" )
             {
             config_fname = split[1];
             if ( File.Exists ( config_fname ) )
               {
-              StreamReader sr = new StreamReader ( config_fname );
-              while ( ( parmline = sr.ReadLine ( ) ) != null )
-                {
-                //Console.WriteLine(parmline);            
-                if ( parmline.IndexOf ( '=' ) > 0 )
-                  {
-                  split = parmline.Split ( delimeter );
-                  parm_idx = Array.IndexOf ( input_parm_names , split[0] );
-                  if ( parm_idx > -1 )
-                    {
-                    //Console.WriteLine("Parameter {0} parsed; was {1}, now {2}", 
-                    //  split[0], input_parm_values[parm_idx], split[1]);
-                    input_parm_values[parm_idx] = split[1];
-                    ++parm_count;
-                    }
-                  else
-                    {
-                    errmsg = "Parameter " + split[0] + " doesn't exist";
-                    return ( 0 );
-                    }
-                  }
-                else
-                  {
-                  errmsg = "Incorrect format in parameter: " + argstring[i];
-                  return ( 0 );
-                  }
-                } // End while((parmline = sr.ReadLine()) != null)
-              sr.Close ( );
+                  string[] configLines = File.ReadAllLines(config_fname);
+
+		  foreach (string line in configLines)
+		  {
+                     string trimmedLine = line.Trim();
+                     if (string.IsNullOrWhiteSpace(trimmedLine) || trimmedLine.StartsWith("#"))
+                       continue;
+
+		     string[] cfgSplit = trimmedLine.Split(delimiter);
+                     if (cfgSplit.Length >= 2)
+                     {
+                         string cfgKey = cfgSplit[0].Trim();
+                         string cfgVal = cfgSplit[1].Trim();
+
+                         parm_idx = Array.IndexOf(input_parm_names, cfgKey);
+                         if (parm_idx > -1)
+                         {
+                             input_parm_values[parm_idx] = cfgVal;
+                             parm_count++;
+                         }
+                     }
+
+		  }
               }
             else
               {
@@ -1923,8 +1817,7 @@ namespace ds2xdriver
             parm_idx = Array.IndexOf ( input_parm_names , split[0] );
             if ( parm_idx > -1 )
               {
-              //Console.WriteLine("Parameter {0} parsed; was {1}, now {2}", 
-              //  split[0], input_parm_values[parm_idx], split[1]);
+              //Console.WriteLine("Parameter {0} parsed; was {1}, now {2}",split[0], input_parm_values[parm_idx], split[1]);
               input_parm_values[parm_idx] = split[1];
               ++parm_count;
               }
@@ -1933,7 +1826,7 @@ namespace ds2xdriver
               errmsg = "Parameter " + split[0] + " doesn't exist";
               return ( 0 );
               }
-            } // End else Param is not a config file name       
+            } // End else Param is not a config file name
           } // End if ((argstring[i].StartsWith("--") ...
         else
           {
@@ -1948,16 +1841,16 @@ namespace ds2xdriver
 
   //
   //-------------------------------------------------------------------------------------------------
-  //    
+  //
   class User
     {
     // If compile option /d:USE_WIN32_TIMER is specified will use 64b QueryPerformance counter from Win32
-    // Else will use .NET DateTime class      
+    // Else will use .NET DateTime class
 #if (USE_WIN32_TIMER)
     [DllImport("kernel32.dll")]
     extern static short QueryPerformanceCounter(ref long x);
     [DllImport("kernel32.dll")]
-    extern static short QueryPerformanceFrequency(ref long x);  
+    extern static short QueryPerformanceFrequency(ref long x);
 #endif
 
     int Userid;
@@ -1966,10 +1859,10 @@ namespace ds2xdriver
     string zip_in , country_in , email_in , phone_in , creditcard_in , gender_in;
     int creditcardtype_in , ccexpmon_in , ccexpyr_in , income_in , age_in;
     int customerid_in, membershiplevel_in, reviewid_in, reviewhelpfulness_in;
-    string actor_in , title_in;
     string new_review_summary_in, new_review_text_in;
     int new_review_stars_in, new_review_prod_id_in;
     string[] review_data_terms;
+    int lastprodinsert = 10000;
 
     public int target_server_id = 0;   //Added by GSK (Need this public since it is used by Controller to find out which thread belongs to which DB/Web Server)
 
@@ -1984,7 +1877,7 @@ namespace ds2xdriver
 
 	username_in = password_in = firstname_in = lastname_in = address1_in = address2_in = city_in = state_in = string.Empty;
 	zip_in = country_in = email_in = phone_in = creditcard_in = gender_in = string.Empty;
-	actor_in = title_in = new_review_summary_in = new_review_text_in = string.Empty;
+	new_review_summary_in = new_review_text_in = string.Empty;
 
         review_data_terms = InitReviewDataTerms();
         //Console.WriteLine("user {0} created", userid);
@@ -2055,7 +1948,7 @@ namespace ds2xdriver
       // Wait for all threads to connect
       while ( !Controller.Start ) Thread.Sleep ( 100 );
 
-      // Thread emulation loop - execute until Controller signals END      
+      // Thread emulation loop - execute until Controller signals END
       do
         {
         //Console.WriteLine ( "Thread {0}: Running for User {1}" , Thread.CurrentThread.Name , Userid );
@@ -2068,7 +1961,7 @@ namespace ds2xdriver
         rt_reviewbrowse = 0.0;  // total response time for review browses in this emulation loop
         rt_newreview = 0.0;  // total response time for new reviews created in this emulation loop
         rt_newhelpfulness = 0.0;  // total response time for new helpfulness ratings of reviews in this emulation loop
-        rt_purchase = 0.0;  //  response time for purchase in this emulation loop       
+        rt_purchase = 0.0;  //  response time for purchase in this emulation loop
 
         IsLogin = false;
         IsRollback = false;
@@ -2080,7 +1973,7 @@ namespace ds2xdriver
 
         double user_type = Random.Shared.NextDouble();
 
-        if ( user_type >= Controller.pct_newcustomers / 100.0 ) // If this is true we have a returning customer 
+        if ( user_type >= Controller.pct_newcustomers / 100.0 ) // If this is true we have a returning customer
           {
           IsLogin = true;
           //Returning user with randomized username
@@ -2099,7 +1992,7 @@ namespace ds2xdriver
               Console.WriteLine ( "Thread {0}: Error in Login for User {1}, failure {2}, retrying" ,
                 Thread.CurrentThread.Name , username_in, failures);
     	      }
-	        else 
+	        else
 	          {
               Console.WriteLine ( "Thread {0}: Error in Login for User {1}, failure {2}, exiting" ,
                 Thread.CurrentThread.Name , username_in, failures);
@@ -2115,9 +2008,9 @@ namespace ds2xdriver
             }
 
           //        Console.WriteLine("Thread {0}: User {1} logged in, customerid= {2}, previous DVDs ordered= {3}, " +
-          //          "RT= {4,10:F3}", Thread.CurrentThread.Name, username_in, customerid_out, rows_returned, rt);  
+          //          "RT= {4,10:F3}", Thread.CurrentThread.Name, username_in, customerid_out, rows_returned, rt);
           //        for (i=0; i<rows_returned; i++)
-          //          Console.WriteLine("Thread {0}: title= {1} actor= {2} related_title= {3}", 
+          //          Console.WriteLine("Thread {0}: title= {1} actor= {2} related_title= {3}",
           //            Thread.CurrentThread.Name, title_out[i], actor_out[i], related_title_out[i]);
 
           rt_login = rt;
@@ -2130,7 +2023,7 @@ namespace ds2xdriver
           {
           CreateUserData ( );
           do  // Try newcustomer until find a userid that doesn't exist
-            {
+          {
             int i_user = Random.Shared.Next(1,Controller.max_customer+1);
             username_in = "newuser" + i_user;
             password_in = "password";
@@ -2145,13 +2038,13 @@ namespace ds2xdriver
                 {
                   Console.WriteLine ( "Thread {0}: Error in New Customer for User {1}, failure {2}, retrying" ,
                   Thread.CurrentThread.Name , username_in, failures);
-	            }
-	          else 
-	            {
+	        }
+	      else
+	        {
                   Console.WriteLine ( "Thread {0}: Error in New Customer for User {1}, failure {2}, exiting" ,
                   Thread.CurrentThread.Name , username_in, failures);
                   return;
-	            }
+	        }
               }
 
             //if (customerid_out == 0)
@@ -2162,7 +2055,7 @@ namespace ds2xdriver
             {
                 Console.WriteLine("New Customer - DB didn't return value for new customerid, retrying... ");
             }
-            } while ( customerid_out < 1 ); // end of do/while try newcustomer
+          } while ( customerid_out < 1 ); // end of do/while try newcustomer
 
 //        Console.WriteLine("Thread {0}: New user {1} logged in, customerid = {2}, RT= {3,10:F3}",
 //           Thread.CurrentThread.Name, username_in, customerid_out, rt);
@@ -2203,8 +2096,8 @@ namespace ds2xdriver
             // if ( customerid_out == 0 ) Console.WriteLine ( "Customer {0} is already a member" , customerid_in );
             } while ( customerid_out == 0 ); // end of do/while try newcustomer
 
-//        Console.WriteLine("Thread {0}: New user {1} logged in, customerid = {2}, RT= {3,10:F3}", 
-//           Thread.CurrentThread.Name, username_in, customerid_out, rt);  
+//        Console.WriteLine("Thread {0}: New user {1} logged in, customerid = {2}, RT= {3,10:F3}",
+//           Thread.CurrentThread.Name, username_in, customerid_out, rt);
 
           rt_newmember = rt;  // Just count last iteration if had to retry username
           rt_tot += rt;
@@ -2243,14 +2136,12 @@ namespace ds2xdriver
               break;
             case 1:  // Search by Actor
               browse_type_in = "actor";
-              CreateActor ( );
-              browse_actor_in = actor_in;
+              browse_actor_in = CreateActor();
               browse_criteria = browse_actor_in;
               break;
             case 2:  // Search by Title
               browse_type_in = "title";
-              CreateTitle ( );
-              browse_title_in = title_in;
+              browse_title_in = CreateTitle();
               browse_criteria = browse_title_in;
               break;
 	    case 3: // Vector search
@@ -2295,11 +2186,11 @@ namespace ds2xdriver
 	      }
             }
 
-//        Console.WriteLine("Thread {0}: Search by {1}={2} returned {3} DVDs ({4} requested), RT= {5,10:F3}", 
+//        Console.WriteLine("Thread {0}: Search by {1}={2} returned {3} DVDs ({4} requested), RT= {5,10:F3}",
 //        Thread.CurrentThread.Name, browse_type_in, browse_criteria, rows_returned, batch_size_in,rt);
 //        for (i=0; i<rows_returned; i++)
-//          Console.WriteLine("  Thread {0}: prod_id= {1} title= {2} actor= {3} price= {4} special= {5}" + 
-//            " common_prod_id= {6}", 
+//          Console.WriteLine("  Thread {0}: prod_id= {1} title= {2} actor= {3} price= {4} special= {5}" +
+//            " common_prod_id= {6}",
 //            Thread.CurrentThread.Name, prod_id_out[i], title_out[i], actor_out[i],
 //            price_out[i], special_out[i], common_prod_id_out[i]);
 
@@ -2312,8 +2203,8 @@ namespace ds2xdriver
 
         // Browse Reviews Phase
 
-        // Search for reviews by Actor name or title 
-        // 
+        // Search for reviews by Actor name or title
+        //
         // GET_PROD_REVIEWS_BY_ACTOR - Search by actor name for product reviews
         // GET_PROD_REVIEWS_BY_TITLE - Search by title name for product reviews
 
@@ -2332,11 +2223,10 @@ namespace ds2xdriver
                 int search_type = Random.Shared.Next(2); // randomly select search type
                 switch (search_type)
                 {
-                    case 0:  // Get Reviews by Actor 
+                    case 0:  // Get Reviews by Actor
                         get_review_type_in = "actor";
                         get_review_prod_in = 0;
-                        CreateActor();
-                        actornames_in = actor_in.Split(' ');     // Get just one name for searching
+                        actornames_in = CreateActor().Split(' ');     // Get just one name for searching
                         get_review_actor_in = actornames_in[1];
                         get_review_title_in = "";
                         get_review_criteria = get_review_actor_in;
@@ -2345,8 +2235,7 @@ namespace ds2xdriver
                         get_review_type_in = "title";
                         get_review_category_in = "";
                         get_review_actor_in = "";
-                        CreateTitle();
-                        titlenames_in = title_in.Split(' ');       // Get just one word for title search
+                        titlenames_in = CreateTitle().Split(' ');       // Get just one word for title search
                         get_review_title_in = titlenames_in[1];
                         get_review_criteria = get_review_title_in;
                         break;
@@ -2362,12 +2251,12 @@ namespace ds2xdriver
                       Console.WriteLine ( "Thread {0}: Error in browse reviews for User {1}, failure {2}, retrying" ,
                         Thread.CurrentThread.Name , username_in, failures);
 	                }
-	                else 
+	                else
 	                {
                       Console.WriteLine ( "Thread {0}: Error in browse reviews for User {1}, failure {2}, exiting" ,
                         Thread.CurrentThread.Name , username_in, failures);
                       return;
-                    }          
+                    }
                   }
                 rt_reviewbrowse += rt;
             }  // End of for ib=0 to n_browse
@@ -2396,12 +2285,12 @@ namespace ds2xdriver
                 int search_type = Random.Shared.Next(3); // randomly select search type
                 switch (search_type)
                 {
-                    case 0:  // Get Reviews with no order 
+                    case 0:  // Get Reviews with no order
                         get_review_type_in = "noorder";
                         // assign get_review_prod_in to be a random product id number
                         get_review_prod_in = Controller.prod_array[Random.Shared.Next(Controller.prod_array_size)];
                         break;
-                    case 1:  // Get Reviews by Star ranking 
+                    case 1:  // Get Reviews by Star ranking
                         get_review_type_in = "star";
                         get_review_prod_in = Controller.prod_array[Random.Shared.Next(Controller.prod_array_size)];
                         break;
@@ -2420,7 +2309,7 @@ namespace ds2xdriver
                        Console.WriteLine ( "Thread {0}: Error in get review for User {1}, failure {2}, retrying" ,
                          Thread.CurrentThread.Name , username_in, failures);
 	                 }
-	              else 
+	              else
 	                 {
                        Console.WriteLine ( "Thread {0}: Error in get review for User {1}, failure {2}, exiting" ,
                          Thread.CurrentThread.Name , username_in, failures);
@@ -2453,7 +2342,7 @@ namespace ds2xdriver
                       Console.WriteLine ( "Thread {0}: Error in new review for User {1}, failure {2}, retrying" ,
                         Thread.CurrentThread.Name , username_in, failures);
 	                }
-	              else 
+	              else
 	                {
                       Console.WriteLine ( "Thread {0}: Error in new review for User {1}, failure {2}, exiting" ,
                         Thread.CurrentThread.Name , username_in, failures);
@@ -2466,7 +2355,7 @@ namespace ds2xdriver
             }
             //End New Review Phase
 
-            // Begin New Review Helpfulness Phase 
+            // Begin New Review Helpfulness Phase
 
             if (user_type <= Controller.pct_newhelpfulness / 100.0) // If this is true we have a customer that wants to rate a reviews helpfulness
             {
@@ -2482,7 +2371,7 @@ namespace ds2xdriver
                        Console.WriteLine ( "Thread {0}: Error in new review helpfulness for User {1}, failure {2}, retrying" ,
                          Thread.CurrentThread.Name , username_in, failures);
 	                 }
-	               else 
+	               else
 	                 {
                        Console.WriteLine ( "Thread {0}: Error in new review helpfulness for User {1}, failure {2}, exiting" ,
                          Thread.CurrentThread.Name , username_in, failures);
@@ -2493,9 +2382,26 @@ namespace ds2xdriver
                 rt_newhelpfulness = rt;  // Just count last iteration if had to retry username
                 rt_tot += rt;
 
-            } //End of IF 
+            } //End of IF
 
             // End of New Helpfulness Phase
+
+            if (Controller.n_overall > lastprodinsert && Thread.CurrentThread.Name == "0")
+            {
+               //Console.WriteLine ("n_overall: {0} Thread: {1}",Controller.n_overall, Thread.CurrentThread.Name);
+               int new_category_in = Random.Shared.Next(1, GlobalConstants.MAX_CATEGORY+1);
+               string new_actor_in = CreateActor();
+	       string new_title_in = CreateTitle();
+	       decimal price_in = 5.99m + (decimal)Random.Shared.NextDouble() * 15;
+	       int initial_stock_in = Random.Shared.Next(1,500);
+               //Console.WriteLine ("\tNew product: {0}, {1}, {2}, {3:F2}, {4}", new_category_in, new_actor_in, new_title_in, price_in, initial_stock_in);
+
+	       if ( ds2interfaces[Userid].ds2newproduct(new_category_in, new_title_in, new_actor_in, price_in, initial_stock_in, ref rt) )
+               {
+                  Controller.max_product++;
+                  lastprodinsert += 1000;
+               }
+            }
 
         } // end of if for ds2_mode to exclude reviews and helpfulness opreations
         // Purchase Phase
@@ -2519,9 +2425,10 @@ namespace ds2xdriver
         // For each cart item randomly select product_id using weighted prod_array
         for ( i = 0 ; i < cart_items ; i++ )
           {
-          prod_id_in[i] = Controller.prod_array[Random.Shared.Next( Controller.prod_array_size )];
+//          prod_id_in[i] = Controller.prod_array[Random.Shared.Next( Controller.prod_array_size )];
+	  prod_id_in[i] = Random.Shared.Next(Controller.max_product);
           qty_in[i] = Random.Shared.Next(1,4);  // qty (1, 2 or 3)
-          //        Console.WriteLine("Thread {0}: Purchase prod_id_in[{1}] = {2}  qty_in[{1}]= {3}", 
+          //        Console.WriteLine("Thread {0}: Purchase prod_id_in[{1}] = {2}  qty_in[{1}]= {3}",
           //          Thread.CurrentThread.Name, i, prod_id_in[i], qty_in[i]);
           }
 
@@ -2534,7 +2441,7 @@ namespace ds2xdriver
             Console.WriteLine ( "Thread {0}: Error in Purchase for User {1}, failure {2}, retrying" ,
               Thread.CurrentThread.Name , username_in, failures);
     	    }
-	      else 
+	      else
 	        {
             Console.WriteLine ( "Thread {0}: Error in Purchase for User {1}, failure {2}, exiting" ,
               Thread.CurrentThread.Name , username_in, failures);
@@ -2558,14 +2465,14 @@ namespace ds2xdriver
           ++Controller.n_login_overall;
           ++Controller.arr_n_login_overall[target_server_id];                 //Added by GSK (all Controller class members starting with arr_%)
           Controller.rt_login_overall += rt_login;
-          Controller.arr_rt_login_overall[target_server_id] += rt_login;      
+          Controller.arr_rt_login_overall[target_server_id] += rt_login;
           }
         else
           {
           ++Controller.n_newcust_overall;
-          ++Controller.arr_n_newcust_overall[target_server_id];               
+          ++Controller.arr_n_newcust_overall[target_server_id];
           Controller.rt_newcust_overall += rt_newcust;
-          Controller.arr_rt_newcust_overall[target_server_id] += rt_newcust;  
+          Controller.arr_rt_newcust_overall[target_server_id] += rt_newcust;
           }
         if ( IsNewMember )
           {
@@ -2575,7 +2482,7 @@ namespace ds2xdriver
           Controller.arr_rt_newmember_overall[target_server_id] += rt_newmember;
           }
         Controller.n_browse_overall += n_browse;
-        Controller.arr_n_browse_overall[target_server_id] += n_browse;          
+        Controller.arr_n_browse_overall[target_server_id] += n_browse;
         Controller.rt_browse_overall += rt_browse;
         Controller.arr_rt_browse_overall[target_server_id] += rt_browse;
         Controller.n_reviewbrowse_overall += (n_reviewbrowse + n_getreviewbrowse);
@@ -2597,32 +2504,32 @@ namespace ds2xdriver
             Controller.arr_rt_newhelpfulness_overall[target_server_id] += rt_newhelpfulness;
         }
         ++Controller.n_purchase_overall;
-        ++Controller.arr_n_purchase_overall[target_server_id];                  
-        ++Controller.n_purchase_from_start;                                     
-        ++Controller.arr_n_purchase_from_start[target_server_id];               
+        ++Controller.arr_n_purchase_overall[target_server_id];
+        ++Controller.n_purchase_from_start;
+        ++Controller.arr_n_purchase_from_start[target_server_id];
         Controller.rt_purchase_overall += rt_purchase;
-        Controller.arr_rt_purchase_overall[target_server_id] += rt_purchase;    
-        
+        Controller.arr_rt_purchase_overall[target_server_id] += rt_purchase;
+
         if ( IsRollback )
         {
           ++Controller.n_rollbacks_overall;
-          ++Controller.arr_n_rollbacks_overall[target_server_id];             
-          ++Controller.n_rollbacks_from_start;                                
-          ++Controller.arr_n_rollbacks_from_start[target_server_id];          
+          ++Controller.arr_n_rollbacks_overall[target_server_id];
+          ++Controller.n_rollbacks_from_start;
+          ++Controller.arr_n_rollbacks_from_start[target_server_id];
         }
 
         ++Controller.n_overall;
-        ++Controller.arr_n_overall[target_server_id];                                           
+        ++Controller.arr_n_overall[target_server_id];
         Controller.rt_tot_overall += rt_tot;
-        Controller.arr_rt_tot_overall[target_server_id] += rt_tot;                              
+        Controller.arr_rt_tot_overall[target_server_id] += rt_tot;
         Controller.rt_tot_lastn[Controller.n_overall % GlobalConstants.LAST_N] = rt_tot;
-                
-        int arrIndex = Controller.arr_n_overall[target_server_id] % GlobalConstants.LAST_N;    
-        Controller.arr_rt_tot_lastn[target_server_id,arrIndex] = rt_tot;                        
-                                            
+
+        int arrIndex = Controller.arr_n_overall[target_server_id] % GlobalConstants.LAST_N;
+        Controller.arr_rt_tot_lastn[target_server_id,arrIndex] = rt_tot;
+
         Monitor.Exit ( Controller.UpdateLock );
 
-        Thread.Sleep ( Random.Shared.Next ( 2 * ( int ) Math.Floor ( 1000 * Controller.think_time ) ) ); // Delay think time seconds               
+        Thread.Sleep ( Random.Shared.Next ( 2 * ( int ) Math.Floor ( 1000 * Controller.think_time ) ) ); // Delay think time seconds
 
         } while ( !Controller.End ); // End of Thread Emulation loop
 
@@ -2632,7 +2539,7 @@ namespace ds2xdriver
       }  // End of Emulate()
     //
     //-------------------------------------------------------------------------------------------------
-    //          
+    //
     void CreateUserData ( )
       {
       City[] us_cities = CityData.GetUSCities();
@@ -2687,231 +2594,19 @@ namespace ds2xdriver
     //
     //-------------------------------------------------------------------------------------------------
     //
-    void CreateActor ( )
-      {
+    String CreateActor ( )
+    {
+      return (fake_actor_data.actor_firstnames[Random.Shared.Next( fake_actor_data.lastname_pool_size )] + " " + fake_actor_data.actor_lastnames[Random.Shared.Next( fake_actor_data.lastname_pool_size )]);
+    }
 
-      // 500 actor/actress firstnames
-      string[] actor_firstnames = new string[]
-        {
-          "Aaron", "Adam", "Adrien", "Aidan", "Al", "Alan", "Albert", "Alden", "Aldis", "Alec", "Alexander", "Alexandra",
-          "Alfred", "Alicia", "Alison", "Allison", "Amanda", "Amandla", "Amber", "Amy", "Ana", "Andre", "Andrea", "Andrew",
-          "Andy", "Angela", "Angelina", "Anjelica", "Ann", "Anna", "Anne", "Annette", "Anson", "Anthony", "Anton", "Antonio",
-          "Antony", "Anya", "Aparna", "Archie", "Armie", "Arnold", "Aubrey", "Audrey", "Austin", "Ayo", "Barkhad", "Barry",
-          "Ben", "Benedict", "Benicio", "Bette", "Bill", "Billy", "Bob", "Boyd", "Bradley", "Brendan", "Brenton", "Brian",
-          "Brie", "Brittany", "Bruce", "Bryan", "Burt", "Cameron", "Carey", "Carl", "Carrie-Anne", "Cary", "Casey", "Cate",
-          "Catherine", "Chace", "Channing", "Charles", "Charlie", "Charlize", "Chaske", "Chevy", "Chiwetel", "Chloe", "Chris",
-          "Christian", "Christina", "Christoph", "Christopher", "Ciaran", "Cillian", "Claes", "Clark", "Clint", "Cloris",
-          "Cobie", "Colby", "Colin", "Colman", "Connie", "Corey", "Courteney", "Craig", "Cuba", "Dakota", "Damian", "Dan",
-          "Danai", "Dane", "Daniel", "Daniela", "Danielle", "Danny", "Dave", "David", "Demi", "Dennis", "Denzel", "Dermot",
-          "Dev", "Diane", "Diego", "Djimon", "Dominic", "Dominique", "Don", "Donald", "Donnie", "Doris", "Doug", "Drew",
-          "Dustin", "Dwayne", "Ed", "Eddie", "Edward", "Eiza", "Elijah", "Elisabeth", "Elizabeth", "Elle", "Ellen", "Elliot",
-          "Elsie", "Emile", "Emilio", "Emily", "Emma", "Ernest", "Ernie", "Ethan", "Eugene", "Eva", "Evan", "Ewan", "Famke",
-          "Finn", "Fionn", "Florence", "Forest", "Frances", "Frank", "Frankie", "Freddie", "Gael", "Gal", "Garrett", "Gary",
-          "Geena", "Gemma", "Gene", "Geoffrey", "George", "Gerard", "Giancarlo", "Gillian", "Gina", "Ginnifer", "Glen", "Glenn",
-          "Goldie", "Greta", "Gugu", "Gustaf", "Gwendoline", "Gwyneth", "Hailee", "Haley", "Halle", "Harris", "Harrison",
-          "Harry", "Harvey", "Hayden", "Hayley", "Heath", "Helen", "Helena", "Henry", "Hilary", "Hiroyuki", "Holly", "Hugh",
-          "Hugo", "Humphrey", "Ian", "Idris", "Iko", "Imelda", "Imogen", "Ingrid", "Ioan", "Issa", "Jack", "Jackie", "Jacob",
-          "Jaden", "Jahi", "Jai", "Jaimie", "Jake", "James", "Jamie", "Jane", "Janet", "Jason", "Javier", "Jean", "Jeff",
-          "Jeffrey", "Jena", "Jenna", "Jennifer", "Jeremy", "Jerome", "Jerry", "Jesse", "Jessica", "Jet", "Jim", "J.K.",
-          "Joaquin", "Jodie", "Joe", "Joel", "John", "Johnny", "Jon", "Jonah", "Jonathan", "Jordan", "Joseph", "Josh", "Judd",
-          "Jude", "Judi", "Judy", "Julia", "Julianne", "Juliette", "Juno", "Jurnee", "Justice", "Justin", "Kaitlin", "Kaley",
-          "Karen", "Kate", "Katharine", "Katherine", "Kathryn", "Kathy", "Katie", "Kayvan", "Keanu", "Keegan-Michael", "Keira",
-          "Keke", "Kelsey", "Ken", "Kerry", "Kevin", "Kiefer", "Kieran", "Kingsley", "Kirsten", "Kristen", "Kumail", "Kurt",
-          "Kyle", "LaKeith", "Laura", "Lauren", "Laurence", "Lena", "Leonardo", "Leslie", "Letitia", "Liam", "Liev", "Lily",
-          "Linda", "Lindsay", "Lisa", "Logan", "Ludwig", "Lupita", "Macaulay", "Mackenyu", "Mads", "Maggie", "Mahershala",
-          "Maika", "Maisie", "Malcolm", "Marc", "Margot", "Maria", "Marion", "Marisa", "Mark", "Marlon", "Martin", "Mary",
-          "Matt", "Matthew", "Maura", "Maya", "Mel", "Melanie", "Melissa", "Meryl", "Michael", "Michelle", "Mickey", "Mila",
-          "Miles", "Millie", "Milo", "Mindy", "Minnie", "Morfydd", "Morgan", "Moses", "Naomie", "Natalie", "Natasha", "Nathan",
-          "Neil", "Nicholas", "Nick", "Nicolas", "Nicole", "Nikolaj", "Noomi", "Norman", "Octavia", "Odeya", "Olga", "Olivia",
-          "Orlando", "Oscar", "Owen", "Paddy", "Patrice", "Patricia", "Patrick", "Patton", "Paul", "Pedro", "Penelope", "Peter",
-          "Philip", "Phylicia", "Pierce", "Pom", "Queen", "Quinta", "Quintessa", "Rachel", "Rafe", "Raffey", "Rainn", "Ralph",
-          "Rami", "Randall", "Rashida", "Ray", "Rebecca", "Rebel", "Reese", "Regina", "Renee", "Rhona", "Rhys", "Richard",
-          "Rinko", "Rita", "Riz", "Rob", "Robert", "Robin", "Ron", "Rosamund", "Rosario", "Rose", "Rosie", "Rupert", "Russell",
-          "Ryan", "Sacha", "Sadie", "Salma", "Sam", "Samara", "Samuel", "Sanaa", "Sandra", "Saoirse", "Sarah", "Scarlett",
-          "Scott", "Sean", "Sebastian", "Selena", "Seth", "Shah", "Shailene", "Sharon", "Shaun", "Shea", "Shia", "Shirley",
-          "Sidney", "Sigourney", "Simone", "Simu", "Sissy", "Skeet", "Sofia", "Sonequa", "Sophia", "Spike", "Stanley",
-          "Stellan", "Stephanie", "Steve", "Steven", "Suraaj", "Susan", "Sydney", "Sylvester", "Taika", "Tao", "Taraji",
-          "Taran", "Taron", "Tatiana", "Tessa", "Teyonah", "Thandiwe", "Thomasin", "Thuso", "Tilda", "Tim", "Timothee", "Tina",
-          "Tobey", "Toby", "Tom", "Tommy", "Toni", "Tony", "Topher", "Trevante", "Tuppence", "Uma", "Uzo", "Valerie",
-          "Vanessa", "Vera", "Vicky", "Viggo", "Vin", "Vince", "Viola", "Walton", "Warwick", "Wesley", "Whoopi", "Will",
-          "Willem", "William", "Woody", "Wunmi", "Yahya", "Yvonne", "Zac", "Zach", "Zachary", "Zazie", "Zoe"
-        };
-
-      // 500 actor/actress lastnames
-      string[] actor_lastnames = new string[]
-        {
-          "Abdi", "Abdul-Mateen II", "Ackles", "Adams", "Aduba", "Affleck", "Ahmed", "Alexander", "Ali", "Allen", "Anderson",
-          "Aniston", "Applegate", "Aranas", "Arquette", "Atwell", "Aykroyd", "Bacall", "Baldwin", "Bale", "Banderas", "Bang",
-          "Banks", "Bardem", "Baron Cohen", "Barrymore", "Bassett", "Bates", "Bautista", "Bean", "Beetz", "Bell", "Bello",
-          "Ben-Adir", "Bening", "Bergman", "Berry", "Bichir", "Biles", "Binoche", "Birch", "B. Jordan", "Blanchett", "Bloom",
-          "Blunt", "Bobby Brown", "Bogart", "Bonham Carter", "Borgnine", "Boutella", "Brando", "Bridges", "Brie", "Britton",
-          "Brody", "Brolin", "Brooks", "Brosnan", "Brown", "Brunson", "Bullock", "Buscemi", "Busey", "Butler", "Byrne", "Cage",
-          "Cardellini", "Carrey", "Cassidy", "Cavill", "Cena", "Chalamet", "Chan", "Chase", "Chastain", "Chau", "Cheadle",
-          "Christensen", "Christie", "Clark", "Clooney", "Close", "Collette", "Colman", "Connery", "Considine", "Cooper",
-          "Coster-Waldau", "Costner", "Cotillard", "Courtney", "Cox", "Cranston", "Crawford", "Crowe", "Crudup", "Cruz",
-          "Culkin", "Cumberbatch", "Cuoco", "Daddario", "Dafoe", "Damon", "Dance", "Davis", "Dawson", "Day", "de Armas",
-          "DeGeneres", "DeHaan", "Del Toro", "De Niro", "Depp", "Dern", "DeVito", "Diaz", "DiCaprio", "Dickinson", "Diesel",
-          "Dinklage", "Driver", "Dunst", "Eastwood", "Edebiri", "Edgerton", "Efron", "Egerton", "Ehrenreich", "Eisenberg",
-          "Ejiofor", "Elba", "Elordi", "Esposito", "Estevez", "Evans", "Falco", "Fanning", "Faris", "Farmiga", "Farrell",
-          "Ferguson", "Fey", "Fiennes", "Fillion", "Firth", "Fishback", "Fishburne", "Fisher", "Flynn", "Fonda", "Ford",
-          "Foster", "Freeman", "Gable", "Gadot", "Galifianakis", "Garcia Bernal", "Garfield", "Garland", "Gere", "Giamatti",
-          "Gibson", "Gillan", "Gilliam", "Gleeson", "Goggins", "Goldberg", "Goldblum", "Goldwyn", "Gomez", "Gonzalez",
-          "Gooding Jr.", "Goodwin", "Gordon-Levitt", "Gosling", "Grace", "Grace Moretz", "Grammer", "Grant", "Griffith",
-          "Grillo", "Grint", "Gruffudd", "Gurira", "Gyllenhaal", "Hackman", "Hahn", "Hamm", "Hammer", "Hanks", "Harbour",
-          "Harlow", "Harper", "Harrelson", "Harris", "Hathaway", "Hauser", "Hawke", "Hawkins", "Hawn", "Hayek", "Headey",
-          "Heard", "Hedlund", "Heigl", "Hepburn", "Highmore", "Hill", "Hinds", "Hirsch", "H. Macy", "Hodge", "Hoffman",
-          "Holbrook", "Holland", "Holmes", "Hopkins", "Hopper", "Hoult", "Hounsou", "Hudson", "Hunter", "Huston", "Ifans",
-          "Ingram", "Ironside", "Isaac", "Jackman", "James", "Janney", "Janssen", "Jeong", "Jessica Parker", "Johansson",
-          "Johnson", "Jolie", "Jones", "Kaling", "Kamal", "Kazan", "Keach", "Keaton", "Keitel", "Keoghan", "Key", "Kidman",
-          "Kier", "Kikuchi", "Killam", "King", "Kirby", "Klementieff", "Knightley", "Kravitz", "Krieps", "Kudrow", "Kunis",
-          "Kurylenko", "Kuss", "LaBeouf", "Larson", "Lathan", "Latifah", "Law", "Leachman", "Ledger", "Lee", "Lee Jones",
-          "Lehman", "Leigh", "Lerman", "Levin", "Levy", "Lewis", "Li", "Liotta", "Liu", "L. Jackson", "Lopez", "Loren",
-          "Louis-Dreyfus", "Lowe", "Lyonne", "Macdonald", "MacLachlan", "Madekwe", "Maguire", "Malek", "Malone", "Manning",
-          "Margret", "Maron", "Martindale", "Martin-Green", "Maslany", "Mbatha-Raw", "Mbedu", "McAdams", "McCarthy",
-          "McClanahan", "McDormand", "McDowell", "McElhone", "McGregor", "McKellen", "McKenzie", "McNairy", "Melchior",
-          "Mendes", "Meyer", "Middleton", "Mikkelsen", "Minifie", "Mirren", "Mitra", "Molina", "Monroe", "Moore", "Moreno",
-          "Mortensen", "Mosaku", "Moss", "Mount", "Mulligan", "Mulroney", "Muniz", "Murphy", "Nanjiani", "Neeson", "Newton",
-          "Nolte", "Norton", "Novak", "Nyong'o", "Odenkirk", "Odom Jr.", "O'Donnell", "Oh", "Okamoto", "Oldman", "Olsen",
-          "O'Neill", "Orser", "Ortega", "Oswalt", "Pacino", "Page", "Palmer", "Paltrow", "Park", "Parris", "Pascal", "Patel",
-          "Patrick Harris", "Pattinson", "Peele", "Perlman", "Perry", "Pesci", "Peters", "P. Henson", "Phoenix", "Pike",
-          "Plaza", "Poesy", "Poitier", "Poots", "Portman", "Posey", "Powell", "Pryce", "Pugh", "Purohit", "Quaid", "Quinn",
-          "Quinto", "Radcliffe", "Rae", "Rapace", "Rashad", "Redmayne", "Reedus", "Reeves", "Reitman", "Renner", "Reynolds",
-          "Rhames", "Rhodes", "Richards", "Richardson", "Rickman", "Riseborough", "Robbie", "Roberts", "Rockwell", "Rodriguez",
-          "Rogen", "Rogowski", "Ronan", "Rourke", "Rudolph", "Ruffalo", "Rukh Khan", "Rush", "Russell", "Saldana", "Sanada",
-          "Sandler", "Sarandon", "Schreiber", "Schwarzenegger", "Seinfeld", "Serkis", "Sessa", "Seyfried", "Seymour Hoffman",
-          "Sharma", "Shaw", "Shawkat", "Short", "Simmons", "Sink", "Skarsgard", "Smith", "Smollett", "Smulders", "Snipes",
-          "Spacek", "Spall", "Spencer", "Stallone", "Stan", "Stanfield", "Starr", "Statham", "Staunton", "Steenburgen",
-          "Steinfeld", "Stenberg", "Stevens", "Stewart", "Stone", "Strahovski", "Streep", "Styles", "Sutherland", "Swank",
-          "Swayze", "Sweeney", "Swindell", "Swinton", "Tatum", "Taylor", "Taylor-Johnson", "Taylor-Joy", "Teller", "Temple",
-          "Theron", "Thompson", "Thurman", "Thwaites", "Tierney", "Timberlake", "Tomei", "Tucci", "Tyson", "Ulrich", "Uwais",
-          "Van Dien", "Vaughn", "Ventimiglia", "Vikander", "Wahlberg", "Waititi", "Walken", "Walker", "Waller-Bridge", "Waltz",
-          "Washington", "Weathers", "Weaver", "Weaving", "Whigham", "Whitaker", "Whitehead", "Wiig", "Williams", "Willis",
-          "Wilson", "Winston", "Witherspoon", "Wolfhard", "Wong", "Wood", "Wright", "Yelchin", "Yeoh", "Yeun", "Zellweger",
-          "Zeta-Jones"
-        };
-
-      actor_in = actor_firstnames[Random.Shared.Next( 500 )] + " " + actor_lastnames[Random.Shared.Next( 500 )];
-
-      }  // End of CreateActor
-
-    //
-    //-------------------------------------------------------------------------------------------------
-    //    
-    void CreateTitle ( )
-      {
-      // Names compiled by Dara Jaffe
-
-      // 1000 movie title words
-
-      string[] movie_titles = new string[]
-        {
-        "ACADEMY", "ACE", "ADAPTATION", "AFFAIR", "AFRICAN", "AGENT", "AIRPLANE", "AIRPORT", "ALABAMA", "ALADDIN", 
-        "ALAMO", "ALASKA", "ALI", "ALICE", "ALIEN", "ALLEY", "ALONE", "ALTER", "AMADEUS", "AMELIE", 
-        "AMERICAN", "AMISTAD", "ANACONDA", "ANALYZE", "ANGELS", "ANNIE", "ANONYMOUS", "ANTHEM", "ANTITRUST", "ANYTHING", 
-        "APACHE", "APOCALYPSE", "APOLLO", "ARABIA", "ARACHNOPHOBIA", "ARGONAUTS", "ARIZONA", "ARK", "ARMAGEDDON", "ARMY", 
-        "ARSENIC", "ARTIST", "ATLANTIS", "ATTACKS", "ATTRACTION", "AUTUMN", "BABY", "BACKLASH", "BADMAN", "BAKED", 
-        "BALLOON", "BALLROOM", "BANG", "BANGER", "BARBARELLA", "BAREFOOT", "BASIC", "BEACH", "BEAR", "BEAST", 
-        "BEAUTY", "BED", "BEDAZZLED", "BEETHOVEN", "BEHAVIOR", "BENEATH", "BERETS", "BETRAYED", "BEVERLY", "BIKINI", 
-        "BILKO", "BILL", "BINGO", "BIRCH", "BIRD", "BIRDCAGE", "BIRDS", "BLACKOUT", "BLADE", "BLANKET", 
-        "BLINDNESS", "BLOOD", "BLUES", "BOILED", "BONNIE", "BOOGIE", "BOONDOCK", "BORN", "BORROWERS", "BOULEVARD", 
-        "BOUND", "BOWFINGER", "BRANNIGAN", "BRAVEHEART", "BREAKFAST", "BREAKING", "BRIDE", "BRIGHT", "BRINGING", "BROOKLYN", 
-        "BROTHERHOOD", "BUBBLE", "BUCKET", "BUGSY", "BULL", "BULWORTH", "BUNCH", "BUTCH", "BUTTERFLY", "CABIN", 
-        "CADDYSHACK", "CALENDAR", "CALIFORNIA", "CAMELOT", "CAMPUS", "CANDIDATE", "CANDLES", "CANYON", "CAPER", "CARIBBEAN", 
-        "CAROL", "CARRIE", "CASABLANCA", "CASPER", "CASSIDY", "CASUALTIES", "CAT", "CATCH", "CAUSE", "CELEBRITY", 
-        "CENTER", "CHAINSAW", "CHAMBER", "CHAMPION", "CHANCE", "CHAPLIN", "CHARADE", "CHARIOTS", "CHASING", "CHEAPER", 
-        "CHICAGO", "CHICKEN", "CHILL", "CHINATOWN", "CHISUM", "CHITTY", "CHOCOLAT", "CHOCOLATE", "CHRISTMAS", "CIDER", 
-        "CINCINATTI", "CIRCUS", "CITIZEN", "CLASH", "CLEOPATRA", "CLERKS", "CLOCKWORK", "CLONES", "CLOSER", "CLUB", 
-        "CLUE", "CLUELESS", "CLYDE", "COAST", "COLDBLOODED", "COLOR", "COMA", "COMANCHEROS", "COMFORTS", "COMMAND", 
-        "COMMANDMENTS", "CONEHEADS", "CONFESSIONS", "CONFIDENTIAL", "CONFUSED", "CONGENIALITY", "CONNECTICUT", "CONNECTION", 
-        "CONQUERER", "CONSPIRACY", "CONTACT", "CONTROL", "CONVERSATION", "CORE", "COWBOY", "CRAFT", "CRANES", "CRAZY", 
-        "CREATURES", "CREEPERS", "CROOKED", "CROSSING", "CROSSROADS", "CROW", "CROWDS", "CRUELTY", "CRUSADE", "CRYSTAL", 
-        "CUPBOARD", "CURTAIN", "CYCLONE", "DADDY", "DAISY", "DALMATIONS", "DANCES", "DANCING", "DANGEROUS", "DARES", 
-        "DARKNESS", "DARKO", "DARLING", "DARN", "DATE", "DAUGHTER", "DAWN", "DAY", "DAZED", "DECEIVER", "DEEP", "DEER", 
-        "DELIVERANCE", "DESERT", "DESIRE", "DESPERATE", "DESTINATION", "DESTINY", "DETAILS", "DETECTIVE", "DEVIL", "DIARY", 
-        "DINOSAUR", "DIRTY", "DISCIPLE", "DISTURBING", "DIVIDE", "DIVINE", "DIVORCE", "DOCTOR", "DOGMA", "DOLLS", 
-        "DONNIE", "DOOM", "DOORS", "DORADO", "DOUBLE", "DOUBTFIRE", "DOWNHILL", "DOZEN", "DRACULA", "DRAGON", 
-        "DRAGONFLY", "DREAM", "DRIFTER", "DRIVER", "DRIVING", "DROP", "DRUMLINE", "DRUMS", "DUCK", "DUDE", 
-        "DUFFEL", "DUMBO", "DURHAM", "DWARFS", "DYING", "DYNAMITE", "EAGLES", "EARLY", "EARRING", "EARTH", 
-        "EASY", "EDGE", "EFFECT", "EGG", "EGYPT", "ELEMENT", "ELEPHANT", "ELF", "ELIZABETH", "EMPIRE", 
-        "ENCINO", "ENCOUNTERS", "ENDING", "ENEMY", "ENGLISH", "ENOUGH", "ENTRAPMENT", "ESCAPE", "EVE", "EVERYONE", "EVOLUTION", 
-        "EXCITEMENT", "EXORCIST", "EXPECATIONS", "EXPENDABLE", "EXPRESS", "EXTRAORDINARY", "EYES", "FACTORY", "FALCON", 
-        "FAMILY", "FANTASIA", "FANTASY", "FARGO", "FATAL", "FEATHERS", "FELLOWSHIP", "FERRIS", "FEUD", "FEVER", 
-        "FICTION", "FIDDLER", "FIDELITY", "FIGHT", "FINDING", "FIRE", "FIREBALL", "FIREHOUSE", "FISH", "FLAMINGOS", 
-        "FLASH", "FLATLINERS", "FLIGHT", "FLINTSTONES", "FLOATS", "FLYING", "FOOL", "FOREVER", "FORREST", "FORRESTER", 
-        "FORWARD", "FRANKENSTEIN", "FREAKY", "FREDDY", "FREEDOM", "FRENCH", "FRIDA", "FRISCO", "FROGMEN", "FRONTIER", 
-        "FROST", "FUGITIVE", "FULL", "FURY", "GABLES", "GALAXY", "GAMES", "GANDHI", "GANGS", "GARDEN", 
-        "GASLIGHT", "GATHERING", "GENTLEMEN", "GHOST", "GHOSTBUSTERS", "GIANT", "GILBERT", "GILMORE", "GLADIATOR", "GLASS", 
-        "GLEAMING", "GLORY", "GO", "GODFATHER", "GOLD", "GOLDFINGER", "GOLDMINE", "GONE", "GOODFELLAS", "GORGEOUS", 
-        "GOSFORD", "GRACELAND", "GRADUATE", "GRAFFITI", "GRAIL", "GRAPES", "GREASE", "GREATEST", "GREEDY", "GREEK", 
-        "GRINCH", "GRIT", "GROOVE", "GROSSE", "GROUNDHOG", "GUMP", "GUN", "GUNFIGHT", "GUNFIGHTER", "GUYS", 
-        "HALF", "HALL", "HALLOWEEN", "HAMLET", "HANDICAP", "HANGING", "HANKY", "HANOVER", "HAPPINESS", "HARDLY", 
-        "HAROLD", "HARPER", "HARRY", "HATE", "HAUNTED", "HAUNTING", "HAWK", "HEAD", "HEARTBREAKERS", "HEAVEN", 
-        "HEAVENLY", "HEAVYWEIGHTS", "HEDWIG", "HELLFIGHTERS", "HIGH", "HIGHBALL", "HILLS", "HOBBIT", "HOCUS", "HOLES", 
-        "HOLIDAY", "HOLLOW", "HOLLYWOOD", "HOLOCAUST", "HOLY", "HOME", "HOMEWARD", "HOMICIDE", "HONEY", "HOOK", 
-        "HOOSIERS", "HOPE", "HORN", "HORROR", "HOTEL", "HOURS", "HOUSE", "HUMAN", "HUNCHBACK", "HUNGER", 
-        "HUNTER", "HUNTING", "HURRICANE", "HUSTLER", "HYDE", "HYSTERICAL", "ICE", "IDAHO", "IDENTITY", "IDOLS", 
-        "IGBY", "ILLUSION", "IMAGE", "IMPACT", "IMPOSSIBLE", "INCH", "INDEPENDENCE", "INDIAN", "INFORMER", "INNOCENT", 
-        "INSECTS", "INSIDER", "INSTINCT", "INTENTIONS", "INTERVIEW", "INTOLERABLE", "INTRIGUE", "INVASION", "IRON", "ISHTAR", 
-        "ISLAND", "ITALIAN", "JACKET", "JADE", "JAPANESE", "JASON", "JAWBREAKER", "JAWS", "JEDI", "JEEPERS", 
-        "JEKYLL", "JEOPARDY", "JERICHO", "JERK", "JERSEY", "JET", "JINGLE", "JOON", "JUGGLER", "JUMANJI", 
-        "JUMPING", "JUNGLE", "KANE", "KARATE", "KENTUCKIAN", "KICK", "KILL", "KILLER", "KING", "KISS", 
-        "KISSING", "KNOCK", "KRAMER", "KWAI", "LABYRINTH", "LADY", "LADYBUGS", "LAMBS", "LANGUAGE", "LAWLESS", 
-        "LAWRENCE", "LEAGUE", "LEATHERNECKS", "LEBOWSKI", "LEGALLY", "LEGEND", "LESSON", "LIAISONS", "LIBERTY", "LICENSE", 
-        "LIES", "LIFE", "LIGHTS", "LION", "LOATHING", "LOCK", "LOLA", "LOLITA", "LONELY", "LORD", 
-        "LOSE", "LOSER", "LOST", "LOUISIANA", "LOVE", "LOVELY", "LOVER", "LOVERBOY", "LUCK", "LUCKY", 
-        "LUKE", "LUST", "MADIGAN", "MADISON", "MADNESS", "MADRE", "MAGIC", "MAGNIFICENT", "MAGNOLIA", "MAGUIRE", 
-        "MAIDEN", "MAJESTIC", "MAKER", "MALKOVICH", "MALLRATS", "MALTESE", "MANCHURIAN", "MANNEQUIN", "MARRIED", "MARS", 
-        "MASK", "MASKED", "MASSACRE", "MASSAGE", "MATRIX", "MAUDE", "MEET", "MEMENTO", "MENAGERIE", "MERMAID", 
-        "METAL", "METROPOLIS", "MICROCOSMOS", "MIDNIGHT", "MIDSUMMER", "MIGHTY", "MILE", "MILLION", "MINDS", "MINE", 
-        "MINORITY", "MIRACLE", "MISSION", "MIXED", "MOB", "MOCKINGBIRD", "MOD", "MODEL", "MODERN", "MONEY", 
-        "MONSOON", "MONSTER", "MONTEREY", "MONTEZUMA", "MOON", "MOONSHINE", "MOONWALKER", "MOSQUITO", "MOTHER", "MOTIONS", 
-        "MOULIN", "MOURNING", "MOVIE", "MULAN", "MULHOLLAND", "MUMMY", "MUPPET", "MURDER", "MUSCLE", "MUSIC", 
-        "MUSKETEERS", "MUSSOLINI", "MYSTIC", "NAME", "NASH", "NATIONAL", "NATURAL", "NECKLACE", "NEIGHBORS", "NEMO", 
-        "NETWORK", "NEWSIES", "NEWTON", "NIGHTMARE", "NONE", "NOON", "NORTH", "NORTHWEST", "NOTORIOUS", "NOTTING", 
-        "NOVOCAINE", "NUTS", "OCTOBER", "ODDS", "OKLAHOMA", "OLEANDER", "OPEN", "OPERATION", "OPPOSITE", "OPUS", 
-        "ORANGE", "ORDER", "ORIENT", "OSCAR", "OTHERS", "OUTBREAK", "OUTFIELD", "OUTLAW", "OZ", "PACIFIC", 
-        "PACKER", "PAJAMA", "PANIC", "PANKY", "PANTHER", "PAPI", "PARADISE", "PARIS", "PARK", "PARTY", 
-        "PAST", "PATHS", "PATIENT", "PATRIOT", "PATTON", "PAYCHECK", "PEACH", "PEAK", "PEARL", "PELICAN", 
-        "PERDITION", "PERFECT", "PERSONAL", "PET", "PHANTOM", "PHILADELPHIA", "PIANIST", "PICKUP", "PILOT", "PINOCCHIO", 
-        "PIRATES", "PITTSBURGH", "PITY", "PIZZA", "PLATOON", "PLUTO", "POCUS", "POLISH", "POLLOCK", "POND", 
-        "POSEIDON", "POTLUCK", "POTTER", "PREJUDICE", "PRESIDENT", "PRIDE", "PRIMARY", "PRINCESS", "PRIVATE", "PRIX", 
-        "PSYCHO", "PULP", "PUNK", "PURE", "PURPLE", "QUEEN", "QUEST", "QUILLS", "RACER", "RAGE", 
-        "RAGING", "RAIDERS", "RAINBOW", "RANDOM", "RANGE", "REAP", "REAR", "REBEL", "RECORDS", "REDEMPTION", 
-        "REDS", "REEF", "REIGN", "REMEMBER", "REQUIEM", "RESERVOIR", "RESURRECTION", "REUNION", "RIDER", "RIDGEMONT", 
-        "RIGHT", "RINGS", "RIVER", "ROAD", "ROBBERS", "ROBBERY", "ROCK", "ROCKETEER", "ROCKY", "ROLLERCOASTER", 
-        "ROMAN", "ROOF", "ROOM", "ROOTS", "ROSES", "ROUGE", "ROXANNE", "RUGRATS", "RULES", "RUN", 
-        "RUNAWAY", "RUNNER", "RUSH", "RUSHMORE", "SABRINA", "SADDLE", "SAGEBRUSH", "SAINTS", "SALUTE", "SAMURAI", 
-        "SANTA", "SASSY", "SATISFACTION", "SATURDAY", "SATURN", "SAVANNAH", "SCALAWAG", "SCARFACE", "SCHOOL", "SCISSORHANDS", 
-        "SCORPION", "SEA", "SEABISCUIT", "SEARCHERS", "SEATTLE", "SECRET", "SECRETARY", "SECRETS", "SENSE", "SENSIBILITY", 
-        "SEVEN", "SHAKESPEARE", "SHANE", "SHANGHAI", "SHAWSHANK", "SHEPHERD", "SHINING", "SHIP", "SHOCK", "SHOOTIST", 
-        "SHOW", "SHREK", "SHRUNK", "SIDE", "SIEGE", "SIERRA", "SILENCE", "SILVERADO", "SIMON", "SINNERS", 
-        "SISTER", "SKY", "SLACKER", "SLEEPING", "SLEEPLESS", "SLEEPY", "SLEUTH", "SLING", "SLIPPER", "SLUMS", 
-        "SMILE", "SMOKING", "SMOOCHY", "SNATCH", "SNATCHERS", "SNOWMAN", "SOLDIERS", "SOMETHING", "SONG", "SONS", 
-        "SORORITY", "SOUP", "SOUTH", "SPARTACUS", "SPEAKEASY", "SPEED", "SPICE", "SPIKING", "SPINAL", "SPIRIT", 
-        "SPIRITED", "SPLASH", "SPLENDOR", "SPOILERS", "SPY", "SQUAD", "STAGE", "STAGECOACH", "STALLION", "STAMPEDE", 
-        "STAR", "STATE", "STEEL", "STEERS", "STEPMOM", "STING", "STOCK", "STONE", "STORM", "STORY", 
-        "STRAIGHT", "STRANGELOVE", "STRANGER", "STRANGERS", "STREAK", "STREETCAR", "STRICTLY", "SUBMARINE", "SUGAR", "SUICIDES", 
-        "SUIT", "SUMMER", "SUN", "SUNDANCE", "SUNRISE", "SUNSET", "SUPER", "SUPERFLY", "SUSPECTS", "SWARM", 
-        "SWEDEN", "SWEET", "SWEETHEARTS", "TADPOLE", "TALENTED", "TARZAN", "TAXI", "TEEN", "TELEGRAPH", "TELEMARK", 
-        "TEMPLE", "TENENBAUMS", "TEQUILA", "TERMINATOR", "TEXAS", "THEORY", "THIEF", "THIN", "TIES", "TIGHTS", 
-        "TIMBERLAND", "TITANIC", "TITANS", "TOMATOES", "TOMORROW", "TOOTSIE", "TORQUE", "TOURIST", "TOWERS", "TOWN", 
-        "TRACY", "TRADING", "TRAFFIC", "TRAIN", "TRAINSPOTTING", "TRAMP", "TRANSLATION", "TRAP", "TREASURE", "TREATMENT", 
-        "TRIP", "TROJAN", "TROOPERS", "TROUBLE", "TRUMAN", "TURN", "TUXEDO", "TWISTED", "TYCOON", "UNBREAKABLE", 
-        "UNCUT", "UNDEFEATED", "UNFAITHFUL", "UNFORGIVEN", "UNITED", "UNTOUCHABLES", "UPRISING", "UPTOWN", "USUAL", "VACATION", 
-        "VALENTINE", "VALLEY", "VAMPIRE", "VANILLA", "VANISHED", "VANISHING", "VARSITY", "VELVET", "VERTIGO", "VICTORY", 
-        "VIDEOTAPE", "VIETNAM", "VILLAIN", "VIRGIN", "VIRGINIAN", "VIRTUAL", "VISION", "VOICE", "VOLCANO", "VOLUME", 
-        "VOYAGE", "WAGON", "WAIT", "WAKE", "WALLS", "WANDA", "WAR", "WARDROBE", "WARLOCK", "WARS", 
-        "WASH", "WASTELAND", "WATCH", "WATERFRONT", "WATERSHIP", "WEDDING", "WEEKEND", "WEREWOLF", "WEST", "WESTWARD", 
-        "WHALE", "WHISPERER", "WIFE", "WILD", "WILLOW", "WIND", "WINDOW", "WISDOM", "WITCHES", "WIZARD", 
-        "WOLVES", "WOMEN", "WON", "WONDERFUL", "WONDERLAND", "WONKA", "WORDS", "WORKER", "WORKING", "WORLD", 
-        "WORST", "WRATH", "WRONG", "WYOMING", "YENTL", "YOUNG", "YOUTH", "ZHIVAGO", "ZOOLANDER", "ZORRO", 
-        };
-      title_in = movie_titles[Random.Shared.Next( 1000 )] + " " + movie_titles[Random.Shared.Next( 1000 )];
-      }  // End of CreateTitle   
+    String CreateTitle ( )
+    {
+      return (fake_title_data.movie_titles[Random.Shared.Next( 1000 )] + " " + fake_title_data.movie_titles[Random.Shared.Next( 1000 )]);
+    }
 
       string[] InitReviewDataTerms()
       {
-          string[] review_data_terms = new string[] 
+          string[] review_data_terms = new string[]
           {"the","and","a","of","to","is","in","I","that","this","it","for","was","with","as","The","movie","on",
             "but","you","are","have","his","not","film","be","one","by","an","he","from","50","at","all","who",
             "has","like","they","This","so","about","just","or","my","more","out","very","her","some","good",
@@ -3596,4 +3291,221 @@ public static class fake_user_data {
 	};
 }
 
+}
+
+public static class fake_title_data {
+
+      // Names compiled by Dara Jaffe
+
+      // 1000 movie title words
+
+      public const int title_pool_size = 1000;
+
+      public static readonly string[] movie_titles = new string[]
+        {
+        "ACADEMY", "ACE", "ADAPTATION", "AFFAIR", "AFRICAN", "AGENT", "AIRPLANE", "AIRPORT", "ALABAMA", "ALADDIN",
+        "ALAMO", "ALASKA", "ALI", "ALICE", "ALIEN", "ALLEY", "ALONE", "ALTER", "AMADEUS", "AMELIE",
+        "AMERICAN", "AMISTAD", "ANACONDA", "ANALYZE", "ANGELS", "ANNIE", "ANONYMOUS", "ANTHEM", "ANTITRUST", "ANYTHING",
+        "APACHE", "APOCALYPSE", "APOLLO", "ARABIA", "ARACHNOPHOBIA", "ARGONAUTS", "ARIZONA", "ARK", "ARMAGEDDON", "ARMY",
+        "ARSENIC", "ARTIST", "ATLANTIS", "ATTACKS", "ATTRACTION", "AUTUMN", "BABY", "BACKLASH", "BADMAN", "BAKED",
+        "BALLOON", "BALLROOM", "BANG", "BANGER", "BARBARELLA", "BAREFOOT", "BASIC", "BEACH", "BEAR", "BEAST",
+        "BEAUTY", "BED", "BEDAZZLED", "BEETHOVEN", "BEHAVIOR", "BENEATH", "BERETS", "BETRAYED", "BEVERLY", "BIKINI",
+        "BILKO", "BILL", "BINGO", "BIRCH", "BIRD", "BIRDCAGE", "BIRDS", "BLACKOUT", "BLADE", "BLANKET",
+        "BLINDNESS", "BLOOD", "BLUES", "BOILED", "BONNIE", "BOOGIE", "BOONDOCK", "BORN", "BORROWERS", "BOULEVARD",
+        "BOUND", "BOWFINGER", "BRANNIGAN", "BRAVEHEART", "BREAKFAST", "BREAKING", "BRIDE", "BRIGHT", "BRINGING", "BROOKLYN",
+        "BROTHERHOOD", "BUBBLE", "BUCKET", "BUGSY", "BULL", "BULWORTH", "BUNCH", "BUTCH", "BUTTERFLY", "CABIN",
+        "CADDYSHACK", "CALENDAR", "CALIFORNIA", "CAMELOT", "CAMPUS", "CANDIDATE", "CANDLES", "CANYON", "CAPER", "CARIBBEAN",
+        "CAROL", "CARRIE", "CASABLANCA", "CASPER", "CASSIDY", "CASUALTIES", "CAT", "CATCH", "CAUSE", "CELEBRITY",
+        "CENTER", "CHAINSAW", "CHAMBER", "CHAMPION", "CHANCE", "CHAPLIN", "CHARADE", "CHARIOTS", "CHASING", "CHEAPER",
+        "CHICAGO", "CHICKEN", "CHILL", "CHINATOWN", "CHISUM", "CHITTY", "CHOCOLAT", "CHOCOLATE", "CHRISTMAS", "CIDER",
+        "CINCINATTI", "CIRCUS", "CITIZEN", "CLASH", "CLEOPATRA", "CLERKS", "CLOCKWORK", "CLONES", "CLOSER", "CLUB",
+        "CLUE", "CLUELESS", "CLYDE", "COAST", "COLDBLOODED", "COLOR", "COMA", "COMANCHEROS", "COMFORTS", "COMMAND",
+        "COMMANDMENTS", "CONEHEADS", "CONFESSIONS", "CONFIDENTIAL", "CONFUSED", "CONGENIALITY", "CONNECTICUT", "CONNECTION",
+        "CONQUERER", "CONSPIRACY", "CONTACT", "CONTROL", "CONVERSATION", "CORE", "COWBOY", "CRAFT", "CRANES", "CRAZY",
+        "CREATURES", "CREEPERS", "CROOKED", "CROSSING", "CROSSROADS", "CROW", "CROWDS", "CRUELTY", "CRUSADE", "CRYSTAL",
+        "CUPBOARD", "CURTAIN", "CYCLONE", "DADDY", "DAISY", "DALMATIONS", "DANCES", "DANCING", "DANGEROUS", "DARES",
+        "DARKNESS", "DARKO", "DARLING", "DARN", "DATE", "DAUGHTER", "DAWN", "DAY", "DAZED", "DECEIVER", "DEEP", "DEER",
+        "DELIVERANCE", "DESERT", "DESIRE", "DESPERATE", "DESTINATION", "DESTINY", "DETAILS", "DETECTIVE", "DEVIL", "DIARY",
+        "DINOSAUR", "DIRTY", "DISCIPLE", "DISTURBING", "DIVIDE", "DIVINE", "DIVORCE", "DOCTOR", "DOGMA", "DOLLS",
+        "DONNIE", "DOOM", "DOORS", "DORADO", "DOUBLE", "DOUBTFIRE", "DOWNHILL", "DOZEN", "DRACULA", "DRAGON",
+        "DRAGONFLY", "DREAM", "DRIFTER", "DRIVER", "DRIVING", "DROP", "DRUMLINE", "DRUMS", "DUCK", "DUDE",
+        "DUFFEL", "DUMBO", "DURHAM", "DWARFS", "DYING", "DYNAMITE", "EAGLES", "EARLY", "EARRING", "EARTH",
+        "EASY", "EDGE", "EFFECT", "EGG", "EGYPT", "ELEMENT", "ELEPHANT", "ELF", "ELIZABETH", "EMPIRE",
+        "ENCINO", "ENCOUNTERS", "ENDING", "ENEMY", "ENGLISH", "ENOUGH", "ENTRAPMENT", "ESCAPE", "EVE", "EVERYONE", "EVOLUTION",
+        "EXCITEMENT", "EXORCIST", "EXPECATIONS", "EXPENDABLE", "EXPRESS", "EXTRAORDINARY", "EYES", "FACTORY", "FALCON",
+        "FAMILY", "FANTASIA", "FANTASY", "FARGO", "FATAL", "FEATHERS", "FELLOWSHIP", "FERRIS", "FEUD", "FEVER",
+        "FICTION", "FIDDLER", "FIDELITY", "FIGHT", "FINDING", "FIRE", "FIREBALL", "FIREHOUSE", "FISH", "FLAMINGOS",
+        "FLASH", "FLATLINERS", "FLIGHT", "FLINTSTONES", "FLOATS", "FLYING", "FOOL", "FOREVER", "FORREST", "FORRESTER",
+        "FORWARD", "FRANKENSTEIN", "FREAKY", "FREDDY", "FREEDOM", "FRENCH", "FRIDA", "FRISCO", "FROGMEN", "FRONTIER",
+        "FROST", "FUGITIVE", "FULL", "FURY", "GABLES", "GALAXY", "GAMES", "GANDHI", "GANGS", "GARDEN",
+        "GASLIGHT", "GATHERING", "GENTLEMEN", "GHOST", "GHOSTBUSTERS", "GIANT", "GILBERT", "GILMORE", "GLADIATOR", "GLASS",
+        "GLEAMING", "GLORY", "GO", "GODFATHER", "GOLD", "GOLDFINGER", "GOLDMINE", "GONE", "GOODFELLAS", "GORGEOUS",
+        "GOSFORD", "GRACELAND", "GRADUATE", "GRAFFITI", "GRAIL", "GRAPES", "GREASE", "GREATEST", "GREEDY", "GREEK",
+        "GRINCH", "GRIT", "GROOVE", "GROSSE", "GROUNDHOG", "GUMP", "GUN", "GUNFIGHT", "GUNFIGHTER", "GUYS",
+        "HALF", "HALL", "HALLOWEEN", "HAMLET", "HANDICAP", "HANGING", "HANKY", "HANOVER", "HAPPINESS", "HARDLY",
+        "HAROLD", "HARPER", "HARRY", "HATE", "HAUNTED", "HAUNTING", "HAWK", "HEAD", "HEARTBREAKERS", "HEAVEN",
+        "HEAVENLY", "HEAVYWEIGHTS", "HEDWIG", "HELLFIGHTERS", "HIGH", "HIGHBALL", "HILLS", "HOBBIT", "HOCUS", "HOLES",
+        "HOLIDAY", "HOLLOW", "HOLLYWOOD", "HOLOCAUST", "HOLY", "HOME", "HOMEWARD", "HOMICIDE", "HONEY", "HOOK",
+        "HOOSIERS", "HOPE", "HORN", "HORROR", "HOTEL", "HOURS", "HOUSE", "HUMAN", "HUNCHBACK", "HUNGER",
+        "HUNTER", "HUNTING", "HURRICANE", "HUSTLER", "HYDE", "HYSTERICAL", "ICE", "IDAHO", "IDENTITY", "IDOLS",
+        "IGBY", "ILLUSION", "IMAGE", "IMPACT", "IMPOSSIBLE", "INCH", "INDEPENDENCE", "INDIAN", "INFORMER", "INNOCENT",
+        "INSECTS", "INSIDER", "INSTINCT", "INTENTIONS", "INTERVIEW", "INTOLERABLE", "INTRIGUE", "INVASION", "IRON", "ISHTAR",
+        "ISLAND", "ITALIAN", "JACKET", "JADE", "JAPANESE", "JASON", "JAWBREAKER", "JAWS", "JEDI", "JEEPERS",
+        "JEKYLL", "JEOPARDY", "JERICHO", "JERK", "JERSEY", "JET", "JINGLE", "JOON", "JUGGLER", "JUMANJI",
+        "JUMPING", "JUNGLE", "KANE", "KARATE", "KENTUCKIAN", "KICK", "KILL", "KILLER", "KING", "KISS",
+        "KISSING", "KNOCK", "KRAMER", "KWAI", "LABYRINTH", "LADY", "LADYBUGS", "LAMBS", "LANGUAGE", "LAWLESS",
+        "LAWRENCE", "LEAGUE", "LEATHERNECKS", "LEBOWSKI", "LEGALLY", "LEGEND", "LESSON", "LIAISONS", "LIBERTY", "LICENSE",
+        "LIES", "LIFE", "LIGHTS", "LION", "LOATHING", "LOCK", "LOLA", "LOLITA", "LONELY", "LORD",
+        "LOSE", "LOSER", "LOST", "LOUISIANA", "LOVE", "LOVELY", "LOVER", "LOVERBOY", "LUCK", "LUCKY",
+        "LUKE", "LUST", "MADIGAN", "MADISON", "MADNESS", "MADRE", "MAGIC", "MAGNIFICENT", "MAGNOLIA", "MAGUIRE",
+        "MAIDEN", "MAJESTIC", "MAKER", "MALKOVICH", "MALLRATS", "MALTESE", "MANCHURIAN", "MANNEQUIN", "MARRIED", "MARS",
+        "MASK", "MASKED", "MASSACRE", "MASSAGE", "MATRIX", "MAUDE", "MEET", "MEMENTO", "MENAGERIE", "MERMAID",
+        "METAL", "METROPOLIS", "MICROCOSMOS", "MIDNIGHT", "MIDSUMMER", "MIGHTY", "MILE", "MILLION", "MINDS", "MINE",
+        "MINORITY", "MIRACLE", "MISSION", "MIXED", "MOB", "MOCKINGBIRD", "MOD", "MODEL", "MODERN", "MONEY",
+        "MONSOON", "MONSTER", "MONTEREY", "MONTEZUMA", "MOON", "MOONSHINE", "MOONWALKER", "MOSQUITO", "MOTHER", "MOTIONS",
+        "MOULIN", "MOURNING", "MOVIE", "MULAN", "MULHOLLAND", "MUMMY", "MUPPET", "MURDER", "MUSCLE", "MUSIC",
+        "MUSKETEERS", "MUSSOLINI", "MYSTIC", "NAME", "NASH", "NATIONAL", "NATURAL", "NECKLACE", "NEIGHBORS", "NEMO",
+        "NETWORK", "NEWSIES", "NEWTON", "NIGHTMARE", "NONE", "NOON", "NORTH", "NORTHWEST", "NOTORIOUS", "NOTTING",
+        "NOVOCAINE", "NUTS", "OCTOBER", "ODDS", "OKLAHOMA", "OLEANDER", "OPEN", "OPERATION", "OPPOSITE", "OPUS",
+        "ORANGE", "ORDER", "ORIENT", "OSCAR", "OTHERS", "OUTBREAK", "OUTFIELD", "OUTLAW", "OZ", "PACIFIC",
+        "PACKER", "PAJAMA", "PANIC", "PANKY", "PANTHER", "PAPI", "PARADISE", "PARIS", "PARK", "PARTY",
+        "PAST", "PATHS", "PATIENT", "PATRIOT", "PATTON", "PAYCHECK", "PEACH", "PEAK", "PEARL", "PELICAN",
+        "PERDITION", "PERFECT", "PERSONAL", "PET", "PHANTOM", "PHILADELPHIA", "PIANIST", "PICKUP", "PILOT", "PINOCCHIO",
+        "PIRATES", "PITTSBURGH", "PITY", "PIZZA", "PLATOON", "PLUTO", "POCUS", "POLISH", "POLLOCK", "POND",
+        "POSEIDON", "POTLUCK", "POTTER", "PREJUDICE", "PRESIDENT", "PRIDE", "PRIMARY", "PRINCESS", "PRIVATE", "PRIX",
+        "PSYCHO", "PULP", "PUNK", "PURE", "PURPLE", "QUEEN", "QUEST", "QUILLS", "RACER", "RAGE",
+        "RAGING", "RAIDERS", "RAINBOW", "RANDOM", "RANGE", "REAP", "REAR", "REBEL", "RECORDS", "REDEMPTION",
+        "REDS", "REEF", "REIGN", "REMEMBER", "REQUIEM", "RESERVOIR", "RESURRECTION", "REUNION", "RIDER", "RIDGEMONT",
+        "RIGHT", "RINGS", "RIVER", "ROAD", "ROBBERS", "ROBBERY", "ROCK", "ROCKETEER", "ROCKY", "ROLLERCOASTER",
+        "ROMAN", "ROOF", "ROOM", "ROOTS", "ROSES", "ROUGE", "ROXANNE", "RUGRATS", "RULES", "RUN",
+        "RUNAWAY", "RUNNER", "RUSH", "RUSHMORE", "SABRINA", "SADDLE", "SAGEBRUSH", "SAINTS", "SALUTE", "SAMURAI",
+        "SANTA", "SASSY", "SATISFACTION", "SATURDAY", "SATURN", "SAVANNAH", "SCALAWAG", "SCARFACE", "SCHOOL", "SCISSORHANDS",
+        "SCORPION", "SEA", "SEABISCUIT", "SEARCHERS", "SEATTLE", "SECRET", "SECRETARY", "SECRETS", "SENSE", "SENSIBILITY",
+        "SEVEN", "SHAKESPEARE", "SHANE", "SHANGHAI", "SHAWSHANK", "SHEPHERD", "SHINING", "SHIP", "SHOCK", "SHOOTIST",
+        "SHOW", "SHREK", "SHRUNK", "SIDE", "SIEGE", "SIERRA", "SILENCE", "SILVERADO", "SIMON", "SINNERS",
+        "SISTER", "SKY", "SLACKER", "SLEEPING", "SLEEPLESS", "SLEEPY", "SLEUTH", "SLING", "SLIPPER", "SLUMS",
+        "SMILE", "SMOKING", "SMOOCHY", "SNATCH", "SNATCHERS", "SNOWMAN", "SOLDIERS", "SOMETHING", "SONG", "SONS",
+        "SORORITY", "SOUP", "SOUTH", "SPARTACUS", "SPEAKEASY", "SPEED", "SPICE", "SPIKING", "SPINAL", "SPIRIT",
+        "SPIRITED", "SPLASH", "SPLENDOR", "SPOILERS", "SPY", "SQUAD", "STAGE", "STAGECOACH", "STALLION", "STAMPEDE",
+        "STAR", "STATE", "STEEL", "STEERS", "STEPMOM", "STING", "STOCK", "STONE", "STORM", "STORY",
+        "STRAIGHT", "STRANGELOVE", "STRANGER", "STRANGERS", "STREAK", "STREETCAR", "STRICTLY", "SUBMARINE", "SUGAR", "SUICIDES",
+        "SUIT", "SUMMER", "SUN", "SUNDANCE", "SUNRISE", "SUNSET", "SUPER", "SUPERFLY", "SUSPECTS", "SWARM",
+        "SWEDEN", "SWEET", "SWEETHEARTS", "TADPOLE", "TALENTED", "TARZAN", "TAXI", "TEEN", "TELEGRAPH", "TELEMARK",
+        "TEMPLE", "TENENBAUMS", "TEQUILA", "TERMINATOR", "TEXAS", "THEORY", "THIEF", "THIN", "TIES", "TIGHTS",
+        "TIMBERLAND", "TITANIC", "TITANS", "TOMATOES", "TOMORROW", "TOOTSIE", "TORQUE", "TOURIST", "TOWERS", "TOWN",
+        "TRACY", "TRADING", "TRAFFIC", "TRAIN", "TRAINSPOTTING", "TRAMP", "TRANSLATION", "TRAP", "TREASURE", "TREATMENT",
+        "TRIP", "TROJAN", "TROOPERS", "TROUBLE", "TRUMAN", "TURN", "TUXEDO", "TWISTED", "TYCOON", "UNBREAKABLE",
+        "UNCUT", "UNDEFEATED", "UNFAITHFUL", "UNFORGIVEN", "UNITED", "UNTOUCHABLES", "UPRISING", "UPTOWN", "USUAL", "VACATION",
+        "VALENTINE", "VALLEY", "VAMPIRE", "VANILLA", "VANISHED", "VANISHING", "VARSITY", "VELVET", "VERTIGO", "VICTORY",
+        "VIDEOTAPE", "VIETNAM", "VILLAIN", "VIRGIN", "VIRGINIAN", "VIRTUAL", "VISION", "VOICE", "VOLCANO", "VOLUME",
+        "VOYAGE", "WAGON", "WAIT", "WAKE", "WALLS", "WANDA", "WAR", "WARDROBE", "WARLOCK", "WARS",
+        "WASH", "WASTELAND", "WATCH", "WATERFRONT", "WATERSHIP", "WEDDING", "WEEKEND", "WEREWOLF", "WEST", "WESTWARD",
+        "WHALE", "WHISPERER", "WIFE", "WILD", "WILLOW", "WIND", "WINDOW", "WISDOM", "WITCHES", "WIZARD",
+        "WOLVES", "WOMEN", "WON", "WONDERFUL", "WONDERLAND", "WONKA", "WORDS", "WORKER", "WORKING", "WORLD",
+        "WORST", "WRATH", "WRONG", "WYOMING", "YENTL", "YOUNG", "YOUTH", "ZHIVAGO", "ZOOLANDER", "ZORRO"
+        };
+}
+
+public static class fake_actor_data {
+
+        public const int lastname_pool_size = 500;
+        public const int firstname_pool_size = 500;
+
+        public static readonly string[] actor_firstnames = new string[]
+        {
+          "Aaron", "Adam", "Adrien", "Aidan", "Al", "Alan", "Albert", "Alden", "Aldis", "Alec", "Alexander", "Alexandra",
+          "Alfred", "Alicia", "Alison", "Allison", "Amanda", "Amandla", "Amber", "Amy", "Ana", "Andre", "Andrea", "Andrew",
+          "Andy", "Angela", "Angelina", "Anjelica", "Ann", "Anna", "Anne", "Annette", "Anson", "Anthony", "Anton", "Antonio",
+          "Antony", "Anya", "Aparna", "Archie", "Armie", "Arnold", "Aubrey", "Audrey", "Austin", "Ayo", "Barkhad", "Barry",
+          "Ben", "Benedict", "Benicio", "Bette", "Bill", "Billy", "Bob", "Boyd", "Bradley", "Brendan", "Brenton", "Brian",
+          "Brie", "Brittany", "Bruce", "Bryan", "Burt", "Cameron", "Carey", "Carl", "Carrie-Anne", "Cary", "Casey", "Cate",
+          "Catherine", "Chace", "Channing", "Charles", "Charlie", "Charlize", "Chaske", "Chevy", "Chiwetel", "Chloe", "Chris",
+          "Christian", "Christina", "Christoph", "Christopher", "Ciaran", "Cillian", "Claes", "Clark", "Clint", "Cloris",
+          "Cobie", "Colby", "Colin", "Colman", "Connie", "Corey", "Courteney", "Craig", "Cuba", "Dakota", "Damian", "Dan",
+          "Danai", "Dane", "Daniel", "Daniela", "Danielle", "Danny", "Dave", "David", "Demi", "Dennis", "Denzel", "Dermot",
+          "Dev", "Diane", "Diego", "Djimon", "Dominic", "Dominique", "Don", "Donald", "Donnie", "Doris", "Doug", "Drew",
+          "Dustin", "Dwayne", "Ed", "Eddie", "Edward", "Eiza", "Elijah", "Elisabeth", "Elizabeth", "Elle", "Ellen", "Elliot",
+          "Elsie", "Emile", "Emilio", "Emily", "Emma", "Ernest", "Ernie", "Ethan", "Eugene", "Eva", "Evan", "Ewan", "Famke",
+          "Finn", "Fionn", "Florence", "Forest", "Frances", "Frank", "Frankie", "Freddie", "Gael", "Gal", "Garrett", "Gary",
+          "Geena", "Gemma", "Gene", "Geoffrey", "George", "Gerard", "Giancarlo", "Gillian", "Gina", "Ginnifer", "Glen", "Glenn",
+          "Goldie", "Greta", "Gugu", "Gustaf", "Gwendoline", "Gwyneth", "Hailee", "Haley", "Halle", "Harris", "Harrison",
+          "Harry", "Harvey", "Hayden", "Hayley", "Heath", "Helen", "Helena", "Henry", "Hilary", "Hiroyuki", "Holly", "Hugh",
+          "Hugo", "Humphrey", "Ian", "Idris", "Iko", "Imelda", "Imogen", "Ingrid", "Ioan", "Issa", "Jack", "Jackie", "Jacob",
+          "Jaden", "Jahi", "Jai", "Jaimie", "Jake", "James", "Jamie", "Jane", "Janet", "Jason", "Javier", "Jean", "Jeff",
+          "Jeffrey", "Jena", "Jenna", "Jennifer", "Jeremy", "Jerome", "Jerry", "Jesse", "Jessica", "Jet", "Jim", "J.K.",
+          "Joaquin", "Jodie", "Joe", "Joel", "John", "Johnny", "Jon", "Jonah", "Jonathan", "Jordan", "Joseph", "Josh", "Judd",
+          "Jude", "Judi", "Judy", "Julia", "Julianne", "Juliette", "Juno", "Jurnee", "Justice", "Justin", "Kaitlin", "Kaley",
+          "Karen", "Kate", "Katharine", "Katherine", "Kathryn", "Kathy", "Katie", "Kayvan", "Keanu", "Keegan-Michael", "Keira",
+          "Keke", "Kelsey", "Ken", "Kerry", "Kevin", "Kiefer", "Kieran", "Kingsley", "Kirsten", "Kristen", "Kumail", "Kurt",
+          "Kyle", "LaKeith", "Laura", "Lauren", "Laurence", "Lena", "Leonardo", "Leslie", "Letitia", "Liam", "Liev", "Lily",
+          "Linda", "Lindsay", "Lisa", "Logan", "Ludwig", "Lupita", "Macaulay", "Mackenyu", "Mads", "Maggie", "Mahershala",
+          "Maika", "Maisie", "Malcolm", "Marc", "Margot", "Maria", "Marion", "Marisa", "Mark", "Marlon", "Martin", "Mary",
+          "Matt", "Matthew", "Maura", "Maya", "Mel", "Melanie", "Melissa", "Meryl", "Michael", "Michelle", "Mickey", "Mila",
+          "Miles", "Millie", "Milo", "Mindy", "Minnie", "Morfydd", "Morgan", "Moses", "Naomie", "Natalie", "Natasha", "Nathan",
+          "Neil", "Nicholas", "Nick", "Nicolas", "Nicole", "Nikolaj", "Noomi", "Norman", "Octavia", "Odeya", "Olga", "Olivia",
+          "Orlando", "Oscar", "Owen", "Paddy", "Patrice", "Patricia", "Patrick", "Patton", "Paul", "Pedro", "Penelope", "Peter",
+          "Philip", "Phylicia", "Pierce", "Pom", "Queen", "Quinta", "Quintessa", "Rachel", "Rafe", "Raffey", "Rainn", "Ralph",
+          "Rami", "Randall", "Rashida", "Ray", "Rebecca", "Rebel", "Reese", "Regina", "Renee", "Rhona", "Rhys", "Richard",
+          "Rinko", "Rita", "Riz", "Rob", "Robert", "Robin", "Ron", "Rosamund", "Rosario", "Rose", "Rosie", "Rupert", "Russell",
+          "Ryan", "Sacha", "Sadie", "Salma", "Sam", "Samara", "Samuel", "Sanaa", "Sandra", "Saoirse", "Sarah", "Scarlett",
+          "Scott", "Sean", "Sebastian", "Selena", "Seth", "Shah", "Shailene", "Sharon", "Shaun", "Shea", "Shia", "Shirley",
+          "Sidney", "Sigourney", "Simone", "Simu", "Sissy", "Skeet", "Sofia", "Sonequa", "Sophia", "Spike", "Stanley",
+          "Stellan", "Stephanie", "Steve", "Steven", "Suraaj", "Susan", "Sydney", "Sylvester", "Taika", "Tao", "Taraji",
+          "Taran", "Taron", "Tatiana", "Tessa", "Teyonah", "Thandiwe", "Thomasin", "Thuso", "Tilda", "Tim", "Timothee", "Tina",
+          "Tobey", "Toby", "Tom", "Tommy", "Toni", "Tony", "Topher", "Trevante", "Tuppence", "Uma", "Uzo", "Valerie",
+          "Vanessa", "Vera", "Vicky", "Viggo", "Vin", "Vince", "Viola", "Walton", "Warwick", "Wesley", "Whoopi", "Will",
+          "Willem", "William", "Woody", "Wunmi", "Yahya", "Yvonne", "Zac", "Zach", "Zachary", "Zazie", "Zoe"
+        };
+
+        public static readonly string[] actor_lastnames = new string[]
+        {
+          "Abdi", "Abdul-Mateen II", "Ackles", "Adams", "Aduba", "Affleck", "Ahmed", "Alexander", "Ali", "Allen", "Anderson",
+          "Aniston", "Applegate", "Aranas", "Arquette", "Atwell", "Aykroyd", "Bacall", "Baldwin", "Bale", "Banderas", "Bang",
+          "Banks", "Bardem", "Baron Cohen", "Barrymore", "Bassett", "Bates", "Bautista", "Bean", "Beetz", "Bell", "Bello",
+          "Ben-Adir", "Bening", "Bergman", "Berry", "Bichir", "Biles", "Binoche", "Birch", "B. Jordan", "Blanchett", "Bloom",
+          "Blunt", "Bobby Brown", "Bogart", "Bonham Carter", "Borgnine", "Boutella", "Brando", "Bridges", "Brie", "Britton",
+          "Brody", "Brolin", "Brooks", "Brosnan", "Brown", "Brunson", "Bullock", "Buscemi", "Busey", "Butler", "Byrne", "Cage",
+          "Cardellini", "Carrey", "Cassidy", "Cavill", "Cena", "Chalamet", "Chan", "Chase", "Chastain", "Chau", "Cheadle",
+          "Christensen", "Christie", "Clark", "Clooney", "Close", "Collette", "Colman", "Connery", "Considine", "Cooper",
+          "Coster-Waldau", "Costner", "Cotillard", "Courtney", "Cox", "Cranston", "Crawford", "Crowe", "Crudup", "Cruz",
+          "Culkin", "Cumberbatch", "Cuoco", "Daddario", "Dafoe", "Damon", "Dance", "Davis", "Dawson", "Day", "de Armas",
+          "DeGeneres", "DeHaan", "Del Toro", "De Niro", "Depp", "Dern", "DeVito", "Diaz", "DiCaprio", "Dickinson", "Diesel",
+          "Dinklage", "Driver", "Dunst", "Eastwood", "Edebiri", "Edgerton", "Efron", "Egerton", "Ehrenreich", "Eisenberg",
+          "Ejiofor", "Elba", "Elordi", "Esposito", "Estevez", "Evans", "Falco", "Fanning", "Faris", "Farmiga", "Farrell",
+          "Ferguson", "Fey", "Fiennes", "Fillion", "Firth", "Fishback", "Fishburne", "Fisher", "Flynn", "Fonda", "Ford",
+          "Foster", "Freeman", "Gable", "Gadot", "Galifianakis", "Garcia Bernal", "Garfield", "Garland", "Gere", "Giamatti",
+          "Gibson", "Gillan", "Gilliam", "Gleeson", "Goggins", "Goldberg", "Goldblum", "Goldwyn", "Gomez", "Gonzalez",
+          "Gooding Jr.", "Goodwin", "Gordon-Levitt", "Gosling", "Grace", "Grace Moretz", "Grammer", "Grant", "Griffith",
+          "Grillo", "Grint", "Gruffudd", "Gurira", "Gyllenhaal", "Hackman", "Hahn", "Hamm", "Hammer", "Hanks", "Harbour",
+          "Harlow", "Harper", "Harrelson", "Harris", "Hathaway", "Hauser", "Hawke", "Hawkins", "Hawn", "Hayek", "Headey",
+          "Heard", "Hedlund", "Heigl", "Hepburn", "Highmore", "Hill", "Hinds", "Hirsch", "H. Macy", "Hodge", "Hoffman",
+          "Holbrook", "Holland", "Holmes", "Hopkins", "Hopper", "Hoult", "Hounsou", "Hudson", "Hunter", "Huston", "Ifans",
+          "Ingram", "Ironside", "Isaac", "Jackman", "James", "Janney", "Janssen", "Jeong", "Jessica Parker", "Johansson",
+          "Johnson", "Jolie", "Jones", "Kaling", "Kamal", "Kazan", "Keach", "Keaton", "Keitel", "Keoghan", "Key", "Kidman",
+          "Kier", "Kikuchi", "Killam", "King", "Kirby", "Klementieff", "Knightley", "Kravitz", "Krieps", "Kudrow", "Kunis",
+          "Kurylenko", "Kuss", "LaBeouf", "Larson", "Lathan", "Latifah", "Law", "Leachman", "Ledger", "Lee", "Lee Jones",
+          "Lehman", "Leigh", "Lerman", "Levin", "Levy", "Lewis", "Li", "Liotta", "Liu", "L. Jackson", "Lopez", "Loren",
+          "Louis-Dreyfus", "Lowe", "Lyonne", "Macdonald", "MacLachlan", "Madekwe", "Maguire", "Malek", "Malone", "Manning",
+          "Margret", "Maron", "Martindale", "Martin-Green", "Maslany", "Mbatha-Raw", "Mbedu", "McAdams", "McCarthy",
+          "McClanahan", "McDormand", "McDowell", "McElhone", "McGregor", "McKellen", "McKenzie", "McNairy", "Melchior",
+          "Mendes", "Meyer", "Middleton", "Mikkelsen", "Minifie", "Mirren", "Mitra", "Molina", "Monroe", "Moore", "Moreno",
+          "Mortensen", "Mosaku", "Moss", "Mount", "Mulligan", "Mulroney", "Muniz", "Murphy", "Nanjiani", "Neeson", "Newton",
+          "Nolte", "Norton", "Novak", "Nyong'o", "Odenkirk", "Odom Jr.", "O'Donnell", "Oh", "Okamoto", "Oldman", "Olsen",
+          "O'Neill", "Orser", "Ortega", "Oswalt", "Pacino", "Page", "Palmer", "Paltrow", "Park", "Parris", "Pascal", "Patel",
+          "Patrick Harris", "Pattinson", "Peele", "Perlman", "Perry", "Pesci", "Peters", "P. Henson", "Phoenix", "Pike",
+          "Plaza", "Poesy", "Poitier", "Poots", "Portman", "Posey", "Powell", "Pryce", "Pugh", "Purohit", "Quaid", "Quinn",
+          "Quinto", "Radcliffe", "Rae", "Rapace", "Rashad", "Redmayne", "Reedus", "Reeves", "Reitman", "Renner", "Reynolds",
+          "Rhames", "Rhodes", "Richards", "Richardson", "Rickman", "Riseborough", "Robbie", "Roberts", "Rockwell", "Rodriguez",
+          "Rogen", "Rogowski", "Ronan", "Rourke", "Rudolph", "Ruffalo", "Rukh Khan", "Rush", "Russell", "Saldana", "Sanada",
+          "Sandler", "Sarandon", "Schreiber", "Schwarzenegger", "Seinfeld", "Serkis", "Sessa", "Seyfried", "Seymour Hoffman",
+          "Sharma", "Shaw", "Shawkat", "Short", "Simmons", "Sink", "Skarsgard", "Smith", "Smollett", "Smulders", "Snipes",
+          "Spacek", "Spall", "Spencer", "Stallone", "Stan", "Stanfield", "Starr", "Statham", "Staunton", "Steenburgen",
+          "Steinfeld", "Stenberg", "Stevens", "Stewart", "Stone", "Strahovski", "Streep", "Styles", "Sutherland", "Swank",
+          "Swayze", "Sweeney", "Swindell", "Swinton", "Tatum", "Taylor", "Taylor-Johnson", "Taylor-Joy", "Teller", "Temple",
+          "Theron", "Thompson", "Thurman", "Thwaites", "Tierney", "Timberlake", "Tomei", "Tucci", "Tyson", "Ulrich", "Uwais",
+          "Van Dien", "Vaughn", "Ventimiglia", "Vikander", "Wahlberg", "Waititi", "Walken", "Walker", "Waller-Bridge", "Waltz",
+          "Washington", "Weathers", "Weaver", "Weaving", "Whigham", "Whitaker", "Whitehead", "Wiig", "Williams", "Willis",
+          "Wilson", "Winston", "Witherspoon", "Wolfhard", "Wong", "Wood", "Wright", "Yelchin", "Yeoh", "Yeun", "Zellweger",
+          "Zeta-Jones"
+        };
 }
