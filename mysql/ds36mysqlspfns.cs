@@ -966,7 +966,7 @@ namespace ds2xdriver
 //
 //-------------------------------------------------------------------------------------------------
 // 
-    public bool ds2newproduct(int new_category_in, string new_title_in, string new_actor_in, decimal new_price_in, int new_stock_in, ref double rt)
+    public bool ds2newproduct(int new_category_in, string new_title_in, string new_actor_in, decimal new_price_in, int new_stock_in, ref int newproduct_id, ref double rt)
     {
       bool success = true;
 
@@ -992,7 +992,16 @@ namespace ds2xdriver
           try
           {
               deadlocked = false;
-              New_Product.ExecuteNonQuery();
+              object result = New_Product.ExecuteScalar();
+
+              if (result != null)
+              {
+                 newproduct_id = Convert.ToInt32(result);
+              }
+              else
+              {
+                 newproduct_id = 0;
+              }
           }
           catch (MySqlException e)
           {
@@ -1005,8 +1014,7 @@ namespace ds2xdriver
               }
               else
               {
-                  Console.WriteLine("Thread {0}: MySql Error {1} in New_Product: {2}",
-                    Thread.CurrentThread.Name, e.Number, e.Message);
+                  Console.WriteLine("Thread {0}: MySql Error {1} in New_Product: {2}",Thread.CurrentThread.Name, e.Number, e.Message);
                   success = false;
               }
           }

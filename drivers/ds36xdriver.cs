@@ -2396,10 +2396,14 @@ namespace ds2xdriver
 	       int initial_stock_in = Random.Shared.Next(1,500);
                //Console.WriteLine ("\tNew product: {0}, {1}, {2}, {3:F2}, {4}", new_category_in, new_actor_in, new_title_in, price_in, initial_stock_in);
 
-	       if ( ds2interfaces[Userid].ds2newproduct(new_category_in, new_title_in, new_actor_in, price_in, initial_stock_in, ref rt) )
+	       int new_prod_id = 0;
+	       if ( ds2interfaces[Userid].ds2newproduct(new_category_in, new_title_in, new_actor_in, price_in, initial_stock_in, ref new_prod_id, ref rt) )
                {
-                  Controller.max_product++;
-                  lastprodinsert += 1000;
+		  if ( new_prod_id > Controller.max_product)
+                  {
+                     Controller.max_product = new_prod_id;
+                     lastprodinsert += 1000;
+                  }
                }
             }
 
