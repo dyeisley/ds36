@@ -39,7 +39,12 @@ DROP TRIGGER IF EXISTS DS3.RESTOCK$k;
 CREATE TRIGGER DS3.RESTOCK$k BEFORE UPDATE ON DS3.INVENTORY$k
 FOR EACH ROW
 BEGIN
- SET \@quan_reordered = CAST(rand() * 20 as INT) + 3;
+ SET \@quan_reordered = FLOOR(rand() * 20) + 3;
+
+ IF ( NEW.PROD_ID % 10000 = 0 ) THEN
+     SET \@quan_reordered = \@quan_reordered * 20;
+ END IF;
+
  SET \@date_reordered = DATE_ADD(NOW(), INTERVAL \@quan_reordered MINUTE);
  IF ( NEW.QUAN_IN_STOCK < 3 ) THEN
     INSERT INTO DS3.REORDER$k(PROD_ID, DATE_LOW, QUAN_LOW, DATE_REORDERED, QUAN_REORDERED) VALUES(NEW.PROD_ID, NOW(), NEW.QUAN_IN_STOCK, \@date_reordered, \@quan_reordered) ;
