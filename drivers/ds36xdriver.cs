@@ -134,8 +134,7 @@ namespace ds2xdriver
         rt_newmember_overall = 0.0;
     public static double[] rt_tot_lastn = new double[GlobalConstants.LAST_N];
     public static bool Start = false , End = false;
-    public static int max_customer , max_product , prod_array_size, max_review;
-    public static int[] prod_array = new int[n_target_servers];
+    public static int max_customer , max_product , max_review;
     public static string virt_dir = "ds3" , page_type = "php";
 
     //Added new parameter database_custom_size and new variables by GSK
@@ -898,6 +897,7 @@ namespace ds2xdriver
       //Reason : Every 10000th product will be popular and will have 10 entries in list
       //Set up array to choose product ids from, weighted with more entries for popular products
       //Popular products (in this case every 10,000th) will have 10 entries in list, others just 1
+      /*
       int prod_arr_size = product_rows + 100000;
       prod_array = new int[prod_arr_size];
       i = 0;
@@ -907,9 +907,11 @@ namespace ds2xdriver
         else prod_array[i++] = j;
         }
       prod_array_size = i;
+      */
       //Console.WriteLine("{0} products in array", prod_array_size);
 
      } // end of Controller constructor
+
 
     //
     //-------------------------------------------------------------------------------------------------
@@ -1886,6 +1888,36 @@ namespace ds2xdriver
     //
     //-------------------------------------------------------------------------------------------------
     //
+    public int GetSkewedProductId(int maxProduct)
+    {
+        Random rnd = new Random();
+        int popularInterval = 10000;
+        int weightBoost = 9; 
+
+        int popularCount = maxProduct / popularInterval;
+
+        long totalWeight = (long)maxProduct + ((long)popularCount * weightBoost);
+
+        long roll = (long)(rnd.NextDouble() * totalWeight);
+
+        long blockSize = popularInterval + weightBoost; // 10,009
+        long blockCount = roll / blockSize;
+        long offsetInBlock = roll % blockSize;
+
+        if (offsetInBlock >= popularInterval)
+        {
+           return (int)(blockCount + 1) * popularInterval;
+        }
+        else
+        {
+           int rawId = (int)(blockCount * popularInterval + offsetInBlock) + 1;
+           return rawId > maxProduct ? maxProduct : rawId;
+        }
+    }
+
+    //
+    //-------------------------------------------------------------------------------------------------
+    //
     public void Emulate ( )
       {
       int i , customerid_out = 0 , neworderid_out = 0 , rows_returned = 0, reviewhelpfulnessid_out = 0, newreviewid_out = 0, failures;
@@ -2288,15 +2320,15 @@ namespace ds2xdriver
                     case 0:  // Get Reviews with no order
                         get_review_type_in = "noorder";
                         // assign get_review_prod_in to be a random product id number
-                        get_review_prod_in = Controller.prod_array[Random.Shared.Next(Controller.prod_array_size)];
+                        get_review_prod_in = GetSkewedProductId(Controller.max_product);
                         break;
                     case 1:  // Get Reviews by Star ranking
                         get_review_type_in = "star";
-                        get_review_prod_in = Controller.prod_array[Random.Shared.Next(Controller.prod_array_size)];
+                        get_review_prod_in = GetSkewedProductId(Controller.max_product);
                         break;
                     case 2:  // Get Reviews by date
                         get_review_type_in = "date";
-                        get_review_prod_in = Controller.prod_array[Random.Shared.Next(Controller.prod_array_size)];
+                        get_review_prod_in = GetSkewedProductId(Controller.max_product);
                         break;
                 }
                 failures = 0;
@@ -2306,13 +2338,11 @@ namespace ds2xdriver
                    {
                    if (++failures < GlobalConstants.MAX_FAILURES)
                      {
-                       Console.WriteLine ( "Thread {0}: Error in get review for User {1}, failure {2}, retrying" ,
-                         Thread.CurrentThread.Name , username_in, failures);
-	                 }
-	              else
-	                 {
-                       Console.WriteLine ( "Thread {0}: Error in get review for User {1}, failure {2}, exiting" ,
-                         Thread.CurrentThread.Name , username_in, failures);
+                       Console.WriteLine ( "Thread {0}: Error in get review for User {1}, failure {2}, retrying",Thread.CurrentThread.Name , username_in, failures);
+	             }
+	           else
+	             {
+                       Console.WriteLine ( "Thread {0}: Error in get review for User {1}, failure {2}, exiting",Thread.CurrentThread.Name , username_in, failures);
                        return;
                      }
                    }
@@ -2388,6 +2418,8 @@ namespace ds2xdriver
 
             if (Controller.n_overall > lastprodinsert && Thread.CurrentThread.Name == "0")
             {
+	       for (int j = 0 ; j < 10 ; j++ )
+	       {
                //Console.WriteLine ("n_overall: {0} Thread: {1}",Controller.n_overall, Thread.CurrentThread.Name);
                int new_category_in = Random.Shared.Next(1, GlobalConstants.MAX_CATEGORY+1);
                string new_actor_in = CreateActor();
@@ -2402,9 +2434,10 @@ namespace ds2xdriver
 		  if ( new_prod_id > Controller.max_product)
                   {
                      Controller.max_product = new_prod_id;
-                     lastprodinsert += 1000;
                   }
                }
+	       }
+               lastprodinsert += 1000;
             }
 
         } // end of if for ds2_mode to exclude reviews and helpfulness opreations
@@ -2426,11 +2459,10 @@ namespace ds2xdriver
         //  qty_in[i] = 1 + Random.Shared.Next(3);  // qty (1, 2 or 3)
         //  }
 
-        // For each cart item randomly select product_id using weighted prod_array
+        // For each cart item randomly select product_id using weighted random Id
         for ( i = 0 ; i < cart_items ; i++ )
           {
-//          prod_id_in[i] = Controller.prod_array[Random.Shared.Next( Controller.prod_array_size )];
-	  prod_id_in[i] = Random.Shared.Next(Controller.max_product);
+	  prod_id_in[i] = GetSkewedProductId(Controller.max_product);
           qty_in[i] = Random.Shared.Next(1,4);  // qty (1, 2 or 3)
           //        Console.WriteLine("Thread {0}: Purchase prod_id_in[{1}] = {2}  qty_in[{1}]= {3}",
           //          Thread.CurrentThread.Name, i, prod_id_in[i], qty_in[i]);
@@ -2445,12 +2477,12 @@ namespace ds2xdriver
             Console.WriteLine ( "Thread {0}: Error in Purchase for User {1}, failure {2}, retrying" ,
               Thread.CurrentThread.Name , username_in, failures);
     	    }
-	      else
-	        {
+	  else
+	    {
             Console.WriteLine ( "Thread {0}: Error in Purchase for User {1}, failure {2}, exiting" ,
               Thread.CurrentThread.Name , username_in, failures);
             return;
-	        }
+	    }
           }
 
         //      Console.WriteLine("Thread {0}: Purchase completed successfully, neworderid = {1}, rollback= {2}, " +
