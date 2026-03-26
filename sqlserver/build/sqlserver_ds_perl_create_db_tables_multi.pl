@@ -221,41 +221,51 @@ CREATE TABLE REORDER$k
   ON DS_MISC_FG
 GO
 
--- This keeps the number of items with low QUAN_IN_STOCK constant so that the rollback rate is constant 
+-- This keeps the number of items with low QUAN_IN_STOCK constant so that the rollback rate is constant
 CREATE TRIGGER RESTOCK$k ON INVENTORY$k AFTER UPDATE
 AS
-  DECLARE \@changedPROD_ID INT, \@oldQUAN_IN_STOCK INT, \@newQUAN_IN_STOCK INT, \@quan_reordered INT;
-  DECLARE \@ReorderTime DATETIME = GETDATE();
+BEGIN
+    SET NOCOUNT ON;
 
-  SET \@quan_reordered = FLOOR(rand() * 20) + 3
-  SET \@ReorderTime = DATEADD(MINUTE, \@quan_reordered, \@ReorderTime);
-
-  IF UPDATE(QUAN_IN_STOCK)
+    IF UPDATE(QUAN_IN_STOCK)
     BEGIN
-      SELECT \@changedPROD_ID = i.PROD_ID, \@oldQUAN_IN_STOCK = d.QUAN_IN_STOCK, \@newQUAN_IN_STOCK = i.QUAN_IN_STOCK
-        FROM inserted i INNER JOIN deleted d ON i.PROD_ID = d.PROD_ID
-      IF \@newQUAN_IN_STOCK < 3    -- assumes quantity ordered is 1, 2, or 3 - change if different
+        DECLARE \@changedPROD_ID INT, \@newQUAN_IN_STOCK INT, \@quan_reordered INT;
+        DECLARE \@ReorderTime DATETIME;
+
+        SELECT \@changedPROD_ID = i.PROD_ID, \@newQUAN_IN_STOCK = i.QUAN_IN_STOCK FROM inserted i;
+
+        IF \@newQUAN_IN_STOCK < 3
         BEGIN
-          INSERT INTO REORDER$k
-            (
-            PROD_ID,
-            DATE_LOW,
-            QUAN_LOW,
-            DATE_REORDERED,
-            QUAN_REORDERED
+            SET \@quan_reordered = (ABS(CHECKSUM(NEWID())) % 20) + 3;
+
+            IF (\@changedPROD_ID % 10000 = 0)
+            BEGIN
+                SET \@quan_reordered = \@quan_reordered * 20;
+            END
+
+            SET \@ReorderTime = DATEADD(MINUTE, \@quan_reordered, GETDATE());
+
+            INSERT INTO REORDER$k (
+                PROD_ID,
+                DATE_LOW,
+                QUAN_LOW,
+                DATE_REORDERED,
+                QUAN_REORDERED
             )
-          VALUES
-            (
-            \@changedPROD_ID,
-            GETDATE(),
-            \@newQUAN_IN_STOCK,
-            \@ReorderTime,
-            \@quan_reordered
-            )
-          UPDATE INVENTORY$k SET QUAN_IN_STOCK = \@newQUAN_IN_STOCK + \@quan_reordered WHERE PROD_ID = \@changedPROD_ID
+            VALUES (
+                \@changedPROD_ID,
+                GETDATE(),
+                \@newQUAN_IN_STOCK,
+                \@ReorderTime,
+                \@quan_reordered
+            );
+
+            UPDATE INVENTORY$k
+            SET QUAN_IN_STOCK = QUAN_IN_STOCK + \@quan_reordered
+            WHERE PROD_ID = \@changedPROD_ID;
         END
     END
-  RETURN
+END;
 GO
 
 CREATE TRIGGER UPDATE_HELPFULNESS$k
