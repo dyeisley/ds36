@@ -20,15 +20,18 @@ $sqlservertargetdir =~ s/\\//;
 system ("mkdir -p $sqlservertargetdir");
 
 my $pathsep;
+my $startcmd;
 
 # This section enables support for Linux and Windows - detecting the type of OS, and then using the proper commands
 if ("$^O" eq "linux")
         {
         $pathsep = "/";
+        $startcmd = "";
         }
 else
         {
         $pathsep = "\\\\";
+        $startcmd = "start";
         };
 
 foreach my $k (1 .. $numberofstores){
@@ -36,11 +39,10 @@ foreach my $k (1 .. $numberofstores){
 	print $OUT "-- NEW_CUSTOMER
 
 USE DS3
-IF EXISTS (SELECT name FROM sysobjects WHERE name = 'NEW_CUSTOMER$k' AND type = 'P')
-  DROP PROCEDURE NEW_CUSTOMER$k
 GO
 
-USE DS3
+IF EXISTS (SELECT name FROM sysobjects WHERE name = 'NEW_CUSTOMER$k' AND type = 'P')
+  DROP PROCEDURE NEW_CUSTOMER$k
 GO
 
 CREATE PROCEDURE NEW_CUSTOMER$k
@@ -66,11 +68,11 @@ CREATE PROCEDURE NEW_CUSTOMER$k
   \@gender_in                VARCHAR(1)
   )
 
-  AS 
+  AS
 
   IF (SELECT COUNT(*) FROM CUSTOMERS$k WHERE USERNAME=\@username_in) = 0
   BEGIN
-    INSERT INTO CUSTOMERS$k 
+    INSERT INTO CUSTOMERS$k
       (
       FIRSTNAME,
       LASTNAME,
@@ -122,12 +124,8 @@ GO
 
 -- NEW_MEMBER
 
-USE DS3
 IF EXISTS (SELECT name FROM sysobjects WHERE name = 'NEW_MEMBER$k' AND type = 'P')
   DROP PROCEDURE NEW_MEMBER$k
-GO
-
-USE DS3
 GO
 
 CREATE PROCEDURE NEW_MEMBER$k
@@ -167,12 +165,8 @@ GO
 
 -- NEW_PROD_REVIEW
 
-USE DS3
 IF EXISTS (SELECT name FROM sysobjects WHERE name = 'NEW_PROD_REVIEW$k' AND type = 'P')
   DROP PROCEDURE NEW_PROD_REVIEW$k
-GO
-
-USE DS3
 GO
 
 CREATE PROCEDURE NEW_PROD_REVIEW$k
@@ -217,12 +211,8 @@ CREATE PROCEDURE NEW_PROD_REVIEW$k
 
 -- New review helpfulness rating
 
- USE DS3
 IF EXISTS (SELECT name FROM sysobjects WHERE name = 'NEW_REVIEW_HELPFULNESS$k' AND type = 'P')
   DROP PROCEDURE NEW_REVIEW_HELPFULNESS$k
-GO
-
-USE DS3
 GO
 
 CREATE PROCEDURE NEW_REVIEW_HELPFULNESS$k
@@ -249,15 +239,10 @@ CREATE PROCEDURE NEW_REVIEW_HELPFULNESS$k
     SELECT \@\@IDENTITY
  GO
 
-
 -- LOGIN
 
-USE DS3
 IF EXISTS (SELECT name FROM sysobjects WHERE name = 'LOGIN$k' AND type = 'P')
   DROP PROCEDURE LOGIN$k
-GO
-
-USE DS3
 GO
 
 CREATE PROCEDURE LOGIN$k
@@ -285,12 +270,8 @@ DECLARE \@customerid_out INT
     SELECT 0 
 GO
 
-USE DS3
 IF EXISTS (SELECT name FROM sysobjects WHERE name = 'BROWSE_BY_CATEGORY$k' AND type = 'P')
   DROP PROCEDURE BROWSE_BY_CATEGORY$k
-GO
-
-USE DS3
 GO
 
 CREATE PROCEDURE BROWSE_BY_CATEGORY$k
@@ -307,12 +288,8 @@ GO
 
 -- Browse by category for membertype
 
-USE DS3
 IF EXISTS (SELECT name FROM sysobjects WHERE name = 'BROWSE_BY_CATEGORY_FOR_MEMBERTYPE$k' AND type = 'P')
   DROP PROCEDURE BROWSE_BY_CATEGORY_FOR_MEMBERTYPE$k
-GO
-
-USE DS3
 GO
 
 CREATE PROCEDURE BROWSE_BY_CATEGORY_FOR_MEMBERTYPE$k
@@ -330,12 +307,8 @@ GO
 
 -- get prod reviews
 
-USE DS3
 IF EXISTS (SELECT name FROM sysobjects WHERE name = 'GET_PROD_REVIEWS$k' AND type = 'P')
   DROP PROCEDURE GET_PROD_REVIEWS$k
-GO
-
-USE DS3
 GO
 
 CREATE PROCEDURE GET_PROD_REVIEWS$k
@@ -360,12 +333,8 @@ GO
 
 -- get prod reviews by stars
 
-USE DS3
 IF EXISTS (SELECT name FROM sysobjects WHERE name = 'GET_PROD_REVIEWS_BY_STARS$k' AND type = 'P')
   DROP PROCEDURE GET_PROD_REVIEWS_BY_STARS$k
-GO
-
-USE DS3
 GO
 
 CREATE PROCEDURE GET_PROD_REVIEWS_BY_STARS$k
@@ -397,12 +366,8 @@ GO
 
 -- get prod reviews by date
 
-USE DS3
 IF EXISTS (SELECT name FROM sysobjects WHERE name = 'GET_PROD_REVIEWS_BY_DATE$k' AND type = 'P')
   DROP PROCEDURE GET_PROD_REVIEWS_BY_DATE$k
-GO
-
-USE DS3
 GO
 
 CREATE PROCEDURE GET_PROD_REVIEWS_BY_DATE$k
@@ -432,7 +397,6 @@ GO
 
 -- get prod reviews by actor
 
-USE DS3
 IF EXISTS (SELECT name FROM sysobjects WHERE name = 'GET_PROD_REVIEWS_BY_ACTOR$k' AND type = 'P')
   DROP PROCEDURE GET_PROD_REVIEWS_BY_ACTOR$k
 GO
@@ -480,17 +444,10 @@ BEGIN
 END
 GO
 
-USE DS3
-GO
-
 -- get prod reviews by title
 
-USE DS3
 IF EXISTS (SELECT name FROM sysobjects WHERE name = 'GET_PROD_REVIEWS_BY_TITLE$k' AND type = 'P')
   DROP PROCEDURE GET_PROD_REVIEWS_BY_TITLE$k
-GO
-
-USE DS3
 GO
 
 CREATE PROCEDURE GET_PROD_REVIEWS_BY_TITLE$k
@@ -540,8 +497,6 @@ GO
 if ( $use_vectors == 1 )
 {
 print $OUT "
-USE DS3
-GO
 
 CREATE OR ALTER PROCEDURE BROWSE_BY_VECTOR$k
   (
@@ -577,12 +532,8 @@ GO
 print $OUT "
 -- Browse by Actor
 
-USE DS3
 IF EXISTS (SELECT name FROM sysobjects WHERE name = 'BROWSE_BY_ACTOR$k' AND type = 'P')
   DROP PROCEDURE BROWSE_BY_ACTOR$k
-GO
-
-USE DS3
 GO
 
 CREATE PROCEDURE BROWSE_BY_ACTOR$k
@@ -598,12 +549,8 @@ CREATE PROCEDURE BROWSE_BY_ACTOR$k
   SET ROWCOUNT 0
 GO
 
-USE DS3
 IF EXISTS (SELECT name FROM sysobjects WHERE name = 'BROWSE_BY_TITLE$k' AND type = 'P')
   DROP PROCEDURE BROWSE_BY_TITLE$k
-GO
-
-USE DS3
 GO
 
 CREATE PROCEDURE BROWSE_BY_TITLE$k
@@ -619,12 +566,8 @@ CREATE PROCEDURE BROWSE_BY_TITLE$k
   SET ROWCOUNT 0
 GO
 
-USE DS3
 IF EXISTS (SELECT name FROM sysobjects WHERE name = 'PURCHASE$k' AND type = 'P')
   DROP PROCEDURE PURCHASE$k
-GO
-
-USE DS3
 GO
 
 CREATE PROCEDURE PURCHASE$k
@@ -790,7 +733,7 @@ sleep (1);
 
   
   foreach my $k (1 .. ($numberofstores-1)){
-  system ("start sqlcmd -C -S $sqlservertarget -U sa -P $password -i $sqlservertargetdir${pathsep}sqlserver_ds_createsp$k.sql");
+  system ("$startcmd sqlcmd -C -S $sqlservertarget -U sa -P $password -i $sqlservertargetdir${pathsep}sqlserver_ds_createsp$k.sql");
   }
   system ("sqlcmd -C -S $sqlservertarget -U sa -P $password -i $sqlservertargetdir${pathsep}sqlserver_ds_createsp$numberofstores.sql");
 

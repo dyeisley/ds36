@@ -33,7 +33,7 @@ else
 system ("mkdir -p $sqlservertargetdir");
 
 foreach my $k (1 .. $numberofstores){
-	open (my $OUT, ">$sqlservertargetdir${pathsep}sqlserver_ds_createtables.sql") || die("Can't open sqlserver_ds_createtables.sql");
+	open (my $OUT, ">$sqlservertargetdir${pathsep}sqlserver_ds_createtables$k.sql") || die("Can't open sqlserver_ds_createtables$k.sql");
 	print $OUT  "-- Tables
 USE DS3
 GO
@@ -227,7 +227,7 @@ AS
   DECLARE \@changedPROD_ID INT, \@oldQUAN_IN_STOCK INT, \@newQUAN_IN_STOCK INT, \@quan_reordered INT;
   DECLARE \@ReorderTime DATETIME = GETDATE();
 
-  SET \@quan_reordered = cast(rand() * 20 as INT) + 3
+  SET \@quan_reordered = FLOOR(rand() * 20) + 3
   SET \@ReorderTime = DATEADD(MINUTE, \@quan_reordered, \@ReorderTime);
 
   IF UPDATE(QUAN_IN_STOCK)
@@ -258,7 +258,7 @@ AS
   RETURN
 GO
 
-CREATE TRIGGER UPDATE_HELPFULNESS
+CREATE TRIGGER UPDATE_HELPFULNESS$k
 ON REVIEWS_HELPFULNESS$k
 AFTER INSERT, UPDATE, DELETE
 AS
@@ -292,7 +292,7 @@ USE DS3
 GO
 \n";
   close $OUT;
-  sleep(1);
-  print ("sqlcmd -C -S $sqlservertarget -U sa -P $mypassword -i $sqlservertargetdir${pathsep}sqlserver_ds_createtables.sql\n");
-  system ("sqlcmd -C -S $sqlservertarget -U sa -P $mypassword -i $sqlservertargetdir${pathsep}sqlserver_ds_createtables.sql");
+
+  print ("sqlcmd -C -S $sqlservertarget -U sa -P $mypassword -i $sqlservertargetdir${pathsep}sqlserver_ds_createtables$k.sql\n");
+  system ("sqlcmd -C -S $sqlservertarget -U sa -P $mypassword -i $sqlservertargetdir${pathsep}sqlserver_ds_createtables$k.sql");
   }
