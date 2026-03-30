@@ -33,7 +33,7 @@ else
         };
 
 foreach my $k (1 .. $numberofstores){
-	open (my $OUT, ">$mysql_targetdir${pathsep}mysql_ds_create_trigger.sql") || die("Can't open $mysql_targetdir${pathsep}mysql_ds_create_trigger.sql");
+	open (my $OUT, ">$mysql_targetdir${pathsep}mysql_ds_create_trigger$k.sql") || die("Can't open $mysql_targetdir${pathsep}mysql_ds_create_trigger$k.sql");
 	print $OUT  "Delimiter $$
 DROP TRIGGER IF EXISTS DS3.RESTOCK$k;
 CREATE TRIGGER DS3.RESTOCK$k BEFORE UPDATE ON DS3.INVENTORY$k
@@ -66,6 +66,6 @@ WHERE R.prod_id IN (SELECT DISTINCT prod_id FROM DS3.REVIEWS_HELPFULNESS$k);
 \n";
   close $OUT;
   sleep(1);
-  print ("mariadb -h $mysqltarget -u web --password=web < $mysql_targetdir${pathsep}mysql_ds_create_trigger.sql\n");
-  system ("mariadb -h $mysqltarget -u web --password=web < $mysql_targetdir${pathsep}mysql_ds_create_trigger.sql");
+  print ("mariadb -h $mysqltarget -u web --password=web < $mysql_targetdir${pathsep}mysql_ds_create_trigger$k.sql\n");
+  system ("mariadb -h $mysqltarget -u web --password=web < $mysql_targetdir${pathsep}mysql_ds_create_trigger$k.sql");
   }
