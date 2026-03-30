@@ -20,15 +20,21 @@ $sqlservertargetdir =~ s/\\//;
 system ("mkdir -p $sqlservertargetdir");
 
 my $pathsep;
+my $startcmd;
+my $background;
 
 # This section enables support for Linux and Windows - detecting the type of OS, and then using the proper commands
 if ("$^O" eq "linux")
         {
         $pathsep = "/";
+        $startcmd = "";
+        $background = "&";
         }
 else
         {
         $pathsep = "\\\\";
+        $startcmd = "start";
+        $background = "";
         };
 
 foreach my $k (1 .. $numberofstores){
@@ -284,6 +290,14 @@ CREATE NONCLUSTERED INDEX IX_REVIEWS_PRODID_REVID_DATE$k ON REVIEWS$k
   ON DS_IND_FG
 go
 
+CREATE INDEX IX_REVIEWS_PROD_HELPFULNESS ON REVIEWS$k
+  (
+  PROD_ID,
+  TOTAL_HELPFULNESS DESC
+  )
+  INCLUDE (REVIEW_SUMMARY, STARS, REVIEW_DATE);
+go
+
 CREATE NONCLUSTERED INDEX IX_REVIEWSHELPFULNESS_ID_HELPID$k ON [dbo].[REVIEWS_HELPFULNESS$k]
   (
   REVIEW_ID ASC,
@@ -342,7 +356,7 @@ GO
 sleep(1);
   
 foreach my $k (1 .. ($numberofstores-1)){
-  system ("start sqlcmd -C -S $sqlservertarget -U sa -P $password -i $sqlservertargetdir${pathsep}sqlserver_ds_createindexes$k.sql");
+  system ("$startcmd sqlcmd -C -S $sqlservertarget -U sa -P $password -i $sqlservertargetdir${pathsep}sqlserver_ds_createindexes$k.sql $background");
   }
   system ("sqlcmd -C -S $sqlservertarget -U sa -P $password -i $sqlservertargetdir${pathsep}sqlserver_ds_createindexes$numberofstores.sql");
-sleep(180);    # Make sure that all indexes are created before finishing
+  #sleep(180);    # Make sure that all indexes are created before finishing

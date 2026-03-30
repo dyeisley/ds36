@@ -105,8 +105,7 @@ foreach my $k (1 .. $numberofstores){
 # prod
 foreach my $k (1 .. $numberofstores){
 	open (my $OUT, ">prod/$sqlservertargetdir/remote_sqlserver_ds_prod_load$k.sh") || die("Can't open remote_sqlserver_ds_prod_load$k.sh");
-	#print $OUT "bcp ds3..products$k in ../../../../data_files/prod/prod.csv -b 10000 -h TABLOCK -S $sqlservertarget -u -U sa -P $password -c -t ,> prod$k.log\n";
-	print $OUT "bcp ds3..products1 in ../../../../data_files/prod/prod.csv -S $sqlservertarget -U sa -P $password -c -t ',' -u > prod$k.log\n";
+	print $OUT "bcp ds3..products$k in ../../../../data_files/prod/prod.csv -S $sqlservertarget -U sa -P $password -c -t ',' -u > prod$k.log\n";
 	print $OUT "date > finished$k.txt\n";
 	print $OUT "exit\n";
 	close $OUT;
@@ -135,7 +134,7 @@ foreach my $k (1 .. $numberofstores){
 #reviews
 foreach my $k (1 .. $numberofstores){
 	open (my $OUT, ">reviews/$sqlservertargetdir/remote_sqlserver_ds_reviews_load$k.sh") || die("Can't open remote_sqlserver_ds_reviews_load$k.sh");
-	print $OUT "bcp ds3..reviews$k in ../../../../data_files/reviews/reviews.csv -b 10000 -h TABLOCK -S $sqlservertarget -u -U sa -P $password -c -t ,> reviews$k.log\n";
+        print $OUT "bcp ds3..reviews$k in ../../../../data_files/reviews/reviews.csv -f ../reviews.fmt -b 10000 -h TABLOCK -S $sqlservertarget -u -U sa -P $password -t , > reviews$k.log\n";
 	print $OUT "bcp ds3..reviews_helpfulness$k in ../../../../data_files/reviews/review_helpfulness.csv -b 10000 -h TABLOCK -S $sqlservertarget -u -U sa -P $password -c -t ,> review_helpfulness$k.log\n";
 	print $OUT "date > finished$k.txt\n";
 	print $OUT "exit\n";

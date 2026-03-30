@@ -51,30 +51,31 @@ foreach my $k (1 .. $numberofstores){
 chdir("$base_dir/prod/$sqlservertargetdir");
 foreach my $k (1 .. $numberofstores){
 	print "starting remote_sqlserver_ds_prod_load$k.sh\n";
-	system ("sh remote_sqlserver_ds_prod_load$k.sh");
+	system ("sh remote_sqlserver_ds_prod_load$k.sh &");
 	print "starting remote_sqlserver_ds_inv_load$k.sh\n";
 	system ("sh remote_sqlserver_ds_inv_load$k.sh");
 	}
 	
-	chdir("$base_dir/reviews/$sqlservertargetdir");
+chdir("$base_dir/reviews/$sqlservertargetdir");
 foreach my $k (1 .. $numberofstores){
 	print "running remote_sqlserver_ds_reviews_load$k.sh\n";
-	system ("sh remote_sqlserver_ds_reviews_load$k.sh");
+	system ("sh remote_sqlserver_ds_reviews_load$k.sh &");
 	}
 	
-	chdir("$base_dir/orders/$sqlservertargetdir");
+chdir("$base_dir/orders/$sqlservertargetdir");
 foreach my $k (1 .. $numberofstores){
 	print "Running:\n  remote_sqlserver_ds_orders_load$k.sh\n";
-	system ("sh remote_sqlserver_ds_orders_load$k.sh");
+	system ("sh remote_sqlserver_ds_orders_load$k.sh &");
 	print "  remote_sqlserver_ds_orderlines_load$k.sh\n";
 	system ("sh remote_sqlserver_ds_orderlines_load$k.sh");
 	print "  remote_sqlserver_ds_cust_hist_load$k.sh\n";
 	system ("sh remote_sqlserver_ds_cust_hist_load$k.sh");
 	}
 	
-	chdir("$base_dir/cust/$sqlservertargetdir");
+chdir("$base_dir/cust/$sqlservertargetdir");
+print "Executing:\n";
 foreach my $k (1 .. $numberofstores){
-	print "Executing remote_sqlserver_ds_cust_load$k.sh\n";
+	print "  remote_sqlserver_ds_cust_load$k.sh\n";
 	system ("sh remote_sqlserver_ds_cust_load$k.sh");
 	}
 	
