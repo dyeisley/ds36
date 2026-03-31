@@ -1042,7 +1042,7 @@ namespace ds2xdriver
           {
               deadlocked = false;
               New_Product.ExecuteNonQuery();
-              newproduct_id = Convert.ToInt32(New_Product.Parameters["p_gen_id"].Value);
+              newproduct_id = Convert.ToInt32(New_Product.Parameters["p_gen_id"].Value.ToString());
           }
           catch (OracleException e)
           {
