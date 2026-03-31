@@ -118,7 +118,7 @@ CREATE INDEX \"DS3\".\"IX_PROD_SPECIAL$k\"
   ;
 
 ALTER TABLE DS3.INVENTORY$k
-  ADD CONSTRAINT fk_inventory_product
+  ADD CONSTRAINT fk_inventory_product$k
   FOREIGN KEY (PROD_ID) 
   REFERENCES PRODUCTS$k(PROD_ID)
 ON DELETE CASCADE
@@ -233,6 +233,6 @@ EXIT;
 sleep(1);
   
 foreach my $k (1 .. ($numberofstores-1)){
-  system ("$startcmd sqlplus \"ds3/ds3\@$oracletarget \" \@$oracletargetdir${pathsep}oracle_ds_createindexes$k.sql");
+  system ("$startcmd sqlplus -S \"ds3/ds3\@$oracletarget \" \@$oracletargetdir${pathsep}oracle_ds_createindexes$k.sql");
   }
   system ("sqlplus -S \"ds3/ds3\@$oracletarget \" \@$oracletargetdir${pathsep}oracle_ds_createindexes$numberofstores.sql");

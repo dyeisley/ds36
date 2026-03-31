@@ -725,7 +725,7 @@ CREATE OR REPLACE  PROCEDURE \"DS3\".\"PURCHASE$k\"
   END PURCHASE$k;
 /
 
-CREATE OR REPLACE PROCEDURE DS3.sp_AddNewInventoryProduct1 (
+CREATE OR REPLACE PROCEDURE DS3.sp_AddNewInventoryProduct$k (
     p_cat    IN  NUMBER,
     p_title  IN  VARCHAR2,
     p_actor  IN  VARCHAR2,
@@ -826,7 +826,7 @@ exit;\n";
 sleep (1);
 
 foreach my $k (1 .. ($numberofstores-1)){
-  system ("$startcmd sqlplus \"ds3/ds3\@$oracletarget\" \@$oracletargetdir${pathsep}oracle_ds_createsp$k.sql");
+  system ("$startcmd sqlplus -S \"ds3/ds3\@$oracletarget\" \@$oracletargetdir${pathsep}oracle_ds_createsp$k.sql");
   }
   system ("sqlplus -S \"ds3/ds3\@$oracletarget\" \@$oracletargetdir${pathsep}oracle_ds_createsp$numberofstores.sql");
 

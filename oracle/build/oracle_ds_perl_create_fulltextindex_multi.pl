@@ -50,6 +50,6 @@ exit;\n";
 sleep (1);
 
 foreach my $k (1 .. ($numberofstores-1)){
-  system ("$startcmd sqlplus \"ds3/ds3\@$oracletarget\" \@$oracletargetdir${pathsep}oracle_ds_createfulltextindexes$k.sql");
+  system ("$startcmd sqlplus -S \"ds3/ds3\@$oracletarget\" \@$oracletargetdir${pathsep}oracle_ds_createfulltextindexes$k.sql");
   }
-  system ("sqlplus \"ds3/ds3\@$oracletarget\" \@$oracletargetdir${pathsep}oracle_ds_createfulltextindexes$numberofstores.sql");
+  system ("sqlplus -S \"ds3/ds3\@$oracletarget\" \@$oracletargetdir${pathsep}oracle_ds_createfulltextindexes$numberofstores.sql");
