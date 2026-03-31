@@ -476,7 +476,7 @@ BEGIN
           R.REVIEW_SUMMARY,
           R.REVIEW_TEXT,
           NVL(R.TOTAL_HELPFULNESS, 0) AS HELPFULNESS_TOTAL
-      FROM PRODUCTS1 P
+      FROM PRODUCTS$k P
       INNER JOIN REVIEWS$k R ON P.PROD_ID = R.PROD_ID
       WHERE CONTAINS(P.TITLE, p_title_in) > 0
       FETCH NEXT p_search_depth ROWS ONLY
@@ -723,6 +723,51 @@ CREATE OR REPLACE  PROCEDURE \"DS3\".\"PURCHASE$k\"
     COMMIT;
 
   END PURCHASE$k;
+/
+
+CREATE OR REPLACE PROCEDURE DS3.sp_AddNewInventoryProduct1 (
+    p_cat    IN  NUMBER,
+    p_title  IN  VARCHAR2,
+    p_actor  IN  VARCHAR2,
+    p_price  IN  NUMBER,
+    p_stock  IN  NUMBER,
+    p_gen_id OUT NUMBER
+) AS
+    v_new_id    NUMBER;
+    v_max_id    NUMBER;
+    v_common_id NUMBER;
+    v_membership NUMBER;
+BEGIN
+    SELECT PROD_SEQ$k.NEXTVAL INTO v_new_id FROM dual;
+
+    SELECT COUNT(*) INTO v_max_id FROM PRODUCTS$k;
+
+    IF v_max_id = 0 THEN
+        v_common_id := 1;
+    ELSE
+        v_common_id := TRUNC(DBMS_RANDOM.VALUE(1, v_max_id + 1));
+    END IF;
+
+    v_membership := TRUNC(DBMS_RANDOM.VALUE(1, 4));
+
+    INSERT INTO PRODUCTS$k (
+        PROD_ID, CATEGORY, TITLE, ACTOR, PRICE, SPECIAL, COMMON_PROD_ID, MEMBERSHIP_ITEM
+    ) VALUES (
+        v_new_id, p_cat, p_title, p_actor, p_price, 0, v_common_id, v_membership
+    );
+
+    INSERT INTO INVENTORY$k (PROD_ID, QUAN_IN_STOCK, SALES)
+    VALUES (v_new_id, p_stock, 0);
+
+    p_gen_id := v_new_id;
+
+    COMMIT;
+
+EXCEPTION
+    WHEN OTHERS THEN
+        ROLLBACK;
+        RAISE;
+END;
 /
 
 CREATE OR REPLACE TRIGGER \"DS3\".\"RESTOCK$k\"

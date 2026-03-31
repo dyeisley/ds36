@@ -54,7 +54,7 @@ namespace ds2xdriver
 
     int ds2Interfaceid;
     OracleConnection objConn;
-    OracleCommand Login, New_Customer, Browse_By_Category, Browse_By_Actor, Browse_By_Title, Purchase;
+    OracleCommand Login, New_Customer, Browse_By_Category, Browse_By_Actor, Browse_By_Title, New_Product, Purchase;
     OracleCommand Get_Prod_Reviews, Get_Prod_Reviews_By_Actor, Get_Prod_Reviews_By_Title, Get_Prod_Reviews_By_Date, Get_Prod_Reviews_By_Stars;
     OracleCommand New_Member, New_Prod_Review, New_Review_Helpfulness;
 
@@ -200,6 +200,16 @@ namespace ds2xdriver
       New_Review_Helpfulness_prm[1] = New_Review_Helpfulness.Parameters.Add("customerid_in", OracleDbType.Int32, ParameterDirection.Input);
       New_Review_Helpfulness_prm[2] = New_Review_Helpfulness.Parameters.Add("review_helpfulness_in", OracleDbType.Int32, ParameterDirection.Input);
       New_Review_Helpfulness_prm[3] = New_Review_Helpfulness.Parameters.Add("customerid_out", OracleDbType.Int32, ParameterDirection.Output);
+
+      //New Product
+      New_Product = new OracleCommand("sp_AddNewInventoryProduct" + target_store_number, objConn);
+      New_Product.CommandType = CommandType.StoredProcedure;
+      New_Product.Parameters.Add("p_cat", OracleDbType.Int32);
+      New_Product.Parameters.Add("p_title", OracleDbType.Varchar2);
+      New_Product.Parameters.Add("p_actor", OracleDbType.Varchar2);
+      New_Product.Parameters.Add("p_price", OracleDbType.Decimal);
+      New_Product.Parameters.Add("p_stock", OracleDbType.Int32);
+      New_Product.Parameters.Add("p_gen_id", OracleDbType.Int32, ParameterDirection.Output);
 
       //Purchase
       Purchase = new OracleCommand("", objConn);
@@ -800,7 +810,6 @@ namespace ds2xdriver
       New_Prod_Review_prm[3].Value = new_review_summary_in;
       New_Prod_Review_prm[4].Value = new_review_text_in;
 
-
 #if (USE_WIN32_TIMER)
       QueryPerformanceFrequency(ref freq); // obtain system freq (ticks/sec)
       QueryPerformanceCounter(ref ctr0); // Start response time clock
@@ -1002,6 +1011,67 @@ namespace ds2xdriver
 
       return(true);
       } // end ds2purchase()
+
+//
+//-------------------------------------------------------------------------------------------------
+//
+    public bool ds2newproduct(int new_category_in, string new_title_in, string new_actor_in, decimal new_price_in, int new_stock_in, ref int newproduct_id, ref double rt)
+    {
+      bool success = true;
+
+      New_Product.Parameters["p_cat"].Value = new_category_in;
+      New_Product.Parameters["p_title"].Value = new_title_in;
+      New_Product.Parameters["p_actor"].Value = new_actor_in;
+      New_Product.Parameters["p_price"].Value = new_price_in;
+      New_Product.Parameters["p_stock"].Value = new_stock_in;
+
+      bool deadlocked = false;
+
+#if (USE_WIN32_TIMER)
+      long ctr0 = 0, ctr = 0, freq = 0;
+      QueryPerformanceFrequency(ref freq); // obtain system freq (ticks/sec)
+      QueryPerformanceCounter(ref ctr0); // Start response time clock
+#else
+      TimeSpan TS = new TimeSpan();
+      DateTime DT0 = DateTime.Now;
+#endif
+
+      do
+      {
+          try
+          {
+              deadlocked = false;
+              New_Product.ExecuteNonQuery();
+              newproduct_id = Convert.ToInt32(New_Product.Parameters["p_gen_id"].Value.ToString());
+          }
+          catch (OracleException e)
+          {
+              if (e.Number == 1205)
+              {
+                  deadlocked = true;
+                  int wait = Random.Shared.Next(1000);
+                  Console.WriteLine("Thread {0}: New_Product deadlocked...waiting {1} msec, then will retry",Thread.CurrentThread.Name, wait);
+                  Thread.Sleep(wait); // Wait up to 1 sec, then try again
+              }
+              else
+              {
+                  Console.WriteLine("Thread {0}: Oracle Error {1} in New_Product: {2}",Thread.CurrentThread.Name, e.Number, e.Message);
+                  success = false;
+              }
+          }
+      } while (deadlocked);
+
+#if (USE_WIN32_TIMER)
+      QueryPerformanceCounter(ref ctr); // Stop response time clock
+      rt = (ctr - ctr0)/(double) freq; // Calculate response time
+#else
+      TS = DateTime.Now - DT0;
+      rt = TS.TotalSeconds; // Calculate response time
+#endif
+
+      return (success);
+    }
+
 
 //
 //-------------------------------------------------------------------------------------------------

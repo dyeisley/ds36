@@ -15,7 +15,7 @@ sqlplus -S "sys/oracle@$TARGET as sysdba" @oracle_ds_create_datatypes.sql
 cd ../load
 perl linux_ds_create_oracle_multistore_ctl_files.pl $TARGET $STORES
 perl linux_ds_execute_oracle_multistore_sqlldr.pl $TARGET $STORES
-sleep 60
+sleep 5
 cd ../build
 perl oracle_ds_perl_create_seq_multi.pl $TARGET $STORES
 perl oracle_ds_perl_create_indexes_multi.pl $TARGET $STORES
