@@ -60,6 +60,7 @@ namespace ds2xdriver
     {
     public const int MAX_USERS = 1000;
     public const int MAX_CATEGORY = 16;
+    public const int MAX_STORES = 16;
     public const int MAX_ROWS = 1000;
     public const int LAST_N = 100;
     public const int MAX_FAILURES = 10;
@@ -134,8 +135,9 @@ namespace ds2xdriver
         rt_newmember_overall = 0.0;
     public static double[] rt_tot_lastn = new double[GlobalConstants.LAST_N];
     public static bool Start = false , End = false;
-    public static int max_customer , max_product , max_review;
+    public static int max_customer , max_review;
     public static string virt_dir = "ds3" , page_type = "php";
+    public static int[] max_product = new int[GlobalConstants.MAX_STORES];
 
     //Added new parameter database_custom_size and new variables by GSK
     //Note that order_rows are per month
@@ -890,8 +892,10 @@ namespace ds2xdriver
             ds2_mode_string, n_stores, log_freq, log_timestamp, use_vectors_string);
 
       max_customer = customer_rows;
-      max_product = product_rows;
       max_review = product_rows * 20;
+
+      for ( i = 0 ; i < GlobalConstants.MAX_STORES ; i++ )
+         max_product[i] = product_rows;
 
       //Changed by GSK (size of array prod_array = number of rows in product table + (10000 * 10)
       //Reason : Every 10000th product will be popular and will have 10 entries in list
@@ -2320,15 +2324,15 @@ namespace ds2xdriver
                     case 0:  // Get Reviews with no order
                         get_review_type_in = "noorder";
                         // assign get_review_prod_in to be a random product id number
-                        get_review_prod_in = GetSkewedProductId(Controller.max_product);
+                        get_review_prod_in = GetSkewedProductId(Controller.max_product[target_store]);
                         break;
                     case 1:  // Get Reviews by Star ranking
                         get_review_type_in = "star";
-                        get_review_prod_in = GetSkewedProductId(Controller.max_product);
+                        get_review_prod_in = GetSkewedProductId(Controller.max_product[target_store]);
                         break;
                     case 2:  // Get Reviews by date
                         get_review_type_in = "date";
-                        get_review_prod_in = GetSkewedProductId(Controller.max_product);
+                        get_review_prod_in = GetSkewedProductId(Controller.max_product[target_store]);
                         break;
                 }
                 failures = 0;
@@ -2361,7 +2365,7 @@ namespace ds2xdriver
                 new_review_summary_in = CreateReviewData(ref review_data_terms, 3);
                 new_review_text_in = CreateReviewData(ref review_data_terms, 25);
                 new_review_stars_in = Random.Shared.Next(1,6);
-                new_review_prod_id_in = Random.Shared.Next(1,Controller.max_product);
+                new_review_prod_id_in = Random.Shared.Next(1,Controller.max_product[target_store]);
 
                 failures = 0;
                 while (!ds2interfaces[Userid].ds2newreview(new_review_prod_id_in, new_review_stars_in, customerid_out,
@@ -2416,11 +2420,11 @@ namespace ds2xdriver
 
             // End of New Helpfulness Phase
 
-            if (Controller.n_overall > lastprodinsert && Thread.CurrentThread.Name == "0")
+            if ((Controller.n_overall > lastprodinsert ) && (Userid == (target_store-1) ))
             {
+               //Console.WriteLine ("n_overall: {0} Thread: {1} target_store: {2}",Controller.n_overall, Userid, target_store);
 	       for (int j = 0 ; j < 10 ; j++ )
 	       {
-               //Console.WriteLine ("n_overall: {0} Thread: {1}",Controller.n_overall, Thread.CurrentThread.Name);
                int new_category_in = Random.Shared.Next(1, GlobalConstants.MAX_CATEGORY+1);
                string new_actor_in = CreateActor();
 	       string new_title_in = CreateTitle();
@@ -2431,9 +2435,9 @@ namespace ds2xdriver
 	       int new_prod_id = 0;
 	       if ( ds2interfaces[Userid].ds2newproduct(new_category_in, new_title_in, new_actor_in, price_in, initial_stock_in, ref new_prod_id, ref rt) )
                {
-		  if ( new_prod_id > Controller.max_product)
+		  if ( new_prod_id > Controller.max_product[target_store])
                   {
-                     Controller.max_product = new_prod_id;
+                     Controller.max_product[target_store] = new_prod_id;
                   }
                }
 	       }
@@ -2462,7 +2466,7 @@ namespace ds2xdriver
         // For each cart item randomly select product_id using weighted random Id
         for ( i = 0 ; i < cart_items ; i++ )
           {
-	  prod_id_in[i] = GetSkewedProductId(Controller.max_product);
+	  prod_id_in[i] = GetSkewedProductId(Controller.max_product[target_store]);
           qty_in[i] = Random.Shared.Next(1,4);  // qty (1, 2 or 3)
           //        Console.WriteLine("Thread {0}: Purchase prod_id_in[{1}] = {2}  qty_in[{1}]= {3}",
           //          Thread.CurrentThread.Name, i, prod_id_in[i], qty_in[i]);
