@@ -85,6 +85,7 @@ namespace ds2xdriver
     public static string outfilename = string.Empty;
     public static string ds2_mode_string = string.Empty;
     public static string use_vectors_string = string.Empty;
+    public static string add_products = "N";
     System.IO.StreamWriter? outfile;
 
     public static string[] target_servers = null!;                  //Added by GSK (for single instance of driver program driving multiple database servers)
@@ -168,6 +169,7 @@ namespace ds2xdriver
     // Value for number of stores to support multi stores
     public static int n_stores = 1;
     public static int n_vectors = 0;
+    public static int n_add_products = 0;
 
     // Variables needed within Controller class
     // Added new Parameter db_size by GSK
@@ -182,7 +184,7 @@ namespace ds2xdriver
       "run_time", "db_size", "warmup_time", "think_time", "pct_newcustomers", "pct_newmember", "n_searches",
       "search_batch_size", "search_depth", "n_reviews", "pct_newreviews", "pct_newhelpfulness", "n_line_items", "virt_dir",
       "page_type", "windows_perf_host", "linux_perf_host", "detailed_view", "out_filename", "ds2_mode", "n_stores", "log_freq", "log_timestamp",
-      "use_vectors"};
+      "add_products","use_vectors"};
     static string[] input_parm_desc = new string[] {"config file path",
       "database/web server hostname or IP address", "number of driver threads", "startup rate (users/sec)",
       "run time (min) - 0 is infinite", "S | M | L or database size (e.g. 30MB, 80GB)", "warmup_time (min)", "think time (sec)",
@@ -194,9 +196,9 @@ namespace ds2xdriver
       "username:password:target hostname/IP Address for Linux CPU% display (Linux Only)",
       "Detailed statistics View (Y / N)", "output results to specified file in csv format", "run driver in ds2 mode to mimic previous version",
       "Number of stores in DS3 instance", "print output frequency in seconds",
-	  "Detailed timestamp format for log (UTC / LOCAL / NONE) ", "Experimental vectors"};
+      "Detailed timestamp format for log (UTC / LOCAL / NONE) ", "Add products at run time", "Experimental vectors"};
     static string[] input_parm_values = new string[] {"none", "localhost", "1", "10", "0", "10MB", "1", "0",
-      "20", "1", "3", "5", "500", "3", "5", "10", "5", "ds3", "php", "","","N","","N","1", "10", "NONE", "N"};
+      "20", "1", "3", "5", "500", "3", "5", "10", "5", "ds3", "php", "","","N","","N","1", "10", "NONE", "N", "N"};
 
     int server_id = 0;          //Added by GSK
 
@@ -879,17 +881,30 @@ namespace ds2xdriver
           Console.WriteLine("Error in parsing use_vectors parameter: {0}", e.Message);
           return;
       }
+      try
+      {
+          add_products = input_parm_values[Array.IndexOf(input_parm_names, "add_products")];
+          if (add_products.ToUpper() == "Y")
+          {
+              n_add_products = 1;
+          }
+      }
+      catch (System.Exception e)
+      {
+          Console.WriteLine("Error in parsing add_products parameter: {0}", e.Message);
+          return;
+      }
 
       Console.WriteLine ( "target= {0}  n_threads= {1}  ramp_rate= {2}  run_time= {3}  db_size= {4}" +
         "  warmup_time= {5}  think_time= {6}  pct_newcustomers= {7}  pct_newmembers= {8}  n_searches= {9}  search_batch_size= {10}" +
         "  search_depth= {11}  n_reviews= {12}  pct_newreviews= {13}  pct_newhelpfulness= {14}  n_line_items= {15}  virt_dir= {16}" +
         "  page_type= {17}  windows_perf_host= {18}  detailed_view= {19}  linux_perf_host= {20}  output_file= {21}  ds2_mode= {22}" +
-        "  n_stores= {23}  log_freq= {24}  log_timestamp= {25}  use_vectors= {26}"
+        "  n_stores= {23}  log_freq= {24}  log_timestamp= {25}  add_products= {26}  use_vectors= {27}"
         ,
         target , n_threads , ramp_rate , run_time , db_size , warmup_time , think_time , pct_newcustomers ,
             pct_newmember, n_searches , search_batch_size , search_depth , n_reviews, pct_newreviews, pct_newhelpfulness,
             n_line_items , virt_dir , page_type , windows_perf_host , detailed_view , linux_perf_host, outfilename,
-            ds2_mode_string, n_stores, log_freq, log_timestamp, use_vectors_string);
+            ds2_mode_string, n_stores, log_freq, log_timestamp, add_products, use_vectors_string);
 
       max_customer = customer_rows;
       max_review = product_rows * 20;
@@ -2420,7 +2435,7 @@ namespace ds2xdriver
 
             // End of New Helpfulness Phase
 
-            if ((Controller.n_overall > lastprodinsert ) && (Userid == (target_store-1) ))
+            if ((Controller.n_overall > lastprodinsert ) && (Userid == (target_store-1) ) && Controller.n_add_products == 1)
             {
                //Console.WriteLine ("n_overall: {0} Thread: {1} target_store: {2}",Controller.n_overall, Userid, target_store);
 	       for (int j = 0 ; j < 10 ; j++ )
