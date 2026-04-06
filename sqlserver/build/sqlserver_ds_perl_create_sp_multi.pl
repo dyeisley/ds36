@@ -20,15 +20,18 @@ $sqlservertargetdir =~ s/\\//;
 system ("mkdir -p $sqlservertargetdir");
 
 my $pathsep;
+my $startcmd;
 
 # This section enables support for Linux and Windows - detecting the type of OS, and then using the proper commands
 if ("$^O" eq "linux")
         {
         $pathsep = "/";
+	$startcmd = "";
         }
 else
         {
         $pathsep = "\\\\";
+	$startcmd = "start";
         };
 
 foreach my $k (1 .. $numberofstores){
@@ -66,11 +69,11 @@ CREATE PROCEDURE NEW_CUSTOMER$k
   \@gender_in                VARCHAR(1)
   )
 
-  AS 
+  AS
 
   IF (SELECT COUNT(*) FROM CUSTOMERS$k WHERE USERNAME=\@username_in) = 0
   BEGIN
-    INSERT INTO CUSTOMERS$k 
+    INSERT INTO CUSTOMERS$k
       (
       FIRSTNAME,
       LASTNAME,
@@ -91,9 +94,9 @@ CREATE PROCEDURE NEW_CUSTOMER$k
       AGE,
       INCOME,
       GENDER
-      ) 
-    VALUES 
-      ( 
+      )
+    VALUES
+      (
       \@firstname_in,
       \@lastname_in,
       \@address1_in,
@@ -116,7 +119,7 @@ CREATE PROCEDURE NEW_CUSTOMER$k
       )
     SELECT \@\@IDENTITY
   END
-  ELSE 
+  ELSE
     SELECT 0
 GO
 
@@ -136,7 +139,7 @@ CREATE PROCEDURE NEW_MEMBER$k
   \@membershiplevel_in       INT
   )
 
-  AS 
+  AS
 
   DECLARE
   \@date_in                  DATETIME
@@ -152,16 +155,16 @@ CREATE PROCEDURE NEW_MEMBER$k
       CUSTOMERID,
       MEMBERSHIPTYPE,
       EXPIREDATE
-      ) 
-    VALUES 
-      ( 
+      )
+    VALUES
+      (
       \@customerid_in,
       \@membershiplevel_in,
       \@date_in
       )
     SELECT \@customerid_in
   END
-  ELSE 
+  ELSE
     SELECT 0
 GO
 
@@ -184,7 +187,7 @@ CREATE PROCEDURE NEW_PROD_REVIEW$k
   \@review_text_in		 VARCHAR(1000)
   )
 
-  AS 
+  AS
 
   DECLARE
   \@date_in                  DATETIME
@@ -713,16 +716,75 @@ CREATE PROCEDURE PURCHASE$k
 
   SELECT \@neworderid
 GO
+
+USE DS3
+GO
+
+IF EXISTS (SELECT name FROM sysobjects WHERE name = 'sp_AddNewInventoryProduct$k' AND type = 'P')
+  DROP PROCEDURE sp_AddNewInventoryProduct$k
+GO
+
+CREATE PROCEDURE sp_AddNewInventoryProduct$k
+(
+    \@p_cat TINYINT,
+    \@p_title VARCHAR(50),
+    \@p_actor VARCHAR(50),
+    \@p_price NUMERIC(12,2),
+    \@p_stock INT
+)
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    DECLARE \@v_new_id INT;
+    DECLARE \@v_max_id INT;
+    DECLARE \@v_common_id INT;
+    DECLARE \@v_membership TINYINT;
+
+    SELECT \@v_max_id = COUNT(*) FROM PRODUCTS1;
+
+    IF \@v_max_id = 0
+    BEGIN
+        SET \@v_common_id = 1;
+    END
+    ELSE
+    BEGIN
+        SET \@v_common_id = FLOOR(1 + (RAND() * \@v_max_id));
+    END
+
+    SET \@v_membership = FLOOR(1 + (RAND() * 3));
+
+    BEGIN TRY
+        BEGIN TRANSACTION;
+
+        INSERT INTO PRODUCTS$k (CATEGORY, TITLE, ACTOR, PRICE, SPECIAL, COMMON_PROD_ID, MEMBERSHIP_ITEM)
+        VALUES (\@p_cat, \@p_title, \@p_actor, \@p_price, 0, \@v_common_id, \@v_membership);
+
+        SET \@v_new_id = SCOPE_IDENTITY();
+
+        INSERT INTO INVENTORY$k (PROD_ID, QUAN_IN_STOCK, SALES)
+        VALUES (\@v_new_id, \@p_stock, 0);
+
+        COMMIT TRANSACTION;
+
+        SELECT \@v_new_id AS generated_id;
+    END TRY
+    BEGIN CATCH
+        IF \@\@TRANCOUNT > 0
+            ROLLBACK TRANSACTION;
+
+        THROW;
+    END CATCH
+END
+GO
+
 \n";
   close $OUT;
 }
 
 sleep (1);
-
   
   foreach my $k (1 .. ($numberofstores-1)){
-  system ("start sqlcmd -C -S $sqlservertarget -U sa -P $password -i $sqlservertargetdir${pathsep}sqlserver_ds_createsp$k.sql");
+  system ("$startcmd sqlcmd -C -S $sqlservertarget -U sa -P $password -i $sqlservertargetdir${pathsep}sqlserver_ds_createsp$k.sql");
   }
   system ("sqlcmd -C -S $sqlservertarget -U sa -P $password -i $sqlservertargetdir${pathsep}sqlserver_ds_createsp$numberofstores.sql");
-
-

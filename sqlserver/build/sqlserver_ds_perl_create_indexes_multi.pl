@@ -20,15 +20,18 @@ $sqlservertargetdir =~ s/\\//;
 system ("mkdir -p $sqlservertargetdir");
 
 my $pathsep;
+my $startcmd;
 
 # This section enables support for Linux and Windows - detecting the type of OS, and then using the proper commands
 if ("$^O" eq "linux")
         {
         $pathsep = "/";
+	$startcmd = "";
         }
 else
         {
         $pathsep = "\\\\";
+	$startcmd = "start";
         };
 
 foreach my $k (1 .. $numberofstores){
@@ -145,6 +148,12 @@ CREATE INDEX IX_PROD_SPECIAL_CATEGORY_PRODID$k ON PRODUCTS$k
   )
   INCLUDE (TITLE, ACTOR, PRICE, COMMON_PROD_ID)
   ON DS_IND_FG
+GO
+
+ALTER TABLE INVENTORY$k
+  ADD CONSTRAINT FK_INVENTORY_PROD_ID$k FOREIGN KEY (PROD_ID)
+  REFERENCES PRODUCTS$k (PROD_ID)
+  ON DELETE CASCADE
 GO
 
 CREATE FULLTEXT CATALOG FULLTEXT_DSPROD$k ON FILEGROUP DS_FULLTEXT_FG;
@@ -342,7 +351,7 @@ GO
 sleep(1);
   
 foreach my $k (1 .. ($numberofstores-1)){
-  system ("start sqlcmd -C -S $sqlservertarget -U sa -P $password -i $sqlservertargetdir${pathsep}sqlserver_ds_createindexes$k.sql");
+  system ("$startcmd sqlcmd -C -S $sqlservertarget -U sa -P $password -i $sqlservertargetdir${pathsep}sqlserver_ds_createindexes$k.sql");
   }
   system ("sqlcmd -C -S $sqlservertarget -U sa -P $password -i $sqlservertargetdir${pathsep}sqlserver_ds_createindexes$numberofstores.sql");
 sleep(180);    # Make sure that all indexes are created before finishing
