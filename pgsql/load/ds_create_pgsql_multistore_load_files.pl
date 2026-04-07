@@ -236,7 +236,7 @@ foreach my $k (1 .. $numStores){
 
 ALTER TABLE REVIEWS$k DISABLE TRIGGER ALL;
 
-\\COPY REVIEWS$k FROM '..$pathsep..$pathsep..$pathsep..${pathsep}data_files${pathsep}reviews${pathsep}reviews.csv' WITH DELIMITER ','
+\\COPY REVIEWS$k (REVIEW_ID, PROD_ID, REVIEW_DATE, STARS, CUSTOMERID, REVIEW_SUMMARY, REVIEW_TEXT) FROM '..$pathsep..$pathsep..$pathsep..${pathsep}data_files${pathsep}reviews${pathsep}reviews.csv' WITH DELIMITER ',' CSV;
 
 ALTER TABLE REVIEWS$k ENABLE TRIGGER ALL;
 \n";
