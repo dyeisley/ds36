@@ -40,7 +40,7 @@ else
 
 
 #Need seperate target directory so that mulitple DB Targets can be loaded at the same time
-my $pgsql_targetdir;
+my $pgsql_targetdir;  
 
 $pgsql_targetdir = $psqltarget;
 
@@ -174,19 +174,19 @@ CREATE INDEX IX_REVIEWS_PRODSTARS$k ON REVIEWS$k
   )
   ;
 
-CREATE INDEX idx_reviews_prod_stars_help$k ON REVIEWS$k
+CREATE INDEX idx_reviews_prod_stars_help$k ON REVIEWS$k 
   (
   PROD_ID, STARS, total_helpfulness DESC
   )
   ;
 
-CREATE INDEX idx_reviews_prod_date$k ON REVIEWS$k
+CREATE INDEX idx_reviews_prod_date$k ON REVIEWS$k 
   (
   PROD_ID, REVIEW_DATE DESC
   )
   ;
 
-CREATE INDEX idx_helpfulness_review_id$k ON REVIEWS_HELPFULNESS$k
+CREATE INDEX idx_helpfulness_review_id$k ON REVIEWS_HELPFULNESS$k 
   (
   REVIEW_ID, helpfulness
   )
@@ -216,15 +216,9 @@ CREATE INDEX IX_REORDER_PRODID$k ON REORDER$k
   )
   ;
 
-ALTER TABLE INVENTORY$k
-ADD CONSTRAINT fk_inventory_product$k
-FOREIGN KEY (PROD_ID)
-REFERENCES PRODUCTS$k(PROD_ID)
-ON DELETE CASCADE;
-
 \n";
 	close $OUT;
-
+	              
 open (my $OUTBAT, ">$pgsql_targetdir${pathsep}pgsql_ds_createindexes$k.bat") || die("Can't open pgsql_ds_createindexes$k.bat");
 		print $OUTBAT "set PGPASSWORD=ds3\n";
 		print $OUTBAT "psql -h $psqltarget -U $SYSDBA -d $DBNAME < $pgsql_targetdir${pathsep}pgsql_ds_createindexes$k.sql\n";
@@ -235,7 +229,7 @@ open (my $OUTBAT, ">$pgsql_targetdir${pathsep}pgsql_ds_createindexes$k.bat") || 
 sleep(1);
 
 system ("${delcommand} $pgsql_targetdir${pathsep}finished*.txt");
-print "Index creation started at " .(localtime) , "\n";
+print "Load started at " .(localtime) , "\n";
 
 foreach my $k (1 .. ($numStores)){
   print("psql -h $psqltarget -U $SYSDBA -d $DBNAME < $pgsql_targetdir${pathsep}pgsql_ds_createindexes$k.sql\n");
@@ -255,7 +249,7 @@ while ($num_finished < $numStores)
 			print "Num store indexes finished is $num_finished of $numStores \n";
 			}
 
-print "Index creation finished at ".(localtime), "\n";
+print "Load finished at ".(localtime), "\n";
 		
 sleep(5);
 
