@@ -52,7 +52,6 @@ if ("$^O" eq "linux")
 
         print "Load started at ".(localtime), "\n";
 
-
         chdir("$base_dir/membership/$psqltarget");
         foreach my $k (1 .. $numStores){
                 system ("sh remote_pgsql_ds_membership_load$k.bat &");
@@ -96,7 +95,7 @@ if ("$^O" eq "linux")
 
         while ($num_finished < 6)
                 {
-                sleep(5);
+                sleep(5 * $numStores);
                 $num_finished = 0;
                 if (-e $cust_finished_file) {++$num_finished;}
                 if (-e $orders_finished_file) {++$num_finished;}

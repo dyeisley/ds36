@@ -612,6 +612,43 @@ BEGIN
 END;
 \$\$;
 
+DROP FUNCTION IF EXISTS sp_addnewinventoryproduct$k(smallint, varchar, varchar, numeric, int);
+
+CREATE OR REPLACE FUNCTION sp_addnewinventoryproduct$k(
+    p_cat smallint,
+    p_title varchar(50),
+    p_actor varchar(50),
+    p_price numeric(12,2),
+    p_stock int,
+    OUT v_new_id int
+)
+LANGUAGE plpgsql
+AS \$\$
+DECLARE
+    v_max_id int;
+    v_common_id int;
+    v_membership smallint;
+BEGIN
+    SELECT COUNT(*) INTO v_max_id FROM products$k;
+
+    IF v_max_id = 0 THEN
+        v_common_id := 1;
+    ELSE
+        v_common_id := floor(1 + (random() * v_max_id))::int;
+    END IF;
+
+    v_membership := floor(1 + (random() * 3))::int;
+
+    INSERT INTO products$k (category, title, actor, price, special, common_prod_id, membership_item)
+    VALUES (p_cat, p_title, p_actor, p_price, 0, v_common_id, v_membership)
+    RETURNING prod_id INTO v_new_id;
+
+    INSERT INTO inventory$k (prod_id, quan_in_stock, sales)
+    VALUES (v_new_id, p_stock, 0);
+
+END;
+\$\$;
+
 \n";
 	close $OUT;
 	sleep(1);
