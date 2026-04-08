@@ -57,8 +57,8 @@ namespace ds2xdriver
     int target_store_number = 1; // Added to support multiple stores - default is 1
     NpgsqlConnection objConn;
     NpgsqlCommand Login, New_Customer, Browse_By_Category, Browse_By_Actor, Browse_By_Title, Purchase;
-	NpgsqlCommand New_Member, New_Prod_Review, New_Review_Helpfulness;
-	NpgsqlCommand Get_Prod_Reviews, Get_Prod_Reviews_By_Date, Get_Prod_Reviews_By_Stars, Get_Prod_Reviews_By_Actor, Get_Prod_Reviews_By_Title;
+    NpgsqlCommand New_Member, New_Prod_Review, New_Review_Helpfulness, New_Product;
+    NpgsqlCommand Get_Prod_Reviews, Get_Prod_Reviews_By_Date, Get_Prod_Reviews_By_Stars, Get_Prod_Reviews_By_Actor, Get_Prod_Reviews_By_Title;
     NpgsqlDataReader Rdr;
     
 //
@@ -184,6 +184,21 @@ namespace ds2xdriver
 	Purchase.Parameters.Add("prod_id_in7", NpgsqlDbType.Integer); Purchase.Parameters.Add("qty_in7", NpgsqlDbType.Integer);
 	Purchase.Parameters.Add("prod_id_in8", NpgsqlDbType.Integer); Purchase.Parameters.Add("qty_in8", NpgsqlDbType.Integer);
 	Purchase.Parameters.Add("prod_id_in9", NpgsqlDbType.Integer); Purchase.Parameters.Add("qty_in9", NpgsqlDbType.Integer);
+
+        //New Product
+        New_Product = new NpgsqlCommand("sp_addnewinventoryproduct" + target_store_number, objConn);
+        New_Product.CommandType = CommandType.StoredProcedure;
+        New_Product.Parameters.Add("p_cat", NpgsqlDbType.Smallint);
+        New_Product.Parameters.Add("p_title", NpgsqlDbType.Varchar);
+        New_Product.Parameters.Add("p_actor", NpgsqlDbType.Varchar);
+        New_Product.Parameters.Add("p_price", NpgsqlDbType.Numeric);
+        New_Product.Parameters.Add("p_stock", NpgsqlDbType.Integer);
+	var outParam = new NpgsqlParameter("v_new_id", DbType.Int32)
+        {
+           Direction = ParameterDirection.Output
+        };
+        New_Product.Parameters.Add(outParam);
+
     }
  
 //
@@ -476,7 +491,6 @@ namespace ds2xdriver
           Console.WriteLine("  Browse type '{0}' unsupported.",browse_type_in);
           rows_returned = -1;
           return false;
-          break;
         }
 
 //    Console.WriteLine("Thread {0}: Calling Browse w/ browse_type= {1} batch_size_in= {2}  data_in= {3}",  
@@ -1004,6 +1018,49 @@ namespace ds2xdriver
       return(true);
       } // end ds2purchase()
     
+//
+//-------------------------------------------------------------------------------------------------
+//
+    public bool ds2newproduct(int new_category_in, string new_title_in, string new_actor_in, decimal new_price_in, int new_stock_in, ref int newproduct_id, ref double rt)
+    {
+      bool success = true;
+
+      New_Product.Parameters["p_cat"].Value = new_category_in;
+      New_Product.Parameters["p_title"].Value = new_title_in;
+      New_Product.Parameters["p_actor"].Value = new_actor_in;
+      New_Product.Parameters["p_price"].Value = new_price_in;
+      New_Product.Parameters["p_stock"].Value = new_stock_in;
+
+#if (USE_WIN32_TIMER)
+      long ctr0 = 0, ctr = 0, freq = 0;
+      QueryPerformanceFrequency(ref freq); // obtain system freq (ticks/sec)
+      QueryPerformanceCounter(ref ctr0); // Start response time clock
+#else
+      TimeSpan TS = new TimeSpan();
+      DateTime DT0 = DateTime.Now;
+#endif
+
+      try
+      {
+          New_Product.ExecuteNonQuery();
+          newproduct_id = Convert.ToInt32(New_Product.Parameters["v_new_id"].Value.ToString());
+      }
+      catch (PostgresException e)
+      {
+          Console.WriteLine("Thread {0}: postgreSQL Error in New_Product: {1}",Thread.CurrentThread.Name, e.Message);
+          success = false;
+      }
+
+#if (USE_WIN32_TIMER)
+      QueryPerformanceCounter(ref ctr); // Stop response time clock
+      rt = (ctr - ctr0)/(double) freq; // Calculate response time
+#else
+      TS = DateTime.Now - DT0;
+      rt = TS.TotalSeconds; // Calculate response time
+#endif
+
+      return success;
+    }
 //
 //-------------------------------------------------------------------------------------------------
 // 
