@@ -39,8 +39,8 @@ else
    $mybackground = "";
 };
 
-$indexfile="mysql_ds_create_customer_indexes.sql";
 foreach my $k (1 .. $numberofstores){
+        $indexfile="mysql_ds_create_customer_indexes$k.sql";
 	open (my $OUT, ">$mysql_targetdir${pathsep}$indexfile") || die("Can't open $mysql_targetdir${pathsep}$indexfile");
 	print $OUT  "-- Tables
 USE DS3;
@@ -72,8 +72,8 @@ SET FOREIGN_KEY_CHECKS=1;
   system ("mariadb -h $mysqltarget -u web --password=web < $mysql_targetdir${pathsep}$indexfile $mybackground");
   }
 
-$indexfile="mysql_ds_create_orders_indexes.sql";
 foreach my $k (1 .. $numberofstores){
+        $indexfile="mysql_ds_create_orders_indexes$k.sql";
 	open (my $OUT, ">$mysql_targetdir${pathsep}$indexfile") || die("Can't open $mysql_targetdir${pathsep}$indexfile");
 	print $OUT  "-- Tables
 USE DS3;
@@ -113,8 +113,8 @@ SET FOREIGN_KEY_CHECKS=1;
   system ("mariadb -h $mysqltarget -u web --password=web < $mysql_targetdir${pathsep}$indexfile $mybackground");
   }
 
-$indexfile="mysql_ds_create_products_indexes.sql";
 foreach my $k (1 .. $numberofstores){
+        $indexfile="mysql_ds_create_products_indexes$k.sql";
 	open (my $OUT, ">$mysql_targetdir${pathsep}$indexfile") || die("Can't open $mysql_targetdir${pathsep}$indexfile");
 	print $OUT  "-- Tables
 USE DS3;
@@ -164,8 +164,8 @@ CREATE INDEX IX_PROD_PRODID_COMMON$k ON PRODUCTS$k
   system ("mariadb -h $mysqltarget -u web --password=web < $mysql_targetdir${pathsep}$indexfile $mybackground");
   }
 
-$indexfile="mysql_ds_create_membership_indexes.sql";
 foreach my $k (1 .. $numberofstores){
+        $indexfile="mysql_ds_create_membership_indexes$k.sql";
 	open (my $OUT, ">$mysql_targetdir${pathsep}$indexfile") || die("Can't open $mysql_targetdir${pathsep}$indexfile");
 	print $OUT  "-- Tables
 USE DS3;
@@ -185,8 +185,8 @@ SET FOREIGN_KEY_CHECKS=1;
   system ("mariadb -h $mysqltarget -u web --password=web < $mysql_targetdir${pathsep}$indexfile $mybackground");
   }
 
-$indexfile="mysql_ds_create_review_indexes.sql";
 foreach my $k (1 .. $numberofstores){
+        $indexfile="mysql_ds_create_review_indexes$k.sql";
 	open (my $OUT, ">$mysql_targetdir${pathsep}$indexfile") || die("Can't open $mysql_targetdir${pathsep}$indexfile");
 	print $OUT  "-- Tables
 USE DS3;
@@ -225,8 +225,8 @@ SET FOREIGN_KEY_CHECKS=1;
   system ("mariadb -h $mysqltarget -u web --password=web < $mysql_targetdir${pathsep}$indexfile");
   }
 
-$indexfile="mysql_ds_create_review_helpfulness_indexes.sql";
 foreach my $k (1 .. $numberofstores){
+        $indexfile="mysql_ds_create_review_helpfulness_indexes$k.sql";
 	open (my $OUT, ">$mysql_targetdir${pathsep}$indexfile") || die("Can't open $mysql_targetdir${pathsep}$indexfile");
 	print $OUT  "-- Tables
 USE DS3;

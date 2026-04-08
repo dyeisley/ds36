@@ -320,10 +320,6 @@ BEGIN
 END;
 \$\$;
 
-
-
-
-
 CREATE OR REPLACE FUNCTION new_member$k (
   IN customerid_in INT,
   IN membershiplevel_in INT
@@ -424,134 +420,197 @@ CREATE OR REPLACE FUNCTION new_review_helpfulness$k
 END;
 \$\$;
 
-CREATE OR REPLACE FUNCTION get_prod_reviews$k
-(
-   IN batch_size_in INT,
-   IN prod_in INT
-  )
-  RETURNS TABLE (r_review_id int, r_prod_id int, r_review_date date, r_stars smallint,
-                                 r_customerid int, r_review_summary text, r_review_text text, r_totalhelp bigint)
-  LANGUAGE plpgsql
-  AS
-  \$\$
+CREATE OR REPLACE FUNCTION get_prod_reviews$k(
+    batch_size_in INT,
+    prod_in INT
+)
+RETURNS TABLE (
+    r_review_id int,
+    r_prod_id int,
+    r_review_date date,
+    r_stars smallint,
+    r_customerid int,
+    r_review_summary text,
+    r_review_text text,
+    r_totalhelp int
+)
+LANGUAGE plpgsql
+AS \$\$
 BEGIN
-  RETURN QUERY
-  SELECT REVIEWS$k.REVIEW_ID, REVIEWS$k.PROD_ID, REVIEWS$k.REVIEW_DATE, REVIEWS$k.STARS, REVIEWS$k.CUSTOMERID,
-  REVIEWS$k.REVIEW_SUMMARY, REVIEWS$k.REVIEW_TEXT, SUM(REVIEWS_HELPFULNESS$k.helpfulness) as total
-  FROM REVIEWS$k
-  INNER JOIN REVIEWS_HELPFULNESS$k on REVIEWS$k.REVIEW_ID=REVIEWS_HELPFULNESS$k.REVIEW_ID
-  WHERE REVIEWS$k.PROD_ID = prod_in GROUP BY REVIEWS$k.REVIEW_ID, REVIEWS$k.PROD_ID, REVIEWS$k.REVIEW_DATE,
-  REVIEWS$k.STARS, REVIEWS$k.CUSTOMERID, REVIEWS$k.REVIEW_SUMMARY, REVIEWS$k.REVIEW_TEXT
-  ORDER BY total DESC LIMIT batch_size_in;
-  RETURN;
- END;
- \$\$;
-
- CREATE OR REPLACE FUNCTION get_prod_reviews_by_stars$k
-  (
-   IN batch_size_in INT,
-   IN prod_in INT,
-   IN stars_in INT
-   )
-   RETURNS TABLE (r_review_id int, r_prod_id int, r_review_date date, r_stars smallint,
-                                 r_customerid int, r_review_summary text, r_review_text text, r_totalhelp bigint)
-   LANGUAGE plpgsql
-   AS
-   \$\$
-  BEGIN
-  RETURN QUERY
-    SELECT REVIEWS$k.REVIEW_ID, REVIEWS$k.PROD_ID, REVIEWS$k.REVIEW_DATE, REVIEWS$k.STARS, REVIEWS$k.CUSTOMERID,
-    REVIEWS$k.REVIEW_SUMMARY, REVIEWS$k.REVIEW_TEXT, SUM(REVIEWS_HELPFULNESS$k.helpfulness) as total
+    RETURN QUERY
+    SELECT
+        REVIEW_ID,
+        PROD_ID,
+        REVIEW_DATE,
+        STARS,
+        CUSTOMERID,
+        REVIEW_SUMMARY,
+        REVIEW_TEXT,
+        total_helpfulness
     FROM REVIEWS$k
-    INNER JOIN REVIEWS_HELPFULNESS$k on REVIEWS$k.REVIEW_ID=REVIEWS_HELPFULNESS$k.REVIEW_ID
-    WHERE REVIEWS$k.PROD_ID = \@prod_in AND REVIEWS$k.STARS = \@stars_in GROUP BY REVIEWS$k.REVIEW_ID, REVIEWS$k.PROD_ID, REVIEWS$k.REVIEW_DATE,
-    REVIEWS$k.STARS, REVIEWS$k.CUSTOMERID, REVIEWS$k.REVIEW_SUMMARY, REVIEWS$k.REVIEW_TEXT
-    ORDER BY total DESC LIMIT batch_size_in;
-        RETURN;
-  END;
-  \$\$;
+    WHERE PROD_ID = prod_in
+    ORDER BY total_helpfulness DESC
+    LIMIT batch_size_in;
+END;
+\$\$;
 
-
-CREATE OR REPLACE FUNCTION get_prod_reviews_by_date$k
-  (
-   IN batch_size_in INT,
-   IN prod_in INT
-   )
-   RETURNS TABLE (r_review_id int, r_prod_id int, r_review_date date, r_stars smallint,
-                                 r_customerid int, r_review_summary text, r_review_text text, r_totalhelp bigint)
-   LANGUAGE plpgsql
-   AS
-   \$\$
-  BEGIN
-  RETURN QUERY
-    SELECT REVIEWS$k.REVIEW_ID, REVIEWS$k.PROD_ID, REVIEWS$k.REVIEW_DATE, REVIEWS$k.STARS, REVIEWS$k.CUSTOMERID,
-    REVIEWS$k.REVIEW_SUMMARY, REVIEWS$k.REVIEW_TEXT, SUM(REVIEWS_HELPFULNESS$k.helpfulness) as total
+CREATE OR REPLACE FUNCTION get_prod_reviews_by_stars$k(
+    batch_size_in INT,
+    prod_in INT,
+    stars_in INT
+)
+RETURNS TABLE (
+    r_review_id int, 
+    r_prod_id int, 
+    r_review_date date, 
+    r_stars smallint,
+    r_customerid int, 
+    r_review_summary text, 
+    r_review_text text, 
+    r_totalhelp int
+)
+LANGUAGE plpgsql
+AS \$\$
+BEGIN
+    RETURN QUERY
+    SELECT 
+        REVIEW_ID, 
+        PROD_ID, 
+        REVIEW_DATE, 
+        STARS, 
+        CUSTOMERID,
+        REVIEW_SUMMARY, 
+        REVIEW_TEXT, 
+        total_helpfulness
     FROM REVIEWS$k
-    INNER JOIN REVIEWS_HELPFULNESS$k on REVIEWS$k.REVIEW_ID=REVIEWS_HELPFULNESS$k.REVIEW_ID
-    WHERE REVIEWS$k.PROD_ID = \@prod_in GROUP BY REVIEWS$k.REVIEW_ID, REVIEWS$k.PROD_ID, REVIEWS$k.REVIEW_DATE,
-    REVIEWS$k.STARS, REVIEWS$k.CUSTOMERID, REVIEWS$k.REVIEW_SUMMARY, REVIEWS$k.REVIEW_TEXT
-    ORDER BY REVIEWS$k.REVIEW_DATE DESC LIMIT batch_size_in;
-    RETURN;
-  END;
-  \$\$;
+    WHERE PROD_ID = prod_in 
+      AND STARS = stars_in::smallint
+    ORDER BY total_helpfulness DESC 
+    LIMIT batch_size_in;
+END;
+\$\$;
 
+CREATE OR REPLACE FUNCTION get_prod_reviews_by_date$k(
+    batch_size_in INT,
+    prod_in INT
+)
+RETURNS TABLE (
+    r_review_id int,
+    r_prod_id int,
+    r_review_date date,
+    r_stars smallint,
+    r_customerid int,
+    r_review_summary text,
+    r_review_text text,
+    r_totalhelp int
+)
+LANGUAGE plpgsql
+AS \$\$
+BEGIN
+    RETURN QUERY
+    SELECT
+        REVIEW_ID,
+        PROD_ID,
+        REVIEW_DATE,
+        STARS,
+        CUSTOMERID,
+        REVIEW_SUMMARY,
+        REVIEW_TEXT,
+        total_helpfulness
+    FROM REVIEWS$k
+    WHERE PROD_ID = prod_in
+    ORDER BY REVIEW_DATE DESC
+    LIMIT batch_size_in;
+END;
+\$\$;
 
-  CREATE OR REPLACE FUNCTION get_prod_reviews_by_actor$k
-  (
-   IN batch_size_in INT,
-   IN search_depth_in INT,
-   IN actor_in TEXT
-  )
-  RETURNS TABLE (r_prod_id int, r_title text, r_actor text, r_review_id int, r_review_date date, r_stars smallint,
-                                 r_customerid int, r_review_summary text, r_review_text text, r_totalhelp bigint)
-  LANGUAGE plpgsql
-  AS
-  \$\$
-  DECLARE
-    vector_in TEXT;
-  BEGIN
-    vector_in := replace(trim(both from actor_in), ' ','&');
-        RETURN QUERY
-    WITH T1 AS (SELECT PRODUCTS$k.TITLE, PRODUCTS$k.ACTOR, PRODUCTS$k.PROD_ID, REVIEWS$k.REVIEW_DATE, REVIEWS$k.STARS, REVIEWS$k.REVIEW_ID,
-           REVIEWS$k.CUSTOMERID, REVIEWS$k.REVIEW_SUMMARY, REVIEWS$k.REVIEW_TEXT
-           FROM PRODUCTS$k INNER JOIN REVIEWS$k on PRODUCTS$k.PROD_ID = REVIEWS$k.PROD_ID where to_tsvector('simple',ACTOR) \@\@ to_tsquery(vector_in) limit search_depth_in)
-    select T1.prod_id, T1.title, T1.actor, REVIEWS_HELPFULNESS$k.REVIEW_ID, T1.review_date, T1.stars,
-           T1.customerid, T1.review_summary, T1.review_text, SUM(helpfulness) AS totalhelp from REVIEWS_HELPFULNESS$k
-           inner join T1 on REVIEWS_HELPFULNESS$k.REVIEW_ID = T1.review_id
-                   GROUP BY T1.REVIEW_ID, T1.prod_id, t1.title, t1.actor, REVIEWS_HELPFULNESS$k.REVIEW_ID, t1.review_date, t1.stars, t1.customerid, t1.review_summary, t1.review_text
-                   ORDER BY totalhelp DESC limit batch_size_in;
-        RETURN;
-  END;
-  \$\$;
+CREATE OR REPLACE FUNCTION get_prod_reviews_by_actor$k(
+    batch_size_in INT,
+    search_depth_in INT,
+    actor_in TEXT
+)
+RETURNS TABLE (
+    r_prod_id int, 
+    r_title text, 
+    r_actor text, 
+    r_review_id int, 
+    r_review_date date, 
+    r_stars smallint,
+    r_customerid int, 
+    r_review_summary text, 
+    r_review_text text, 
+    r_totalhelp int
+)
+LANGUAGE plpgsql
+AS \$\$
+DECLARE
+    vector_in tsquery;
+BEGIN
+    vector_in := to_tsquery('simple', replace(trim(actor_in), ' ', ' & '));
 
-CREATE OR REPLACE FUNCTION get_prod_reviews_by_title$k
-  (
-   IN batch_size_in INT,
-   IN search_depth_in INT,
-   IN title_in TEXT
-   )
-   RETURNS TABLE (r_prod_id int, r_title text, r_actor text, r_review_id int, r_review_date date, r_stars smallint,
-                                 r_customerid int, r_review_summary text, r_review_text text, r_totalhelp bigint)
-   LANGUAGE plpgsql
-   AS
-   \$\$
-   DECLARE
-     vector_in TEXT;
-   BEGIN
-    vector_in := replace(trim(both from title_in), ' ','&');
-        RETURN QUERY
-    WITH T1 AS (SELECT PRODUCTS$k.TITLE, PRODUCTS$k.ACTOR, PRODUCTS$k.PROD_ID, REVIEWS$k.REVIEW_DATE, REVIEWS$k.STARS, REVIEWS$k.REVIEW_ID,
-           REVIEWS$k.CUSTOMERID, REVIEWS$k.REVIEW_SUMMARY, REVIEWS$k.REVIEW_TEXT
-           FROM PRODUCTS$k INNER JOIN REVIEWS$k on PRODUCTS$k.PROD_ID = REVIEWS$k.PROD_ID where to_tsvector('simple',TITLE) \@\@ to_tsquery(vector_in) limit search_depth_in)
-    select T1.prod_id, T1.title, T1.actor, REVIEWS_HELPFULNESS$k.REVIEW_ID, T1.review_date, T1.stars,
-           T1.customerid, T1.review_summary, T1.review_text, SUM(helpfulness) AS totalhelp from REVIEWS_HELPFULNESS$k
-           inner join T1 on REVIEWS_HELPFULNESS$k.REVIEW_ID = T1.review_id
-                   GROUP BY T1.REVIEW_ID, T1.prod_id, t1.title, t1.actor, REVIEWS_HELPFULNESS$k.REVIEW_ID, t1.review_date, t1.stars, t1.customerid, t1.review_summary, t1.review_text
-                   ORDER BY totalhelp DESC limit batch_size_in;
-        RETURN;
-  END;
-  \$\$;
+    RETURN QUERY
+    SELECT 
+        p.PROD_ID, 
+        p.TITLE, 
+        p.ACTOR, 
+        r.REVIEW_ID, 
+        r.REVIEW_DATE, 
+        r.STARS,
+        r.CUSTOMERID, 
+        r.REVIEW_SUMMARY, 
+        r.REVIEW_TEXT,
+        r.total_helpfulness
+    FROM PRODUCTS$k p
+    INNER JOIN REVIEWS$k r ON p.PROD_ID = r.PROD_ID
+    WHERE to_tsvector('simple', p.ACTOR) @@ vector_in
+    ORDER BY r.total_helpfulness DESC
+    LIMIT batch_size_in;
+END;
+\$\$;
 
+CREATE OR REPLACE FUNCTION get_prod_reviews_by_title$k(
+    batch_size_in INT,
+    search_depth_in INT,
+    title_in TEXT
+)
+RETURNS TABLE (
+    r_prod_id int,
+    r_title text,
+    r_actor text,
+    r_review_id int,
+    r_review_date date,
+    r_stars smallint,
+    r_customerid int,
+    r_review_summary text,
+    r_review_text text,
+    r_totalhelp int
+)
+LANGUAGE plpgsql
+AS \$\$
+DECLARE
+    vector_in tsquery;
+BEGIN
+    vector_in := to_tsquery('simple', replace(trim(title_in), ' ', ' & '));
+
+    RETURN QUERY
+    SELECT
+        p.PROD_ID,
+        p.TITLE,
+        p.ACTOR,
+        r.REVIEW_ID,
+        r.REVIEW_DATE,
+        r.STARS,
+        r.CUSTOMERID,
+        r.REVIEW_SUMMARY,
+        r.REVIEW_TEXT,
+        r.total_helpfulness
+    FROM PRODUCTS$k p
+    INNER JOIN REVIEWS$k r ON p.PROD_ID = r.PROD_ID
+    WHERE to_tsvector('simple', p.TITLE) @@ vector_in
+    ORDER BY r.total_helpfulness DESC
+    LIMIT batch_size_in;
+END;
+\$\$;
 
 \n";
 	close $OUT;

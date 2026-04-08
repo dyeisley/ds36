@@ -174,6 +174,24 @@ CREATE INDEX IX_REVIEWS_PRODSTARS$k ON REVIEWS$k
   )
   ;
 
+CREATE INDEX idx_reviews_prod_stars_help$k ON REVIEWS$k 
+  (
+  PROD_ID, STARS, total_helpfulness DESC
+  )
+  ;
+
+CREATE INDEX idx_reviews_prod_date$k ON REVIEWS$k 
+  (
+  PROD_ID, REVIEW_DATE DESC
+  )
+  ;
+
+CREATE INDEX idx_helpfulness_review_id$k ON REVIEWS_HELPFULNESS$k 
+  (
+  REVIEW_ID, helpfulness
+  )
+  ;
+
 ALTER TABLE REVIEWS_HELPFULNESS$k
   ADD CONSTRAINT FK_REVIEW_ID$k FOREIGN KEY (REVIEW_ID)
     REFERENCES REVIEWS$k (REVIEW_ID)
@@ -224,8 +242,8 @@ while ($num_finished < $numStores)
 			{
 			$num_finished =0;
 			sleep(5);
-			@indexfiles = glob("$pgsql_targetdir${pathsep}finished*.txt");                            # glob gets an array of all the finished*.txt files
-																								   # The size of this array will tell us how many have finished
+			@indexfiles = glob("$pgsql_targetdir${pathsep}finished*.txt");     # glob gets an array of all the finished*.txt files
+											   # The size of this array will tell us how many have finished
 			
 			$num_finished = $#indexfiles + 1;           #Compare size of array with number of stores being created, minus one due to array index starting at 0
 			print "Num store indexes finished is $num_finished of $numStores \n";

@@ -64,25 +64,6 @@ namespace ds2xdriver
 //
 //-------------------------------------------------------------------------------------------------
 // 
-    public ds2Interface(int ds2interfaceid)
-      {
-      ds2Interfaceid = ds2interfaceid;
-      //Console.WriteLine("ds2Interface {0} created", ds2Interfaceid);
-      }
-//
-//-------------------------------------------------------------------------------------------------
-// 
-    //Added by GSK for passing target DB Server / Web server name for connecting
-    public ds2Interface ( int ds2interfaceid , string target_server_name)
-        {
-        ds2Interfaceid = ds2interfaceid;
-        target_server = target_server_name;
-        //Console.WriteLine("ds2Interface {0} created", ds2Interfaceid);
-        }
-
-//
-//-------------------------------------------------------------------------------------------------
-// 
 
     // (Overloaded constructor to support multiple stores within single DS3 instance)
     public ds2Interface(int ds2interfaceid, string target_name, int target_store)
@@ -90,8 +71,119 @@ namespace ds2xdriver
         ds2Interfaceid = ds2interfaceid;
 	target_server = target_name;
         target_store_number = target_store;
+        string sConnectionString = "Server=" + target_server +";Port=5432;User ID=ds3;Password=ds3;Database=ds3;MinPoolSize=8;MaxPoolSize=200;Timeout=1024;CommandTimeout=1200;ConnectionIdleLifetime=18000";
+        objConn = new NpgsqlConnection(sConnectionString);
+
         //conn_str = "Server=" + target_server + ";User ID=ds3;Password=ds3;Database=ds3";
         //Console.WriteLine("ds2Interface {0} created", ds2Interfaceid);
+
+        // Set up SQL stored procedure calls and associated parameters
+        Login = new NpgsqlCommand("LOGIN" + target_store_number, objConn);
+	Login.CommandType = CommandType.StoredProcedure;
+	Login.Parameters.Add("username_in", NpgsqlDbType.Varchar, 50);
+	Login.Parameters.Add("password_in", NpgsqlDbType.Varchar, 50);
+	
+	New_Customer = new NpgsqlCommand("NEW_CUSTOMER" + target_store_number, objConn);
+	New_Customer.CommandType = CommandType.StoredProcedure;       
+	New_Customer.Parameters.Add("firstname_in", NpgsqlDbType.Varchar, 50);
+	New_Customer.Parameters.Add("lastname_in", NpgsqlDbType.Varchar, 50);
+	New_Customer.Parameters.Add("address1_in", NpgsqlDbType.Varchar, 50);
+	New_Customer.Parameters.Add("address2_in", NpgsqlDbType.Varchar, 50);
+	New_Customer.Parameters.Add("city_in", NpgsqlDbType.Varchar, 50);
+	New_Customer.Parameters.Add("state_in", NpgsqlDbType.Varchar, 50);
+	New_Customer.Parameters.Add("zip_in", NpgsqlDbType.Varchar, 9);
+	New_Customer.Parameters.Add("country_in", NpgsqlDbType.Varchar, 50);
+	New_Customer.Parameters.Add("region_in", NpgsqlDbType.Smallint);
+	New_Customer.Parameters.Add("email_in", NpgsqlDbType.Varchar, 50);
+	New_Customer.Parameters.Add("phone_in", NpgsqlDbType.Varchar, 50);
+	New_Customer.Parameters.Add("creditcardtype_in", NpgsqlDbType.Integer);
+	New_Customer.Parameters.Add("creditcard_in", NpgsqlDbType.Varchar, 50);
+	New_Customer.Parameters.Add("creditcardexpiration_in", NpgsqlDbType.Varchar, 50); 
+	New_Customer.Parameters.Add("username_in", NpgsqlDbType.Varchar, 50);
+	New_Customer.Parameters.Add("password_in", NpgsqlDbType.Varchar, 50);
+	New_Customer.Parameters.Add("age_in", NpgsqlDbType.Smallint);
+	New_Customer.Parameters.Add("income_in", NpgsqlDbType.Integer);
+	New_Customer.Parameters.Add("gender_in", NpgsqlDbType.Varchar, 1);
+	
+	New_Member = new NpgsqlCommand("NEW_MEMBER" + target_store_number, objConn);
+	New_Member.CommandType = CommandType.StoredProcedure;
+	New_Member.Parameters.Add("customerid_in", NpgsqlDbType.Integer);
+	New_Member.Parameters.Add("membershiplevel_in", NpgsqlDbType.Integer);
+	    
+	New_Prod_Review = new NpgsqlCommand("NEW_PROD_REVIEW" + target_store_number, objConn);
+	New_Prod_Review.CommandType = CommandType.StoredProcedure;
+	New_Prod_Review.Parameters.Add("prod_id_in", NpgsqlDbType.Integer);
+	New_Prod_Review.Parameters.Add("stars_in", NpgsqlDbType.Integer);
+	New_Prod_Review.Parameters.Add("customerid_in", NpgsqlDbType.Integer);
+	New_Prod_Review.Parameters.Add("review_summary_in", NpgsqlDbType.Varchar, 50);
+	New_Prod_Review.Parameters.Add("review_text_in", NpgsqlDbType.Varchar, 1000);
+
+	New_Review_Helpfulness = new NpgsqlCommand("NEW_REVIEW_HELPFULNESS" + target_store_number, objConn);
+	New_Review_Helpfulness.CommandType = CommandType.StoredProcedure;
+	New_Review_Helpfulness.Parameters.Add("review_id_in", NpgsqlDbType.Integer);
+	New_Review_Helpfulness.Parameters.Add("customerid_in", NpgsqlDbType.Integer);
+	New_Review_Helpfulness.Parameters.Add("review_helpfulness_in", NpgsqlDbType.Integer);
+	
+	Browse_By_Category = new NpgsqlCommand("BROWSE_BY_CATEGORY" + target_store_number, objConn);
+	Browse_By_Category.CommandType = CommandType.StoredProcedure; 
+	Browse_By_Category.Parameters.Add("batch_size_in", NpgsqlDbType.Integer);
+	Browse_By_Category.Parameters.Add("category_in", NpgsqlDbType.Integer);
+	
+	Browse_By_Actor = new NpgsqlCommand("BROWSE_BY_ACTOR" + target_store_number, objConn);
+	Browse_By_Actor.CommandType = CommandType.StoredProcedure; 
+	Browse_By_Actor.Parameters.Add("batch_size_in", NpgsqlDbType.Integer);
+	Browse_By_Actor.Parameters.Add("actor_in", NpgsqlDbType.Varchar, 50);
+
+	Browse_By_Title = new NpgsqlCommand("BROWSE_BY_TITLE" + target_store_number, objConn);
+	Browse_By_Title.CommandType = CommandType.StoredProcedure; 
+	Browse_By_Title.Parameters.Add("batch_size_in", NpgsqlDbType.Integer);
+	Browse_By_Title.Parameters.Add("title_in", NpgsqlDbType.Varchar, 50);
+	    
+	Get_Prod_Reviews = new NpgsqlCommand("GET_PROD_REVIEWS" + target_store_number, objConn);
+	Get_Prod_Reviews.CommandType = CommandType.StoredProcedure;
+	Get_Prod_Reviews.Parameters.Add("batch_size_in", NpgsqlDbType.Integer);
+	Get_Prod_Reviews.Parameters.Add("prod_in", NpgsqlDbType.Integer);
+
+	Get_Prod_Reviews_By_Date = new NpgsqlCommand("GET_PROD_REVIEWS_BY_DATE" + target_store_number, objConn);
+	Get_Prod_Reviews_By_Date.CommandType = CommandType.StoredProcedure;
+	Get_Prod_Reviews_By_Date.Parameters.Add("batch_size_in", NpgsqlDbType.Integer);
+	Get_Prod_Reviews_By_Date.Parameters.Add("prod_in", NpgsqlDbType.Integer);
+
+	Get_Prod_Reviews_By_Stars = new NpgsqlCommand("GET_PROD_REVIEWS_BY_STARS" + target_store_number, objConn);
+	Get_Prod_Reviews_By_Stars.CommandType = CommandType.StoredProcedure;
+	Get_Prod_Reviews_By_Stars.Parameters.Add("batch_size_in", NpgsqlDbType.Integer);
+	Get_Prod_Reviews_By_Stars.Parameters.Add("prod_in", NpgsqlDbType.Integer);
+	Get_Prod_Reviews_By_Stars.Parameters.Add("stars_in", NpgsqlDbType.Integer);
+
+	Get_Prod_Reviews_By_Title = new NpgsqlCommand("GET_PROD_REVIEWS_BY_TITLE" + target_store_number, objConn);
+	Get_Prod_Reviews_By_Title.CommandType = CommandType.StoredProcedure;
+	Get_Prod_Reviews_By_Title.Parameters.Add("batch_size_in", NpgsqlDbType.Integer);
+	Get_Prod_Reviews_By_Title.Parameters.Add("search_depth_in", NpgsqlDbType.Integer);
+	Get_Prod_Reviews_By_Title.Parameters.Add("title_in", NpgsqlDbType.Varchar, 50);
+
+	Get_Prod_Reviews_By_Actor = new NpgsqlCommand("GET_PROD_REVIEWS_BY_ACTOR" + target_store_number, objConn);
+	Get_Prod_Reviews_By_Actor.CommandType = CommandType.StoredProcedure;
+	Get_Prod_Reviews_By_Actor.Parameters.Add("batch_size_in", NpgsqlDbType.Integer);
+	Get_Prod_Reviews_By_Actor.Parameters.Add("search_depth_in", NpgsqlDbType.Integer);
+	Get_Prod_Reviews_By_Actor.Parameters.Add("actor_in", NpgsqlDbType.Varchar, 50);
+	
+	Purchase = new NpgsqlCommand("PURCHASE" + target_store_number, objConn);
+	Purchase.CommandType = CommandType.StoredProcedure; 
+	Purchase.Parameters.Add("customerid_in", NpgsqlDbType.Integer);
+	Purchase.Parameters.Add("number_items", NpgsqlDbType.Integer);
+	Purchase.Parameters.Add("netamount_in", NpgsqlDbType.Numeric);
+	Purchase.Parameters.Add("taxamount_in", NpgsqlDbType.Numeric);
+	Purchase.Parameters.Add("totalamount_in", NpgsqlDbType.Numeric);
+	Purchase.Parameters.Add("prod_id_in0", NpgsqlDbType.Integer); Purchase.Parameters.Add("qty_in0", NpgsqlDbType.Integer);
+	Purchase.Parameters.Add("prod_id_in1", NpgsqlDbType.Integer); Purchase.Parameters.Add("qty_in1", NpgsqlDbType.Integer);
+	Purchase.Parameters.Add("prod_id_in2", NpgsqlDbType.Integer); Purchase.Parameters.Add("qty_in2", NpgsqlDbType.Integer);
+	Purchase.Parameters.Add("prod_id_in3", NpgsqlDbType.Integer); Purchase.Parameters.Add("qty_in3", NpgsqlDbType.Integer);
+	Purchase.Parameters.Add("prod_id_in4", NpgsqlDbType.Integer); Purchase.Parameters.Add("qty_in4", NpgsqlDbType.Integer);
+	Purchase.Parameters.Add("prod_id_in5", NpgsqlDbType.Integer); Purchase.Parameters.Add("qty_in5", NpgsqlDbType.Integer);
+	Purchase.Parameters.Add("prod_id_in6", NpgsqlDbType.Integer); Purchase.Parameters.Add("qty_in6", NpgsqlDbType.Integer);
+	Purchase.Parameters.Add("prod_id_in7", NpgsqlDbType.Integer); Purchase.Parameters.Add("qty_in7", NpgsqlDbType.Integer);
+	Purchase.Parameters.Add("prod_id_in8", NpgsqlDbType.Integer); Purchase.Parameters.Add("qty_in8", NpgsqlDbType.Integer);
+	Purchase.Parameters.Add("prod_id_in9", NpgsqlDbType.Integer); Purchase.Parameters.Add("qty_in9", NpgsqlDbType.Integer);
     }
  
 //
@@ -102,10 +194,8 @@ namespace ds2xdriver
       // Add Password=xxx to sConnectionString if password is set
       //Changed by GSK (added new user ds2user and new server to connect everytime)
       //MaxPoolSize, Timeout, and CommandTimeout values increased for support at higher load levels
-      string sConnectionString = "Server=" + target_server +";Port=5432;User ID=ds3;Password=ds3;Database=ds3;MinPoolSize=8;MaxPoolSize=200;Timeout=1024;CommandTimeout=1200;ConnectionIdleLifetime=18000";
       try
         {
-        objConn = new NpgsqlConnection(sConnectionString);
         objConn.Open();
         }
       catch (PostgresException e)
@@ -118,116 +208,6 @@ namespace ds2xdriver
         return(false);
         }
 
-      // Set up SQL stored procedure calls and associated parameters
-      Login = new NpgsqlCommand("LOGIN" + target_store_number, objConn);
-	  //Login = new NpgsqlCommand("select LOGIN(@login_ref)", objConn);
-      Login.CommandType = CommandType.StoredProcedure;
-      Login.Parameters.Add("username_in", NpgsqlDbType.Varchar, 50);
-      Login.Parameters.Add("password_in", NpgsqlDbType.Varchar, 50);
-      
-      New_Customer = new NpgsqlCommand("NEW_CUSTOMER" + target_store_number, objConn);
-      New_Customer.CommandType = CommandType.StoredProcedure;       
-      New_Customer.Parameters.Add("firstname_in", NpgsqlDbType.Varchar, 50);
-      New_Customer.Parameters.Add("lastname_in", NpgsqlDbType.Varchar, 50);
-      New_Customer.Parameters.Add("address1_in", NpgsqlDbType.Varchar, 50);
-      New_Customer.Parameters.Add("address2_in", NpgsqlDbType.Varchar, 50);
-      New_Customer.Parameters.Add("city_in", NpgsqlDbType.Varchar, 50);
-      New_Customer.Parameters.Add("state_in", NpgsqlDbType.Varchar, 50);
-      New_Customer.Parameters.Add("zip_in", NpgsqlDbType.Varchar, 9);
-      New_Customer.Parameters.Add("country_in", NpgsqlDbType.Varchar, 50);
-      New_Customer.Parameters.Add("region_in", NpgsqlDbType.Smallint);
-      New_Customer.Parameters.Add("email_in", NpgsqlDbType.Varchar, 50);
-      New_Customer.Parameters.Add("phone_in", NpgsqlDbType.Varchar, 50);
-      New_Customer.Parameters.Add("creditcardtype_in", NpgsqlDbType.Integer);
-      New_Customer.Parameters.Add("creditcard_in", NpgsqlDbType.Varchar, 50);
-      New_Customer.Parameters.Add("creditcardexpiration_in", NpgsqlDbType.Varchar, 50); 
-	  New_Customer.Parameters.Add("username_in", NpgsqlDbType.Varchar, 50);
-      New_Customer.Parameters.Add("password_in", NpgsqlDbType.Varchar, 50);
-      New_Customer.Parameters.Add("age_in", NpgsqlDbType.Smallint);
-      New_Customer.Parameters.Add("income_in", NpgsqlDbType.Integer);
-      New_Customer.Parameters.Add("gender_in", NpgsqlDbType.Varchar, 1);
-      
-      New_Member = new NpgsqlCommand("NEW_MEMBER" + target_store_number, objConn);
-      New_Member.CommandType = CommandType.StoredProcedure;
-      New_Member.Parameters.Add("customerid_in", NpgsqlDbType.Integer);
-      New_Member.Parameters.Add("membershiplevel_in", NpgsqlDbType.Integer);
-	  
-	  New_Prod_Review = new NpgsqlCommand("NEW_PROD_REVIEW" + target_store_number, objConn);
-      New_Prod_Review.CommandType = CommandType.StoredProcedure;
-      New_Prod_Review.Parameters.Add("prod_id_in", NpgsqlDbType.Integer);
-      New_Prod_Review.Parameters.Add("stars_in", NpgsqlDbType.Integer);
-      New_Prod_Review.Parameters.Add("customerid_in", NpgsqlDbType.Integer);
-      New_Prod_Review.Parameters.Add("review_summary_in", NpgsqlDbType.Varchar, 50);
-      New_Prod_Review.Parameters.Add("review_text_in", NpgsqlDbType.Varchar, 1000);
-
-      New_Review_Helpfulness = new NpgsqlCommand("NEW_REVIEW_HELPFULNESS" + target_store_number, objConn);
-      New_Review_Helpfulness.CommandType = CommandType.StoredProcedure;
-      New_Review_Helpfulness.Parameters.Add("review_id_in", NpgsqlDbType.Integer);
-      New_Review_Helpfulness.Parameters.Add("customerid_in", NpgsqlDbType.Integer);
-      New_Review_Helpfulness.Parameters.Add("review_helpfulness_in", NpgsqlDbType.Integer);
-      
-      Browse_By_Category = new NpgsqlCommand("BROWSE_BY_CATEGORY" + target_store_number, objConn);
-      Browse_By_Category.CommandType = CommandType.StoredProcedure; 
-      Browse_By_Category.Parameters.Add("batch_size_in", NpgsqlDbType.Integer);
-      Browse_By_Category.Parameters.Add("category_in", NpgsqlDbType.Integer);
-      
-      Browse_By_Actor = new NpgsqlCommand("BROWSE_BY_ACTOR" + target_store_number, objConn);
-      Browse_By_Actor.CommandType = CommandType.StoredProcedure; 
-      Browse_By_Actor.Parameters.Add("batch_size_in", NpgsqlDbType.Integer);
-      Browse_By_Actor.Parameters.Add("actor_in", NpgsqlDbType.Varchar, 50);
-
-      Browse_By_Title = new NpgsqlCommand("BROWSE_BY_TITLE" + target_store_number, objConn);
-      Browse_By_Title.CommandType = CommandType.StoredProcedure; 
-      Browse_By_Title.Parameters.Add("batch_size_in", NpgsqlDbType.Integer);
-      Browse_By_Title.Parameters.Add("title_in", NpgsqlDbType.Varchar, 50);
-	  
-	  Get_Prod_Reviews = new NpgsqlCommand("GET_PROD_REVIEWS" + target_store_number, objConn);
-      Get_Prod_Reviews.CommandType = CommandType.StoredProcedure;
-      Get_Prod_Reviews.Parameters.Add("batch_size_in", NpgsqlDbType.Integer);
-      Get_Prod_Reviews.Parameters.Add("prod_in", NpgsqlDbType.Integer);
-
-      Get_Prod_Reviews_By_Date = new NpgsqlCommand("GET_PROD_REVIEWS_BY_DATE" + target_store_number, objConn);
-      Get_Prod_Reviews_By_Date.CommandType = CommandType.StoredProcedure;
-      Get_Prod_Reviews_By_Date.Parameters.Add("batch_size_in", NpgsqlDbType.Integer);
-      Get_Prod_Reviews_By_Date.Parameters.Add("prod_in", NpgsqlDbType.Integer);
-
-      Get_Prod_Reviews_By_Stars = new NpgsqlCommand("GET_PROD_REVIEWS_BY_STARS" + target_store_number, objConn);
-      Get_Prod_Reviews_By_Stars.CommandType = CommandType.StoredProcedure;
-      Get_Prod_Reviews_By_Stars.Parameters.Add("batch_size_in", NpgsqlDbType.Integer);
-      Get_Prod_Reviews_By_Stars.Parameters.Add("prod_in", NpgsqlDbType.Integer);
-      Get_Prod_Reviews_By_Stars.Parameters.Add("stars_in", NpgsqlDbType.Integer);
-
-      Get_Prod_Reviews_By_Title = new NpgsqlCommand("GET_PROD_REVIEWS_BY_TITLE" + target_store_number, objConn);
-      Get_Prod_Reviews_By_Title.CommandType = CommandType.StoredProcedure;
-      Get_Prod_Reviews_By_Title.Parameters.Add("batch_size_in", NpgsqlDbType.Integer);
-	  Get_Prod_Reviews_By_Title.Parameters.Add("search_depth_in", NpgsqlDbType.Integer);
-      Get_Prod_Reviews_By_Title.Parameters.Add("title_in", NpgsqlDbType.Varchar, 50);
-
-      Get_Prod_Reviews_By_Actor = new NpgsqlCommand("GET_PROD_REVIEWS_BY_ACTOR" + target_store_number, objConn);
-	  Get_Prod_Reviews_By_Actor.CommandType = CommandType.StoredProcedure;
-      Get_Prod_Reviews_By_Actor.Parameters.Add("batch_size_in", NpgsqlDbType.Integer);
-	  Get_Prod_Reviews_By_Actor.Parameters.Add("search_depth_in", NpgsqlDbType.Integer);
-      Get_Prod_Reviews_By_Actor.Parameters.Add("actor_in", NpgsqlDbType.Varchar, 50);
-	  
-      
-      Purchase = new NpgsqlCommand("PURCHASE" + target_store_number, objConn);
-      Purchase.CommandType = CommandType.StoredProcedure; 
-      Purchase.Parameters.Add("customerid_in", NpgsqlDbType.Integer);
-      Purchase.Parameters.Add("number_items", NpgsqlDbType.Integer);
-      Purchase.Parameters.Add("netamount_in", NpgsqlDbType.Numeric);
-      Purchase.Parameters.Add("taxamount_in", NpgsqlDbType.Numeric);
-      Purchase.Parameters.Add("totalamount_in", NpgsqlDbType.Numeric);
-      Purchase.Parameters.Add("prod_id_in0", NpgsqlDbType.Integer); Purchase.Parameters.Add("qty_in0", NpgsqlDbType.Integer);
-      Purchase.Parameters.Add("prod_id_in1", NpgsqlDbType.Integer); Purchase.Parameters.Add("qty_in1", NpgsqlDbType.Integer);
-      Purchase.Parameters.Add("prod_id_in2", NpgsqlDbType.Integer); Purchase.Parameters.Add("qty_in2", NpgsqlDbType.Integer);
-      Purchase.Parameters.Add("prod_id_in3", NpgsqlDbType.Integer); Purchase.Parameters.Add("qty_in3", NpgsqlDbType.Integer);
-      Purchase.Parameters.Add("prod_id_in4", NpgsqlDbType.Integer); Purchase.Parameters.Add("qty_in4", NpgsqlDbType.Integer);
-      Purchase.Parameters.Add("prod_id_in5", NpgsqlDbType.Integer); Purchase.Parameters.Add("qty_in5", NpgsqlDbType.Integer);
-      Purchase.Parameters.Add("prod_id_in6", NpgsqlDbType.Integer); Purchase.Parameters.Add("qty_in6", NpgsqlDbType.Integer);
-      Purchase.Parameters.Add("prod_id_in7", NpgsqlDbType.Integer); Purchase.Parameters.Add("qty_in7", NpgsqlDbType.Integer);
-      Purchase.Parameters.Add("prod_id_in8", NpgsqlDbType.Integer); Purchase.Parameters.Add("qty_in8", NpgsqlDbType.Integer);
-      Purchase.Parameters.Add("prod_id_in9", NpgsqlDbType.Integer); Purchase.Parameters.Add("qty_in9", NpgsqlDbType.Integer);
-     
       return(true);
       } // end ds2connect()
  
@@ -257,10 +237,10 @@ namespace ds2xdriver
         {
         Rdr = Login.ExecuteReader();
         
-		Rdr.Read();
-		//Console.Write("{0} ,{1} ,{2}, {3}\n", Rdr[0], Rdr[1], Rdr[2], Rdr[3]);
-		customerid_out = (int)Rdr[0];
-		//Console.WriteLine("Customerid_out = {0}", customerid_out);
+	Rdr.Read();
+	//Console.Write("{0} ,{1} ,{2}, {3}\n", Rdr[0], Rdr[1], Rdr[2], Rdr[3]);
+	customerid_out = (int)Rdr[0];
+	//Console.WriteLine("Customerid_out = {0}", customerid_out);
         //while (Rdr.Read())
         //     Console.Write("{0} \n", Rdr[0]);
         }
@@ -319,7 +299,7 @@ namespace ds2xdriver
       New_Customer.Parameters["address2_in"].Value = address2_in;
       New_Customer.Parameters["city_in"].Value = city_in;
       New_Customer.Parameters["state_in"].Value = state_in;
-     	New_Customer.Parameters["zip_in"].Value = zip_in; 
+      New_Customer.Parameters["zip_in"].Value = zip_in; 
       New_Customer.Parameters["country_in"].Value = country_in;
       New_Customer.Parameters["region_in"].Value = region_in;                               
       New_Customer.Parameters["email_in"].Value = email_in;
@@ -327,9 +307,9 @@ namespace ds2xdriver
       New_Customer.Parameters["creditcardtype_in"].Value = creditcardtype_in;               
       New_Customer.Parameters["creditcard_in"].Value = creditcard_in;
       New_Customer.Parameters["creditcardexpiration_in"].Value = creditcardexpiration_in;
-	New_Customer.Parameters["username_in"].Value = username_in;
+      New_Customer.Parameters["username_in"].Value = username_in;
       New_Customer.Parameters["password_in"].Value = password_in;
-	New_Customer.Parameters["age_in"].Value = age_in;                                     
+      New_Customer.Parameters["age_in"].Value = age_in;                                     
       New_Customer.Parameters["income_in"].Value = income_in;                               
       New_Customer.Parameters["gender_in"].Value = gender_in;
     
@@ -439,8 +419,6 @@ namespace ds2xdriver
             return (false);
         }
       } while (deadlocked);
-      
-     
             
 #if (USE_WIN32_TIMER)
       QueryPerformanceCounter(ref ctr); // Stop response time clock
@@ -536,7 +514,7 @@ namespace ds2xdriver
           price_out[i_row] = Rdr.GetDecimal(4);
           special_out[i_row] = Rdr.GetInt16(5);
           common_prod_id_out[i_row] = Rdr.GetInt32(6);
-		  //Console.Write("{0} ,{1} ,{2}\n", prod_id_out[i_row], title_out[i_row], actor_out[i_row]);
+          //Console.Write("{0} ,{1} ,{2}\n", prod_id_out[i_row], title_out[i_row], actor_out[i_row]);
           ++i_row;
           }
         Rdr.Close();
@@ -585,13 +563,13 @@ namespace ds2xdriver
         {
             case "actor":
                 Get_Prod_Reviews_By_Actor.Parameters["batch_size_in"].Value = batch_size_in;
-				Get_Prod_Reviews_By_Actor.Parameters["search_depth_in"].Value = search_depth_in;
+                Get_Prod_Reviews_By_Actor.Parameters["search_depth_in"].Value = search_depth_in;
                 Get_Prod_Reviews_By_Actor.Parameters["actor_in"].Value = "\"" + get_review_actor_in + "\"";
                 data_in = "\"" + get_review_actor_in + "\"";
                 break;
             case "title":
                 Get_Prod_Reviews_By_Title.Parameters["batch_size_in"].Value = batch_size_in;
-				Get_Prod_Reviews_By_Title.Parameters["search_depth_in"].Value = search_depth_in;
+                Get_Prod_Reviews_By_Title.Parameters["search_depth_in"].Value = search_depth_in;
                 Get_Prod_Reviews_By_Title.Parameters["title_in"].Value = "\"" + get_review_title_in + "\"";
                 data_in = "\"" + get_review_title_in + "\"";
                 break;
@@ -631,6 +609,7 @@ namespace ds2xdriver
                   review_summary_out[i_row] = Rdr.GetString(7);
                   review_text_out[i_row] = Rdr.GetString(8);
                   review_helpfulness_sum_out[i_row] = Rdr.GetInt32(9);
+                  //Console.WriteLine("\tprod_id_out: {0} title_out: {1} actor_out: {2} review_id_out: {3} review_date_out: {4} review_stars_out: {5} review_customerid_out: {6} review_summary_out: {7}\n\treview_text_out: {8} review_helpfulness_sum_out: {9}\n", prod_id_out[i_row], title_out[i_row], actor_out[i_row], review_id_out[i_row], review_date_out[i_row], review_stars_out[i_row], review_customerid_out[i_row], review_summary_out[i_row], review_text_out[i_row], review_helpfulness_sum_out[i_row] );
                   ++i_row;
               }
             Rdr.Close();
@@ -654,7 +633,6 @@ namespace ds2xdriver
         TS = DateTime.Now - DT0;
         rt = TS.TotalSeconds; // Calculate response time
 #endif
-           
             
        return (true);
     } // end ds2browsereview()
@@ -732,6 +710,8 @@ namespace ds2xdriver
                 review_summary_out[i_row] = Rdr.GetString(5);
                 review_text_out[i_row] = Rdr.GetString(6);
                 review_helpfulness_sum_out[i_row] = Rdr.GetInt32(7);
+                //Console.WriteLine("\treview_id_out: {0} prod_id_out: {1} review_date_out: {2} review_stars_out: {3} review_customerid_out: {4} review_summary_out: {5} review_text_out: {6} review_helpfulness_sum_out: {7}",
+                //  review_id_out[i_row], prod_id_out[i_row], review_date_out[i_row], review_stars_out[i_row], review_customerid_out[i_row], review_summary_out[i_row], review_text_out[i_row], review_helpfulness_sum_out[i_row]);
                 ++i_row;
             }
             Rdr.Close();
@@ -778,7 +758,6 @@ namespace ds2xdriver
         New_Prod_Review.Parameters["customerid_in"].Value = new_review_customerid_in;
         New_Prod_Review.Parameters["review_summary_in"].Value = new_review_summary_in;
         New_Prod_Review.Parameters["review_text_in"].Value = new_review_text_in;
-
 
 #if (USE_WIN32_TIMER)
       QueryPerformanceFrequency(ref freq); // obtain system freq (ticks/sec)
@@ -830,8 +809,6 @@ namespace ds2xdriver
 #endif
         return (true);
     } // end ds2newreview()
-
-
 
     //
     //-------------------------------------------------------------------------------------------------
@@ -888,8 +865,6 @@ namespace ds2xdriver
               return (false);
           }
         } while (deadlocked);
-        
-
 
 #if (USE_WIN32_TIMER)
       QueryPerformanceCounter(ref ctr); // Stop response time clock
@@ -901,8 +876,6 @@ namespace ds2xdriver
 
         return (true);
     } // end ds2newreviewhelpfulness()
-
-
     
 //
 //-------------------------------------------------------------------------------------------------

@@ -109,7 +109,7 @@ if ("$^O" eq "linux")
 
         print "Load finished at ".(localtime), "\n";
 
-        sleep(30);
+        sleep(3);
 
         # Delete the finishedxx.txt files
         chdir ("$base_dir");

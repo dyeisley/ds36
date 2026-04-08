@@ -31,7 +31,7 @@ else
         };
 
 foreach my $k (1 .. $numberofstores){
-	open (my $OUT, ">$mysql_targetdir${pathsep}mysql_ds_createsp.sql") || die("Can't open $mysql_targetdir${pathsep}mysql_ds_createsp.sql");
+	open (my $OUT, ">$mysql_targetdir${pathsep}mysql_ds_createsp$k.sql") || die("Can't open $mysql_targetdir${pathsep}mysql_ds_createsp$k.sql");
 	print $OUT  "Delimiter $$
 DROP PROCEDURE IF EXISTS DS3.NEW_CUSTOMER$k $$
 CREATE PROCEDURE DS3.NEW_CUSTOMER$k ( IN firstname_in varchar(50), IN lastname_in varchar(50), IN address1_in varchar(50), IN address2_in varchar(50), IN city_in varchar(50), IN state_in varchar(50), IN zip_in int, IN country_in varchar(50), IN region_in int, IN email_in varchar(50), IN phone_in varchar(50), IN creditcardtype_in int, IN creditcard_in varchar(50), IN creditcardexpiration_in varchar(50), IN username_in varchar(50), IN password_in varchar(50), IN age_in int, IN income_in int, IN gender_in varchar(1), OUT customerid_out INT)
@@ -558,6 +558,6 @@ END $$
 \n";
   close $OUT;
   sleep(1);
-  print ("mariadb -h $mysqltarget -u web --password=web < $mysql_targetdir${pathsep}mysql_ds_createsp.sql\n");
-  system ("mariadb -h $mysqltarget -u web --password=web < $mysql_targetdir${pathsep}mysql_ds_createsp.sql");
+  print ("mariadb -h $mysqltarget -u web --password=web < $mysql_targetdir${pathsep}mysql_ds_createsp$k.sql\n");
+  system ("mariadb -h $mysqltarget -u web --password=web < $mysql_targetdir${pathsep}mysql_ds_createsp$k.sql");
   }

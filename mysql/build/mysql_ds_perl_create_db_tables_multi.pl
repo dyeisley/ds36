@@ -38,7 +38,7 @@ else
 system ("mariadb -h $mysqltarget -u web --password=web < mysql_ds_prep_create_db.sql"); 
 
 foreach my $k (1 .. $numberofstores){
-	open (my $OUT, ">$mysql_targetdir${pathsep}mysql_ds_createtables.sql") || die("Can't open $mysql_targetdir${pathsep}mysql_ds_createtables.sql");
+	open (my $OUT, ">$mysql_targetdir${pathsep}mysql_ds_createtables$k.sql") || die("Can't open $mysql_targetdir${pathsep}mysql_ds_createtables$k.sql");
 	print $OUT  "-- Tables
 USE DS3;
 
@@ -196,6 +196,6 @@ CREATE TABLE REORDER$k
 \n";
   close $OUT;
   sleep(1);
-  print ("mariadb -h $mysqltarget -u web --password=web < $mysql_targetdir${pathsep}mysql_ds_createtables.sql\n");
-  system ("mariadb -h $mysqltarget -u web --password=web < $mysql_targetdir${pathsep}mysql_ds_createtables.sql");
-  }
+  print ("mariadb -h $mysqltarget -u web --password=web < $mysql_targetdir${pathsep}mysql_ds_createtables$k.sql\n");
+  system ("mariadb -h $mysqltarget -u web --password=web < $mysql_targetdir${pathsep}mysql_ds_createtables$k.sql");
+}
