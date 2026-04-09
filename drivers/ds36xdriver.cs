@@ -884,7 +884,12 @@ namespace ds2xdriver
       try
       {
           add_products = input_parm_values[Array.IndexOf(input_parm_names, "add_products")];
-          if (add_products.ToUpper() == "Y")
+          if ((add_products.ToUpper() == "Y") && (n_vectors == 1))
+          {
+              Console.WriteLine("\nWARNING: '--use_vectors=y', ignoring parameter '--add_products=y'\n");
+              add_products = "n";
+          }
+          else if (add_products.ToUpper() == "Y")
           {
               n_add_products = 1;
           }
@@ -2455,8 +2460,15 @@ namespace ds2xdriver
                      Controller.max_product[target_store] = new_prod_id;
                   }
                }
+	       else // Adding new product failed. Disable.
+	       {
+                  Console.WriteLine("  Failed to add new products. Disabling...");
+                  Controller.n_add_products = 0;
+                  break;
 	       }
+
                lastprodinsert += 1000;
+	       }
             }
 
         } // end of if for ds2_mode to exclude reviews and helpfulness opreations
