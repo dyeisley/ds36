@@ -1888,7 +1888,7 @@ namespace ds2xdriver
     string new_review_summary_in, new_review_text_in;
     int new_review_stars_in, new_review_prod_id_in;
     string[] review_data_terms;
-    int lastprodinsert = 10000;
+    private int lastprodinsert = 10000;
 
     public int target_server_id = 0;   //Added by GSK (Need this public since it is used by Controller to find out which thread belongs to which DB/Web Server)
 
@@ -2443,17 +2443,20 @@ namespace ds2xdriver
             if ((Controller.n_overall > lastprodinsert ) && (Userid == (target_store-1) ) && Controller.n_add_products == 1)
             {
                //Console.WriteLine ("n_overall: {0} Thread: {1} target_store: {2}",Controller.n_overall, Userid, target_store);
-	       for (int j = 0 ; j < 10 ; j++ )
+               int k = Random.Shared.Next(1,20);
+
+               //Console.WriteLine("Adding {0} new products to store {1}.",k,target_store);
+	       for (int j = 0 ; j < k ; j++ )
 	       {
                int new_category_in = Random.Shared.Next(1, GlobalConstants.MAX_CATEGORY+1);
                string new_actor_in = CreateActor();
-	       string new_title_in = CreateTitle();
-	       decimal price_in = 5.99m + (decimal)Random.Shared.NextDouble() * 15;
-	       int initial_stock_in = Random.Shared.Next(1,500);
-               //Console.WriteLine ("\tNew product: {0}, {1}, {2}, {3:F2}, {4}", new_category_in, new_actor_in, new_title_in, price_in, initial_stock_in);
+               string new_title_in = CreateTitle();
+               decimal price_in = 5.99m + (decimal)Random.Shared.NextDouble() * 15;
+               int initial_stock_in = Random.Shared.Next(1,500);
+               //Console.WriteLine ("\tNew product: {0}, {1}, {2}, {3}, {4:F2} {5}",j, new_category_in, new_actor_in, new_title_in, price_in, initial_stock_in);
 
-	       int new_prod_id = 0;
-	       if ( ds2interfaces[Userid].ds2newproduct(new_category_in, new_title_in, new_actor_in, price_in, initial_stock_in, ref new_prod_id, ref rt) )
+               int new_prod_id = 0;
+               if ( ds2interfaces[Userid].ds2newproduct(new_category_in, new_title_in, new_actor_in, price_in, initial_stock_in, ref new_prod_id, ref rt) )
                {
 		  if ( new_prod_id > Controller.max_product[target_store])
                   {
@@ -2467,8 +2470,8 @@ namespace ds2xdriver
                   break;
 	       }
 
-               lastprodinsert += 1000;
 	       }
+               this.lastprodinsert += 1000;
             }
 
         } // end of if for ds2_mode to exclude reviews and helpfulness opreations
