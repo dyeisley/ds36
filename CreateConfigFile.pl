@@ -53,9 +53,13 @@ chomp($linux_perf_host = <STDIN>);
 print "Please enter if you want detailed view of runtime statistics of each target machine ( Y / N ) [N] : ";
 chomp($detailed_view = <STDIN>);
 $detailed_view ||= "N";
+
+if(lc($^O) eq lc("linux"))
+{
 print "Enable vector search ( Y / N ) [N] : ";
 chomp($use_vectors = <STDIN>);
 $use_vectors ||= "N";
+}
 
 print "***********************************\n";
 
@@ -124,6 +128,13 @@ close (NEWFILE);
 
 print "Completed creating config file: DriverConfig.txt to be used for Driver Program input parameters....\n";
 print "Edit DriverConfig.txt for input parameters like n_threads, ramp_rate, run_time, warmup_time, think_time, etc....\n";
-print "Then Run the driver program from command prompt as follows: ds2webdriver.exe --config_file=<path of config file> \n";
 
+if(lc($^O) eq lc("linux"))
+{
+   print "Then Run the driver program from command prompt as follows: dotnet run --config_file=<path of config file>\n";
+}
+else
+{
+   print "Then Run the driver program from command prompt as follows: ds36webdriver.exe --config_file=<path of config file>\n";
+}
 
