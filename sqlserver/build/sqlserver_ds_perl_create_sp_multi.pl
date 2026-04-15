@@ -192,18 +192,18 @@ CREATE PROCEDURE NEW_PROD_REVIEW$k
       PROD_ID,
       REVIEW_DATE,
       STARS,
-	  CUSTOMERID,
-	  REVIEW_SUMMARY,
-	  REVIEW_TEXT
+      CUSTOMERID,
+      REVIEW_SUMMARY,
+      REVIEW_TEXT
       ) 
     VALUES 
       ( 
       \@prod_id_in,
       \@date_in,
       \@stars_in,
-	  \@customerid_in,
-	  \@review_summary_in,
-	  \@review_text_in
+      \@customerid_in,
+      \@review_summary_in,
+      \@review_text_in
       )
     SELECT \@\@IDENTITY
  GO
@@ -228,13 +228,13 @@ CREATE PROCEDURE NEW_REVIEW_HELPFULNESS$k
       (
       REVIEW_ID,
       CUSTOMERID,
-	  HELPFULNESS
-	  ) 
+      HELPFULNESS
+      ) 
     VALUES 
       ( 
       \@review_id_in,
-   	  \@customerid_in,
-	  \@review_helpfulness_in
+      \@customerid_in,
+      \@review_helpfulness_in
       )
     SELECT \@\@IDENTITY
  GO

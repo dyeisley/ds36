@@ -729,8 +729,8 @@ namespace ds2xdriver
             i_row = 0;
             while (Rdr.Read())
             {
-                prod_id_out[i_row] = Rdr.GetInt32(0);
-                review_id_out[i_row] = Rdr.GetInt32(1);
+                review_id_out[i_row] = Rdr.GetInt32(0);
+                prod_id_out[i_row] = Rdr.GetInt32(1);
                 review_date_out[i_row] = Convert.ToString(Rdr.GetSqlDateTime(2)) ?? string.Empty;
                 review_stars_out[i_row] = Rdr.GetInt32(3);
                 review_customerid_out[i_row] = Rdr.GetInt32(4);
@@ -808,21 +808,18 @@ namespace ds2xdriver
                     deadlocked = true;
                     Random r = new Random(DateTime.Now.Millisecond);
                     int wait = r.Next(1000);
-                    Console.WriteLine("Thread {0}: New_Prod_Review deadlocked...waiting {1} msec, then will retry",
-                                       Thread.CurrentThread.Name, wait);
+                    Console.WriteLine("Thread {0}: New_Prod_Review deadlocked...waiting {1} msec, then will retry",Thread.CurrentThread.Name, wait);
                     Thread.Sleep(wait); // Wait up to 1 sec, then try again
                 }
                 else
                 {
-                    Console.WriteLine("Thread {0}: Sql Server Error in New_Prod_Review.ExecuteScalar(): {1}",
-                      Thread.CurrentThread.Name, e.Message);
+                    Console.WriteLine("Thread {0}: Sql Server Error in New_Prod_Review.ExecuteScalar(): {1}",Thread.CurrentThread.Name, e.Message);
                     return (false);
                 }
             }
             catch (System.Exception e)
             {
-                Console.WriteLine("Thread {0}: System Error in New_Prod_Review.ExecuteNonQuery(): {1}",
-                  Thread.CurrentThread.Name, e.Message);
+                Console.WriteLine("Thread {0}: System Error in New_Prod_Review.ExecuteNonQuery(): {1}",Thread.CurrentThread.Name, e.Message);
                 return (false);
             }
         } while (deadlocked);
