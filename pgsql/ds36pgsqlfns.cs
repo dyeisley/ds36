@@ -716,8 +716,8 @@ namespace ds2xdriver
             i_row = 0;
             while (Rdr.Read())
             {
-                prod_id_out[i_row] = Rdr.GetInt32(0);
-                review_id_out[i_row] = Rdr.GetInt32(1);
+                review_id_out[i_row] = Rdr.GetInt32(0);
+                prod_id_out[i_row] = Rdr.GetInt32(1);
                 review_date_out[i_row] = Convert.ToString(Rdr.GetDateTime(2));
                 review_stars_out[i_row] = Rdr.GetInt32(3);
                 review_customerid_out[i_row] = Rdr.GetInt32(4);
