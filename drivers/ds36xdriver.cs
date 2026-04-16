@@ -2306,9 +2306,9 @@ namespace ds2xdriver
                     {
                       Console.WriteLine ( "Thread {0}: Error in browse reviews for User {1}, failure {2}, retrying" ,
                         Thread.CurrentThread.Name , username_in, failures);
-	                }
-	                else
-	                {
+	            }
+	           else
+	            {
                       Console.WriteLine ( "Thread {0}: Error in browse reviews for User {1}, failure {2}, exiting" ,
                         Thread.CurrentThread.Name , username_in, failures);
                       return;
@@ -2318,7 +2318,6 @@ namespace ds2xdriver
             }  // End of for ib=0 to n_browse
 
             rt_tot += rt_reviewbrowse;
-
 
             // End of Browse Reviews Phase
 
@@ -2378,26 +2377,25 @@ namespace ds2xdriver
             // End of Get Reviews Phase
 
             // Begin New Review Phase
-            if (user_type <= Controller.pct_newreviews / 100.0) // If this is true we have a customer that wants to submit a new review
+            if ((user_type <= Controller.pct_newreviews / 100.0) && (rows_returned > 0)) // If this is true we have a customer that wants to submit a new review
             {
                 IsNewReview = true;
 
                 new_review_summary_in = CreateReviewData(ref review_data_terms, 3);
                 new_review_text_in = CreateReviewData(ref review_data_terms, 25);
                 new_review_stars_in = Random.Shared.Next(1,6);
-                new_review_prod_id_in = Random.Shared.Next(1,Controller.max_product[target_store]);
+                new_review_prod_id_in = prod_id_out[Random.Shared.Next(0,rows_returned)];
 
                 failures = 0;
-                while (!ds2interfaces[Userid].ds2newreview(new_review_prod_id_in, new_review_stars_in, customerid_out,
-                  new_review_summary_in, new_review_text_in, ref newreviewid_out, ref rt))
+                while (!ds2interfaces[Userid].ds2newreview(new_review_prod_id_in, new_review_stars_in, customerid_out, new_review_summary_in, new_review_text_in, ref newreviewid_out, ref rt))
                 {
                   if (++failures < GlobalConstants.MAX_FAILURES)
                     {
                       Console.WriteLine ( "Thread {0}: Error in new review for User {1}, failure {2}, retrying" ,
                         Thread.CurrentThread.Name , username_in, failures);
-	                }
-	              else
-	                {
+                    }
+                  else
+                    {
                       Console.WriteLine ( "Thread {0}: Error in new review for User {1}, failure {2}, exiting" ,
                         Thread.CurrentThread.Name , username_in, failures);
                       return;
@@ -2410,11 +2408,10 @@ namespace ds2xdriver
             //End New Review Phase
 
             // Begin New Review Helpfulness Phase
-
-            if (user_type <= Controller.pct_newhelpfulness / 100.0) // If this is true we have a customer that wants to rate a reviews helpfulness
+            if ((user_type <= Controller.pct_newhelpfulness / 100.0) && (rows_returned > 0))// If this is true we have a customer that wants to rate a reviews helpfulness
             {
                 IsNewHelpfulness = true;
-                reviewid_in = Random.Shared.Next(1,Controller.max_review);
+                reviewid_in = review_id_out[Random.Shared.Next(0,rows_returned)];
                 reviewhelpfulness_in = Random.Shared.Next(1,11);
 
                 failures = 0;
@@ -2424,20 +2421,18 @@ namespace ds2xdriver
                      {
                        Console.WriteLine ( "Thread {0}: Error in new review helpfulness for User {1}, failure {2}, retrying" ,
                          Thread.CurrentThread.Name , username_in, failures);
-	                 }
-	               else
-	                 {
+                     }
+                   else
+                     {
                        Console.WriteLine ( "Thread {0}: Error in new review helpfulness for User {1}, failure {2}, exiting" ,
                          Thread.CurrentThread.Name , username_in, failures);
                        return;
-	                 }
+                     }
                 }
 
                 rt_newhelpfulness = rt;  // Just count last iteration if had to retry username
                 rt_tot += rt;
-
             } //End of IF
-
             // End of New Helpfulness Phase
 
             if ((Controller.n_overall > lastprodinsert ) && (Userid == (target_store-1) ) && Controller.n_add_products == 1)
