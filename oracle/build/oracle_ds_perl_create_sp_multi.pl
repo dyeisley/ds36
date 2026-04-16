@@ -255,9 +255,9 @@ BEGIN
 
   OPEN v_history_rc FOR
     SELECT p1.TITLE, p1.ACTOR, p2.TITLE AS RelatedTitle
-    FROM cust_hist1 ch
-    JOIN products1 p1 ON ch.prod_id = p1.prod_id
-    LEFT JOIN products1 p2 ON p1.common_prod_id = p2.prod_id
+    FROM cust_hist$k ch
+    JOIN products$k p1 ON ch.prod_id = p1.prod_id
+    LEFT JOIN products$k p2 ON p1.common_prod_id = p2.prod_id
     WHERE ch.customerid = p_customerid;
 
   DBMS_SQL.RETURN_RESULT(v_history_rc);

@@ -1,6 +1,6 @@
 # oracleds3_perl_create_indexes_multi.pl
 # Script to create a ds3 indexes in oracle with a provided number of copies - supporting multiple stores
-# Syntax to run - perl oracleds3_perl_create_indexes_multi.pl <oracle_target> <number_of_stores> 
+# Syntax to run - perl oracleds3_perl_create_indexes_multi.pl <oracle_target> <number_of_stores>
 
 use strict;
 use warnings;
@@ -12,7 +12,7 @@ my $pathsep;
 my $startcmd;
 
 #Need seperate target directory so that mulitple DB Targets can be loaded at the same time
-my $oracletargetdir;  
+my $oracletargetdir;
 
 $oracletargetdir = $oracletarget;
 
@@ -35,20 +35,21 @@ else
 
 foreach my $k (1 .. $numberofstores){
 	open (my $OUT, ">$oracletargetdir${pathsep}oracle_ds_createindexes$k.sql") || die("Can't open oracle_ds_indexes$k.sql");
-	print $OUT "CREATE UNIQUE INDEX \"DS3\".\"PK_CUSTOMERS$k\" 
+	print $OUT "CREATE UNIQUE INDEX \"DS3\".\"PK_CUSTOMERS$k\"
   ON \"DS3\".\"CUSTOMERS$k\"  (\"CUSTOMERID\")
   PARALLEL ( DEGREE DEFAULT )
-  TABLESPACE \"INDXTBS\" 
+  TABLESPACE \"INDXTBS\"
   ;
 
-ALTER TABLE \"DS3\".\"CUSTOMERS$k\" 
+ALTER TABLE \"DS3\".\"CUSTOMERS$k\"
   ADD (CONSTRAINT \"PK_CUSTOMERS$k\" PRIMARY KEY(\"CUSTOMERID\"))
-  ; 
+  ;
 
-CREATE UNIQUE INDEX \"DS3\".\"IX_CUST_USERNAME$k\" 
-  ON \"DS3\".\"CUSTOMERS$k\"  (\"USERNAME\") 
+-- CHANGED: Composite index for LOGIN query (USERNAME + PASSWORD)
+CREATE UNIQUE INDEX \"DS3\".\"IX_CUST_UN_PW$k\"
+  ON \"DS3\".\"CUSTOMERS$k\"  (\"USERNAME\", \"PASSWORD\")
   PARALLEL ( DEGREE DEFAULT )
-  TABLESPACE \"INDXTBS\" 
+  TABLESPACE \"INDXTBS\"
   ;
 
 CREATE INDEX \"DS3\".\"PK_CUST_HIST$k\"
@@ -97,29 +98,31 @@ ALTER TABLE \"DS3\".\"ORDERLINES$k\"
     REFERENCES \"DS3\".\"ORDERS$k\"(\"ORDERID\"))
   ;
 
-CREATE UNIQUE INDEX \"DS3\".\"PK_PROD_ID$k\" 
+CREATE UNIQUE INDEX \"DS3\".\"PK_PROD_ID$k\"
   ON \"DS3\".\"PRODUCTS$k\"  (\"PROD_ID\")
   PARALLEL ( DEGREE DEFAULT )
-  TABLESPACE \"INDXTBS\" 
+  TABLESPACE \"INDXTBS\"
   ;
 
-ALTER TABLE \"DS3\".\"PRODUCTS$k\" 
+ALTER TABLE \"DS3\".\"PRODUCTS$k\"
   ADD (CONSTRAINT \"PK_PROD_ID$k\" PRIMARY KEY(\"PROD_ID\"))
-  ; 
-
-CREATE INDEX \"DS3\".\"IX_PROD_CATEGORY$k\"
-  ON \"DS3\".\"PRODUCTS$k\"  (\"CATEGORY\")
-  TABLESPACE \"INDXTBS\" 
   ;
 
-CREATE INDEX \"DS3\".\"IX_PROD_SPECIAL$k\"
-  ON \"DS3\".\"PRODUCTS$k\"  (\"SPECIAL\")
-  TABLESPACE \"INDXTBS\" 
+-- CHANGED: Composite index for BROWSE_BY_CATEGORY query
+CREATE INDEX \"DS3\".\"IX_PROD_CAT_SPECIAL$k\"
+  ON \"DS3\".\"PRODUCTS$k\"  (\"CATEGORY\", \"SPECIAL\")
+  TABLESPACE \"INDXTBS\"
+  ;
+
+-- NEW: Index on COMMON_PROD_ID for LOGIN related products join
+CREATE INDEX \"DS3\".\"IX_PROD_COMMON_PROD_ID$k\"
+  ON \"DS3\".\"PRODUCTS$k\"  (\"COMMON_PROD_ID\")
+  TABLESPACE \"INDXTBS\"
   ;
 
 ALTER TABLE DS3.INVENTORY$k
   ADD CONSTRAINT fk_inventory_product$k
-  FOREIGN KEY (PROD_ID) 
+  FOREIGN KEY (PROD_ID)
   REFERENCES PRODUCTS$k(PROD_ID)
 ON DELETE CASCADE
   ;
@@ -129,8 +132,8 @@ CREATE INDEX \"DS3\".\"IX_PROD_MEMBERSHIP$k\"
   TABLESPACE \"INDXTBS\"
   ;
 
-CREATE INDEX \"DS3\".\"IX_INV_PROD_ID$k\" 
-  ON \"DS3\".\"INVENTORY$k\"  (\"PROD_ID\") 
+CREATE INDEX \"DS3\".\"IX_INV_PROD_ID$k\"
+  ON \"DS3\".\"INVENTORY$k\"  (\"PROD_ID\")
   TABLESPACE \"INDXTBS\"
   ;
 
@@ -169,28 +172,27 @@ ALTER TABLE \"DS3\".\"REVIEWS$k\"
     REFERENCES \"DS3\".\"CUSTOMERS$k\"(\"CUSTOMERID\"))
   ;
 
-CREATE INDEX \"DS3\".\"IX_REVIEWS_PROD_ID$k\"
-  ON \"DS3\".\"REVIEWS$k\"  (\"PROD_ID\")
+-- CHANGED: Composite index for GET_PROD_REVIEWS query (PROD_ID + TOTAL_HELPFULNESS)
+CREATE INDEX \"DS3\".\"IX_REVIEWS_PROD_HELP$k\"
+  ON \"DS3\".\"REVIEWS$k\"  (\"PROD_ID\", \"TOTAL_HELPFULNESS\" DESC)
   TABLESPACE \"INDXTBS\"
   ;
 
-CREATE INDEX \"DS3\".\"IX_REVIEWS_STARS$k\"
-  ON \"DS3\".\"REVIEWS$k\"  (\"STARS\")
+-- CHANGED: Composite index for GET_PROD_REVIEWS_BY_STARS query
+CREATE INDEX \"DS3\".\"IX_REVIEWS_PRODSTARS_HELP$k\"
+  ON \"DS3\".\"REVIEWS$k\" (\"PROD_ID\", \"STARS\", \"TOTAL_HELPFULNESS\" DESC)
   TABLESPACE \"INDXTBS\"
   ;
 
-CREATE INDEX \"DS3\".\"IX_REVIEWS_PRODSTARS$k\"
-  ON \"DS3\".\"REVIEWS$k\" (\"PROD_ID\",\"STARS\")
+-- CHANGED: Composite index for GET_PROD_REVIEWS_BY_DATE query
+CREATE INDEX \"DS3\".\"IX_REVIEWS_PROD_DATE$k\"
+  ON \"DS3\".\"REVIEWS$k\" (\"PROD_ID\", \"REVIEW_DATE\" DESC)
   TABLESPACE \"INDXTBS\"
   ;
 
+-- Kept for backward compatibility / other queries
 CREATE INDEX \"DS3\".\"IX_REVIEWS_TOTALHELPFULNESS$k\"
   ON \"DS3\".\"REVIEWS$k\" (\"TOTAL_HELPFULNESS\" DESC)
-  TABLESPACE \"INDXTBS\"
-  ;
-
-CREATE INDEX \"DS3\".\"IX_REVIEWS_DATE$k\"
-  ON \"DS3\".\"REVIEWS$k\" (\"REVIEW_DATE\" DESC)
   TABLESPACE \"INDXTBS\"
   ;
 
@@ -229,9 +231,9 @@ EXIT;
   \n";
   close $OUT;
   }
-  
+
 sleep(1);
-  
+
 foreach my $k (1 .. ($numberofstores-1)){
   system ("$startcmd sqlplus -S \"ds3/ds3\@$oracletarget \" \@$oracletargetdir${pathsep}oracle_ds_createindexes$k.sql");
   }
