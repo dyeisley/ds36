@@ -28,13 +28,11 @@
 
 
 using System;
-using System.IO;
 using System.Data;
 using Npgsql;
 using NpgsqlTypes;
-using System.Net;
 using System.Threading;
-using System.Runtime.InteropServices;
+using System.Diagnostics;
 
 
 namespace ds2xdriver
@@ -44,13 +42,6 @@ namespace ds2xdriver
   /// </summary>
   public class ds2Interface
     {
-#if (USE_WIN32_TIMER)
-    [DllImport("kernel32.dll")]
-    extern static short QueryPerformanceCounter(ref long x);
-    [DllImport("kernel32.dll")]
-    extern static short QueryPerformanceFrequency(ref long x);  
-#endif
-
     int ds2Interfaceid;
     string target_server;       //Added by GSK
     //string conn_str = "";
@@ -59,7 +50,7 @@ namespace ds2xdriver
     NpgsqlCommand Login, New_Customer, Browse_By_Category, Browse_By_Actor, Browse_By_Title, Purchase;
     NpgsqlCommand New_Member, New_Prod_Review, New_Review_Helpfulness, New_Product;
     NpgsqlCommand Get_Prod_Reviews, Get_Prod_Reviews_By_Date, Get_Prod_Reviews_By_Stars, Get_Prod_Reviews_By_Actor, Get_Prod_Reviews_By_Title;
-    NpgsqlDataReader Rdr;
+    NpgsqlCommand[] CostQuery = new NpgsqlCommand[11];
     
 //
 //-------------------------------------------------------------------------------------------------
@@ -199,6 +190,22 @@ namespace ds2xdriver
         };
         New_Product.Parameters.Add(outParam);
 
+        // Pre-compile cost query commands for cart sizes 1-10
+        for (int items = 1; items <= 10; items++)
+        {
+          string query = "SELECT PROD_ID, PRICE FROM PRODUCTS" + target_store_number + " WHERE PROD_ID IN (";
+          for (int i = 0; i < items; i++)
+          {
+            if (i > 0) query += ",";
+            query += "@ARG" + i;
+          }
+          query += ")";
+          CostQuery[items] = new NpgsqlCommand(query, objConn);
+          for (int i = 0; i < items; i++)
+          {
+            CostQuery[items].Parameters.Add("@ARG" + i, NpgsqlDbType.Integer);
+          }
+        }
     }
  
 //
@@ -229,153 +236,104 @@ namespace ds2xdriver
 //
 //-------------------------------------------------------------------------------------------------
 // 
-    public bool ds2login(string username_in, string password_in, ref int customerid_out, ref int rows_returned, 
+    public bool ds2login(string username_in, string password_in, ref int customerid_out, ref int rows_returned,
       ref string[] title_out, ref string[] actor_out, ref string[] related_title_out, ref double rt)
       {
-#if (USE_WIN32_TIMER)
-      long ctr0 = 0, ctr = 0, freq = 0;
-#else
-      TimeSpan TS = new TimeSpan();
-      DateTime DT0;
-#endif     
       Login.Parameters["username_in"].Value = username_in;
       Login.Parameters["password_in"].Value = password_in;
-          
-#if (USE_WIN32_TIMER)
-      QueryPerformanceFrequency(ref freq); // obtain system freq (ticks/sec)
-      QueryPerformanceCounter(ref ctr0); // Start response time clock   
-#else
-      DT0 = DateTime.Now;
-#endif
-     
-      try 
-        {
-        Rdr = Login.ExecuteReader();
-        
-	Rdr.Read();
-	//Console.Write("{0} ,{1} ,{2}, {3}\n", Rdr[0], Rdr[1], Rdr[2], Rdr[3]);
-	customerid_out = (int)Rdr[0];
-	//Console.WriteLine("Customerid_out = {0}", customerid_out);
-        //while (Rdr.Read())
-        //     Console.Write("{0} \n", Rdr[0]);
-        }
-      catch (PostgresException e) 
-        {
-        Console.WriteLine("Thread {0}: Error in Login: {1}", Thread.CurrentThread.Name, e.Message);
-		return (false);
-        }
- 
-      int i_row = 0;
-      if ((customerid_out > 0) && Rdr.NextResult()) 
-        {      
-        while (Rdr.Read())
-          {
-          title_out[i_row] = Rdr.GetString(1);
-          actor_out[i_row] = Rdr.GetString(2);
-          related_title_out[i_row] = Rdr.GetString(3);
-          ++i_row;
-          }
-        }
-      Rdr.Close();
-      //t.Commit();
-      rows_returned = i_row;
-      
-#if (USE_WIN32_TIMER)
-      QueryPerformanceCounter(ref ctr); // Stop response time clock
-      rt = (ctr - ctr0)/(double) freq; // Calculate response time
-#else
-      TS = DateTime.Now - DT0;
-      rt = TS.TotalSeconds; // Calculate response time
-#endif            
 
-      return(true);
+      Stopwatch timer = Stopwatch.StartNew();
+
+      try
+      {
+        using (NpgsqlDataReader Rdr = Login.ExecuteReader())
+        {
+          Rdr.Read();
+	  //Console.Write("{0} ,{1} ,{2}, {3}\n", Rdr[0], Rdr[1], Rdr[2], Rdr[3]);
+	  customerid_out = (int)Rdr[0];
+	  //Console.WriteLine("Customerid_out = {0}", customerid_out);
+          //while (Rdr.Read())
+          //     Console.Write("{0} \n", Rdr[0]);
+
+          int i_row = 0;
+          if ((customerid_out > 0) && Rdr.NextResult())
+          {
+            while (Rdr.Read())
+            {
+              title_out[i_row] = Rdr.GetString(1);
+              actor_out[i_row] = Rdr.GetString(2);
+              related_title_out[i_row] = Rdr.GetString(3);
+              ++i_row;
+            }
+          }
+          //t.Commit();
+          rows_returned = i_row;
+        }
+        return true;
+      }
+      catch (PostgresException e)
+      {
+        Console.WriteLine("Thread {0}: Error in Login: {1}", Thread.CurrentThread.Name, e.Message);
+        return false;
+      }
+      finally
+      {
+        rt = timer.Elapsed.TotalSeconds;
+      }
       }  // end ds2login
 //
 //-------------------------------------------------------------------------------------------------
 // 
-    public bool ds2newcustomer(string username_in, string password_in, string firstname_in, 
-      string lastname_in, string address1_in, string address2_in, string city_in, string state_in, 
-      string zip_in, string country_in, string email_in, string phone_in, int creditcardtype_in, 
-      string creditcard_in, int ccexpmon_in, int ccexpyr_in, int age_in, int income_in, 
-      string gender_in, ref int customerid_out, ref double rt) 
+    public bool ds2newcustomer(string username_in, string password_in, string firstname_in,
+      string lastname_in, string address1_in, string address2_in, string city_in, string state_in,
+      string zip_in, string country_in, string email_in, string phone_in, int creditcardtype_in,
+      string creditcard_in, int ccexpmon_in, int ccexpyr_in, int age_in, int income_in,
+      string gender_in, ref int customerid_out, ref double rt)
       {
       int region_in = (country_in == "US") ? 1:2;
       string creditcardexpiration_in = String.Format("{0:D4}/{1:D2}", ccexpyr_in, ccexpmon_in);
-#if (USE_WIN32_TIMER)
-      long ctr0 = 0, ctr = 0, freq = 0;
-#else
-      TimeSpan TS = new TimeSpan();
-      DateTime DT0;
-#endif   
-	      
+
       New_Customer.Parameters["firstname_in"].Value = firstname_in;
       New_Customer.Parameters["lastname_in"].Value = lastname_in;
       New_Customer.Parameters["address1_in"].Value = address1_in;
       New_Customer.Parameters["address2_in"].Value = address2_in;
       New_Customer.Parameters["city_in"].Value = city_in;
       New_Customer.Parameters["state_in"].Value = state_in;
-      New_Customer.Parameters["zip_in"].Value = zip_in; 
+      New_Customer.Parameters["zip_in"].Value = zip_in;
       New_Customer.Parameters["country_in"].Value = country_in;
-      New_Customer.Parameters["region_in"].Value = region_in;                               
+      New_Customer.Parameters["region_in"].Value = region_in;
       New_Customer.Parameters["email_in"].Value = email_in;
       New_Customer.Parameters["phone_in"].Value = phone_in;
-      New_Customer.Parameters["creditcardtype_in"].Value = creditcardtype_in;               
+      New_Customer.Parameters["creditcardtype_in"].Value = creditcardtype_in;
       New_Customer.Parameters["creditcard_in"].Value = creditcard_in;
       New_Customer.Parameters["creditcardexpiration_in"].Value = creditcardexpiration_in;
       New_Customer.Parameters["username_in"].Value = username_in;
       New_Customer.Parameters["password_in"].Value = password_in;
-      New_Customer.Parameters["age_in"].Value = age_in;                                     
-      New_Customer.Parameters["income_in"].Value = income_in;                               
+      New_Customer.Parameters["age_in"].Value = age_in;
+      New_Customer.Parameters["income_in"].Value = income_in;
       New_Customer.Parameters["gender_in"].Value = gender_in;
-    
+
 //    Console.WriteLine("Thread {0}: Calling New_Customer w/username_in= {1}  region={2}  ccexp={3}",
 //      Thread.CurrentThread.Name, username_in, region_in, creditcardexpiration_in);
 
-#if (USE_WIN32_TIMER)
-      QueryPerformanceFrequency(ref freq); // obtain system freq (ticks/sec)
-      QueryPerformanceCounter(ref ctr0); // Start response time clock   
-#else
-      DT0 = DateTime.Now;
-#endif  
+      Stopwatch timer = Stopwatch.StartNew();
 
-      bool deadlocked;      
-      do
-        {
-        try 
-          {
-          deadlocked = false;
-          customerid_out = Convert.ToInt32(New_Customer.ExecuteScalar().ToString(), 10); // Needed for@IDENTITY
-		//customerid_out = Convert.ToInt32(New_Customer.ExecuteScalar()); 
-          }
-        catch (PostgresException e) 
-          {
-          if (e.SqlState == "40P01")
-            {
-            deadlocked = true;
-            Random r = new Random(DateTime.Now.Millisecond);
-            int wait = r.Next(1000);
-            Console.WriteLine("Thread {0}: New_Customer deadlocked...waiting {1} msec, then will retry",
-              Thread.CurrentThread.Name, wait);
-            Thread.Sleep(wait); // Wait up to 1 sec, then try again
-            }
-          else
-            {           
-            Console.WriteLine("Thread {0}: SQL Error {1} in New_Customer: {2}", 
-              Thread.CurrentThread.Name, e.SqlState, e.Message);
-            return(false);
-            }
-          }
-        } while (deadlocked);
-            
-#if (USE_WIN32_TIMER)
-      QueryPerformanceCounter(ref ctr); // Stop response time clock
-      rt = (ctr - ctr0)/(double) freq; // Calculate response time
-#else
-      TS = DateTime.Now - DT0;
-      rt = TS.TotalSeconds; // Calculate response time
-#endif        
-
-      return(true);
+      try
+      {
+        customerid_out = Convert.ToInt32(New_Customer.ExecuteScalar().ToString(), 10); // Needed for@IDENTITY
+	//customerid_out = Convert.ToInt32(New_Customer.ExecuteScalar());
+        return true;
+      }
+      catch (PostgresException e)
+      {
+        Console.WriteLine("Thread {0}: SQL Error {1} in New_Customer: {2}",
+          Thread.CurrentThread.Name, e.SqlState, e.Message);
+        return false;
+      }
+      finally
+      {
+        rt = timer.Elapsed.TotalSeconds;
+      }
       } // end ds2newcustomer()
 	  
 	//
@@ -383,70 +341,36 @@ namespace ds2xdriver
 // 
       public bool ds2newmember(int customerid_in, int membershiplevel_in, ref int customerid_out, ref double rt)
       {
-#if (USE_WIN32_TIMER)
-      long ctr0 = 0, ctr = 0, freq = 0;
-#else
-      TimeSpan TS = new TimeSpan();
-      DateTime DT0;
-#endif   
-     
       New_Member.Parameters["customerid_in"].Value = customerid_in;
       New_Member.Parameters["membershiplevel_in"].Value = membershiplevel_in;
-        
 
-#if (USE_WIN32_TIMER)
-      QueryPerformanceFrequency(ref freq); // obtain system freq (ticks/sec)
-      QueryPerformanceCounter(ref ctr0); // Start response time clock   
-#else
-      DT0 = DateTime.Now;
-#endif  
-      
-      bool deadlocked;
-      do
-        {
-        try 
-          {
-          deadlocked = false;
-          customerid_out = Convert.ToInt32(New_Member.ExecuteScalar().ToString());
-          }       
-        catch (PostgresException e) 
-          {
-            if (e.SqlState == "40P01")
-            {
-              deadlocked = true;
-              Random r = new Random(DateTime.Now.Millisecond);
-              int wait = r.Next(1000);
-              Console.WriteLine("Thread {0}: New_Member deadlocked...waiting {1} msec, then will retry",
-                                 Thread.CurrentThread.Name, wait);
-              Thread.Sleep(wait); // Wait up to 1 sec, then try again
-            }
-            else
-           { 
-              Console.WriteLine("Thread {0}: postgreSQL Error in New_Member.ExecuteScalar(): {2}", 
-                                 Thread.CurrentThread.Name, e.SqlState, e.Message);
-              return(false);
-           }
-         }
-        catch (System.Exception e)
-        {
-            Console.WriteLine("Thread {0}: System Error in New_Member.ExecuteScalar(): {1}",
-              Thread.CurrentThread.Name, e.Message);
-            return (false);
-        }
-      } while (deadlocked);
-            
-#if (USE_WIN32_TIMER)
-      QueryPerformanceCounter(ref ctr); // Stop response time clock
-      rt = (ctr - ctr0)/(double) freq; // Calculate response time
-#else
-      TS = DateTime.Now - DT0;
-      rt = TS.TotalSeconds; // Calculate response time
-#endif        
-    
+      Stopwatch timer = Stopwatch.StartNew();
+
+      try
+      {
+        customerid_out = Convert.ToInt32(New_Member.ExecuteScalar().ToString());
+
 //    Console.WriteLine("Thread {0}: New_Customer created w/username_in= {1}  region={2}  customerid={3}",
 //      Thread.CurrentThread.Name, username_in, region_in, customerid_out);
 
-      return(true);
+        return true;
+      }
+      catch (PostgresException e)
+      {
+        Console.WriteLine("Thread {0}: postgreSQL Error in New_Member.ExecuteScalar(): {2}",
+          Thread.CurrentThread.Name, e.SqlState, e.Message);
+        return false;
+      }
+      catch (System.Exception e)
+      {
+        Console.WriteLine("Thread {0}: System Error in New_Member.ExecuteScalar(): {1}",
+          Thread.CurrentThread.Name, e.Message);
+        return false;
+      }
+      finally
+      {
+        rt = timer.Elapsed.TotalSeconds;
+      }
       } // end ds2newmember()
   
     
@@ -454,22 +378,15 @@ namespace ds2xdriver
 //-------------------------------------------------------------------------------------------------
 // 
     public bool ds2browse(string browse_type_in, string browse_category_in, string browse_actor_in,
-      string browse_title_in, int batch_size_in, int search_depth_in, int customerid_out, ref int rows_returned, 
-      ref int[] prod_id_out, ref string[] title_out, ref string[] actor_out, ref decimal[] price_out, 
+      string browse_title_in, int batch_size_in, int search_depth_in, int customerid_out, ref int rows_returned,
+      ref int[] prod_id_out, ref string[] title_out, ref string[] actor_out, ref decimal[] price_out,
       ref int[] special_out, ref int[] common_prod_id_out, ref double rt)
       {
-      // Products table: PROD_ID INT, CATEGORY TINYINT, TITLE VARCHAR(50), ACTOR VARCHAR(50), 
+      // Products table: PROD_ID INT, CATEGORY TINYINT, TITLE VARCHAR(50), ACTOR VARCHAR(50),
       //   PRICE DECIMAL(12,2), SPECIAL TINYINT, COMMON_PROD_ID INT
-      int i_row;
       string data_in = null;
       int[] category_out = new int[GlobalConstants.MAX_ROWS];
 
-#if (USE_WIN32_TIMER)
-      long ctr0 = 0, ctr = 0, freq = 0;
-#else
-      TimeSpan TS = new TimeSpan();
-      DateTime DT0;
-#endif  
       switch(browse_type_in)
         {
         case "category":
@@ -493,62 +410,56 @@ namespace ds2xdriver
           return false;
         }
 
-//    Console.WriteLine("Thread {0}: Calling Browse w/ browse_type= {1} batch_size_in= {2}  data_in= {3}",  
-//      Thread.CurrentThread.Name, browse_type_in, batch_size_in, data_in); 
+//    Console.WriteLine("Thread {0}: Calling Browse w/ browse_type= {1} batch_size_in= {2}  data_in= {3}",
+//      Thread.CurrentThread.Name, browse_type_in, batch_size_in, data_in);
 
-#if (USE_WIN32_TIMER)
-      QueryPerformanceFrequency(ref freq); // obtain system freq (ticks/sec)
-      QueryPerformanceCounter(ref ctr0); // Start response time clock   
-#else
-      DT0 = DateTime.Now;
-#endif 
-                 
-      try 
-        {
+      Stopwatch timer = Stopwatch.StartNew();
+
+      try
+      {
+        NpgsqlDataReader Rdr;
         switch(browse_type_in)
           {
           case "category":
             Rdr = Browse_By_Category.ExecuteReader();
             break;
           case "actor":
-            Rdr = Browse_By_Actor.ExecuteReader();        
+            Rdr = Browse_By_Actor.ExecuteReader();
             break;
+          default:
           case "title":
-            Rdr = Browse_By_Title.ExecuteReader();        
+            Rdr = Browse_By_Title.ExecuteReader();
             break;
           }
-        
-        i_row = 0;
-        while (Rdr.Read())
-          {
-          prod_id_out[i_row] = Rdr.GetInt32(0);
-          category_out[i_row] = Rdr.GetInt16(1);
-          title_out[i_row] = Rdr.GetString(2);
-          actor_out[i_row] = Rdr.GetString(3);
-          price_out[i_row] = Rdr.GetDecimal(4);
-          special_out[i_row] = Rdr.GetInt16(5);
-          common_prod_id_out[i_row] = Rdr.GetInt32(6);
-          //Console.Write("{0} ,{1} ,{2}\n", prod_id_out[i_row], title_out[i_row], actor_out[i_row]);
-          ++i_row;
-          }
-        Rdr.Close();
-        rows_returned = i_row;
-        }
-      catch (PostgresException e) 
-        {
-        Console.WriteLine("Thread {0}: Error in Browse: {1}", Thread.CurrentThread.Name, e.Message);
-        return(false);
-        }
-            
-#if (USE_WIN32_TIMER)
-      QueryPerformanceCounter(ref ctr); // Stop response time clock
-      rt = (ctr - ctr0)/(double) freq; // Calculate response time
-#else
-      TS = DateTime.Now - DT0;
-      rt = TS.TotalSeconds; // Calculate response time
-#endif  
 
-      return(true);
+        using (Rdr)
+        {
+          int i_row = 0;
+          while (Rdr.Read())
+          {
+            prod_id_out[i_row] = Rdr.GetInt32(0);
+            category_out[i_row] = Rdr.GetInt16(1);
+            title_out[i_row] = Rdr.GetString(2);
+            actor_out[i_row] = Rdr.GetString(3);
+            price_out[i_row] = Rdr.GetDecimal(4);
+            special_out[i_row] = Rdr.GetInt16(5);
+            common_prod_id_out[i_row] = Rdr.GetInt32(6);
+            //Console.Write("{0} ,{1} ,{2}\n", prod_id_out[i_row], title_out[i_row], actor_out[i_row]);
+            ++i_row;
+          }
+          rows_returned = i_row;
+        }
+        return true;
+      }
+      catch (PostgresException e)
+      {
+        Console.WriteLine("Thread {0}: Error in Browse: {1}", Thread.CurrentThread.Name, e.Message);
+        return false;
+      }
+      finally
+      {
+        rt = timer.Elapsed.TotalSeconds;
+      }
       } // end ds2browse()
 	  
 //
@@ -562,17 +473,9 @@ namespace ds2xdriver
       ref string[] review_summary_out, ref string[] review_text_out, ref int[] review_helpfulness_sum_out, ref double rt)
     {
         // Reviews Table: "REVIEW_ID" NUMBER,  "PROD_ID" NUMBER,  "REVIEW_DATE" DATE, "STARS" NUMBER,
-        // "CUSTOMERID" NUMBER,  "REVIEW_SUMMARY" VARCHAR2(50 byte), "REVIEW_TEXT" VARCHAR2(1000 byte) 
+        // "CUSTOMERID" NUMBER,  "REVIEW_SUMMARY" VARCHAR2(50 byte), "REVIEW_TEXT" VARCHAR2(1000 byte)
         string data_in = null;
-        int[] category_out = new int[GlobalConstants.MAX_ROWS];
-        int i_row;
 
-#if (USE_WIN32_TIMER)
-      long ctr0 = 0, ctr = 0, freq = 0;
-#else
-        TimeSpan TS = new TimeSpan();
-        DateTime DT0;
-#endif
         switch (browse_review_type_in)
         {
             case "actor":
@@ -589,66 +492,61 @@ namespace ds2xdriver
                 break;
         }
 
-        //    Console.WriteLine("Thread {0}: Calling Browse w/ browse_type= {1}  batch_size_in= {2}  data_in= {3}",  
-        //      Thread.CurrentThread.Name, browse_type_in, batch_size_in, data_in); 
+        //    Console.WriteLine("Thread {0}: Calling Browse w/ browse_type= {1}  batch_size_in= {2}  data_in= {3}",
+        //      Thread.CurrentThread.Name, browse_type_in, batch_size_in, data_in);
 
-#if (USE_WIN32_TIMER)
-      QueryPerformanceFrequency(ref freq); // obtain system freq (ticks/sec)
-      QueryPerformanceCounter(ref ctr0); // Start response time clock   
-#else
-        DT0 = DateTime.Now;
-#endif
+        Stopwatch timer = Stopwatch.StartNew();
 
         try
         {
+            NpgsqlDataReader Rdr;
             switch (browse_review_type_in)
               {
                 case "actor":
                     Rdr = Get_Prod_Reviews_By_Actor.ExecuteReader();
                     break;
+                default:
                 case "title":
                     Rdr = Get_Prod_Reviews_By_Title.ExecuteReader();
                     break;
               }
-            i_row = 0;
-            while (Rdr.Read())
+
+            using (Rdr)
+            {
+              int i_row = 0;
+              while (Rdr.Read())
               {
-                  prod_id_out[i_row] = Rdr.GetInt32(0);
-                  title_out[i_row] = Rdr.GetString(1);
-                  actor_out[i_row] = Rdr.GetString(2);
-                  review_id_out[i_row] = Rdr.GetInt32(3);
-                  review_date_out[i_row] = Convert.ToString(Rdr.GetDateTime(4));
-                  review_stars_out[i_row] = Rdr.GetInt32(5);
-                  review_customerid_out[i_row] = Rdr.GetInt32(6);
-                  review_summary_out[i_row] = Rdr.GetString(7);
-                  review_text_out[i_row] = Rdr.GetString(8);
-                  review_helpfulness_sum_out[i_row] = Rdr.GetInt32(9);
-                  //Console.WriteLine("\tprod_id_out: {0} title_out: {1} actor_out: {2} review_id_out: {3} review_date_out: {4} review_stars_out: {5} review_customerid_out: {6} review_summary_out: {7}\n\treview_text_out: {8} review_helpfulness_sum_out: {9}\n", prod_id_out[i_row], title_out[i_row], actor_out[i_row], review_id_out[i_row], review_date_out[i_row], review_stars_out[i_row], review_customerid_out[i_row], review_summary_out[i_row], review_text_out[i_row], review_helpfulness_sum_out[i_row] );
-                  ++i_row;
+                prod_id_out[i_row] = Rdr.GetInt32(0);
+                title_out[i_row] = Rdr.GetString(1);
+                actor_out[i_row] = Rdr.GetString(2);
+                review_id_out[i_row] = Rdr.GetInt32(3);
+                review_date_out[i_row] = Convert.ToString(Rdr.GetDateTime(4));
+                review_stars_out[i_row] = Rdr.GetInt32(5);
+                review_customerid_out[i_row] = Rdr.GetInt32(6);
+                review_summary_out[i_row] = Rdr.GetString(7);
+                review_text_out[i_row] = Rdr.GetString(8);
+                review_helpfulness_sum_out[i_row] = Rdr.GetInt32(9);
+                //Console.WriteLine("\tprod_id_out: {0} title_out: {1} actor_out: {2} review_id_out: {3} review_date_out: {4} review_stars_out: {5} review_customerid_out: {6} review_summary_out: {7}\n\treview_text_out: {8} review_helpfulness_sum_out: {9}\n", prod_id_out[i_row], title_out[i_row], actor_out[i_row], review_id_out[i_row], review_date_out[i_row], review_stars_out[i_row], review_customerid_out[i_row], review_summary_out[i_row], review_text_out[i_row], review_helpfulness_sum_out[i_row] );
+                ++i_row;
               }
-            Rdr.Close();
-            rows_returned = i_row;
+              rows_returned = i_row;
+            }
+            return true;
         }
         catch (PostgresException e)
         {
             Console.WriteLine("Thread {0}: postgreSQL Error in Browse Product Reviews: {1}", Thread.CurrentThread.Name, e.Message);
-            return (false);
+            return false;
         }
         catch (System.Exception e)
         {
             Console.WriteLine("Thread {0}: System Error in Browse Product Reviews: {1}", Thread.CurrentThread.Name, e.Message);
-            return (false);
+            return false;
         }
-
-#if (USE_WIN32_TIMER)
-      QueryPerformanceCounter(ref ctr); // Stop response time clock
-      rt = (ctr - ctr0)/(double) freq; // Calculate response time
-#else
-        TS = DateTime.Now - DT0;
-        rt = TS.TotalSeconds; // Calculate response time
-#endif
-            
-       return (true);
+        finally
+        {
+          rt = timer.Elapsed.TotalSeconds;
+        }
     } // end ds2browsereview()
 
     //
@@ -660,17 +558,9 @@ namespace ds2xdriver
       ref string[] review_summary_out, ref string[] review_text_out, ref int[] review_helpfulness_sum_out, ref double rt)
     {
         // Reviews Table: "REVIEW_ID" NUMBER,  "PROD_ID" NUMBER,  "REVIEW_DATE" DATE, "STARS" NUMBER,
-        // "CUSTOMERID" NUMBER,  "REVIEW_SUMMARY" VARCHAR2(50 byte), "REVIEW_TEXT" VARCHAR2(1000 byte) 
+        // "CUSTOMERID" NUMBER,  "REVIEW_SUMMARY" VARCHAR2(50 byte), "REVIEW_TEXT" VARCHAR2(1000 byte)
         //string data_in = null;
-        int[] category_out = new int[GlobalConstants.MAX_ROWS];
-        int i_row;
 
-#if (USE_WIN32_TIMER)
-      long ctr0 = 0, ctr = 0, freq = 0;
-#else
-        TimeSpan TS = new TimeSpan();
-        DateTime DT0;
-#endif
         switch (get_review_type_in)
         {
             case "noorder":
@@ -688,20 +578,17 @@ namespace ds2xdriver
                 break;
         }
 
-        //    Console.WriteLine("Thread {0}: Calling Browse w/ browse_type= {1}  batch_size_in= {2}  data_in= {3}",  
-        //      Thread.CurrentThread.Name, browse_type_in, batch_size_in, data_in); 
+        //    Console.WriteLine("Thread {0}: Calling Browse w/ browse_type= {1}  batch_size_in= {2}  data_in= {3}",
+        //      Thread.CurrentThread.Name, browse_type_in, batch_size_in, data_in);
 
-#if (USE_WIN32_TIMER)
-      QueryPerformanceFrequency(ref freq); // obtain system freq (ticks/sec)
-      QueryPerformanceCounter(ref ctr0); // Start response time clock   
-#else
-        DT0 = DateTime.Now;
-#endif
+        Stopwatch timer = Stopwatch.StartNew();
 
         try
         {
+            NpgsqlDataReader Rdr;
             switch (get_review_type_in)
             {
+              default:
               case "noorder":
                  Rdr = Get_Prod_Reviews.ExecuteReader();
                  break;
@@ -713,9 +600,11 @@ namespace ds2xdriver
                  break;
             }
 
-            i_row = 0;
-            while (Rdr.Read())
+            using (Rdr)
             {
+              int i_row = 0;
+              while (Rdr.Read())
+              {
                 review_id_out[i_row] = Rdr.GetInt32(0);
                 prod_id_out[i_row] = Rdr.GetInt32(1);
                 review_date_out[i_row] = Convert.ToString(Rdr.GetDateTime(2));
@@ -727,30 +616,25 @@ namespace ds2xdriver
                 //Console.WriteLine("\treview_id_out: {0} prod_id_out: {1} review_date_out: {2} review_stars_out: {3} review_customerid_out: {4} review_summary_out: {5} review_text_out: {6} review_helpfulness_sum_out: {7}",
                 //  review_id_out[i_row], prod_id_out[i_row], review_date_out[i_row], review_stars_out[i_row], review_customerid_out[i_row], review_summary_out[i_row], review_text_out[i_row], review_helpfulness_sum_out[i_row]);
                 ++i_row;
+              }
+              rows_returned = i_row;
             }
-            Rdr.Close();
-            rows_returned = i_row;
+            return true;
         }
         catch (PostgresException e)
         {
             Console.WriteLine("Thread {0}: postgreSQL Error in Get Product Reviews: {1}", Thread.CurrentThread.Name, e.Message);
-            return (false);
+            return false;
         }
         catch (System.Exception e)
         {
             Console.WriteLine("Thread {0}: System Error in Get Product Reviews: {1}", Thread.CurrentThread.Name, e.Message);
-            return (false);
+            return false;
         }
-
-#if (USE_WIN32_TIMER)
-      QueryPerformanceCounter(ref ctr); // Stop response time clock
-      rt = (ctr - ctr0)/(double) freq; // Calculate response time
-#else
-        TS = DateTime.Now - DT0;
-        rt = TS.TotalSeconds; // Calculate response time
-#endif
-        
-        return (true);
+        finally
+        {
+          rt = timer.Elapsed.TotalSeconds;
+        }
     } // end ds2getreview()
 
     //
@@ -759,69 +643,35 @@ namespace ds2xdriver
     public bool ds2newreview(int new_review_prod_id_in, int new_review_stars_in, int new_review_customerid_in,
             string new_review_summary_in, string new_review_text_in, ref int newreviewid_out, ref double rt)
     {
-
-#if (USE_WIN32_TIMER)
-      long ctr0 = 0, ctr = 0, freq = 0;
-#else
-        TimeSpan TS = new TimeSpan();
-        DateTime DT0;
-#endif
-
         New_Prod_Review.Parameters["prod_id_in"].Value = new_review_prod_id_in;
         New_Prod_Review.Parameters["stars_in"].Value = new_review_stars_in;
         New_Prod_Review.Parameters["customerid_in"].Value = new_review_customerid_in;
         New_Prod_Review.Parameters["review_summary_in"].Value = new_review_summary_in;
         New_Prod_Review.Parameters["review_text_in"].Value = new_review_text_in;
 
-#if (USE_WIN32_TIMER)
-      QueryPerformanceFrequency(ref freq); // obtain system freq (ticks/sec)
-      QueryPerformanceCounter(ref ctr0); // Start response time clock   
-#else
-        DT0 = DateTime.Now;
-#endif
-        bool deadlocked;
-        do
+        Stopwatch timer = Stopwatch.StartNew();
+
+        try
         {
-            try
-            {
-                deadlocked = false;
-                newreviewid_out = Convert.ToInt32(New_Prod_Review.ExecuteScalar().ToString(), 10);
-            }
-            catch (PostgresException e)
-            {
-                if (e.SqlState == "40P01")
-                {
-                    deadlocked = true;
-                    Random r = new Random(DateTime.Now.Millisecond);
-                    int wait = r.Next(1000);
-                    Console.WriteLine("Thread {0}: New_Prod_Review deadlocked...waiting {1} msec, then will retry",
-                                       Thread.CurrentThread.Name, wait);
-                    Thread.Sleep(wait); // Wait up to 1 sec, then try again
-                }
-                else
-                {
-                    Console.WriteLine("Thread {0}: Sql Server Error in New_Prod_Review.ExecuteScalar(): {1}",
-                      Thread.CurrentThread.Name, e.Message);
-                    return (false);
-                }
-            }
-            catch (System.Exception e)
-            {
-                Console.WriteLine("Thread {0}: System Error in New_Prod_Review.ExecuteNonQuery(): {1}",
-                  Thread.CurrentThread.Name, e.Message);
-                return (false);
-            }
-        } while (deadlocked);
-
-
-#if (USE_WIN32_TIMER)
-      QueryPerformanceCounter(ref ctr); // Stop response time clock
-      rt = (ctr - ctr0)/(double) freq; // Calculate response time
-#else
-        TS = DateTime.Now - DT0;
-        rt = TS.TotalSeconds; // Calculate response time
-#endif
-        return (true);
+          newreviewid_out = Convert.ToInt32(New_Prod_Review.ExecuteScalar().ToString(), 10);
+          return true;
+        }
+        catch (PostgresException e)
+        {
+          Console.WriteLine("Thread {0}: Sql Server Error in New_Prod_Review.ExecuteScalar(): {1}",
+            Thread.CurrentThread.Name, e.Message);
+          return false;
+        }
+        catch (System.Exception e)
+        {
+          Console.WriteLine("Thread {0}: System Error in New_Prod_Review.ExecuteNonQuery(): {1}",
+            Thread.CurrentThread.Name, e.Message);
+          return false;
+        }
+        finally
+        {
+          rt = timer.Elapsed.TotalSeconds;
+        }
     } // end ds2newreview()
 
     //
@@ -829,66 +679,33 @@ namespace ds2xdriver
     // 
     public bool ds2newreviewhelpfulness(int reviewid_in, int customerid_in, int reviewhelpfulness_in, ref int reviewhelpfulnessid_out, ref double rt)
     {
-#if (USE_WIN32_TIMER)
-      long ctr0 = 0, ctr = 0, freq = 0;
-#else
-        TimeSpan TS = new TimeSpan();
-        DateTime DT0;
-#endif
-
         New_Review_Helpfulness.Parameters["review_id_in"].Value = reviewid_in;
         New_Review_Helpfulness.Parameters["customerid_in"].Value = customerid_in;
         New_Review_Helpfulness.Parameters["review_helpfulness_in"].Value = reviewhelpfulness_in;
 
-#if (USE_WIN32_TIMER)
-      QueryPerformanceFrequency(ref freq); // obtain system freq (ticks/sec)
-      QueryPerformanceCounter(ref ctr0); // Start response time clock   
-#else
-        DT0 = DateTime.Now;
-#endif
-        bool deadlocked;
-        do
-          {
-          try
-            {
-            deadlocked = false;
-            reviewhelpfulnessid_out = Convert.ToInt32(New_Review_Helpfulness.ExecuteScalar().ToString(), 10);
-            }
-          catch (PostgresException e)
-            {
-            if (e.SqlState == "40P01")
-              {
-              deadlocked = true;
-              Random r = new Random(DateTime.Now.Millisecond);
-              int wait = r.Next(1000);
-              Console.WriteLine("Thread {0}: New_Customer deadlocked...waiting {1} msec, then will retry",
-                                 Thread.CurrentThread.Name, wait);
-              Thread.Sleep(wait); // Wait up to 1 sec, then try again
-              }
-            else
-              {
-              Console.WriteLine("Thread {0}: postgreSQL error in New_Review_Helpfulness.ExecuteScalar(): {1}",
-                                  Thread.CurrentThread.Name, e.Message);
-              return (false);
-              }
-          }
-          catch (System.Exception e)
-          {
-              Console.WriteLine("Thread {0}: System Error in New_Review_Helpfulness.ExecuteScalar(): {1}",
-              Thread.CurrentThread.Name, e.Message);
-              return (false);
-          }
-        } while (deadlocked);
+        Stopwatch timer = Stopwatch.StartNew();
 
-#if (USE_WIN32_TIMER)
-      QueryPerformanceCounter(ref ctr); // Stop response time clock
-      rt = (ctr - ctr0)/(double) freq; // Calculate response time
-#else
-        TS = DateTime.Now - DT0;
-        rt = TS.TotalSeconds; // Calculate response time
-#endif
-
-        return (true);
+        try
+        {
+          reviewhelpfulnessid_out = Convert.ToInt32(New_Review_Helpfulness.ExecuteScalar().ToString(), 10);
+          return true;
+        }
+        catch (PostgresException e)
+        {
+          Console.WriteLine("Thread {0}: postgreSQL error in New_Review_Helpfulness.ExecuteScalar(): {1}",
+            Thread.CurrentThread.Name, e.Message);
+          return false;
+        }
+        catch (System.Exception e)
+        {
+          Console.WriteLine("Thread {0}: System Error in New_Review_Helpfulness.ExecuteScalar(): {1}",
+            Thread.CurrentThread.Name, e.Message);
+          return false;
+        }
+        finally
+        {
+          rt = timer.Elapsed.TotalSeconds;
+        }
     } // end ds2newreviewhelpfulness()
     
 //
@@ -897,57 +714,40 @@ namespace ds2xdriver
     public bool ds2purchase(int cart_items, int[] prod_id_in, int[] qty_in, int customerid_out,
       ref int neworderid_out, ref bool IsRollback, ref double rt)
       {
-      int i, j;
-#if (USE_WIN32_TIMER)
-      long ctr0 = 0, ctr = 0, freq = 0;
-#else
-      TimeSpan TS = new TimeSpan();
-      DateTime DT0;
-#endif 
- 
+      int j;
+
       //Cap cart_items at 10 for this implementation of stored procedure
       cart_items = System.Math.Min(10, cart_items);
-      
-      // Extra, non-stored procedure query to find total cost of purchase
-      Decimal netamount_in = 0;  
-      //Modified by GSK for parameterization of query below - Affects performance in case of Query Caching      
-      //string cost_query = "select PROD_ID, PRICE from PRODUCTS where PROD_ID in (" + prod_id_in[0];
-      //for (i=1; i<cart_items; i++) cost_query = cost_query + "," + prod_id_in[i];
-      //cost_query = cost_query + ")";
-      ////Console.WriteLine(cost_query);
-      //NpgsqlCommand cost_command = new NpgsqlCommand(cost_query, objConn);
 
-      //Parameterized query by GSK
-      string cost_query = "select PROD_ID, PRICE from PRODUCTS" + target_store_number + " where PROD_ID in ( @ARG0";
-      for ( i = 1 ; i < cart_items ; i++ ) cost_query = cost_query + ", @ARG" + i;
-      cost_query = cost_query + ")";
-      NpgsqlCommand cost_command = new NpgsqlCommand ( cost_query , objConn );
-      string ArgHolder;
-      for ( i = 0 ; i < cart_items ; i++ )
-          {
-          ArgHolder = "@ARG" + i;
-          cost_command.Parameters.Add ( ArgHolder , NpgsqlDbType.Integer );
-          cost_command.Parameters[ArgHolder].Value = prod_id_in[i];
-          //Console.WriteLine (cost_command.Parameters[ArgHolder].Value);
-          }
-            
-      Rdr = cost_command.ExecuteReader();
-      while (Rdr.Read())
+      // Extra, non-stored procedure query to find total cost of purchase
+      Decimal netamount_in = 0;
+
+      // Use pre-compiled cost query command
+      var cost_command = CostQuery[cart_items];
+      for (int i = 0; i < cart_items; i++)
+      {
+        cost_command.Parameters["@ARG" + i].Value = prod_id_in[i];
+        //Console.WriteLine (cost_command.Parameters["@ARG" + i].Value);
+      }
+
+      using (NpgsqlDataReader Rdr = cost_command.ExecuteReader())
+      {
+        while (Rdr.Read())
         {
-        j = 0;
-        int prod_id = Rdr.GetInt32(0);
-        while (prod_id_in[j] != prod_id) ++j; // Find which product was returned
-        netamount_in = netamount_in + qty_in[j] * Rdr.GetDecimal(1);
-        //Console.WriteLine(j + " " + prod_id + " " + Rdr.GetDecimal(1));
+          j = 0;
+          int prod_id = Rdr.GetInt32(0);
+          while (prod_id_in[j] != prod_id) ++j; // Find which product was returned
+          netamount_in = netamount_in + qty_in[j] * Rdr.GetDecimal(1);
+          //Console.WriteLine(j + " " + prod_id + " " + Rdr.GetDecimal(1));
         }
-      Rdr.Close();
+      }
       // Can use following code instead if you don't want extra roundtrip to database:
       // Random rr = new Random(DateTime.Now.Millisecond);
       // Decimal netamount_in = (Decimal) (0.01 * (1 + rr.Next(40000)));
       Decimal taxamount_in =  (Decimal) 0.0825 * netamount_in;
       Decimal totalamount_in = netamount_in + taxamount_in;
       //Console.WriteLine(netamount_in);
-      
+
       Purchase.Parameters["customerid_in"].Value = customerid_out;
       Purchase.Parameters["number_items"].Value = cart_items;
       Purchase.Parameters["netamount_in"].Value = netamount_in;
@@ -963,59 +763,37 @@ namespace ds2xdriver
       Purchase.Parameters["prod_id_in7"].Value = prod_id_in[7]; Purchase.Parameters["qty_in7"].Value = qty_in[7];
       Purchase.Parameters["prod_id_in8"].Value = prod_id_in[8]; Purchase.Parameters["qty_in8"].Value = qty_in[8];
       Purchase.Parameters["prod_id_in9"].Value = prod_id_in[9]; Purchase.Parameters["qty_in9"].Value = qty_in[9];
-               
-//    Console.WriteLine("Thread {0}: Calling Purchase w/ customerid = {1}  number_items= {2}",  
+
+//    Console.WriteLine("Thread {0}: Calling Purchase w/ customerid = {1}  number_items= {2}",
 //      Thread.CurrentThread.Name, customerid_out, cart_items);
 
-#if (USE_WIN32_TIMER)
-      QueryPerformanceFrequency(ref freq); // obtain system freq (ticks/sec)  
-      QueryPerformanceCounter(ref ctr0); // Start response time clock   
-#else
-      DT0 = DateTime.Now;
-#endif  
+      Stopwatch timer = Stopwatch.StartNew();
 
-      bool deadlocked;      
-      do
+      try
+      {
+        neworderid_out = (int) Purchase.ExecuteScalar();
+
+        if (neworderid_out == 0) IsRollback = true;
+        return true;
+      }
+      catch (PostgresException e)
+      {
+        if (e.SqlState == "P0001")
         {
-        try 
-          {
-          deadlocked = false;
-          neworderid_out = (int) Purchase.ExecuteScalar();
-          }
-        catch (PostgresException e) 
-          {
-          if (e.SqlState == "40P01")
-            {
-            deadlocked = true;
-            Random r = new Random(DateTime.Now.Millisecond);
-            int wait = r.Next(1000);
-            Console.WriteLine("Thread {0}: Purchase deadlocked...waiting {1} msec, then will retry",
-              Thread.CurrentThread.Name, wait);
-            Thread.Sleep(wait); // Wait up to 1 sec, then try again
-            }
-          else if (e.SqlState == "P0001")
-           {
-             deadlocked=false;
-             neworderid_out = 0;
-           }
-          else
-            {           
-            Console.WriteLine("Thread {0}: SQL Error {1} in Purchase: {2}", 
-              Thread.CurrentThread.Name, e.SqlState, e.Message);
-            return(false);
-            }
-          }
-        } while (deadlocked);
-
-#if (USE_WIN32_TIMER)
-      QueryPerformanceCounter(ref ctr); // Stop response time clock
-      rt = (ctr - ctr0)/(double) freq; // Calculate response time
-#else
-      TS = DateTime.Now - DT0;
-      rt = TS.TotalSeconds; // Calculate response time
-#endif  
-      if (neworderid_out == 0) IsRollback = true;    
-      return(true);
+          neworderid_out = 0;
+          return true;
+        }
+        else
+        {
+          Console.WriteLine("Thread {0}: SQL Error {1} in Purchase: {2}",
+            Thread.CurrentThread.Name, e.SqlState, e.Message);
+          return false;
+        }
+      }
+      finally
+      {
+        rt = timer.Elapsed.TotalSeconds;
+      }
       } // end ds2purchase()
     
 //
@@ -1023,43 +801,29 @@ namespace ds2xdriver
 //
     public bool ds2newproduct(int new_category_in, string new_title_in, string new_actor_in, decimal new_price_in, int new_stock_in, ref int newproduct_id, ref double rt)
     {
-      bool success = true;
-
       New_Product.Parameters["p_cat"].Value = new_category_in;
       New_Product.Parameters["p_title"].Value = new_title_in;
       New_Product.Parameters["p_actor"].Value = new_actor_in;
       New_Product.Parameters["p_price"].Value = new_price_in;
       New_Product.Parameters["p_stock"].Value = new_stock_in;
 
-#if (USE_WIN32_TIMER)
-      long ctr0 = 0, ctr = 0, freq = 0;
-      QueryPerformanceFrequency(ref freq); // obtain system freq (ticks/sec)
-      QueryPerformanceCounter(ref ctr0); // Start response time clock
-#else
-      TimeSpan TS = new TimeSpan();
-      DateTime DT0 = DateTime.Now;
-#endif
+      Stopwatch timer = Stopwatch.StartNew();
 
       try
       {
-          New_Product.ExecuteNonQuery();
-          newproduct_id = Convert.ToInt32(New_Product.Parameters["v_new_id"].Value.ToString());
+        New_Product.ExecuteNonQuery();
+        newproduct_id = Convert.ToInt32(New_Product.Parameters["v_new_id"].Value.ToString());
+        return true;
       }
       catch (PostgresException e)
       {
-          Console.WriteLine("Thread {0}: postgreSQL Error in New_Product: {1}",Thread.CurrentThread.Name, e.Message);
-          success = false;
+        Console.WriteLine("Thread {0}: postgreSQL Error in New_Product: {1}",Thread.CurrentThread.Name, e.Message);
+        return false;
       }
-
-#if (USE_WIN32_TIMER)
-      QueryPerformanceCounter(ref ctr); // Stop response time clock
-      rt = (ctr - ctr0)/(double) freq; // Calculate response time
-#else
-      TS = DateTime.Now - DT0;
-      rt = TS.TotalSeconds; // Calculate response time
-#endif
-
-      return success;
+      finally
+      {
+        rt = timer.Elapsed.TotalSeconds;
+      }
     }
 //
 //-------------------------------------------------------------------------------------------------
