@@ -503,7 +503,6 @@ namespace ds2xdriver
         // Reviews Table: "REVIEW_ID" NUMBER,  "PROD_ID" NUMBER,  "REVIEW_DATE" DATE, "STARS" NUMBER,
         // "CUSTOMERID" NUMBER,  "REVIEW_SUMMARY" VARCHAR2(50 byte), "REVIEW_TEXT" VARCHAR2(1000 byte)
         string data_in = string.Empty;
-        int[] category_out = new int[GlobalConstants.MAX_ROWS];
         int i_row;
         SqlDataReader Rdr;
 
@@ -582,7 +581,6 @@ namespace ds2xdriver
         // Reviews Table: "REVIEW_ID" NUMBER,  "PROD_ID" NUMBER,  "REVIEW_DATE" DATE, "STARS" NUMBER,
         // "CUSTOMERID" NUMBER,  "REVIEW_SUMMARY" VARCHAR2(50 byte), "REVIEW_TEXT" VARCHAR2(1000 byte)
         // string data_in = null;
-        int[] category_out = new int[GlobalConstants.MAX_ROWS];
         int i_row;
 
         switch (get_review_type_in)
