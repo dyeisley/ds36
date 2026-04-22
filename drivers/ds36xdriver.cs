@@ -2070,6 +2070,11 @@ namespace ds2xdriver
       Console.WriteLine($"New customers: {pct_newcustomers}%");
       Console.WriteLine($"New members: {pct_newmember}%");
       Console.WriteLine($"Searches per order: {n_searches} avg");
+      Console.WriteLine($"Search batch size: {search_batch_size}");
+      Console.WriteLine($"Search depth: {search_depth}");
+      Console.WriteLine($"Review searches per order: {n_reviews} avg");
+      Console.WriteLine($"New reviews: {pct_newreviews}%");
+      Console.WriteLine($"Review helpfulness ratings: {pct_newhelpfulness}%");
       Console.WriteLine($"Line items per order: {n_line_items} avg");
       Console.WriteLine($"Number of stores: {n_stores}");
       Console.WriteLine($"Windows perf monitoring: {(string.IsNullOrEmpty(windows_perf_host) ? "(none)" : windows_perf_host)}");
