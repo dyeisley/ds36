@@ -248,25 +248,16 @@ namespace ds2xdriver
       {
         using (NpgsqlDataReader Rdr = Login.ExecuteReader())
         {
-          Rdr.Read();
-	  //Console.Write("{0} ,{1} ,{2}, {3}\n", Rdr[0], Rdr[1], Rdr[2], Rdr[3]);
-	  customerid_out = (int)Rdr[0];
-	  //Console.WriteLine("Customerid_out = {0}", customerid_out);
-          //while (Rdr.Read())
-          //     Console.Write("{0} \n", Rdr[0]);
-
           int i_row = 0;
-          if ((customerid_out > 0) && Rdr.NextResult())
+          while (Rdr.Read())
           {
-            while (Rdr.Read())
-            {
-              title_out[i_row] = Rdr.GetString(1);
-              actor_out[i_row] = Rdr.GetString(2);
-              related_title_out[i_row] = Rdr.GetString(3);
-              ++i_row;
-            }
+	    customerid_out = (int)Rdr[0];
+            title_out[i_row] = Rdr.GetString(1);
+            actor_out[i_row] = Rdr.GetString(2);
+            related_title_out[i_row] = Rdr.GetString(3);
+            //Console.WriteLine("customerid_out: {0} title: {1} actor: {2} related: {3}", customerid_out, title_out[i_row], actor_out[i_row], related_title_out[i_row]);
+            ++i_row;
           }
-          //t.Commit();
           rows_returned = i_row;
         }
         return true;
