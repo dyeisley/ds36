@@ -397,14 +397,15 @@ END; $$
 DROP PROCEDURE IF EXISTS DS3.GET_PROD_REVIEWS_BY_TITLE$k $$
 CREATE PROCEDURE DS3.GET_PROD_REVIEWS_BY_TITLE$k
   (
+  IN batch_size_in            INT,
   IN title_in                 VARCHAR(50),
   IN search_depth_in          INT
   )
 BEGIN
 
   IF search_depth_in = '' || search_depth_in = 0
-  THEN 
-    SET search_depth_in = 500; 
+  THEN
+    SET search_depth_in = 500;
   END IF;
 
     SELECT * FROM (
@@ -421,17 +422,18 @@ BEGIN
             R.total_helpfulness AS totalhelp
         FROM DS3.PRODUCTS$k P
         INNER JOIN DS3.REVIEWS$k R ON P.prod_id = R.prod_id
-        WHERE MATCH (P.title) AGAINST (title_in IN BOOLEAN MODE) 
+        WHERE MATCH (P.title) AGAINST (title_in IN BOOLEAN MODE)
         LIMIT search_depth_in
     ) AS T1
     ORDER BY totalhelp DESC
-    LIMIT 10;
+    LIMIT batch_size_in;
 
 END; $$
 
 DROP PROCEDURE IF EXISTS DS3.GET_PROD_REVIEWS_BY_ACTOR$k $$
 CREATE PROCEDURE DS3.GET_PROD_REVIEWS_BY_ACTOR$k
   (
+  IN batch_size_in            INT,
   IN actor_in                 VARCHAR(50),
   IN search_depth_in          INT
   )
@@ -460,7 +462,7 @@ BEGIN
         LIMIT search_depth_in
     ) AS T1
     ORDER BY totalhelp DESC
-    LIMIT 10;
+    LIMIT batch_size_in;
 
 END; $$
 

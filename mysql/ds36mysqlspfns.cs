@@ -177,11 +177,13 @@ namespace ds2xdriver
 
       BrowseReviews_by_actor = new MySqlCommand("GET_PROD_REVIEWS_BY_ACTOR" + target_store_number, objConn);
       BrowseReviews_by_actor.CommandType = CommandType.StoredProcedure;
+      BrowseReviews_by_actor.Parameters.Add("batch_size_in", MySqlDbType.Int32);
       BrowseReviews_by_actor.Parameters.Add("actor_in", MySqlDbType.VarChar, 50);
       BrowseReviews_by_actor.Parameters.Add("search_depth_in", MySqlDbType.Int32);
 
       BrowseReviews_by_title = new MySqlCommand("GET_PROD_REVIEWS_BY_TITLE" + target_store_number, objConn);
       BrowseReviews_by_title.CommandType = CommandType.StoredProcedure;
+      BrowseReviews_by_title.Parameters.Add("batch_size_in", MySqlDbType.Int32);
       BrowseReviews_by_title.Parameters.Add("title_in", MySqlDbType.VarChar, 50);
       BrowseReviews_by_title.Parameters.Add("search_depth_in", MySqlDbType.Int32);
 
@@ -490,9 +492,11 @@ namespace ds2xdriver
         // Reviews Table: "REVIEW_ID" NUMBER,  "PROD_ID" NUMBER,  "REVIEW_DATE" DATE, "STARS" NUMBER,
         // "CUSTOMERID" NUMBER,  "REVIEW_SUMMARY" VARCHAR2(50 byte), "REVIEW_TEXT" VARCHAR2(1000 byte)
 
+        BrowseReviews_by_actor.Parameters["batch_size_in"].Value = batch_size_in;
         BrowseReviews_by_actor.Parameters["actor_in"].Value = get_review_actor_in;
         BrowseReviews_by_actor.Parameters["search_depth_in"].Value = search_depth_in ;
 
+        BrowseReviews_by_title.Parameters["batch_size_in"].Value = batch_size_in;
         BrowseReviews_by_title.Parameters["title_in"].Value = get_review_title_in;
         BrowseReviews_by_title.Parameters["search_depth_in"].Value = search_depth_in ;
 
