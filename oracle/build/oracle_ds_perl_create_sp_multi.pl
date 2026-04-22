@@ -35,13 +35,7 @@ else
 
 foreach my $k (1 .. $numberofstores){
 	open (my $OUT, ">$oracletargetdir${pathsep}oracle_ds_createsp$k.sql") || die("Can't open oracle_ds_createsp$k.sql");
-	print $OUT "CREATE GLOBAL TEMPORARY TABLE derivedtable1$k
-  ON COMMIT PRESERVE ROWS
-  AS SELECT PRODUCTS$k.TITLE, PRODUCTS$k.ACTOR, PRODUCTS$k.PROD_ID, PRODUCTS$k.COMMON_PROD_ID
-  FROM DS3.CUST_HIST$k INNER JOIN
-    DS3.PRODUCTS$k ON CUST_HIST$k.PROD_ID = PRODUCTS$k.PROD_ID;
-
-CREATE OR REPLACE  PROCEDURE \"DS3\".\"NEW_CUSTOMER$k\"
+	print $OUT "CREATE OR REPLACE  PROCEDURE \"DS3\".\"NEW_CUSTOMER$k\"
   (
   firstname_in DS3.CUSTOMERS$k.FIRSTNAME%TYPE,
   lastname_in DS3.CUSTOMERS$k.LASTNAME%TYPE,
@@ -255,9 +249,9 @@ BEGIN
 
   OPEN v_history_rc FOR
     SELECT p1.TITLE, p1.ACTOR, p2.TITLE AS RelatedTitle
-    FROM cust_hist1 ch
-    JOIN products1 p1 ON ch.prod_id = p1.prod_id
-    LEFT JOIN products1 p2 ON p1.common_prod_id = p2.prod_id
+    FROM cust_hist$k ch
+    JOIN products$k p1 ON ch.prod_id = p1.prod_id
+    LEFT JOIN products$k p2 ON p1.common_prod_id = p2.prod_id
     WHERE ch.customerid = p_customerid;
 
   DBMS_SQL.RETURN_RESULT(v_history_rc);

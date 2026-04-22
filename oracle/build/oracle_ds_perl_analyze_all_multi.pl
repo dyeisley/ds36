@@ -69,7 +69,6 @@ dbms_stats.gather_index_stats(ownname=> 'DS3', indname=> 'IX_REVIEWS_PRODSTARS$k
 dbms_stats.gather_index_stats(ownname=> 'DS3', indname=> 'IX_REVIEWS_STARS$k', partname=> NULL , estimate_percent=> 18 );
 dbms_stats.gather_index_stats(ownname=> 'DS3', indname=> 'IX_PROD_MEMBERSHIP$k', partname=> NULL , estimate_percent=> 18 );
 dbms_stats.gather_index_stats(ownname=> 'DS3', indname=> 'IX_REORDER_PRODID$k', partname=> NULL , estimate_percent=> 18 );
-dbms_stats.gather_table_stats(ownname=> 'DS3', tabname=> 'DERIVEDTABLE1$k', partname=> NULL );
 end;
 /
 exit;
