@@ -130,33 +130,47 @@ AS \$\$
 DECLARE
     customerid_out INT;
 BEGIN
+    -- Authenticate user
     SELECT CUSTOMERID INTO customerid_out FROM CUSTOMERS$k WHERE USERNAME=username_in AND PASSWORD=password_in;
+
     IF FOUND THEN
-      If EXISTS (    -- Check to see if there are any related purchases to recommend for user
-            SELECT derivedtable1.CUSTOMERID, derivedtable1.TITLE, derivedtable1.ACTOR, PRODUCTS_1.TITLE
-        AS RelatedPurchase FROM (SELECT PRODUCTS$k.TITLE, PRODUCTS$k.ACTOR,
-          PRODUCTS$k.PROD_ID, PRODUCTS$k.COMMON_PROD_ID, CUST_HIST$k.CUSTOMERID
-        FROM CUST_HIST$k INNER JOIN PRODUCTS$k ON CUST_HIST$k.PROD_ID =  PRODUCTS$k.PROD_ID
-        WHERE (CUST_HIST$k.CUSTOMERID = customerid_out)) AS derivedtable1
-        INNER JOIN PRODUCTS$k AS PRODUCTS_1 ON derivedtable1.COMMON_PROD_ID = PRODUCTS_1.PROD_ID
-            )
-            THEN
-            RETURN QUERY     -- Run query and return results with the related purchases
-                  SELECT derivedtable1.CUSTOMERID, derivedtable1.TITLE, derivedtable1.ACTOR, PRODUCTS_1.TITLE
-          AS RelatedPurchase FROM (SELECT PRODUCTS$k.TITLE, PRODUCTS$k.ACTOR,
-           PRODUCTS$k.PROD_ID, PRODUCTS$k.COMMON_PROD_ID, CUST_HIST$k.CUSTOMERID
-          FROM CUST_HIST$k INNER JOIN PRODUCTS$k ON CUST_HIST$k.PROD_ID =  PRODUCTS$k.PROD_ID
-          WHERE (CUST_HIST$k.CUSTOMERID = customerid_out)ORDER BY ORDERID DESC, TITLE ASC LIMIT 10) AS derivedtable1
-          INNER JOIN PRODUCTS$k AS PRODUCTS_1 ON derivedtable1.COMMON_PROD_ID = PRODUCTS_1.PROD_ID;
-             ELSE
-                   RETURN QUERY SELECT * FROM (VALUES (customerid_out,'None','None','None'))  -- return customer id incase of no related purchases found
-                   AS RETURNLOGIN(custid_out,actor,title,relateditem);
-                END IF;
+        -- Execute complex query ONCE and return results
+        -- If user has purchase history, return related products
+        -- If no purchase history, return customerid with 'None' placeholders
+        RETURN QUERY
+        SELECT
+            customerid_out,
+            COALESCE(derivedtable1.TITLE, 'None'::text),
+            COALESCE(derivedtable1.ACTOR, 'None'::text),
+            COALESCE(PRODUCTS_1.TITLE, 'None'::text)
+        FROM (
+            SELECT
+                PRODUCTS$k.TITLE,
+                PRODUCTS$k.ACTOR,
+                PRODUCTS$k.PROD_ID,
+                PRODUCTS$k.COMMON_PROD_ID
+            FROM CUST_HIST$k
+            INNER JOIN PRODUCTS$k ON CUST_HIST$k.PROD_ID = PRODUCTS$k.PROD_ID
+            WHERE CUST_HIST$k.CUSTOMERID = customerid_out
+            ORDER BY ORDERID DESC, TITLE ASC
+            LIMIT 10
+        ) AS derivedtable1
+        LEFT JOIN PRODUCTS$k AS PRODUCTS_1 ON derivedtable1.COMMON_PROD_ID = PRODUCTS_1.PROD_ID
+
+        UNION ALL
+
+        -- If no purchase history exists, return one row with 'None' values
+        SELECT customerid_out, 'None'::text, 'None'::text, 'None'::text
+        WHERE NOT EXISTS (
+            SELECT 1 FROM CUST_HIST$k WHERE CUSTOMERID = customerid_out
+        )
+        LIMIT 10;
     ELSE
-          RETURN QUERY SELECT * FROM (VALUES (0,'None','None','None'))
-          AS RETURNLOGIN(custid_out,actor,title,relateditem); -- return customerid of 0 to indicate that login failed - user not found
+        -- Login failed - return customerid 0
+        RETURN QUERY SELECT 0, 'None'::text, 'None'::text, 'None'::text;
     END IF;
-   RETURN;
+
+    RETURN;
 END;
 \$\$;
 
@@ -530,15 +544,15 @@ CREATE OR REPLACE FUNCTION get_prod_reviews_by_actor$k(
     actor_in TEXT
 )
 RETURNS TABLE (
-    r_prod_id int, 
-    r_title text, 
-    r_actor text, 
-    r_review_id int, 
-    r_review_date date, 
+    r_prod_id int,
+    r_title text,
+    r_actor text,
+    r_review_id int,
+    r_review_date date,
     r_stars smallint,
-    r_customerid int, 
-    r_review_summary text, 
-    r_review_text text, 
+    r_customerid int,
+    r_review_summary text,
+    r_review_text text,
     r_totalhelp int
 )
 LANGUAGE plpgsql
@@ -548,21 +562,26 @@ DECLARE
 BEGIN
     vector_in := to_tsquery('simple', replace(trim(actor_in), ' ', ' & '));
 
+    -- Two-tier limiting: search_depth limits products, batch_size limits final reviews
     RETURN QUERY
-    SELECT 
-        p.PROD_ID, 
-        p.TITLE, 
-        p.ACTOR, 
-        r.REVIEW_ID, 
-        r.REVIEW_DATE, 
+    SELECT
+        p.PROD_ID,
+        p.TITLE,
+        p.ACTOR,
+        r.REVIEW_ID,
+        r.REVIEW_DATE,
         r.STARS,
-        r.CUSTOMERID, 
-        r.REVIEW_SUMMARY, 
+        r.CUSTOMERID,
+        r.REVIEW_SUMMARY,
         r.REVIEW_TEXT,
         r.total_helpfulness
-    FROM PRODUCTS$k p
+    FROM (
+        SELECT PROD_ID, TITLE, ACTOR
+        FROM PRODUCTS$k
+        WHERE to_tsvector('simple', ACTOR) @@ vector_in
+        LIMIT search_depth_in
+    ) p
     INNER JOIN REVIEWS$k r ON p.PROD_ID = r.PROD_ID
-    WHERE to_tsvector('simple', p.ACTOR) @@ vector_in
     ORDER BY r.total_helpfulness DESC
     LIMIT batch_size_in;
 END;
@@ -592,6 +611,7 @@ DECLARE
 BEGIN
     vector_in := to_tsquery('simple', replace(trim(title_in), ' ', ' & '));
 
+    -- Two-tier limiting: search_depth limits products, batch_size limits final reviews
     RETURN QUERY
     SELECT
         p.PROD_ID,
@@ -604,9 +624,13 @@ BEGIN
         r.REVIEW_SUMMARY,
         r.REVIEW_TEXT,
         r.total_helpfulness
-    FROM PRODUCTS$k p
+    FROM (
+        SELECT PROD_ID, TITLE, ACTOR
+        FROM PRODUCTS$k
+        WHERE to_tsvector('simple', TITLE) @@ vector_in
+        LIMIT search_depth_in
+    ) p
     INNER JOIN REVIEWS$k r ON p.PROD_ID = r.PROD_ID
-    WHERE to_tsvector('simple', p.TITLE) @@ vector_in
     ORDER BY r.total_helpfulness DESC
     LIMIT batch_size_in;
 END;
