@@ -46,7 +46,6 @@ dbms_stats.gather_index_stats(ownname=> 'DS3', indname=> 'IX_INV_PROD_ID$k', par
 dbms_stats.gather_index_stats(ownname=> 'DS3', indname=> 'IX_ACTOR_TEXT$k', partname=> NULL );
 dbms_stats.gather_index_stats(ownname=> 'DS3', indname=> 'IX_TITLE_TEXT$k', partname=> NULL );
 dbms_stats.gather_index_stats(ownname=> 'DS3', indname=> 'IX_PROD_CAT_SPECIAL$k', partname=> NULL );
-dbms_stats.gather_index_stats(ownname=> 'DS3', indname=> 'IX_PROD_COMMON_PROD_ID$k', partname=> NULL );
 dbms_stats.gather_table_stats(ownname=> 'DS3', tabname=> 'CUSTOMERS$k', partname=> NULL , estimate_percent=> 18 );
 dbms_stats.gather_index_stats(ownname=> 'DS3', indname=> 'PK_CUSTOMERS$k', partname=> NULL , estimate_percent=> 18 );
 dbms_stats.gather_table_stats(ownname=> 'DS3', tabname=> 'CUST_HIST$k', partname=> NULL , estimate_percent=> 18 );

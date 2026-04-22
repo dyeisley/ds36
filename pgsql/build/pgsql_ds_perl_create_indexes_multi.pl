@@ -174,6 +174,12 @@ CREATE INDEX IX_REVIEWS_PRODSTARS$k ON REVIEWS$k
   )
   ;
 
+CREATE INDEX IX_REVIEWS_PROD_HELP$k ON REVIEWS$k
+  (
+  PROD_ID, total_helpfulness DESC
+  )
+  ;
+
 CREATE INDEX idx_reviews_prod_stars_help$k ON REVIEWS$k
   (
   PROD_ID, STARS, total_helpfulness DESC
