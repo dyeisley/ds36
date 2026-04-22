@@ -16,19 +16,19 @@ Guide for downloading/setting up postgresql on CentOS:
 		- all commands after this point will assume you're installing version 13
 
 2) Setup
-	- /usr/pgsql-13/bin/postgresql-13-setup initdb
+	- /usr/bin/postgresql-setup initdb
 		- initializes postgres
 
-	- systemctl start postgresql-13
-	- systemctl enable postgresql-13
+	- systemctl start postgresql
+	- systemctl enable postgresql
 		- starts postgres service and enables it to start after system reboot 
 
 2.5) Confirming installation/setup
-	- systemctl status postgresql-13
+	- systemctl status postgresql
 		- You should see that it's active, example output:
-			● postgresql-13.service - PostgreSQL 13 database server
- 			  Loaded: loaded (/usr/lib/systemd/system/postgresql-13.service; enabled; vendor preset: >
-  			   Active: active (running) (thawing) since Tue 2021-09-28 17:43:41 EDT; 19h ago
+                  ● postgresql.service - PostgreSQL database server
+                       Loaded: loaded (/usr/lib/systemd/system/postgresql.service; enabled; preset: disabled)
+                       Active: active (running) since Wed 2026-04-22 11:51:04 UTC; 11s ago
 
 	- netstat -antup | grep 5432
 		- It's working if you get output
@@ -42,7 +42,7 @@ Guide for downloading/setting up postgresql on CentOS:
 	- switch back to admin user
 
 4) Configuring postgres for remote access
-	- sudo vim /var/lib/pgsql/13/data/postgresql.conf
+	- sudo vim /var/lib/pgsql/data/postgresql.conf
 		- opens pgsql configuration file
 	- Find, uncomment if needed, and change these variables to the following values:
 		- listen_addresses = '*'
@@ -52,7 +52,7 @@ Guide for downloading/setting up postgresql on CentOS:
 	- Save and close
 
 
-	- sudo vim /var/lib/pgsql/13/data/pg_hba.conf
+	- sudo vim /var/lib/pgsql/data/pg_hba.conf
 		- accesses hostbased authentication file for postgres
 	
 	- add to top of TYPE DATABASE	 USER	ADDRESS		METHOD section:
@@ -67,7 +67,7 @@ Guide for downloading/setting up postgresql on CentOS:
 
 5) Restarting postgres and verification
 	- restart
-		- systemctl restart postgresql-13
+		- systemctl restart postgresql
 	
 	- verifying remote access (use a different computer/vm)
 		- psql -h SERVER-IP -p 5432 -U postgres -W
