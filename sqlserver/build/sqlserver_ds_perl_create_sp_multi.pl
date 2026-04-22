@@ -737,7 +737,7 @@ BEGIN
     DECLARE \@v_common_id INT;
     DECLARE \@v_membership TINYINT;
 
-    SELECT \@v_max_id = COUNT(*) FROM PRODUCTS1;
+    SELECT \@v_max_id = COUNT(*) FROM PRODUCTS$k;
 
     IF \@v_max_id = 0
     BEGIN
