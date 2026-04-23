@@ -1,7 +1,7 @@
         
 ds3_schema.txt
 
-DVD Store Release 3 Database Schema
+DVD Store Release 3.6 Database Schema
 -----------------------------------
 
 A complete set of these tables is created for each store with a number 
@@ -82,6 +82,7 @@ Reviews		REVIEW_ID
 		CUSTOMERID
 		REVIEW_SUMMARY
 		REVIEW_TEXT
+                TOTAL_HELPFULNESS
 
 Reviews_Helpfulness
 		REVIEW_HELPFULNESS_ID
