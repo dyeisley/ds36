@@ -45,11 +45,6 @@ foreach my $k (1 .. $numberofstores){
 	print $OUT  "-- Tables
 USE DS3;
 
-CREATE UNIQUE INDEX IX_CUST_USERNAME$k ON CUSTOMERS$k
-  (
-  USERNAME
-  );
-
 CREATE UNIQUE INDEX IX_CUST_UN_PW$k ON CUSTOMERS$k
   (
   USERNAME,
@@ -75,7 +70,7 @@ SET FOREIGN_KEY_CHECKS=1;
   close $OUT;
   sleep(1);
   print ("mariadb -h $mysqltarget -u web --password=web < $mysql_targetdir${pathsep}$indexfile\n");
-  system ("mariadb -h $mysqltarget -u web --password=web < $mysql_targetdir${pathsep}$indexfile $mybackground");
+  system ("mariadb -h $mysqltarget -u web --password=web < $mysql_targetdir${pathsep}$indexfile");
   }
 
 foreach my $k (1 .. $numberofstores){
@@ -83,11 +78,6 @@ foreach my $k (1 .. $numberofstores){
 	open (my $OUT, ">$mysql_targetdir${pathsep}$indexfile") || die("Can't open $mysql_targetdir${pathsep}$indexfile");
 	print $OUT  "-- Tables
 USE DS3;
-CREATE INDEX IX_ORDER_CUSTID$k ON ORDERS$k
-  (
-  CUSTOMERID
-  );
-
 SET FOREIGN_KEY_CHECKS=0;
 
 ALTER TABLE ORDERS$k
@@ -129,25 +119,15 @@ CREATE FULLTEXT INDEX IX_PROD_ACTOR$k ON PRODUCTS$k
   ACTOR
   );
 
-CREATE INDEX IX_PROD_CATEGORY$k ON PRODUCTS$k
+CREATE INDEX IX_PROD_SPECIAL_CATEGORY$k ON PRODUCTS$k
   (
+  SPECIAL,
   CATEGORY
-  );
-
-CREATE INDEX IX_PROD_CAT_SPECIAL$k ON PRODUCTS$k
-  (
-  CATEGORY,
-  SPECIAL
   );
 
 CREATE FULLTEXT INDEX IX_PROD_TITLE$k ON PRODUCTS$k
   (
   TITLE
-  );
-
-CREATE INDEX IX_PROD_SPECIAL$k ON PRODUCTS$k
-  (
-  SPECIAL
   );
 
 CREATE INDEX IX_INV_PROD_ID$k ON INVENTORY$k
@@ -221,11 +201,6 @@ CREATE INDEX IX_REVIEWS_PROD_DATE$k ON REVIEWS$k
   REVIEW_DATE DESC
   );
 
-CREATE INDEX idx_reviews_helpfulness$k ON REVIEWS$k
-  (
-  total_helpfulness
-  );
-
 SET FOREIGN_KEY_CHECKS=0;
 
 ALTER TABLE REVIEWS$k
@@ -254,11 +229,6 @@ foreach my $k (1 .. $numberofstores){
 	print $OUT  "-- Tables
 USE DS3;
 
-CREATE INDEX IX_REVIEWS_HELP_CUSTID$k on REVIEWS_HELPFULNESS$k
-  (
-  CUSTOMERID
-  );
-
 CREATE INDEX IX_REVIEW_HELP_ID_HELPID$k ON REVIEWS_HELPFULNESS$k
   (
   REVIEW_ID,
@@ -274,11 +244,6 @@ ALTER TABLE REVIEWS_HELPFULNESS$k
   ;
 
 SET FOREIGN_KEY_CHECKS=1;
-
-CREATE INDEX IX_REORDER_PRODID$k on REORDER$k
-  (
-  PROD_ID
-  );
 \n";
   close $OUT;
   sleep(1);
