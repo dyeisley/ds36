@@ -39,17 +39,26 @@ RETURNS TRIGGER
 LANGUAGE plpgsql
 AS \$RESTOCK_ORDER\$
 DECLARE
-  restockto INTEGER;
+  quan_reordered INTEGER;
+  date_reordered TIMESTAMP;
 BEGIN
   IF ( NEW.QUAN_IN_STOCK < 3) THEN
-    restockto = 250;
-    IF ( (NEW.PROD_ID +1) % 10000 = 0 ) THEN
-      restockto = 2500;
+    -- Random quantity between 3 and 22
+    quan_reordered := FLOOR(random() * 20) + 3;
+
+    -- Special products (every 10000th) get 20x the quantity
+    IF ( NEW.PROD_ID % 10000 = 0 ) THEN
+      quan_reordered := quan_reordered * 20;
     END IF;
-    INSERT INTO REORDER$k ( PROD_ID, DATE_LOW, QUAN_LOW, quan_reordered)
-    VALUES ( NEW.PROD_ID, current_timestamp , NEW.QUAN_IN_STOCK, restockto - NEW.QUAN_IN_STOCK);
-    NEW.QUAN_IN_STOCK = restockto;
-    -- UPDATE INVENTORY$k SET QUAN_IN_STOCK = OLD.QUAN_IN_STOCK WHERE PROD_ID = NEW.PROD_ID;
+
+    -- Calculate reorder date (NOW + quan_reordered MINUTES)
+    date_reordered := current_timestamp + (quan_reordered || ' minutes')::INTERVAL;
+
+    INSERT INTO REORDER$k (PROD_ID, DATE_LOW, QUAN_LOW, DATE_REORDERED, QUAN_REORDERED)
+    VALUES (NEW.PROD_ID, current_timestamp, NEW.QUAN_IN_STOCK, date_reordered, quan_reordered);
+
+    -- Add reordered quantity to current stock
+    NEW.QUAN_IN_STOCK := NEW.QUAN_IN_STOCK + quan_reordered;
   END IF;
 RETURN NEW;
 END;

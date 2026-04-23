@@ -636,8 +636,6 @@ BEGIN
 END;
 \$\$;
 
-DROP FUNCTION IF EXISTS sp_addnewinventoryproduct$k(smallint, varchar, varchar, numeric, int);
-
 CREATE OR REPLACE FUNCTION sp_addnewinventoryproduct$k(
     p_cat smallint,
     p_title varchar(50),
