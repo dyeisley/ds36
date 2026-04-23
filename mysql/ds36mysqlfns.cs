@@ -1,6 +1,6 @@
 
 /*
- * DVD Store 2 MySQL Functions - ds2mysqlfns.cs
+ * DVD Store 3.6 MySQL Functions - ds2mysqlfns.cs
  *
  * Copyright (C) 2005 Dell, Inc. <dave_jaffe@dell.com> and <tmuirhead@vmware.com>
  *
@@ -35,7 +35,7 @@ using System.Diagnostics;
 namespace ds2xdriver
   {
   /// <summary>
-  /// ds2mysqlfns.cs: DVD Store 2 MySql Functions
+  /// ds2mysqlfns.cs: DVD Store 3.6  MySql Functions
   /// </summary>
   public class ds2Interface
     {
@@ -448,10 +448,11 @@ namespace ds2xdriver
                     "REVIEWS" + target_store_number + ".review_id, REVIEWS" + target_store_number + ".customerid, REVIEWS" + target_store_number + ".review_summary, REVIEWS" + target_store_number + ".review_text " +
                     "FROM PRODUCTS" + target_store_number + " INNER JOIN REVIEWS" + target_store_number + " ON PRODUCTS" + target_store_number + ".prod_id = REVIEWS" + target_store_number + ".prod_id " +
                     "WHERE MATCH (ACTOR) AGAINST (@search) LIMIT @search_depth) " +
-                    "AS T1 ON REVIEWS_HELPFULNESS" + target_store_number + ".REVIEW_ID = T1.review_id GROUP BY REVIEW_ID ORDER BY totalhelp DESC LIMIT 10";
+                    "AS T1 ON REVIEWS_HELPFULNESS" + target_store_number + ".REVIEW_ID = T1.review_id GROUP BY REVIEW_ID ORDER BY totalhelp DESC LIMIT @batch_size";
                 BrowseReviews = new MySqlCommand(query, objConn);
                 BrowseReviews.Parameters.AddWithValue("@search", get_review_actor_in);
                 BrowseReviews.Parameters.AddWithValue("@search_depth", search_depth_in);
+                BrowseReviews.Parameters.AddWithValue("@batch_size", batch_size_in);
                 break;
             case "title":
                 query = "SELECT T1.prod_id, T1.title, T1.actor, REVIEWS_HELPFULNESS" + target_store_number + ".REVIEW_ID, T1.review_date, T1.stars, " +
@@ -460,10 +461,11 @@ namespace ds2xdriver
                     "REVIEWS" + target_store_number + ".review_id, REVIEWS" + target_store_number + ".customerid, REVIEWS" + target_store_number + ".review_summary, REVIEWS" + target_store_number + ".review_text " +
                     "FROM PRODUCTS" + target_store_number + " INNER JOIN REVIEWS" + target_store_number + " ON PRODUCTS" + target_store_number + ".prod_id = REVIEWS" + target_store_number + ".prod_id " +
                     "WHERE MATCH (TITLE) AGAINST (@search) LIMIT @search_depth) " +
-                    "AS T1 ON REVIEWS_HELPFULNESS" + target_store_number + ".REVIEW_ID = T1.review_id GROUP BY REVIEW_ID ORDER BY totalhelp DESC LIMIT 10";
+                    "AS T1 ON REVIEWS_HELPFULNESS" + target_store_number + ".REVIEW_ID = T1.review_id GROUP BY REVIEW_ID ORDER BY totalhelp DESC LIMIT @batch_size";
                 BrowseReviews = new MySqlCommand(query, objConn);
                 BrowseReviews.Parameters.AddWithValue("@search", get_review_title_in);
                 BrowseReviews.Parameters.AddWithValue("@search_depth", search_depth_in);
+                BrowseReviews.Parameters.AddWithValue("@batch_size", batch_size_in);
                 break;
         }
 
