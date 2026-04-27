@@ -192,7 +192,7 @@ namespace ds2xdriver
       New_Review_Helpfulness_prm[3] = New_Review_Helpfulness.Parameters.Add("customerid_out", OracleDbType.Int32, ParameterDirection.Output);
 
       //New Product
-      New_Product = new OracleCommand("sp_AddNewInventoryProduct" + target_store_number, objConn);
+      New_Product = new OracleCommand("AddNewInventoryProduct" + target_store_number, objConn);
       New_Product.CommandType = CommandType.StoredProcedure;
       New_Product.Parameters.Add("p_cat", OracleDbType.Int32);
       New_Product.Parameters.Add("p_title", OracleDbType.Varchar2);

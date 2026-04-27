@@ -127,7 +127,7 @@ namespace ds2xdriver
       New_Helpfulness.Parameters.Add("review_helpfulness_in", MySqlDbType.Int32);
       New_Helpfulness.Parameters.Add(helpfulnessid_out_param);
 
-      New_Product = new MySqlCommand("sp_AddNewInventoryProduct" + target_store_number, objConn);
+      New_Product = new MySqlCommand("AddNewInventoryProduct" + target_store_number, objConn);
       New_Product.CommandType = CommandType.StoredProcedure;
       New_Product.Parameters.Add("p_cat", MySqlDbType.Int32);
       New_Product.Parameters.Add("p_title", MySqlDbType.VarChar,50);

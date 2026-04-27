@@ -35,12 +35,14 @@ else
 
 foreach my $k (1 .. $numberofstores){
 	open (my $OUT, ">$oracletargetdir${pathsep}oracle_ds_createfulltextindexes$k.sql") || die("Can't open oracle_ds_fulltextindexes$k.sql");
-	print $OUT "CREATE INDEX \"DS3\".\"IX_ACTOR_TEXT$k\" ON 
+	print $OUT "CREATE INDEX \"DS3\".\"IX_ACTOR_TEXT$k\" ON
 \"DS3\".\"PRODUCTS$k\"(actor) INDEXTYPE IS CTXSYS.CONTEXT
+PARAMETERS ('STOPLIST CTXSYS.EMPTY_STOPLIST')
 ;
 
 CREATE INDEX \"DS3\".\"IX_TITLE_TEXT$k\" ON
 \"DS3\".\"PRODUCTS$k\"(title) INDEXTYPE IS CTXSYS.CONTEXT
+PARAMETERS ('STOPLIST CTXSYS.EMPTY_STOPLIST')
 ;
 
 exit;\n";

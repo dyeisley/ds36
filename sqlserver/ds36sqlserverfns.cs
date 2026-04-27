@@ -180,7 +180,7 @@ namespace ds2xdriver
       Purchase.Parameters.Add("@prod_id_in8", SqlDbType.Int); Purchase.Parameters.Add("@qty_in8", SqlDbType.Int);
       Purchase.Parameters.Add("@prod_id_in9", SqlDbType.Int); Purchase.Parameters.Add("@qty_in9", SqlDbType.Int);
 
-      New_Product = new SqlCommand("sp_AddNewInventoryProduct" + target_store_number, objConn);
+      New_Product = new SqlCommand("AddNewInventoryProduct" + target_store_number, objConn);
       New_Product.CommandType = CommandType.StoredProcedure;
       New_Product.Parameters.Add("p_cat", SqlDbType.Int);
       New_Product.Parameters.Add("p_title", SqlDbType.VarChar);

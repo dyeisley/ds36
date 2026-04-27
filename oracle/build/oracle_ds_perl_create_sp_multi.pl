@@ -719,7 +719,7 @@ CREATE OR REPLACE  PROCEDURE \"DS3\".\"PURCHASE$k\"
   END PURCHASE$k;
 /
 
-CREATE OR REPLACE PROCEDURE DS3.sp_AddNewInventoryProduct$k (
+CREATE OR REPLACE PROCEDURE DS3.AddNewInventoryProduct$k (
     p_cat    IN  NUMBER,
     p_title  IN  VARCHAR2,
     p_actor  IN  VARCHAR2,

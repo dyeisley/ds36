@@ -636,7 +636,7 @@ BEGIN
 END;
 \$\$;
 
-CREATE OR REPLACE FUNCTION sp_addnewinventoryproduct$k(
+CREATE OR REPLACE FUNCTION addnewinventoryproduct$k(
     p_cat smallint,
     p_title varchar(50),
     p_actor varchar(50),

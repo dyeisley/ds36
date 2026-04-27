@@ -116,7 +116,7 @@ CREATE PROCEDURE NEW_CUSTOMER$k
       \@income_in,
       \@gender_in
       )
-    SELECT \@\@IDENTITY
+    SELECT SCOPE_IDENTITY()
   END
   ELSE
     SELECT 0
@@ -205,7 +205,7 @@ CREATE PROCEDURE NEW_PROD_REVIEW$k
       \@review_summary_in,
       \@review_text_in
       )
-    SELECT \@\@IDENTITY
+    SELECT SCOPE_IDENTITY()
  GO
 
 
@@ -236,7 +236,7 @@ CREATE PROCEDURE NEW_REVIEW_HELPFULNESS$k
       \@customerid_in,
       \@review_helpfulness_in
       )
-    SELECT \@\@IDENTITY
+    SELECT SCOPE_IDENTITY()
  GO
 
 -- LOGIN
@@ -619,7 +619,7 @@ CREATE PROCEDURE PURCHASE$k
     \@totalamount_in
     )
 
-  SET \@neworderid = \@\@IDENTITY
+  SET \@neworderid = SCOPE_IDENTITY()
 
 
   -- ADD LINE ITEMS TO ORDERLINES
@@ -708,11 +708,11 @@ GO
 USE DS3
 GO
 
-IF EXISTS (SELECT name FROM sysobjects WHERE name = 'sp_AddNewInventoryProduct$k' AND type = 'P')
-  DROP PROCEDURE sp_AddNewInventoryProduct$k
+IF EXISTS (SELECT name FROM sysobjects WHERE name = 'AddNewInventoryProduct$k' AND type = 'P')
+  DROP PROCEDURE AddNewInventoryProduct$k
 GO
 
-CREATE PROCEDURE sp_AddNewInventoryProduct$k
+CREATE PROCEDURE AddNewInventoryProduct$k
 (
     \@p_cat TINYINT,
     \@p_title VARCHAR(50),

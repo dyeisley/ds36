@@ -177,7 +177,7 @@ namespace ds2xdriver
 	Purchase.Parameters.Add("prod_id_in9", NpgsqlDbType.Integer); Purchase.Parameters.Add("qty_in9", NpgsqlDbType.Integer);
 
         //New Product
-        New_Product = new NpgsqlCommand("sp_addnewinventoryproduct" + target_store_number, objConn);
+        New_Product = new NpgsqlCommand("addnewinventoryproduct" + target_store_number, objConn);
         New_Product.CommandType = CommandType.StoredProcedure;
         New_Product.Parameters.Add("p_cat", NpgsqlDbType.Smallint);
         New_Product.Parameters.Add("p_title", NpgsqlDbType.Varchar);
