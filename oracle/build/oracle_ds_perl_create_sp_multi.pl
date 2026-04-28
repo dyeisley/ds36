@@ -35,13 +35,7 @@ else
 
 foreach my $k (1 .. $numberofstores){
 	open (my $OUT, ">$oracletargetdir${pathsep}oracle_ds_createsp$k.sql") || die("Can't open oracle_ds_createsp$k.sql");
-	print $OUT "CREATE GLOBAL TEMPORARY TABLE derivedtable1$k
-  ON COMMIT PRESERVE ROWS
-  AS SELECT PRODUCTS$k.TITLE, PRODUCTS$k.ACTOR, PRODUCTS$k.PROD_ID, PRODUCTS$k.COMMON_PROD_ID
-  FROM DS3.CUST_HIST$k INNER JOIN
-    DS3.PRODUCTS$k ON CUST_HIST$k.PROD_ID = PRODUCTS$k.PROD_ID;
-
-CREATE OR REPLACE  PROCEDURE \"DS3\".\"NEW_CUSTOMER$k\"
+	print $OUT "CREATE OR REPLACE  PROCEDURE \"DS3\".\"NEW_CUSTOMER$k\"
   (
   firstname_in DS3.CUSTOMERS$k.FIRSTNAME%TYPE,
   lastname_in DS3.CUSTOMERS$k.LASTNAME%TYPE,
@@ -725,7 +719,7 @@ CREATE OR REPLACE  PROCEDURE \"DS3\".\"PURCHASE$k\"
   END PURCHASE$k;
 /
 
-CREATE OR REPLACE PROCEDURE DS3.sp_AddNewInventoryProduct$k (
+CREATE OR REPLACE PROCEDURE DS3.AddNewInventoryProduct$k (
     p_cat    IN  NUMBER,
     p_title  IN  VARCHAR2,
     p_actor  IN  VARCHAR2,
@@ -775,12 +769,24 @@ BEFORE UPDATE OF \"QUAN_IN_STOCK\" ON \"DS3\".\"INVENTORY$k\"
 FOR EACH ROW WHEN (NEW.QUAN_IN_STOCK < 3)
 
 DECLARE
-  X INTEGER;
+  quan_reordered NUMBER;
+  date_reordered DATE;
 BEGIN
-    X := DBMS_RANDOM.VALUE(3, 20);
-    -- INSERT INTO DS3.REORDER$k(PROD_ID, DATE_LOW, QUAN_LOW) VALUES(:NEW.PROD_ID, SYSDATE, :NEW.QUAN_IN_STOCK);
-    INSERT INTO DS3.REORDER$k(PROD_ID, DATE_LOW, QUAN_LOW, DATE_REORDERED, QUAN_REORDERED) VALUES(:NEW.PROD_ID, SYSDATE, :NEW.QUAN_IN_STOCK, SYSDATE + X, X);
-    :NEW.QUAN_IN_STOCK := :NEW.QUAN_IN_STOCK + X;
+    -- Random quantity between 3 and 22
+    quan_reordered := TRUNC(DBMS_RANDOM.VALUE(3, 23));
+
+    -- Special products (every 10000th) get 20x the quantity
+    IF (MOD(:NEW.PROD_ID, 10000) = 0) THEN
+        quan_reordered := quan_reordered * 20;
+    END IF;
+
+    -- Calculate reorder date (NOW + quan_reordered MINUTES, not DAYS)
+    date_reordered := SYSDATE + (quan_reordered / 1440);
+
+    INSERT INTO DS3.REORDER$k(PROD_ID, DATE_LOW, QUAN_LOW, DATE_REORDERED, QUAN_REORDERED)
+    VALUES(:NEW.PROD_ID, SYSDATE, :NEW.QUAN_IN_STOCK, date_reordered, quan_reordered);
+
+    :NEW.QUAN_IN_STOCK := :NEW.QUAN_IN_STOCK + quan_reordered;
 END RESTOCK$k;
 /
 

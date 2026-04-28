@@ -158,7 +158,7 @@ foreach my $k (1 .. $numStores){
   REVIEW_SUMMARY TEXT NOT NULL,
   REVIEW_TEXT TEXT NULL,
   total_helpfulness INT DEFAULT 0
-  );
+  ) WITH (fillfactor=90);
 
   CREATE TABLE REVIEWS_HELPFULNESS$k
   (

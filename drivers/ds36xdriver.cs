@@ -10,13 +10,12 @@
  * To see syntax: ds36xdriver   where x= web, mysql, sqlserver or oracle
  *
  * Compile with appropriate functions file to generate driver for web, SQL Server, MySQL, Oracle or PostgreSQL target:
- *  csc /out:ds35webdriver.exe       ds35xdriver.cs ds35webfns.cs       /d:USE_WIN32_TIMER /d:GEN_PERF_CTRS
- *  csc /out:ds35sqlserverdriver.exe ds35xdriver.cs ds35sqlserverfns.cs /d:USE_WIN32_TIMER /d:GEN_PERF_CTRS
- *  csc /out:ds35mysqldriver.exe     ds35xdriver.cs ds35mysqlfns.cs     /d:USE_WIN32_TIMER /d:GEN_PERF_CTRS  /r:<path>MySql.Data.dll
- *  csc /out:ds35oracledriver.exe    ds35xdriver.cs ds35oraclefns.cs    /d:USE_WIN32_TIMER /d:GEN_PERF_CTRS  /r:<path>Oracle.DataAccess.dll
- *  csc /out:ds35pgsqldriver.exe     ds35xdriver.cs ds35pgsqlfns.cs     /d:USE_WIN32_TIMER /d:GENPERF_CTRS   /r:<path>Npgsql.dll
+ *  csc /out:ds35webdriver.exe       ds35xdriver.cs ds35webfns.cs       /d:GEN_PERF_CTRS
+ *  csc /out:ds35sqlserverdriver.exe ds35xdriver.cs ds35sqlserverfns.cs /d:GEN_PERF_CTRS
+ *  csc /out:ds35mysqldriver.exe     ds35xdriver.cs ds35mysqlfns.cs     /d:GEN_PERF_CTRS  /r:<path>MySql.Data.dll
+ *  csc /out:ds35oracledriver.exe    ds35xdriver.cs ds35oraclefns.cs    /d:GEN_PERF_CTRS  /r:<path>Oracle.DataAccess.dll
+ *  csc /out:ds35pgsqldriver.exe     ds35xdriver.cs ds35pgsqlfns.cs     /d:GENPERF_CTRS   /r:<path>Npgsql.dll
  *
- *  USE_WIN32_TIMER: if defined, program will use high resolution WIN32 timers
  *  GEN_PERF_CTRS: if defined, program will generate Windows Perfmon performance counters
  *
  *  csc is installed with Microsoft.NET   Typical location: C:\WINNT\Microsoft.NET\Framework\v2.0.50727
@@ -26,6 +25,7 @@
  * Updated 5/15/15 by TM - updated for DS3 from DS2- support for new order process with reviews and membership.
  * Last Upated 6/24/19 by TM - updated for support for DS3.5 with multi store option
  * Updated 03/26 by DY - Removed compiler warnings, added search by vectors
+ * Updated 04/20/26 by DY - Replaced WIN32 timer ifdefs with cross-platform Stopwatch
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -71,21 +71,11 @@ namespace ds2xdriver
   //
   public class Controller
     {
-    // If compile option /d:USE_WIN32_TIMER is specified will use 64b QueryPerformance counter from Win32
-    // Else will use .NET DateTime class
-#if (USE_WIN32_TIMER)
-    [DllImport("kernel32.dll")]
-    extern static short QueryPerformanceCounter(ref long x);
-    [DllImport("kernel32.dll")]
-    extern static short QueryPerformanceFrequency(ref long x);
-#endif
-
     // Variables needed by User objects
     public static string target = string.Empty , windows_perf_host = string.Empty;
     public static string outfilename = string.Empty;
     public static string ds2_mode_string = string.Empty;
     public static string use_vectors_string = string.Empty;
-    public static string add_products = "N";
     System.IO.StreamWriter? outfile;
 
     public static string[] target_servers = null!;                  //Added by GSK (for single instance of driver program driving multiple database servers)
@@ -169,7 +159,7 @@ namespace ds2xdriver
     // Value for number of stores to support multi stores
     public static int n_stores = 1;
     public static int n_vectors = 0;
-    public static int n_add_products = 0;
+    public static bool add_products_enabled = false;
 
     // Variables needed within Controller class
     // Added new Parameter db_size by GSK
@@ -180,25 +170,606 @@ namespace ds2xdriver
     //Added new parameter log_timestamp by Performance Team - Ruban default value = N
     //Added new parameter log_freq by Performance Team - Ruban default value = 10
     //Added new parameter linux_perf_host by GSK
-    static string[] input_parm_names = new string[] {"config_file", "target", "n_threads", "ramp_rate",
-      "run_time", "db_size", "warmup_time", "think_time", "pct_newcustomers", "pct_newmember", "n_searches",
-      "search_batch_size", "search_depth", "n_reviews", "pct_newreviews", "pct_newhelpfulness", "n_line_items", "virt_dir",
-      "page_type", "windows_perf_host", "linux_perf_host", "detailed_view", "out_filename", "ds2_mode", "n_stores", "log_freq", "log_timestamp",
-      "add_products","use_vectors"};
-    static string[] input_parm_desc = new string[] {"config file path",
-      "database/web server hostname or IP address", "number of driver threads", "startup rate (users/sec)",
-      "run time (min) - 0 is infinite", "S | M | L or database size (e.g. 30MB, 80GB)", "warmup_time (min)", "think time (sec)",
-      "percent of customers that are new customers", "percent of orders with cust membership upgrade",
-      "average number of searches per order", "average number of items returned in each search", "max search query depth",
-      "average number of product review searches per order", "percent of orders where customer creates a review",
-      "pct of orders where review helpfulness is rated", "average number of items per order",
-      "virtual directory (for web driver)", "web page type (for web driver)", "target hostname for Perfmon CPU% display (Windows only)",
-      "username:password:target hostname/IP Address for Linux CPU% display (Linux Only)",
-      "Detailed statistics View (Y / N)", "output results to specified file in csv format", "run driver in ds2 mode to mimic previous version",
-      "Number of stores in DS3 instance", "print output frequency in seconds",
-      "Detailed timestamp format for log (UTC / LOCAL / NONE) ", "Add products at run time", "Experimental vectors"};
-    static string[] input_parm_values = new string[] {"none", "localhost", "1", "10", "0", "10MB", "1", "0",
-      "20", "1", "3", "5", "500", "3", "5", "10", "5", "ds3", "php", "","","N","","N","1", "10", "NONE", "N", "N"};
+
+    //
+    //-------------------------------------------------------------------------------------------------
+    // New Parameter Parsing Infrastructure (Phase 1)
+    //-------------------------------------------------------------------------------------------------
+    //
+
+    // Enum defining parameter types for validation
+    public enum ParamType
+    {
+      String,
+      Int,
+      Double,
+      Boolean,
+      Enum,
+      ServerList,
+      LinuxServerList
+    }
+
+    // Class representing a parameter definition with validation
+    public class ParameterDefinition
+    {
+      public string Name { get; set; }
+      public string Description { get; set; }
+      public string DefaultValue { get; set; }
+      public ParamType Type { get; set; }
+      public Func<string, (bool, string?, object)> Validator { get; set; }
+
+      public ParameterDefinition()
+      {
+        Name = string.Empty;
+        Description = string.Empty;
+        DefaultValue = string.Empty;
+        Type = ParamType.String;
+        Validator = (value) => (true, null, value);
+      }
+    }
+
+    //
+    //-------------------------------------------------------------------------------------------------
+    // Reusable Validation Functions (Phase 1)
+    //-------------------------------------------------------------------------------------------------
+    //
+
+    // Validates integer with optional min/max range
+    private static (bool, string?, object) ValidateInt(string value, int? min = null, int? max = null)
+    {
+      if (!int.TryParse(value, out int result))
+        return (false, $"'{value}' is not a valid integer", null);
+
+      if (min.HasValue && result < min.Value)
+        return (false, $"Value {result} is less than minimum {min.Value}", null);
+
+      if (max.HasValue && result > max.Value)
+        return (false, $"Value {result} exceeds maximum {max.Value}", null);
+
+      return (true, null, result);
+    }
+
+    // Validates double with optional min/max range
+    private static (bool, string?, object) ValidateDouble(string value, double? min = null, double? max = null)
+    {
+      if (!double.TryParse(value, out double result))
+        return (false, $"'{value}' is not a valid number", null);
+
+      if (min.HasValue && result < min.Value)
+        return (false, $"Value {result} is less than minimum {min.Value}", null);
+
+      if (max.HasValue && result > max.Value)
+        return (false, $"Value {result} exceeds maximum {max.Value}", null);
+
+      return (true, null, result);
+    }
+
+    // Validates Y/N boolean parameters
+    private static (bool, string?, object) ValidateYesNo(string value)
+    {
+      var upper = value.ToUpperInvariant();
+      if (upper != "Y" && upper != "N")
+        return (false, "Must be 'Y' or 'N'", null);
+
+      return (true, null, upper == "Y");
+    }
+
+    // Validates database size (S/M/L or XMB/XGB format)
+    private static (bool, string?, object) ValidateDatabaseSize(string value)
+    {
+      // Handle legacy S/M/L format
+      var upper = value.ToUpperInvariant();
+      if (upper == "S") return (true, null, "10MB");
+      if (upper == "M") return (true, null, "1GB");
+      if (upper == "L") return (true, null, "100GB");
+
+      // Parse custom size (e.g., "30MB", "5GB")
+      var lower = value.ToLowerInvariant();
+      bool isMB = lower.EndsWith("mb");
+      bool isGB = lower.EndsWith("gb");
+
+      if (!isMB && !isGB)
+        return (false, "Must end with 'MB' or 'GB' or be S/M/L", null);
+
+      var numStr = lower.Substring(0, lower.Length - 2);
+      if (!int.TryParse(numStr, out int size) || size <= 0)
+        return (false, "Size must be a positive integer", null);
+
+      // Validate reasonable ranges
+      if (isMB && size > 10240)  // > 10GB in MB
+        return (false, "MB size too large, use GB instead", null);
+
+      return (true, null, value);
+    }
+
+    //
+    //-------------------------------------------------------------------------------------------------
+    // ParameterParser Class (Phase 2)
+    //-------------------------------------------------------------------------------------------------
+    //
+
+    // Parser class that manages parameter definitions and parsed values
+    private class ParameterParser
+    {
+      private readonly Dictionary<string, ParameterDefinition> _parameters;
+      private readonly Dictionary<string, object> _parsedValues;
+
+      public ParameterParser(Dictionary<string, ParameterDefinition> parameters)
+      {
+        _parameters = parameters;
+        _parsedValues = new Dictionary<string, object>();
+
+        // Initialize ALL parameters with their default values
+        foreach (var param in _parameters)
+        {
+          // Always initialize, even if default is null or empty
+          string defaultValue = param.Value.DefaultValue ?? "";
+
+          // Parse default value through validator to ensure consistency
+          var (success, error, value) = param.Value.Validator(defaultValue);
+          if (success)
+          {
+            _parsedValues[param.Key] = value;
+          }
+          else
+          {
+            // Fallback to string default if validation fails
+            // This ensures every parameter has a value
+            _parsedValues[param.Key] = defaultValue;
+          }
+        }
+      }
+
+      // Get typed value for a parameter
+      public T GetValue<T>(string paramName)
+      {
+        if (_parsedValues.TryGetValue(paramName, out var value))
+        {
+          if (value is T typedValue)
+            return typedValue;
+
+          // Attempt conversion for common cases
+          try
+          {
+            return (T)Convert.ChangeType(value, typeof(T));
+          }
+          catch
+          {
+            throw new InvalidOperationException(
+              $"Parameter '{paramName}' has value of type {value.GetType().Name}, cannot convert to {typeof(T).Name}");
+          }
+        }
+        throw new InvalidOperationException($"Parameter '{paramName}' not found");
+      }
+
+      // Try to parse and validate a parameter
+      public bool TryParseParameter(string name, string value, out string? error)
+      {
+        if (!_parameters.TryGetValue(name, out var paramDef))
+        {
+          error = $"Unknown parameter: {name}";
+          return false;
+        }
+
+        var (success, errorMsg, parsedValue) = paramDef.Validator(value);
+        if (!success)
+        {
+          error = $"Parameter '{name}': {errorMsg ?? "validation failed"}";
+          return false;
+        }
+
+        _parsedValues[name] = parsedValue;
+        error = null;
+        return true;
+      }
+
+      // Check if a parameter exists in the definitions
+      public bool HasParameter(string name)
+      {
+        return _parameters.ContainsKey(name);
+      }
+
+      // Get all parameter names
+      public IEnumerable<string> GetParameterNames()
+      {
+        return _parameters.Keys;
+      }
+
+      // Get parameter definition
+      public ParameterDefinition GetDefinition(string name)
+      {
+        return _parameters.TryGetValue(name, out var def) ? def : null;
+      }
+    }
+
+    //
+    //-------------------------------------------------------------------------------------------------
+    // Parameter Definitions Factory (Phase 2)
+    //-------------------------------------------------------------------------------------------------
+    //
+
+    // Creates dictionary of parameter definitions with validators
+    // Starting with 5 key parameters for Phase 2 validation
+    private static Dictionary<string, ParameterDefinition> CreateParameterDefinitions()
+    {
+      var definitions = new Dictionary<string, ParameterDefinition>();
+
+      // n_threads - number of driver threads
+      definitions["n_threads"] = new ParameterDefinition
+      {
+        Name = "n_threads",
+        Description = "number of driver threads",
+        DefaultValue = "1",
+        Type = ParamType.Int,
+        Validator = (value) => ValidateInt(value, min: 1, max: GlobalConstants.MAX_USERS)
+      };
+
+      // pct_newcustomers - percent of customers that are new
+      definitions["pct_newcustomers"] = new ParameterDefinition
+      {
+        Name = "pct_newcustomers",
+        Description = "percent of customers that are new customers",
+        DefaultValue = "20",
+        Type = ParamType.Int,
+        Validator = (value) => ValidateInt(value, min: 0, max: 100)
+      };
+
+      // db_size - database size
+      definitions["db_size"] = new ParameterDefinition
+      {
+        Name = "db_size",
+        Description = "S | M | L or database size (e.g. 30MB, 80GB)",
+        DefaultValue = "10MB",
+        Type = ParamType.String,
+        Validator = ValidateDatabaseSize
+      };
+
+      // think_time - think time in seconds
+      definitions["think_time"] = new ParameterDefinition
+      {
+        Name = "think_time",
+        Description = "think time (sec)",
+        DefaultValue = "0",
+        Type = ParamType.Double,
+        Validator = (value) => ValidateDouble(value, min: 0, max: 3600)
+      };
+
+      // detailed_view - Y/N for detailed statistics
+      definitions["detailed_view"] = new ParameterDefinition
+      {
+        Name = "detailed_view",
+        Description = "Detailed statistics View (Y / N)",
+        DefaultValue = "N",
+        Type = ParamType.Boolean,
+        Validator = ValidateYesNo
+      };
+
+      // config_file - path to configuration file
+      definitions["config_file"] = new ParameterDefinition
+      {
+        Name = "config_file",
+        Description = "config file path",
+        DefaultValue = "none",
+        Type = ParamType.String,
+        Validator = (value) => (true, null, value)
+      };
+
+      // target - server hostname or IP (can be semicolon-separated list)
+      definitions["target"] = new ParameterDefinition
+      {
+        Name = "target",
+        Description = "database/web server hostname or IP address",
+        DefaultValue = "localhost",
+        Type = ParamType.ServerList,
+        Validator = (value) => (true, null, value)
+      };
+
+      // ramp_rate - startup rate (users/sec)
+      definitions["ramp_rate"] = new ParameterDefinition
+      {
+        Name = "ramp_rate",
+        Description = "startup rate (users/sec)",
+        DefaultValue = "10",
+        Type = ParamType.Int,
+        Validator = (value) => ValidateInt(value, min: 0, max: 10000)
+      };
+
+      // run_time - run time in minutes (0 = infinite)
+      definitions["run_time"] = new ParameterDefinition
+      {
+        Name = "run_time",
+        Description = "run time (min) - 0 is infinite",
+        DefaultValue = "0",
+        Type = ParamType.Int,
+        Validator = (value) => ValidateInt(value, min: 0)
+      };
+
+      // warmup_time - warmup time in minutes
+      definitions["warmup_time"] = new ParameterDefinition
+      {
+        Name = "warmup_time",
+        Description = "warmup_time (min)",
+        DefaultValue = "1",
+        Type = ParamType.Int,
+        Validator = (value) => ValidateInt(value, min: 0, max: 1440)
+      };
+
+      // pct_newmember - percent of orders with membership upgrade
+      definitions["pct_newmember"] = new ParameterDefinition
+      {
+        Name = "pct_newmember",
+        Description = "percent of orders with cust membership upgrade",
+        DefaultValue = "1",
+        Type = ParamType.Int,
+        Validator = (value) => ValidateInt(value, min: 0, max: 100)
+      };
+
+      // n_searches - average number of searches per order
+      definitions["n_searches"] = new ParameterDefinition
+      {
+        Name = "n_searches",
+        Description = "average number of searches per order",
+        DefaultValue = "3",
+        Type = ParamType.Int,
+        Validator = (value) => ValidateInt(value, min: 0, max: 100)
+      };
+
+      // search_batch_size - average items returned per search
+      definitions["search_batch_size"] = new ParameterDefinition
+      {
+        Name = "search_batch_size",
+        Description = "average number of items returned in each search",
+        DefaultValue = "5",
+        Type = ParamType.Int,
+        Validator = (value) => ValidateInt(value, min: 1, max: 1000)
+      };
+
+      // search_depth - max search query depth
+      definitions["search_depth"] = new ParameterDefinition
+      {
+        Name = "search_depth",
+        Description = "max search query depth",
+        DefaultValue = "500",
+        Type = ParamType.Int,
+        Validator = (value) => ValidateInt(value, min: 1, max: 100000)
+      };
+
+      // n_reviews - average number of product review searches per order
+      definitions["n_reviews"] = new ParameterDefinition
+      {
+        Name = "n_reviews",
+        Description = "average number of product review searches per order",
+        DefaultValue = "3",
+        Type = ParamType.Int,
+        Validator = (value) => ValidateInt(value, min: 0, max: 100)
+      };
+
+      // pct_newreviews - percent of orders where customer creates a review
+      definitions["pct_newreviews"] = new ParameterDefinition
+      {
+        Name = "pct_newreviews",
+        Description = "percent of orders where customer creates a review",
+        DefaultValue = "5",
+        Type = ParamType.Int,
+        Validator = (value) => ValidateInt(value, min: 0, max: 100)
+      };
+
+      // pct_newhelpfulness - percent of orders where review helpfulness is rated
+      definitions["pct_newhelpfulness"] = new ParameterDefinition
+      {
+        Name = "pct_newhelpfulness",
+        Description = "pct of orders where review helpfulness is rated",
+        DefaultValue = "10",
+        Type = ParamType.Int,
+        Validator = (value) => ValidateInt(value, min: 0, max: 100)
+      };
+
+      // n_line_items - average number of items per order
+      definitions["n_line_items"] = new ParameterDefinition
+      {
+        Name = "n_line_items",
+        Description = "average number of items per order",
+        DefaultValue = "5",
+        Type = ParamType.Int,
+        Validator = (value) => ValidateInt(value, min: 1, max: 1000)
+      };
+
+      // virt_dir - virtual directory for web driver
+      definitions["virt_dir"] = new ParameterDefinition
+      {
+        Name = "virt_dir",
+        Description = "virtual directory (for web driver)",
+        DefaultValue = "ds3",
+        Type = ParamType.String,
+        Validator = (value) => (true, null, value)
+      };
+
+      // page_type - web page type
+      definitions["page_type"] = new ParameterDefinition
+      {
+        Name = "page_type",
+        Description = "web page type (for web driver)",
+        DefaultValue = "php",
+        Type = ParamType.String,
+        Validator = (value) => (true, null, value)
+      };
+
+      // windows_perf_host - Windows perfmon target
+      definitions["windows_perf_host"] = new ParameterDefinition
+      {
+        Name = "windows_perf_host",
+        Description = "target hostname for Perfmon CPU% display (Windows only)",
+        DefaultValue = "",
+        Type = ParamType.String,
+        Validator = (value) => (true, null, value)
+      };
+
+      // linux_perf_host - Linux performance monitoring target
+      definitions["linux_perf_host"] = new ParameterDefinition
+      {
+        Name = "linux_perf_host",
+        Description = "username:password:target hostname/IP Address for Linux CPU% display (Linux Only)",
+        DefaultValue = "",
+        Type = ParamType.LinuxServerList,
+        Validator = (value) => (true, null, value)
+      };
+
+      // out_filename - CSV output file
+      definitions["out_filename"] = new ParameterDefinition
+      {
+        Name = "out_filename",
+        Description = "output results to specified file in csv format",
+        DefaultValue = "",
+        Type = ParamType.String,
+        Validator = (value) => (true, null, value)
+      };
+
+      // ds2_mode - run in DS2 compatibility mode
+      definitions["ds2_mode"] = new ParameterDefinition
+      {
+        Name = "ds2_mode",
+        Description = "run driver in ds2 mode to mimic previous version",
+        DefaultValue = "N",
+        Type = ParamType.Boolean,
+        Validator = ValidateYesNo
+      };
+
+      // n_stores - number of stores
+      definitions["n_stores"] = new ParameterDefinition
+      {
+        Name = "n_stores",
+        Description = "Number of stores in DS3 instance",
+        DefaultValue = "1",
+        Type = ParamType.Int,
+        Validator = (value) => ValidateInt(value, min: 1, max: GlobalConstants.MAX_STORES)
+      };
+
+      // log_freq - output frequency in seconds
+      definitions["log_freq"] = new ParameterDefinition
+      {
+        Name = "log_freq",
+        Description = "print output frequency in seconds",
+        DefaultValue = "10",
+        Type = ParamType.Int,
+        Validator = (value) => ValidateInt(value, min: 1, max: 3600)
+      };
+
+      // log_timestamp - timestamp format
+      definitions["log_timestamp"] = new ParameterDefinition
+      {
+        Name = "log_timestamp",
+        Description = "Detailed timestamp format for log (UTC / LOCAL / NONE)",
+        DefaultValue = "NONE",
+        Type = ParamType.Enum,
+        Validator = (value) =>
+        {
+          var upper = value.ToUpperInvariant();
+          if (upper != "UTC" && upper != "LOCAL" && upper != "NONE")
+            return (false, "Must be 'UTC', 'LOCAL', or 'NONE'", null);
+          return (true, null, upper);
+        }
+      };
+
+      // add_products - add products at runtime
+      definitions["add_products"] = new ParameterDefinition
+      {
+        Name = "add_products",
+        Description = "Add products at run time",
+        DefaultValue = "N",
+        Type = ParamType.Boolean,
+        Validator = ValidateYesNo
+      };
+
+      // use_vectors - experimental vectors feature
+      definitions["use_vectors"] = new ParameterDefinition
+      {
+        Name = "use_vectors",
+        Description = "Experimental vectors",
+        DefaultValue = "N",
+        Type = ParamType.Boolean,
+        Validator = ValidateYesNo
+      };
+
+      return definitions;
+    }
+
+    //
+    //-------------------------------------------------------------------------------------------------
+    // Cross-Parameter Validation (Phase 3)
+    //-------------------------------------------------------------------------------------------------
+    //
+
+    // Validates parameter interdependencies and constraints
+    private static bool ValidateParameterDependencies(
+        ParameterParser parser,
+        out List<string> errors)
+    {
+      errors = new List<string>();
+
+      try
+      {
+        // Check thread limits
+        int nThreads = parser.GetValue<int>("n_threads");
+        string targetString = parser.GetValue<string>("target");
+        int nTargetServers = targetString.Split(';').Length;
+        long totalThreads = (long)nThreads * nTargetServers;
+
+        if (totalThreads > GlobalConstants.MAX_USERS)
+        {
+          errors.Add($"Total threads ({totalThreads}) = n_threads({nThreads}) * " +
+                     $"servers({nTargetServers}) exceeds MAX_USERS({GlobalConstants.MAX_USERS})");
+        }
+
+        // Check mutually exclusive options
+        bool useVectors = parser.GetValue<bool>("use_vectors");
+        bool addProducts = parser.GetValue<bool>("add_products");
+
+        if (useVectors && addProducts)
+        {
+          errors.Add("Cannot use both --use_vectors=Y and --add_products=Y");
+        }
+
+        // Check performance monitoring configuration
+        string winPerfHost = parser.GetValue<string>("windows_perf_host");
+        string linuxPerfHost = parser.GetValue<string>("linux_perf_host");
+        bool hasWinPerf = !string.IsNullOrEmpty(winPerfHost);
+        bool hasLinuxPerf = !string.IsNullOrEmpty(linuxPerfHost);
+
+        if (hasWinPerf && hasLinuxPerf)
+        {
+          Console.WriteLine("Warning: Both Windows and Linux performance monitoring enabled");
+        }
+
+        // Validate run_time vs warmup_time
+        int runTime = parser.GetValue<int>("run_time");
+        int warmupTime = parser.GetValue<int>("warmup_time");
+
+        if (runTime > 0 && warmupTime >= runTime)
+        {
+          errors.Add($"warmup_time ({warmupTime} min) must be less than run_time ({runTime} min)");
+        }
+
+        // Validate log_freq
+        int logFreq = parser.GetValue<int>("log_freq");
+        if (runTime > 0 && logFreq > runTime * 60)
+        {
+          errors.Add($"log_freq ({logFreq} sec) should not exceed run_time ({runTime * 60} sec)");
+        }
+
+        // Validate stores count
+        int nStores = parser.GetValue<int>("n_stores");
+        if (nStores > GlobalConstants.MAX_STORES)
+        {
+          errors.Add($"n_stores ({nStores}) exceeds MAX_STORES ({GlobalConstants.MAX_STORES})");
+        }
+      }
+      catch (Exception ex)
+      {
+        errors.Add($"Error during parameter validation: {ex.Message}");
+      }
+
+      return errors.Count == 0;
+    }
 
     int server_id = 0;          //Added by GSK
 
@@ -329,82 +900,56 @@ namespace ds2xdriver
     //Function written by GSK to calculate number of Rows in tables of database according to database size
     void CalculateNumberOfRows ( string str_db_size )
       {
-      string db_custom_size = str_db_size;
-      int i_db_custom_size = 10;          //Default 10mb
-      string str_is_mb_gb = "mb";
-      db_custom_size = db_custom_size.ToLower ( );  //For case insensitivity
-      if ( db_custom_size.IndexOf ( "mb" ) != -1 )
-        {
-        str_is_mb_gb = db_custom_size.Substring ( db_custom_size.IndexOf ( "mb" ) , 2 );
-        try
-          {
-          i_db_custom_size = Convert.ToInt32 ( db_custom_size.Substring ( 0 , db_custom_size.IndexOf ( "mb" ) ) );
-          if ( i_db_custom_size <= 0 )
-            {
-            throw new System.Exception ( "db_size must be greater than 0!!" );
-            }
-          }
-        catch ( System.Exception e )
-          {
-            Console.Error.WriteLine("Error: {0}", e.Message);
-          }
-        }
-      else if ( db_custom_size.IndexOf ( "gb" ) != -1 )
-        {
-        str_is_mb_gb = db_custom_size.Substring ( db_custom_size.IndexOf ( "gb" ) , 2 );
-        try
-          {
-          i_db_custom_size = Convert.ToInt32 ( db_custom_size.Substring ( 0 , db_custom_size.IndexOf ( "gb" ) ) );
-          if ( i_db_custom_size <= 0 )
-            {
-            throw new System.Exception ( "db_size must be greater than 0!!" );
-            }
-          }
-        catch ( System.Exception e )
-          {
-            Console.Error.WriteLine("Error: {0}", e.Message);
-          }
-        }
-      else
-        {
-        //Wrong parameter specified
-        throw new Exception ( "Wrong value for parameter db_size specified!!" );
-        }
+      // Parse database size - validation already done by ValidateDatabaseSize
+      var lower = str_db_size.ToLowerInvariant();
 
-      //Everything is OK in parameter, so now calculate number of rows in each of customers, orders and products tables
-      //Note that order_rows are per month
-      int mult_cust_rows = 0 , mult_ord_rows = 0 , mult_prod_rows = 0;
-      double ratio = 0;
-      //Size is in MB  (Database can be only in range 1 mb to 1024 mb - Small instance S)
-      if ( String.Compare ( str_is_mb_gb , "mb" ) == 0 )
+      bool isMB = lower.EndsWith("mb");
+      bool isGB = lower.EndsWith("gb");
+
+      if (!isMB && !isGB)
+        throw new ArgumentException($"Invalid db_size format: {str_db_size}. Must end with 'MB' or 'GB'.");
+
+      string numStr = lower.Substring(0, lower.Length - 2);
+      if (!int.TryParse(numStr, out int size) || size <= 0)
+        throw new ArgumentException($"Invalid db_size value: {str_db_size}. Size must be a positive integer.");
+
+      // Calculate row counts based on database size
+      int mult_cust_rows, mult_ord_rows, mult_prod_rows;
+      double ratio;
+
+      if (isMB)
         {
-        ratio = ( double ) ( i_db_custom_size / 10.0 );
+        // Small instance (1MB - 1024MB)
+        ratio = size / 10.0;
         mult_cust_rows = 20000;
         mult_ord_rows = 1000;
         mult_prod_rows = 10000;
         }
-      else if ( String.Compare ( str_is_mb_gb , "gb" ) == 0 ) //Size is in GB (database can be 1 GB (Medium instance M) or > 1 GB (Larger instance L)
+      else if (size == 1)
         {
-        if ( i_db_custom_size == 1 )  //Medium M size 1 GB database
-          {
-          ratio = ( double ) ( i_db_custom_size / 1.0 );
-          mult_cust_rows = 2000000;
-          mult_ord_rows = 100000;
-          mult_prod_rows = 100000;
-          }
-        else  //Size > 1 GB Large L size database
-          {
-          ratio = ( double ) ( i_db_custom_size / 100.0 );
-          mult_cust_rows = 200000000;
-          mult_ord_rows = 10000000;
-          mult_prod_rows = 1000000;
-          }
+        // Medium instance (1GB)
+        ratio = 1.0;
+        mult_cust_rows = 2000000;
+        mult_ord_rows = 100000;
+        mult_prod_rows = 100000;
+        }
+      else
+        {
+        // Large instance (>1GB)
+        ratio = size / 100.0;
+        mult_cust_rows = 200000000;
+        mult_ord_rows = 10000000;
+        mult_prod_rows = 1000000;
         }
 
-      //Initialize number of rows in table according to ratio calculated for custom database size
-      customer_rows = ( int ) ( ratio * mult_cust_rows );
-      order_rows = ( int ) ( ratio * mult_ord_rows );
-      product_rows = ( int ) ( ratio * mult_prod_rows );
+      // Initialize number of rows (order_rows are per month)
+      customer_rows = (int)(ratio * mult_cust_rows);
+      order_rows = (int)(ratio * mult_ord_rows);
+      product_rows = (int)(ratio * mult_prod_rows);
+
+      // Display calculated values
+      Console.WriteLine($"Database size {str_db_size}: {customer_rows:N0} customers, " +
+                       $"{order_rows:N0} orders/month, {product_rows:N0} products");
 
       }
 
@@ -413,51 +958,39 @@ namespace ds2xdriver
     //
     public Controller ( string[] argarray )
       {
-      //Console.WriteLine("Controller constructor: " + argarray.Length + " args");
-
       int i;
       string errmsg = string.Empty;
 
       if ( argarray.Length == 0 )
         {
-        // display input parameter info
-        Console.WriteLine ( "\nEnter parameters with format --parm_name=parm_value" );
-        Console.WriteLine ( "And/or use a config file with argument --config_file=(config file path)" );
-        Console.WriteLine ( "Parms will be evaluated left to right" );
-        Console.WriteLine ( "\n{0,-20}{1,-52}{2}\n" , "Parameter Name" , "Description" , "Default Value" );
-        for ( i = 0 ; i < input_parm_names.Length ; i++ )
-          {
-          Console.WriteLine ( "{0,-20}{1,-52}{2}" , input_parm_names[i] , input_parm_desc[i] , input_parm_values[i] );
-          }
-        return;
+        ShowUsage();
+        Environment.Exit(1);
         }
 
-      // send args to parse_args, return 0 or # of parms set, error_message if any
-      // parsed values are in array input_parm_values
-      i = parse_args ( argarray , ref errmsg );
-      if ( i != 0 )
+      // Initialize parameter parser with all parameter definitions
+      var parser = new ParameterParser(CreateParameterDefinitions());
+
+      // Parse command line arguments and config files
+      int parsedCount = ParseArgsNew(argarray, parser, ref errmsg);
+      if (parsedCount == 0)
         {
-	//Console.WriteLine("{0} parameters parsed", i);
-	}
-      else
-        {
-        Console.WriteLine ( errmsg );
-        return;
+        Console.WriteLine($"Error: {errmsg}");
+        Environment.Exit(1);
         }
 
-      // Set parameters from input_parm_values
-      //target = input_parm_values[Array.IndexOf ( input_parm_names , "target" )];
-      try
+      // Validate cross-parameter dependencies
+      if (!ValidateParameterDependencies(parser, out var errors))
         {
-        target = input_parm_values[Array.IndexOf ( input_parm_names , "target" )];
-        target_servers = target.Split ( ';' );
-        n_target_servers = target_servers.Length;   //Added by GSK to keep track of number of Target Servers
+        Console.WriteLine("Parameter validation errors:");
+        foreach (var error in errors)
+          Console.WriteLine($"  - {error}");
+        Environment.Exit(1);
         }
-      catch(System.Exception e)
-        {
-        Console.WriteLine ( "Error in converting parameter target: {0}" , e.Message );
-        return;
-        }
+
+      // Extract target and setup server arrays (type-safe, no try-catch needed)
+      target = parser.GetValue<string>("target");
+      target_servers = target.Split ( ';' );
+      n_target_servers = target_servers.Length;
 
         //Added by GSK
         //Dynamically allocate memory Initialize arrays for book keeping for individual Servers on which test runs
@@ -484,432 +1017,148 @@ namespace ds2xdriver
         arr_n_rollbacks_from_start = new int[n_target_servers];
         arr_rt_tot_lastn = new double[n_target_servers,GlobalConstants.LAST_N];
 
-      try
-        {
-        n_threads = Convert.ToInt32 ( input_parm_values[Array.IndexOf ( input_parm_names , "n_threads" )] );
-        //Changed by GSK -- n_threads represents threads spawned per DB/Web Server
-        //Hence total number of threads spawned by Controller Driver Program = no of threads per Server * number of servers to Drive Workload on
-        n_threads = n_threads * n_target_servers;
-        Console.WriteLine ( "Total number of Threads to be Spawned across multiple servers are n_threads: {0}" , n_threads );
-        }
-      catch ( System.Exception e )
-        {
-        Console.WriteLine ( "Error in converting parameter n_threads: {0}" , e.Message );
-        return;
-        }
-      try
-        {
-        ramp_rate = Convert.ToInt32 ( input_parm_values[Array.IndexOf ( input_parm_names , "ramp_rate" )] );
-        }
-      catch ( System.Exception e )
-        {
-        Console.WriteLine ( "Error in converting parameter ramp_rate: {0}" , e.Message );
-        return;
-        }
-      try
-        {
-        run_time = Convert.ToInt32 ( input_parm_values[Array.IndexOf ( input_parm_names , "run_time" )] );
-        }
-      catch ( System.Exception e )
-        {
-        Console.WriteLine ( "Error in converting parameter run_time: {0}" , e.Message );
-        return;
-        }
-      try
-        {
-        log_freq = Convert.ToInt32(input_parm_values[Array.IndexOf(input_parm_names, "log_freq")]);
-        }
-      catch (System.Exception e)
-        {
-        Console.WriteLine("Error in converting parameter log_freq: {0}", e.Message);
-        return;
-        }
+      // Extract parameters (type-safe, validation already done by ParameterParser)
+      n_threads = parser.GetValue<int>("n_threads");
+      //Changed by GSK -- n_threads represents threads spawned per DB/Web Server
+      //Hence total number of threads spawned by Controller Driver Program = no of threads per Server * number of servers to Drive Workload on
+      n_threads = n_threads * n_target_servers;
+      Console.WriteLine ( "Total number of Threads to be Spawned across multiple servers are n_threads: {0}" , n_threads );
 
-      //db_size_str = input_parm_values[Array.IndexOf(input_parm_names, "db_size_str")];
+      ramp_rate = parser.GetValue<int>("ramp_rate");
+      run_time = parser.GetValue<int>("run_time");
+      log_freq = parser.GetValue<int>("log_freq");
 
-      //Changed by GSK
-      //This parameter db_size_str will not be used in case of Custom database size since CalculateNumberOfRows() calculates rows in tables
-      //on the fly according to database size passed as parameter
-      //string sizes= "SML";
-      //if ((db_size = sizes.IndexOf(db_size_str.ToUpper())) < 0)
-      //  {
-      //      Console.WriteLine("Error: db_size_str must be one of S, M or L");
-      //      return;
-      //  }
-      //Code for new parameter and new function to initialize number of rows
-      //Added by GSK
-      db_size = input_parm_values[Array.IndexOf ( input_parm_names , "db_size" )];
-      if ( db_size == "" )
-        {
-        Console.WriteLine ( "Error: Wrong db_size parameter value specified" );
-        return;
-        }
+      // Database size (already converted from S/M/L by validator)
+      db_size = parser.GetValue<string>("db_size");
+      CalculateNumberOfRows ( db_size );
 
-      try
-        {
-        if ( db_size.ToUpper ( ) == "S" ) db_size = "10MB";        //These if and else if's are to ensure code works with older S | M | L parameters too
-        else if ( db_size.ToUpper ( ) == "M" ) db_size = "1GB";
-        else if ( db_size.ToUpper ( ) == "L" ) db_size = "100GB";
-        CalculateNumberOfRows ( db_size );
-        }
-      catch ( System.Exception e )
-        {
-        Console.WriteLine ( "Error in Calculating number of rows in table according to db_size parameter: {0}" , e.Message );
-        return;
-        }
+      warmup_time = parser.GetValue<int>("warmup_time");
+      think_time = parser.GetValue<double>("think_time");
+      pct_newcustomers = parser.GetValue<int>("pct_newcustomers");
+      n_searches = parser.GetValue<int>("n_searches");
+      search_batch_size = parser.GetValue<int>("search_batch_size");
+      search_depth = parser.GetValue<int>("search_depth");
+      n_line_items = parser.GetValue<int>("n_line_items");
 
-      try
-        {
-        warmup_time = Convert.ToInt32 ( input_parm_values[Array.IndexOf ( input_parm_names , "warmup_time" )] );
-        }
-      catch ( System.Exception e )
-        {
-        Console.WriteLine ( "Error in converting parameter warmup_time: {0}" , e.Message );
-        return;
-        }
+      virt_dir = parser.GetValue<string>("virt_dir");
+      page_type = parser.GetValue<string>("page_type");
 
-      try
+      // Windows performance monitoring setup
+      windows_perf_host = parser.GetValue<string>("windows_perf_host");
+      if ( windows_perf_host == "" )
         {
-        think_time = Convert.ToDouble ( input_parm_values[Array.IndexOf ( input_parm_names , "think_time" )] );
+        windows_perf_host = string.Empty;
+        n_windows_servers = 0;
         }
-      catch ( System.Exception e )
+      else
         {
-        Console.WriteLine ( "Error in converting parameter think_time: {0}" , e.Message );
-        return;
-        }
+        windows_perf_host_servers = windows_perf_host.Split ( ';' );
+        n_windows_servers = windows_perf_host_servers.Length;
+        is_Win_VM = true;
 
-      try
-        {
-        pct_newcustomers = Convert.ToInt32 ( input_parm_values[Array.IndexOf ( input_parm_names , "pct_newcustomers" )] );
-        }
-      catch ( System.Exception e )
-        {
-        Console.WriteLine ( "Error in converting parameter pct_newcustomers: {0}" , e.Message );
-        return;
-        }
-      try
-        {
-        n_searches = Convert.ToInt32 ( input_parm_values[Array.IndexOf ( input_parm_names , "n_searches" )] );
-        if ( n_searches <= 0 )
+        //Allocate memory and initialize
+        arr_cpu_pct_tot = new double[n_windows_servers];
+        arr_n_cpu_pct_samples = new int[n_windows_servers];
+        for ( i = 0 ; i < n_windows_servers ; i++ )
           {
-          Console.WriteLine ( "n_searches must be greater than 0" );
-          return;
+          arr_cpu_pct_tot[i] = 0.0;
+          arr_n_cpu_pct_samples[i] = 0;
           }
         }
-      catch ( System.Exception e )
+
+      // Linux performance monitoring setup
+      linux_perf_host = parser.GetValue<string>("linux_perf_host");
+      if ( linux_perf_host == "" )
         {
-        Console.WriteLine ( "Error in converting parameter n_searches: {0}" , e.Message );
-        return;
+        linux_perf_host = string.Empty;
+        n_linux_servers = 0;
         }
-      try
+      else
         {
-        search_batch_size = Convert.ToInt32 ( input_parm_values[Array.IndexOf ( input_parm_names ,
-          "search_batch_size" )] );
-        if ( search_batch_size <= 0 )
+        string []str_SplitSemiColons = linux_perf_host.Split ( ';' );
+        n_linux_servers = str_SplitSemiColons.Length;
+
+        linux_unames = new String[n_linux_servers];
+        linux_passwd = new String[n_linux_servers];
+        linux_perf_host_servers = new String[n_linux_servers];
+
+        i = 0;
+        foreach (string splitline in str_SplitSemiColons)
           {
-          Console.WriteLine ( "search_batch_size must be greater than 0" );
-          return;
+          string []str_SplitColon = splitline.Split ( ':' );
+          linux_unames[i] = str_SplitColon[0];
+          linux_passwd[i] = str_SplitColon[1];
+          linux_perf_host_servers[i] = str_SplitColon[2];
+          i++;
+          }
+
+        is_Lin_VM = true;
+        arr_linux_cpu_utilization = new double[n_linux_servers];
+
+        for ( i = 0 ; i < n_linux_servers ; i++ )
+          {
+          arr_linux_cpu_utilization[i] = 0.0;
           }
         }
-      catch ( System.Exception e )
+
+      // Detailed view setting (validator returns bool)
+      is_detailed_view = parser.GetValue<bool>("detailed_view");
+      detailed_view = is_detailed_view ? "Y" : "N";
+
+      // Log timestamp setting (validator returns uppercase)
+      log_timestamp = parser.GetValue<string>("log_timestamp");
+      if (log_timestamp == "NONE")
+        cur_datetime = "";
+
+      // Review and member parameters
+      pct_newreviews = parser.GetValue<int>("pct_newreviews");
+      n_reviews = parser.GetValue<int>("n_reviews");
+      pct_newhelpfulness = parser.GetValue<int>("pct_newhelpfulness");
+      pct_newmember = parser.GetValue<int>("pct_newmember");
+
+      // Output file setup
+      outfilename = parser.GetValue<string>("out_filename");
+      if (outfilename == "")
         {
-        Console.WriteLine ( "Error in converting parameter search_batch_size: {0}" , e.Message );
-        return;
+        outfilename = string.Empty;
         }
-      try
+      else
         {
-        search_depth = Convert.ToInt32 ( input_parm_values[Array.IndexOf ( input_parm_names ,
-          "search_depth" )] );
-        if ( search_depth <= 0 )
-          {
-          Console.WriteLine ( "search_depth must be greater than 0" );
-          return;
-          }
-        }
-      catch ( System.Exception e )
-        {
-        Console.WriteLine ( "Error in converting parameter search_depth: {0}" , e.Message );
-        return;
-        }
-      try
-        {
-        n_line_items = Convert.ToInt32 ( input_parm_values[Array.IndexOf ( input_parm_names , "n_line_items" )] );
-        if ( n_line_items <= 0 )
-          {
-          Console.WriteLine ( "n_line_items must be greater than 0" );
-          return;
-          }
-        }
-      catch ( System.Exception e )
-        {
-        Console.WriteLine ( "Error in converting parameter n_line_items: {0}" , e.Message );
-        return;
+        outfile = new System.IO.StreamWriter(outfilename);
+        outfile?.WriteLine("datetime et, n_overall, opm, rt_tot_lastn_max_msec, rt_tot_avg_msec, rt_tot_sampled," +
+          " n_rollbacks_overall, rollback_pct" );
         }
 
-      virt_dir = input_parm_values[Array.IndexOf ( input_parm_names , "virt_dir" )];
-      page_type = input_parm_values[Array.IndexOf ( input_parm_names , "page_type" )];
-
-      //windows_perf_host = input_parm_values[Array.IndexOf ( input_parm_names , "windows_perf_host" )];
-      //if ( windows_perf_host == "" ) windows_perf_host = null;
-
-      //Added by GSK
-      try
+      // DS2 mode (validator returns bool)
+      ds2_mode = parser.GetValue<bool>("ds2_mode");
+      ds2_mode_string = ds2_mode ? "Y" : "N";
+      if (ds2_mode)
         {
-        windows_perf_host = input_parm_values[Array.IndexOf ( input_parm_names , "windows_perf_host" )];
-        if ( windows_perf_host == "" )
-          {
-          windows_perf_host = string.Empty;
-          //windows_perf_host_servers = null;
-          n_windows_servers = 0;
-          }
-        else
-          {
-          windows_perf_host_servers = windows_perf_host.Split ( ';' );
-          n_windows_servers = windows_perf_host_servers.Length;
-          is_Win_VM = true;
-
-          //Allocate memory and initialize
-          arr_cpu_pct_tot = new double[n_windows_servers];
-          arr_n_cpu_pct_samples = new int[n_windows_servers];
-          for ( i = 0 ; i < n_windows_servers ; i++ )
-            {
-            arr_cpu_pct_tot[i] = 0.0;
-            arr_n_cpu_pct_samples[i] = 0;
-            }
-          }
-        }
-      catch ( System.Exception e )
-        {
-        Console.WriteLine ( "Error in converting parameter windows_perf_host: {0}" , e.Message );
-        return;
+        Console.WriteLine("Running in DS2 mode.");
         }
 
-      //Added by GSK for new parameter linux_perf_host only in case of linux
-      try
+      // Number of stores
+      n_stores = parser.GetValue<int>("n_stores");
+
+      // Vectors feature (validator returns bool)
+      bool use_vectors = parser.GetValue<bool>("use_vectors");
+      use_vectors_string = use_vectors ? "Y" : "N";
+      if (use_vectors)
         {
-        linux_perf_host = input_parm_values[Array.IndexOf ( input_parm_names , "linux_perf_host" )];
-        if ( linux_perf_host == "" )
-          {
-          linux_perf_host = string.Empty;
-          //linux_perf_host_servers = null;
-          n_linux_servers = 0;
-          //arr_linux_cpu_utilization = null;
-          }
-        else
-          {
-          string []str_SplitSemiColons;
-
-          str_SplitSemiColons = linux_perf_host.Split ( ';' );
-
-          n_linux_servers = str_SplitSemiColons.Length;
-
-          linux_unames = new String[n_linux_servers];
-          linux_passwd = new String[n_linux_servers];
-          linux_perf_host_servers = new String[n_linux_servers];
-
-          i = 0;
-          foreach (string splitline in str_SplitSemiColons)
-            {
-            string []str_SplitColon = new String[3];
-            str_SplitColon = splitline.Split ( ':' );
-            linux_unames[i] = str_SplitColon[0];
-            linux_passwd[i] = str_SplitColon[1];
-            linux_perf_host_servers[i] = str_SplitColon[2];
-            i++;
-            }
-
-          is_Lin_VM = true;
-          arr_linux_cpu_utilization = new double[n_linux_servers];        //Used to store CPU utilizations for book keeping
-
-          for ( i = 0 ; i < n_linux_servers ; i++ )
-            {
-            arr_linux_cpu_utilization[i] = 0.0;
-            }
-          }
-        }
-      catch ( System.Exception e )
-        {
-        Console.WriteLine ( "Error in converting parameter linux_perf_host: {0}" , e.Message );
-        return;
+        Console.WriteLine("Browse by vectors enabled.");
+        n_vectors = 1;
         }
 
-      //Added by GSK
-      try
+      // Add products feature (validator returns bool, mutually exclusive with vectors handled in validation)
+      add_products_enabled = parser.GetValue<bool>("add_products");
+      if (add_products_enabled && n_vectors == 1)
         {
-        detailed_view = input_parm_values[Array.IndexOf ( input_parm_names , "detailed_view" )];
-        if ( detailed_view.ToUpper ( ) == "Y" )
-            is_detailed_view = true;
-        else if ( detailed_view.ToUpper ( ) == "N" )
-            is_detailed_view = false;
-        else
-            throw new System.Exception ( "Wrong value of parameter detailed_view specified!!" );
-        }
-      catch ( System.Exception e )
-        {
-        Console.WriteLine ( "Error in converting parameter detailed_view: {0}" , e.Message );
-        return;
+        Console.WriteLine("\nWARNING: '--use_vectors=y', ignoring parameter '--add_products=y'\n");
+        add_products_enabled = false;
         }
 
-      //Added by Performance Team - Ruban
-      try
-        {
-        log_timestamp = input_parm_values[Array.IndexOf(input_parm_names, "log_timestamp")];
-        if (log_timestamp.ToUpper() == "UTC")
-            {
-                log_timestamp = "UTC";
-            }
-        else if (log_timestamp.ToUpper() == "LOCAL")
-            {
-                log_timestamp = "LOCAL";
-            }
-        else if (log_timestamp.ToUpper() == "NONE")
-            {
-                log_timestamp = "NONE";
-                cur_datetime = "";
-            }
-        else
-	    {
-                throw new System.Exception("Wrong value of parameter log_timestamp specified!!");
-	    }
-        }
-      catch (System.Exception e)
-        {
-        Console.WriteLine("Error in converting parameter log_timestamp: {0}", e.Message);
-        return;
-        }
-
-      try
-      {
-          pct_newreviews =
-            Convert.ToInt32(input_parm_values[Array.IndexOf(input_parm_names, "pct_newreviews")]);
-      }
-      catch (System.Exception e)
-      {
-          Console.WriteLine("Error in converting parameter pct_newreviews: {0}", e.Message);
-          return;
-      }
-      try
-      {
-          n_reviews = Convert.ToInt32(input_parm_values[Array.IndexOf(input_parm_names, "n_reviews")]);
-          if (n_reviews <= 0)
-          {
-              Console.WriteLine("n_reviews must be greater than 0");
-              return;
-          }
-      }
-      catch (System.Exception e)
-      {
-          Console.WriteLine("Error in converting parameter n_reviews: {0}", e.Message);
-          return;
-      }
-      try
-      {
-          pct_newhelpfulness = Convert.ToInt32(input_parm_values[Array.IndexOf(input_parm_names, "pct_newhelpfulness")]);
-      }
-      catch (System.Exception e)
-      {
-          Console.WriteLine("Error in converting parameter pct_newhelpfulness: {0}", e.Message);
-          return;
-      }
-      try
-      {
-          pct_newmember = Convert.ToInt32(input_parm_values[Array.IndexOf(input_parm_names, "pct_newmember")]);
-      }
-      catch (System.Exception e)
-      {
-          Console.WriteLine("Error in converting parameter pct_newmember: {0}", e.Message);
-          return;
-      }
-      try
-      {
-          outfilename = input_parm_values[Array.IndexOf(input_parm_names, "out_filename")];
-          if (outfilename == "")
-            {
-              outfilename = string.Empty;
-            }
-          else
-           {
-              outfile = new System.IO.StreamWriter(outfilename);
-              outfile?.WriteLine("datetime et, n_overall, opm, rt_tot_lastn_max_msec, rt_tot_avg_msec, rt_tot_sampled," +
-                " n_rollbacks_overall, rollback_pct" );
-           }
-      }
-      catch (System.Exception e)
-      {
-          Console.WriteLine("Error in filename given for out_filename: {0}", e.Message);
-          return;
-      }
-      try
-      {
-          ds2_mode_string = input_parm_values[Array.IndexOf(input_parm_names, "ds2_mode")];
-          if (ds2_mode_string.ToUpper() == "Y")
-          {
-              Console.WriteLine("Running in DS2 mode.");
-              ds2_mode = true;
-          }
-      }
-      catch (System.Exception e)
-      {
-          Console.WriteLine("Error in parsing ds2_mode parameter: {0}", e.Message);
-          return;
-      }
-      try
-      {
-          n_stores = Convert.ToInt32(input_parm_values[Array.IndexOf(input_parm_names, "n_stores")]);
-          if (n_stores <= 0)
-          {
-              Console.WriteLine("n_stores must be greater than 0");
-              return;
-          }
-      }
-      catch (System.Exception e)
-      {
-          Console.WriteLine("Error in converting parameter n_stores: {0}", e.Message);
-          return;
-      }
-      try
-      {
-          use_vectors_string = input_parm_values[Array.IndexOf(input_parm_names, "use_vectors")];
-          if (use_vectors_string.ToUpper() == "Y")
-          {
-              Console.WriteLine("Browse by vectors enabled.");
-              n_vectors = 1;
-          }
-      }
-      catch (System.Exception e)
-      {
-          Console.WriteLine("Error in parsing use_vectors parameter: {0}", e.Message);
-          return;
-      }
-      try
-      {
-          add_products = input_parm_values[Array.IndexOf(input_parm_names, "add_products")];
-          if ((add_products.ToUpper() == "Y") && (n_vectors == 1))
-          {
-              Console.WriteLine("\nWARNING: '--use_vectors=y', ignoring parameter '--add_products=y'\n");
-              add_products = "n";
-          }
-          else if (add_products.ToUpper() == "Y")
-          {
-              n_add_products = 1;
-          }
-      }
-      catch (System.Exception e)
-      {
-          Console.WriteLine("Error in parsing add_products parameter: {0}", e.Message);
-          return;
-      }
-
-      Console.WriteLine ( "target= {0}  n_threads= {1}  ramp_rate= {2}  run_time= {3}  db_size= {4}" +
-        "  warmup_time= {5}  think_time= {6}  pct_newcustomers= {7}  pct_newmembers= {8}  n_searches= {9}  search_batch_size= {10}" +
-        "  search_depth= {11}  n_reviews= {12}  pct_newreviews= {13}  pct_newhelpfulness= {14}  n_line_items= {15}  virt_dir= {16}" +
-        "  page_type= {17}  windows_perf_host= {18}  detailed_view= {19}  linux_perf_host= {20}  output_file= {21}  ds2_mode= {22}" +
-        "  n_stores= {23}  log_freq= {24}  log_timestamp= {25}  add_products= {26}  use_vectors= {27}"
-        ,
-        target , n_threads , ramp_rate , run_time , db_size , warmup_time , think_time , pct_newcustomers ,
-            pct_newmember, n_searches , search_batch_size , search_depth , n_reviews, pct_newreviews, pct_newhelpfulness,
-            n_line_items , virt_dir , page_type , windows_perf_host , detailed_view , linux_perf_host, outfilename,
-            ds2_mode_string, n_stores, log_freq, log_timestamp, add_products, use_vectors_string);
+      // Display configuration summary
+      DisplayConfiguration();
 
       max_customer = customer_rows;
       max_review = product_rows * 20;
@@ -1009,14 +1258,8 @@ namespace ds2xdriver
       double total_win_cpu_utilzn = 0.0;
       double total_lin_cpu_utilzn = 0.0;
 
-#if (USE_WIN32_TIMER)
-      long ctr0 = 0, ctr = 0, freq = 0;
-      Console.WriteLine("\nUsing WIN32 QueryPerformanceCounters for measuring response time\n");
-#else
-      TimeSpan TS = new TimeSpan ( );
-      DateTime DT0;
-      Console.WriteLine("\nUsing .NET DateTime for measuring response time\n");
-#endif
+      Stopwatch mainTimer = new Stopwatch();
+      Console.WriteLine($"Using {(Stopwatch.IsHighResolution ? "high-resolution" : "standard")} Stopwatch timer (Frequency: {Stopwatch.Frequency:N0} Hz)\n");
 
       for ( i = 0 ; i < GlobalConstants.LAST_N ; i++ )
       {
@@ -1165,12 +1408,7 @@ namespace ds2xdriver
       Console.WriteLine ( "Controller ({0}): all threads connected - issuing Start" , DateTime.Now );
       Start = true;
 
-#if (USE_WIN32_TIMER)
-      QueryPerformanceFrequency(ref freq); // obtain system freq (ticks/sec)
-      QueryPerformanceCounter(ref ctr0); // Start response time clock
-#else
-      DT0 = DateTime.Now;
-#endif
+      mainTimer.Start(); // Start response time clock
 
       if ( run_time == 0 ) run_time = 1000000;  // test run time in minutes, 0 => forever
       run_time += warmup_time;  // Add warmup time for total run time
@@ -1200,13 +1438,7 @@ namespace ds2xdriver
         Thread.Sleep ( 1000 );     // Update perfmon stats about every second
         Monitor.Enter ( UpdateLock );  // Block User threads from accessing code to update these values (below)
 
-#if (USE_WIN32_TIMER)
-        QueryPerformanceCounter(ref ctr);
-        et = (ctr-ctr0)/(double) freq;
-#else
-        TS = DateTime.Now - DT0;
-        et = TS.TotalSeconds;
-#endif
+        et = mainTimer.Elapsed.TotalSeconds;
 
         //opm, rt_tot_lastn_max_msec will maintain overall runtime stats for all threads that connect to DB Servers on multiple VM's
         opm = ( int ) Math.Floor ( 60.0 * n_overall / et );
@@ -1535,11 +1767,7 @@ namespace ds2xdriver
             }
           //Till this point Added by GSK
 
-#if (USE_WIN32_TIMER)
-          QueryPerformanceCounter(ref ctr0);
-#else
-          DT0 = DateTime.Now;
-#endif
+          mainTimer.Restart();
 
           Console.WriteLine ( "Stats reset" );
           }
@@ -1547,13 +1775,7 @@ namespace ds2xdriver
 
       Monitor.Enter ( UpdateLock );  // Block User threads from accessing code to update these values (below)
 
-#if (USE_WIN32_TIMER)
-      QueryPerformanceCounter(ref ctr);
-      et = (ctr-ctr0)/(double) freq;
-#else
-      TS = DateTime.Now - DT0;
-      et = TS.TotalSeconds;
-#endif
+      et = mainTimer.Elapsed.TotalSeconds;
 
       //Variables below will maintain Aggregate Final stats data for all DB servers running on all VM's
       opm = ( int ) Math.Floor ( 60.0 * n_overall / et );
@@ -1788,80 +2010,201 @@ namespace ds2xdriver
     //
     //-------------------------------------------------------------------------------------------------
     //
-    static int parse_args ( string[] argstring , ref string errmsg )
+    //
+    //-------------------------------------------------------------------------------------------------
+    // Help System (Phase 5)
+    //-------------------------------------------------------------------------------------------------
+    //
+
+    // Display comprehensive help and usage information
+    private static void ShowUsage()
+    {
+      Console.WriteLine("\n=======================================================");
+      Console.WriteLine("DVD Store 3.6 Driver - Usage");
+      Console.WriteLine("=======================================================\n");
+      Console.WriteLine("Format: ds36driver --param1=value1 --param2=value2 ...");
+      Console.WriteLine("    Or: ds36driver --config_file=path/to/config.txt\n");
+      Console.WriteLine("Parameters can be combined: command line overrides config file values\n");
+
+      var definitions = CreateParameterDefinitions();
+      Console.WriteLine($"{"Parameter",-25} {"Type",-10} {"Default",-15} {"Description"}");
+      Console.WriteLine(new string('-', 120));
+
+      foreach (var param in definitions.OrderBy(p => p.Key))
       {
-      int parm_idx = -1 , parm_count = 0;
-      string[] split;
-      string config_fname;
-      char[] delimiter = { '=' };
+        var def = param.Value;
+        string typeStr = def.Type.ToString();
+        Console.WriteLine($"{def.Name,-25} {typeStr,-10} {def.DefaultValue,-15} {def.Description}");
+      }
 
-      for ( int i = 0 ; i < argstring.Length ; i++ )
+      Console.WriteLine("\nConfig File Format:");
+      Console.WriteLine("-------------------");
+      Console.WriteLine("# Comments start with #");
+      Console.WriteLine("parameter_name=value");
+      Console.WriteLine("another_param=value\n");
+
+      Console.WriteLine("Examples:");
+      Console.WriteLine("---------");
+      Console.WriteLine("  ds36driver --target=localhost --n_threads=10 --db_size=1GB");
+      Console.WriteLine("  ds36driver --config_file=myconfig.txt --n_threads=20");
+      Console.WriteLine("  ds36driver --target=server1;server2;server3 --n_threads=5\n");
+    }
+
+    //
+    //-------------------------------------------------------------------------------------------------
+    // Configuration Display (Phase 5)
+    //-------------------------------------------------------------------------------------------------
+    //
+
+    // Display parsed configuration summary
+    private void DisplayConfiguration()
+    {
+      Console.WriteLine("\n=== Configuration Summary ===");
+      Console.WriteLine($"Target servers: {string.Join(", ", target_servers)}");
+      Console.WriteLine($"Total threads: {n_threads} ({n_threads/n_target_servers} per server)");
+      Console.WriteLine($"Ramp rate: {ramp_rate} users/sec");
+      Console.WriteLine($"Run time: {(run_time == 0 ? "infinite" : $"{run_time} minutes")}");
+      Console.WriteLine($"Warmup time: {warmup_time} minutes");
+      Console.WriteLine($"Think time: {think_time} seconds");
+      Console.WriteLine($"Database size: {db_size} ({customer_rows:N0} customers, {order_rows:N0} orders/month, {product_rows:N0} products)");
+      Console.WriteLine($"New customers: {pct_newcustomers}%");
+      Console.WriteLine($"New members: {pct_newmember}%");
+      Console.WriteLine($"Searches per order: {n_searches} avg");
+      Console.WriteLine($"Search batch size: {search_batch_size}");
+      Console.WriteLine($"Search depth: {search_depth}");
+      Console.WriteLine($"Review searches per order: {n_reviews} avg");
+      Console.WriteLine($"New reviews: {pct_newreviews}%");
+      Console.WriteLine($"Review helpfulness ratings: {pct_newhelpfulness}%");
+      Console.WriteLine($"Line items per order: {n_line_items} avg");
+      Console.WriteLine($"Number of stores: {n_stores}");
+      Console.WriteLine($"Windows perf monitoring: {(string.IsNullOrEmpty(windows_perf_host) ? "(none)" : windows_perf_host)}");
+      Console.WriteLine($"Linux perf monitoring: {(string.IsNullOrEmpty(linux_perf_host) ? "(none)" : linux_perf_host)}");
+      Console.WriteLine($"Output file: {(string.IsNullOrEmpty(outfilename) ? "(none)" : outfilename)}");
+      Console.WriteLine($"DS2 compatibility mode: {(ds2_mode ? "ENABLED" : "DISABLED")}");
+      Console.WriteLine($"Vector browse: {(n_vectors > 0 ? "ENABLED" : "DISABLED")}");
+      Console.WriteLine($"Add products: {(add_products_enabled ? "ENABLED" : "DISABLED")}");
+      Console.WriteLine("============================\n");
+    }
+
+    //
+    //-------------------------------------------------------------------------------------------------
+    // New Parameter Parser using ParameterParser (Phase 4)
+    //-------------------------------------------------------------------------------------------------
+    //
+
+    static int ParseArgsNew(string[] argstring, ParameterParser parser, ref string errmsg)
+    {
+      int parm_count = 0;
+
+      for (int i = 0; i < argstring.Length; i++)
+      {
+        string arg = argstring[i];
+
+        // Skip empty or too-short arguments
+        if (string.IsNullOrWhiteSpace(arg))
         {
-	if (argstring[i].Length < 3) continue;
+          Console.WriteLine($"Warning: Empty argument at position {i}, skipping");
+          continue;
+        }
 
-        //Console.WriteLine(argstring[i]);
-        if ( ( argstring[i].StartsWith ( "--" ) ) && ( argstring[i].IndexOf ( '=' ) > 2 ) )
+        if (arg.Length < 3)
+        {
+          Console.WriteLine($"Warning: Argument '{arg}' at position {i} too short, skipping");
+          continue;
+        }
+
+        // Validate format --key=value
+        if (!arg.StartsWith("--"))
+        {
+          errmsg = $"Argument {i} '{arg}' must start with '--'";
+          return 0;
+        }
+
+        int equalsIdx = arg.IndexOf('=');
+        if (equalsIdx <= 2)
+        {
+          errmsg = $"Argument {i} '{arg}' must have format --key=value";
+          return 0;
+        }
+
+        string key = arg.Substring(2, equalsIdx - 2);
+        string value = arg.Substring(equalsIdx + 1);
+
+        // Handle config file specially
+        if (key == "config_file")
+        {
+          if (!ParseConfigFileNew(value, parser, ref parm_count, ref errmsg))
+            return 0;
+          continue;
+        }
+
+        // Parse regular parameter using ParameterParser
+        if (!parser.TryParseParameter(key, value, out string? error))
+        {
+          errmsg = error;
+          return 0;
+        }
+
+        parm_count++;
+      }
+
+      return parm_count;
+    }
+
+    // Parse config file using ParameterParser
+    static bool ParseConfigFileNew(string filename, ParameterParser parser, ref int parm_count, ref string errmsg)
+    {
+      if (!File.Exists(filename))
+      {
+        errmsg = $"Config file '{filename}' not found";
+        return false;
+      }
+
+      try
+      {
+        string[] lines = File.ReadAllLines(filename);
+
+        for (int lineNum = 0; lineNum < lines.Length; lineNum++)
+        {
+          string line = lines[lineNum].Trim();
+
+          // Skip empty lines and comments
+          if (string.IsNullOrWhiteSpace(line) || line.StartsWith("#"))
+            continue;
+
+          int equalsIdx = line.IndexOf('=');
+          if (equalsIdx == -1)
           {
-          split = argstring[i].Substring ( 2 ).Split ( delimiter );
-          if ( split[0] == "config_file" )
-            {
-            config_fname = split[1];
-            if ( File.Exists ( config_fname ) )
-              {
-                  string[] configLines = File.ReadAllLines(config_fname);
-
-		  foreach (string line in configLines)
-		  {
-                     string trimmedLine = line.Trim();
-                     if (string.IsNullOrWhiteSpace(trimmedLine) || trimmedLine.StartsWith("#"))
-                       continue;
-
-		     string[] cfgSplit = trimmedLine.Split(delimiter);
-                     if (cfgSplit.Length >= 2)
-                     {
-                         string cfgKey = cfgSplit[0].Trim();
-                         string cfgVal = cfgSplit[1].Trim();
-
-                         parm_idx = Array.IndexOf(input_parm_names, cfgKey);
-                         if (parm_idx > -1)
-                         {
-                             input_parm_values[parm_idx] = cfgVal;
-                             parm_count++;
-                         }
-                     }
-
-		  }
-              }
-            else
-              {
-              errmsg = "File " + split[1] + " doesn't exist";
-              return ( 0 );
-              }
-            }  // End if (split[0] == "config_file")
-          else  // Param is not a config file name
-            {
-            parm_idx = Array.IndexOf ( input_parm_names , split[0] );
-            if ( parm_idx > -1 )
-              {
-              //Console.WriteLine("Parameter {0} parsed; was {1}, now {2}",split[0], input_parm_values[parm_idx], split[1]);
-              input_parm_values[parm_idx] = split[1];
-              ++parm_count;
-              }
-            else
-              {
-              errmsg = "Parameter " + split[0] + " doesn't exist";
-              return ( 0 );
-              }
-            } // End else Param is not a config file name
-          } // End if ((argstring[i].StartsWith("--") ...
-        else
-          {
-          errmsg = "Incorrect format in parameter: " + argstring[i];
-          return ( 0 );
+            Console.WriteLine($"Warning: Config file line {lineNum + 1} has no '=', skipping: {line}");
+            continue;
           }
-        } // End for (int i=0; i<argstring.Length; i++)
-      return ( parm_count );
-      } // End of parse_args
+
+          string key = line.Substring(0, equalsIdx).Trim();
+          string value = line.Substring(equalsIdx + 1).Trim();
+
+          if (!parser.HasParameter(key))
+          {
+            Console.WriteLine($"Warning: Config file line {lineNum + 1} has unknown parameter '{key}', skipping");
+            continue;
+          }
+
+          if (!parser.TryParseParameter(key, value, out string? error))
+          {
+            errmsg = $"Config file line {lineNum + 1}: {error}";
+            return false;
+          }
+
+          parm_count++;
+        }
+
+        return true;
+      }
+      catch (Exception ex)
+      {
+        errmsg = $"Error reading config file '{filename}': {ex.Message}";
+        return false;
+      }
+    }
 
     } // End of class Controller
 
@@ -1870,15 +2213,6 @@ namespace ds2xdriver
   //
   class User
     {
-    // If compile option /d:USE_WIN32_TIMER is specified will use 64b QueryPerformance counter from Win32
-    // Else will use .NET DateTime class
-#if (USE_WIN32_TIMER)
-    [DllImport("kernel32.dll")]
-    extern static short QueryPerformanceCounter(ref long x);
-    [DllImport("kernel32.dll")]
-    extern static short QueryPerformanceFrequency(ref long x);
-#endif
-
     int Userid;
     ds2Interface[] ds2interfaces = new ds2Interface[GlobalConstants.MAX_USERS];
     string username_in , password_in , firstname_in , lastname_in , address1_in , address2_in , city_in , state_in;
@@ -1887,7 +2221,6 @@ namespace ds2xdriver
     int customerid_in, membershiplevel_in, reviewid_in, reviewhelpfulness_in;
     string new_review_summary_in, new_review_text_in;
     int new_review_stars_in, new_review_prod_id_in;
-    string[] review_data_terms;
     private int lastprodinsert = 10000;
 
     public int target_server_id = 0;   //Added by GSK (Need this public since it is used by Controller to find out which thread belongs to which DB/Web Server)
@@ -1905,7 +2238,6 @@ namespace ds2xdriver
 	zip_in = country_in = email_in = phone_in = creditcard_in = gender_in = string.Empty;
 	new_review_summary_in = new_review_text_in = string.Empty;
 
-        review_data_terms = InitReviewDataTerms();
         //Console.WriteLine("user {0} created", userid);
     }
 
@@ -1914,15 +2246,14 @@ namespace ds2xdriver
     //
     public int GetSkewedProductId(int maxProduct)
     {
-        Random rnd = new Random();
         int popularInterval = 10000;
-        int weightBoost = 9; 
+        int weightBoost = 9;
 
         int popularCount = maxProduct / popularInterval;
 
         long totalWeight = (long)maxProduct + ((long)popularCount * weightBoost);
 
-        long roll = (long)(rnd.NextDouble() * totalWeight);
+        long roll = (long)(Random.Shared.NextDouble() * totalWeight);
 
         long blockSize = popularInterval + weightBoost; // 10,009
         long blockCount = roll / blockSize;
@@ -2381,8 +2712,8 @@ namespace ds2xdriver
             {
                 IsNewReview = true;
 
-                new_review_summary_in = CreateReviewData(ref review_data_terms, 3);
-                new_review_text_in = CreateReviewData(ref review_data_terms, 25);
+                new_review_summary_in = CreateReviewData(3);
+                new_review_text_in = CreateReviewData(25);
                 new_review_stars_in = Random.Shared.Next(1,6);
                 new_review_prod_id_in = prod_id_out[Random.Shared.Next(0,rows_returned)];
 
@@ -2435,7 +2766,7 @@ namespace ds2xdriver
             } //End of IF
             // End of New Helpfulness Phase
 
-            if ((Controller.n_overall > lastprodinsert ) && (Userid == (target_store-1) ) && Controller.n_add_products == 1)
+            if ((Controller.n_overall > lastprodinsert ) && (Userid == (target_store-1) ) && Controller.add_products_enabled)
             {
                //Console.WriteLine ("n_overall: {0} Thread: {1} target_store: {2}",Controller.n_overall, Userid, target_store);
                int k = Random.Shared.Next(1,20);
@@ -2461,7 +2792,7 @@ namespace ds2xdriver
 	       else // Adding new product failed. Disable.
 	       {
                   Console.WriteLine("  Failed to add new products. Disabling...");
-                  Controller.n_add_products = 0;
+                  Controller.add_products_enabled = false;
                   break;
 	       }
 
@@ -2661,424 +2992,24 @@ namespace ds2xdriver
     //
     String CreateActor ( )
     {
-      return (fake_actor_data.actor_firstnames[Random.Shared.Next( fake_actor_data.lastname_pool_size )] + " " + fake_actor_data.actor_lastnames[Random.Shared.Next( fake_actor_data.lastname_pool_size )]);
+      return (fake_actor_data.actor_firstnames[Random.Shared.Next( fake_actor_data.firstname_pool_size )] + " " + fake_actor_data.actor_lastnames[Random.Shared.Next( fake_actor_data.lastname_pool_size )]);
     }
 
     String CreateTitle ( )
     {
-      return (fake_title_data.movie_titles[Random.Shared.Next( 1000 )] + " " + fake_title_data.movie_titles[Random.Shared.Next( 1000 )]);
+      return (fake_title_data.movie_titles[Random.Shared.Next( fake_title_data.title_pool_size )] + " " + fake_title_data.movie_titles[Random.Shared.Next( fake_title_data.title_pool_size )]);
     }
 
-      string[] InitReviewDataTerms()
-      {
-          string[] review_data_terms = new string[]
-          {"the","and","a","of","to","is","in","I","that","this","it","for","was","with","as","The","movie","on",
-            "but","you","are","have","his","not","film","be","one","by","an","he","from","50","at","all","who",
-            "has","like","they","This","so","about","just","or","my","more","out","very","her","some","good",
-            "great","It","what","will","when","would","their","can","if","up","really","than","see","had",
-            "only","which","its","were","get","been","into","00","story","A","much","there","first","even",
-            "no","time","DVD","also","other","she","most","we","love","its","because","how","me","40","best",
-            "do","movie","your","many","make","it","dont","well","could","watch","any","people","movies","think",
-            "two","The","him","never","over","still","little","Its","then","made","But","being","does","way","them",
-            "If","after","did","too","seen","know","where","these","And","better","movie","He","those","In","ever",
-            "character","film","should","back","films","characters","find","new","say","scenes","makes","Im","off",
-            "through","There","go","such","want","watching","life","11","few","film","original","while","bad","action",
-            "going","own","old","same","didnt","real","i","every","years","scene","both","30","version","must","something",
-            "lot","doesnt","show","am","plot","before","may","look","between","acting","got","worth","always","take",
-            "actually","give","another","Great","cant","man","You","part","end","quite","thought","special","it","I",
-            "Ive","our","us","bit","saw","pretty","THE","The","now","why","set","They","things","series","come","John",
-            "feel","As","10","down","young","work","seems","without","long","since","each","cast","gets","music","One",
-            "thing","around","though","found","fun","big","almost","watched","enough","whole","classic","family","last",
-            "recommend","What","My","isnt","comes","right","Not","enjoy","here","actors","far","done","played","nothing",
-            "different","video","fan","favorite","funny","loved","times","world","book","excellent","horror","probably",
-            "plays","might","quality","When","2","performance","buy","put","true","takes","interesting","For","three",
-            "making","especially","looking","role","She","time","job","01","enjoyed","20","We","shows","during","came",
-            "thats","kind","wonderful","least","12","again","hard","fact","rather","yet","22","youre","read","trying",
-            "away","anyone","This","director","having","sure","need","second","goes","believe","keep","hes","So","play",
-            "sound","until","used","American","stars","anything","truly","effects","All","seeing","wasnt","point",
-            "looks","along","beautiful","seem","Michael","liked","once","help","left","full","main","getting","perfect",
-            "high","gives","picture","nice","use","everything","several","year","3","However","simply","ending",
-            "comedy","become","definitely","That","place","top","TV","everyone","entire","said","kids","day","guy",
-            "bought","His","fans","less","together","J","After","5","able","screen","sense","someone","highly","human",
-            "minutes","wont","live","wanted","release","well","given","features","next","went","Good","While","Movie",
-            "already","star","tell","against","understand","youll","based","Of","James","To","himself","and","let",
-            "woman","Robert","reason","finally","theres","performances","amazing","time","home","start","girl","review",
-            "couple","playing","doing","completely","New","rest","money","With","felt","David","season","small","one",
-            "wife","Even","try","all","remember","men","DVD","Hollywood","is","absolutely","certainly","Best","dvd",
-            "becomes","war","early","entertaining","story","them","short","actor","story","No","M","often","idea",
-            "including","final","mind","half","hope","wants","itself","At","Just","disc","released","course","although",
-            "movies","took","that","reviews","black","line","A","23","script","later","good","Id","Some","fine","Mr","me"
-            ,"again","children","under","fight","instead","audience","couldnt","OF","friends","production","4","others",
-            "me","behind","lost","gave","good","shot","him","turn","person","history","moments","son","Very","greatest",
-            "dark","else","called","heard","humor","problem","seemed","order","happy","care","movies","comic","33","wish",
-            "cut","past","An","works","the","finds","AND","beginning","commentary","documentary","turns","maybe","name",
-            "Tom","father","life","Jack","expect","lives","face","viewer","heart","Christmas","case","death","throughout",
-            "side","cannot","out","friend","course","this","parts","taken","films","totally","group","four","either","school",
-            "however","daughter","episodes","type","1","important","close","George","starts","havent","brilliant","night",
-            "NOT","well","written","Dont","sort","dialogue","huge","coming","women","known","guys","C","extras","musical",
-            "complete","this","add","title","stop","all","strong","somewhat","wrong","modern","On","episode","wait","edition",
-            "bring","knew","L","English","days","head","extremely","Peter","leave","worst","evil","IS","Theres","style",
-            "whose","mother","D","tells","copy","told","great","perhaps","learn","poor","it","lead","Ill","wouldnt","soon",
-            "experience","five","stories","taking","matter","Disney","camera","feeling","says","brings","From","supposed",
-            "major","brought","looked","How","THIS","due","giving","save","songs","exactly","easy","relationship","number",
-            "run","living","If","films","myself","previous","knows","romantic","piece","opening","02","tries","R","cool",
-            "a","named","turned","sets","In","movie","mean","guess","hit","personal","upon","Lee","view","Richard","audio",
-            "box","here","Although","voice","kill","change","Amazon","begins","hear","attention","across","Love","loves",
-            "10","Now","directed","boy","white","too","late","within","Dr","fantastic","laugh","sometimes","Then","DVD",
-            "despite","you","certain","battle","thinking","films","needs","particularly","These","price","Will","glad","S",
-            "started","fact","serious","house","drama","child","score","car","way","Paul","extra","age","overall","that",
-            "itbr","power","lines","theyre","kept","collection","enjoyable","characters","song","single","clear","lots",
-            "nearly","one","violence","ends","deal","British","Is","again","themselves","actual","lack","supporting",
-            "great","arent","older","yourself","way","working","husband","easily","town","hours","decent","13","youve",
-            "Like","end","powerful","tale","using","keeps","Star","end","viewing","dead","happens","saying","art","shes",
-            "wonder","William","stuff","Bond","except","is","Harry","awesome","out","simple","footage","TO","waste","usually",
-            "events","among","feature","chance","life","call","Oscar","novel","eyes","moment","decided","better","running",
-            "series","reading","soundtrack","transfer","Film","fast","scenes","feels","talking","King","him","It","emotional",
-            "Why","visual","Its","and","fall","watch","happened","War","disappointed","move","mostly","flick","moviebr",
-            "Thats","whether","beyond","killed","here","VHS","realize","E","As","buying","low","became","First","showing",
-            "available","seen","interest","acting","stand","34","hilarious","near","hate","moving","Most","game","up",
-            "interested","shown","light","animation","slow","difficult","hour","Man","third","message","writing","leaves",
-            "filmbr","mention","local","follow","falls","characters","Bruce","surprised","appreciate","future","I","alone",
-            "includes","direction","Excellent","body","sequel","funny","involved","added","attempt","Well","sex","which",
-            "means","Smith","meets","famous","various","Her","team","character","included","kid","plenty","forward","superb",
-            "them","ones","include","said","theme","appears","elements","quickly","Kevin","happen","years","typical","storyline",
-            "clearly","44","expected","animated","Bluray","though","unique","hold","above","on","form","missing","act",
-            "police","moves","theatrical","roles","A","her","received","There","French","Who","Hes","check","tried","purchased",
-            "scary","Another","times","similar","incredible","talk","stay","Also","But","problems","IT","created","level","Japanese",
-            "crew","memorable","more","times","obvious","boring","action","eventually","plot","purchase","Jason","waiting","parents",
-            "theater","middle","Martin","sad","there","books","forget","miss","recent","filmed","product","Frank","hero","strange",
-            "pay","words","obviously","historical","usual","word","portrayal","deep","blood","television","figure","By","perfectly",
-            "genre","material","Classic","Bill","particular","minute","Season","Yes","meet","viewers","return","series","K","hand",
-            "worked","track","Ray","doubt","basically","say","World","begin","sit","B","filled","create","female","open","20","or",
-            "Jim","room","brother","band","solid","remake","expecting","leads","bonus","needed","reality","won","collection","longer",
-            "political","Well","fairly","budget","book","Scott","gone","sounds","ago","cinematography","killer","funny","York","girls",
-            "be","dance","amount","Maybe","24","whom","etc","fighting","manages","pick","question","none","Black","IN","uses","forced",
-            "scenes","Big","made","agree","Also","realistic","example","large","de","presented","rent","up","work","Steve","shots","Chris",
-            "suspense","version","stupid","show","stage","inside","career","period","you","Ben","former","towards","world","telling",
-            "fit","killing","Mark","on","portrayed","contains","possible","ways","follows","murder","dramatic","music","terrible","present",
-            "character","Jones","color","match","recently","best","younger","as","addition","versions","quotThe","sequences","outstanding",
-            "thriller","deleted","And","scifi","Tim","nature","pure","crime","standard","familiar","actress","cover","deserves","adds",
-            "popular","sequence","country","class","earlier","terrific","Sam","aspect","admit","whos","whats","slightly","sent","years",
-            "romance","screen","Johnny","Joe","Van","reviewers","epic","consider","caught","free","Christopher","MOVIE","movies","God",
-            "front","focus","science","background","nor","entertainment","changed","today","meant","singing","city","30","following",
-            "who","hands","decides","scene","But","talent","however","amp","information","horrible","Both","beautifully","violent",
-            "average","surprise","compared","book","DVDs","Mary","sees","in","subject","likely","missed","rich","points","there",
-            "likes","write","details","possibly","space","Bob","choice","cast","exciting","Special","plus","incredibly","imagine",
-            "rare","ultimately","ask","interviews","Charles","classic","leading","break","starring","silly","appear","adventure",
-            "social","I","sexual","fantasy","provides","ability","herself","opinion","members","stars","biggest","fully","pThe",
-            "language","fan","ten","remains","US","Its","T","45","effort","eye","Many","outside","depth","masterpiece","White",
-            "Watch","concert","result","straight","spent","Two","offers","image","workout","widescreen","Batman","G","list",
-            "military","P","cinematic","beauty","basic","BluRay","a","truth","alien","believable","together","spend","German",
-            "escape","edge","setting","mystery","wrote","share","runs","much","gore","Though","Every","detail","Stephen","player",
-            "Only","Thomas","drug","issues","win","company","total","bunch","done","bad","changes","somehow","considered","Do",
-            "computer","fun","helps","cute","twist","55","man","chemistry","puts","people","adaptation","ended","zombie","version",
-            "So","worse","considering","stunning","terms","Wayne","stands","secret","holds","decide","adult","Dead","produced","anime",
-            "love","talented","comedy","family","crazy","now","dont","fun","effect","gift","hell","minor","effects","plot","intense",
-            "Daniel","entirely","Director","ordered","Little","America","critics","public","Story","role","Day","people","sister","vs",
-            "her","rock","Mike","showed","laughing","in","did","premise","6","business","work","questions","worthy","delivers","plan",
-            "rate","complex","control","originally","casting","cause","please","Once","catch","funniest","not","GREAT","further","Their",
-            "general","W","Too","writer","Perhaps","actors","twists","respect","thinks","studio","Christian","show","cop","fear","now",
-            "images","Brian","Robin","screenplay","Tony","leaving","impressive","die","hoping","successful","pull","cinema","creepy",
-            "married","provide","More","Steven","monster","YOU","alot","key","male","attempts","boys","jokes","clever","HD","ALL","success",
-            "bad","suggest","brief","Henry","Edward","continue","do","negative","society","Unfortunately","finding","immediately","listen",
-            "touch","LOVE","annoying","western","rating","day","Billy","becoming","knowing","common","ending","quick","Sean","performance",
-	    "writers","Trek","Anthony","sweet","hot","impressed","too","unless","subtle","journey","Academy","unlike","money","concept",
-	    "apparently","explain","hardly","fascinating","weak","ever","scene","Edition","notice","cult","Or","ride","digital","FOR","tough",
-	    "Red","world","15","graphic","Night","35","CGI","note","development","whatever","played","off","dream","Jeff","disappointed",
-	    "government","effective","era","onto","wanting","51","off","mentioned","bluray","aspects","about","intelligent","the",
-	    "mysterious","werent","03","first","chase","over","involving","situation","Jane","fiction","directors","literally",
-	    "mix","Other","value","vampire","though","plain","master","fell","comedy","see","Jennifer","martial","force",
-	    "thrown","arrived","know","ready","speak","THAT","cast","Williams","14","Time","hasnt","meaning","tired","discover",
-	    "H","Ryan","magic","current","Highly","disturbing","moral","cheap","excellent","led","Charlie","touching","Bad",
-	    "City","trailer","music","adults","De","What","train","For","atmosphere","today","ultimate","months","helped","learned",
-	    "A","to","was","odd","difference","Last","II","credits","state","mixed","super","away","Since","creative","barely",
-	    "held","seriously","office","physical","equally","grew","So","credit","opinion","so","step","Captain","tension",
-	    "day","willing","not","Superman","regular","All","humor","directors","continues","ship","were","was","acting",
-	    "Still","college","in","original","baby","Wonderful","Because","finest","spirit","inspired","entertaining","gang",
-	    "then","WAS","otherwise","Buy","Patrick","reasons","trouble","memories","trip","Jr","Get","normal","Despite","thoroughly",
-	    "mood","lose","Moore","wonderfully","tape","generally","action","growing","comedic","pace","todays","natural","feelings",
-	    "extended","superior","indeed","acted","Blu","paid","videos","print","lived","surprisingly","potential","before",
-	    "search","tone","absolute","laughs","either","moved","rented","compelling","Matt","weird","died","impossible",
-	    "drawn","girlfriend","cheesy","themes","VERY","original","six","interview","gay","recommended","Dark","dog","The",
-	    "compare","Danny","race","Having","Still","presence","positive","love","ideas","motion","viewed","80s","Thank","thing",
-	    "awful","lovely","3D","scenery","content","Western","pop","seemingly","job","One","tv","reviewer","Alan","thanks","putting",
-	    "culture","walk","Jackson","air","itself","featuring","party","fresh","filmmakers","case","slowly","yes","example",
-	    "emotions","subtitles","teen","store","dancing","opportunity","charming","pleased","understanding","but","support",
-	    "directing","predictable","Eric","Max","Gary","suddenly","set","editing","rated","People","appeal","Roger","Those",
-	    "humans","asked","family","gotten","discovers","offer","release","Eastwood","with","role","captured","proves",
-	    "ago","attack","convincing","better","excited","fan","B","Oh","seasons","DVDs","stuck","captures","own","Be",
-	    "gun","genius","before","allowed","producers","allow","Better","Your","keeping","million","other","history",
-	    "smart","ridiculous","toward","appearance","Was","Where","8","56","Everyone","experience","Hitchcock","Youll",
-	    "Here","water","ahead","impact","pass","hits","followed","Ed","sitting","pieces","Can","Each","for","soldiers",
-	    "Old","Have","Ford","wondering","wife","thus","picked","revenge","self","returns","numerous","creating","soul",
-	    "place","building","merely","best","constantly","twice","others","My","format","audiences","long","heavy","Joseph",
-	    "amazing","lets","avoid","Everything","bringing","shame","issue","not","Howard","date","beat","interesting","ago","clean","US",
-	    "gorgeous","personally","realized","double","much","Elizabeth","man","stick","youd","Nothing","allows","Potter","colors",
-	    "capture","laughed","ray","innocent","aware","Fun","year","Clint","cold","House","ON","stars","news","later","fellow",
-	    "apart","neither","students","Adam","effects","system","giant","right","childhood","Much","silent","managed","fair","tragic",
-	    "High","West","wrong","falling","down","fire","Fox","struggle","quality","born","video","Stone","Don","week","process","red","hair",
-	    "7","done","part","And","F","reminded","wild","South","arts","agent","prefer","Grant","relate","Overall",
-	    "began","learns","fails","enough","Green","deeply","actors","See","poorly","lacks","spectacular","Warner",
-	    "made","director","sorry","watch","kills","do","hand","drive","introduced","places","Gene","Matthew",
-	    "reminds","multiple","flick","Mrs","serial","turning","accurate","approach","Russell","summer","Never",
-	    "Burton","vision","religious","packed","discs","starting","ones","Now","Lord","limited","flying","brothers",
-	    "comedies","timebr","Life","filming","be","Jerry","interesting","comments","Earth","memory","grow","cartoon",
-	    "with","answer","Halloween","12","25","planet","carry","Sarah","individual","developed","rarely","source",
-	    "Mel","mans","Awesome","walking","Evil","emotion","watching","prison","forces","afraid","performance","When",
-	    "villain","treat","back","Nick","However","leader","Dennis","century","sick","condition","intended","ending","a",
-	    "remarkable","yet","Russian","asks","himself","Part","Alex","throw","honest","failed","itself","shooting","script",
-	    "visually","noticed","mainly","drama","expectations","United","bother","wide","alive","presentation","loving",
-	    "thing","technical","Before","joy","winning","Queen","choose","build","member","hearing","street","Kate",
-	    "BEST","loud","mission","food","genre","Rock","package","marriage","opens","steals","road","suppose","learning",
-	    "bored","so","land","psychological","children","NO","element","test","Eddie","together","Miss","Allen","costumes",
-	    "acts","Italian","energy","Horror","violence","justice","minutes","Andrew","66","Anne","Brad","appeared",
-	    "service","portrays","folks","brutal","realizes","shouldnt","point","gonna","dealing","The","46","dreams",
-	    "traditional","blue","met","strength","excellent","accept","pleasure","charm","prove","lets","Alien","purpose","classic",
-	    "screen","ONE","Go","blu","mind","destroy","artistic","grown","faces","else","wellbr","more","describe","study","Loved",
-	    "players","treatment","utterly","finish","sexy","honestly","teenage","Depp","surprising","Brown","Did",
-	    "additional","Dolby","performances","la","are","Taylor","relationships","professional","actions","breaks",
-	    "short","Instead","moments","exception","Shes","technology","beautiful","WITH","emotionally","release",
-	    "necessary","engaging","deliver","entertaining","zombies","sharp","Worth","Kelly","days","home","Wilson",
-	    "situations","Spanish","visuals","latest","design","N","About","seat","pulled","deserved","theatre",
-	    "direct","lady","legendary","hidden","classics","creates","humor","sing","names","fans","hadnt","provided",
-	    "hated","pictures","theaters","Being","Julie","wasted","Johnson","Anderson","shoot","Digital","detective",
-	    "fights","delivered","student","bigger","focuses","loses","Me","BUT","first","loss","overly","kinda",
-	    "spot","remain","visit","Chinese","HAVE","Yet","door","father","actor","While","nicely","9","Julia",
-	    "camp","enjoying","earth","Three","treated","deals","Blue","performances","other","calls","sheer",
-	    "Americans","Davis","talks","Definitely","capable","Video","SO","point","brilliantly","jump","Brothers",
-	    "remembered","mean","knowledge","believes","presents","central","Arthur","delightful","heroes","Let","disappointing",
-	    "comment","picture","program","Music","lies","40","Our","releases","Jimmy","Guy","item","law","mental","brain",
-	    "around","extreme","minutes","desire","restored","Joan","Criterion","bloody","Paris","send","Jackie","insight","scared",
-	    "aliens","mom","pain","combination","travel","Are","broken","decision","bizarre","weeks","sell","back","hopes",
-	    "R","Watching","doctor","Ron","50","Funny","2nd","unusual","grand","deeper","finished","adding","dangerous",
-	    "constant","like","tears","nominated","disk","Prince","event","perfect","Anyone","Tommy","Arnold","values",
-	    "friends","heads","somewhere","lacking","regret","genuine","conflict","teacher","definately","Douglas","Jean","rescue",
-	    "discovered","it","Miller","have","Dan","Really","fairy","kick","children","Stewart","prior","Jesus","job",
-	    "others","himself","ancient","Walter","intriguing","featured","Cruise","explains","history","Family","dull",
-	    "audience","training","army","quiet","impression","losing","dialogue","reach","essentially","ground",
-	    "involves","flat","Al","film","Picture","cost","loose","hurt","everybody","amusing","Fred","Vincent",
-	    "length","Alice","range","magnificent","Review","standing","complaint","plane","seven","trust","Without",
-	    "greater","narrative","price","Young","enough","Wars","personality","Andy","dying","seen","survive","appropriate",
-	    "Hanks","initial","Movies","tend","101","Overall","thank","generation","Rob","MY","perspective","pulls","to",
-	    "weve","relatively","67","dialog","closer","thats","Rocky","son","witty","meeting","unexpected","introduction",
-	    "protect","producer","bits","dumb","driving","island","higher","lover","built","13","kids","edited","North",
-	    "magical","set","photography","recommended","taste","foreign","Ms","Im","tour","bottom","cry","old","friend",
-	    "favor","money","flaws","characters","surely","confused","thembr","plans","mad","faith","author","blown","us","death",
-	    "You","aside","results","critical","dark","through","forgotten","fabulous","Oh","wearing","Lost","night","Would","flicks",
-	    "who","passed","location","dad","unable","roles","majority","friendship","happening","Whats","frame","London",
-	    "creature","alternate","previously","humanity","Thanks","old","MUST","night","Cant","fits","creatures",
-	    "Stanley","dvd","portraying","Beautiful","skip","lesson","Ever","if","Michelle","machine","Sound","CD","gem",
-	    "boss","Lets","Harris","Lewis","trailers","Amazing","Lady","with","Universal","heart","passion","mind",
-	    "responsible","sat","project","Larry","shock","asking","wrong","surround","bright","lovers","Back",
-	    "entertainment","Oliver","boring","forever","Fantastic","sequels","sides","GOOD","section","listening",
-	    "great","animals","apparent","shocking","over","voices","steal","15","condition","artist","Cameron",
-	    "True","away","serves","conclusion","mess","slasher","speaking","packaging","right","numbers","Sure",
-	    "opera","inner","friends","balance","Clark","radio","Pretty","kids","till","unknown","twenty","Texas",
-	    "things","Indian","haunting","record","holding","Bourne","mistake","favorites","Hugh","manage","manner",
-	    "Lawrence","lame","girl","moments","ok","Morgan","center","Barbara","described","war","Kim","fake","significant",
-	    "connection","part","unfortunately","officer","tragedy","novel","for","strongly","saved","fill","rise",
-	    "performed","placed","media","badly","timeless","Linda","bar","Anyway","theyve","Willis","deserve","down","Hard",
-	    "satisfying","suspect","home","Which","regarding","humorous","efforts","awesome","Kubrick","andor","Spielberg",
-	    "although","Unlike","affair","San","driven","cuts","warm","features","Dean","Jonathan","fans","pair","noir",
-	    "quality","the","Rachel","chose","join","wouldve","experienced","Long","cameo","see","Instead","phone","everyone",
-	    "today","Death","mine","Vietnam","draw","extras","boyfriend","contrast","Los","greatly","Does","Series","70s",
-	    "nobody","whenever","area","Jessica","Award","proper","comparison","20th","largely","enjoy","season","wonderful",
-	    "Susan","Must","victim","faithful","alltime","eat","carries","Lots","Please","imagination","features","Over","makers",
-	    "especially","reveal","sense","damn","spoil","Washington","storybr","skills","video","Helen","Any","Tarantino","fate",
-	    "virtually","recognize","via","criminal","genuinely","death","masterpiece","disappointment","portray","mother","determined",
-	    "offered","okay","like","beloved","powers","04","words","games","war","supposedly","36","opinion","Along","History",
-	    "Woody","teach","holiday","Girl","franchise","though","long","latter","are","facts","Action","Terry","REALLY",
-	    "around","Overall","Rick","General","Nazi","correct","but","extras","didnt","reveals","types","Roman","develop",
-	    "focused","evidence","climax","twisted","FBI","separate","line","delivery","Alexander","award","Nice","2","stuff",
-	    "actor","actresses","ARE","ghost","confusing","horse","Civil","England","flick","fashion","Planet","blow",
-	    "speaks","references","partner","painful","Collection","refreshing","future","trilogy","cant","anybody",
-	    "extraordinary","enjoys","things","script","prepared","enjoyable","lives","accent","1st","To","Craig",
-	    "desperate","Show","oh","private","mediocre","reviews","purchasing","green","nuclear","amazed","movie",
-	    "Roy","reason","ordinary","ruin","experiences","serve","guy","cross","hilarious","J","depiction","core",
-	    "helping","disaster","77","of","woman","saving","OK","57","pacing","drama","did","himbr","scare","President",
-	    "encounter","Golden","year","During","sold","nowhere","like","know","ran","ages","cars","talents","really",
-	    "viewing","lower","wedding","necessarily","Home","Jamie","2","designed","normally","copies","Harrison","joke",
-	    "After","shines","Living","exact","covered","variety","owner","streets","forth","animal","figured","opposite",
-	    "crowd","Take","selling","victims","count","caused","nudity","pleasant","hired","us","struggles","monsters",
-	    "revealed","Comedy","suffers","cops","concerned","once","mark","AS","Finally","sight","Roberts","On","Hill",
-	    "walks","Holmes","required","quest","marvelous","thoughts","tracks","TV","praise","claim","does","Santa","display",
-	    "trapped","Out","raised","European","tribute","Look","pleasantly","apartment","smile","paced","DVD","wonderful",
-	    "dated","Book","line","safe","changing","disc","reaction","vs","Perfect","speech","below","touches","returned",
-	    "Alfred","about","even","Directors","sign","directly","sports","Doctor","another","families","We","convinced",
-	    "Unfortunately","DO","quirky","picture","Dracula","underrated","fantastic","picks","place","yoga","brand","genre",
-	    "breaking","Disc","contemporary","paying","clips","ever","overthetop","Nicholas","chosen","featurette","hotel",
-	    "That","Ian","Cage","angry","receive","depicted","fly","superb","attractive","produce","complicated","handle",
-	    "side","intelligence","spy","deadly","recorded","stated","cinematography","Now","No","dollars","fathers","weight",
-	    "daughter","glimpse","Nicholson","shocked","volume","Simon","heavily","Donald","With","essential","25","themselves",
-	    "hospital","therefore","exceptional","causes","battles","Set","Joel","crap","Baby","favourite","witness","anyway",
-	    "Top","own","May","BE","think","spite","research","different","pI","larger","contain","recall","equal","cat","Audio",
-	    "remastered","gold","Ann","Anniversary","superhero","massive","Murphy","plots","Army","including","description",
-	    "besides","direction","mere","attitude","Sir","Live","exercise","account","choices","Damon","titles","stopped",
-	    "ruined","spends","Master","bank","repeated","obsessed","suspenseful","Parker","dies","kinds","frightening","roll",
-	    "Broadway","excuse","watches","judge","books","sympathetic","Sometimes","Pitt","stellar","Lucy","influence","shape",
-	    "perform","suffering","days","real","documentaries","production","challenge","Saturday","arrives","case","Anna","stays",
-	    "house","served","detailed","legend","lessons","alone","replaced","Irish","nasty","romance","independent","murdered",
-	    "claims","popcorn","First","expected","segment","surrounding","gangster","debut","fourth","opened","Jake","enemy",
-	    "Matrix","community","wear","initially","mebr","least","yes","accident","Especially","of","eating","Gibson","darker",
-	    "explained","However","Could","cutting","Princess","mob","searching","king","Friday","covers","mature","Based","Hopkins",
-	    "perfect","levels","and","marry","church","decades","villains","house","behavior","wife","Original","lifebr","style","2",
-	    "village","Iron","suspense","succeeds","realism","Things","Yes","style","terribly","two","rules","unbelievable","purchase",
-	    "26","struggling","drop","thrilling","beautiful","Dick","Up","breath","views","Leonard","Absolutely",
-	    "Cary","WWII","childrens","related","African","ensemble","time","gory","true","Catherine","scientist","sleep",
-	    "practically","else","seller","per","entertained","sound","career","poignant","1","fault","Barry","anything",
-	    "Elvis","appreciated","month","highest","Carol","chick","for","Gordon","Something","industry","occasionally","Simply",
-	    "Dawn","steps","men","Godzilla","blame","Dave","bed","fail","grows","Laura","Maria","guns","opposed","assume","onebr",
-	    "position","gritty","owned","u","seeking","freedom","at","desert","Indiana","football","Colin","Carl","lucky",
-	    "Connery","couldve","Full","curious","explanation","tons","eyes","boring","everyday","satire","remind","Men",
-	    "anywhere","identity","carried","sadly","unforgettable","MGM","sense","11","Again","amazing","random","stayed",
-	    "Samuel","Kirk","rights","Street","tremendous","wealthy","Such","Space","Lucas","charge","cable","veteran","wise",
-	    "winner","later","post","baseball","Jewish","feet","Jon","commercial","combined","Zombie","holes","colorful","rental",
-	    "tight","facial","Some","complain","installment","yet","proud","Theyre","Wild","ways","once","happen","highlight","blind",
-	    "closing","Saw","SciFi","seek","AT","dialogue","station","ball","works","heck","cultural","Amy","says","Harvey","Ken",
-	    "lighting","enter","age","Die","round","drugs","dubbed","Amazon","dirty","Happy","season","commentary","review","destroyed",
-	    "past","delight","ring","90","past","pilot","Snow","At","guilty","supernatural","BUY","possible","child","pThis","seconds",
-	    "waited","arms","review","flow","Jeffrey","letting","78","M","score","Park","sound","I","Sandra","Not","WILL","restoration",
-	    "unfortunate","FROM","understood","teens","routine","promise","go","definite","advantage","Owen","laugh","upset","exist",
-	    "Jay","sensitive","essence","play","Kong","soldier","library","providing","believable","thrilled","roles","released",
-	    "unlikely","Carrey","believed","reference","violence","women","thin","option","Lisa","Louis","costume","weapons",
-	    "context","Had","chapter","notch","beginning","sex","Angel","school","youth","two","Terminator","field","DTS",
-	    "effectively","States","ice","ways","Way","answers","Next","Greek","builds","revolves","boat","vampires","drag",
-	    "Rose","guitar","chilling","documentary","sequel","drives","againbr","dozen","Almost","bear","School","real",
-	    "tradition","specific","returning","morning","throws","Ghost","floor","primarily","path","Mickey","which","far",
-	    "Wood","allowing","edition","Karen","suit","empty","repeat","matters","blend","sends","calling","favorites",
-	    "artists","47","Bobby","formula","album","improved","touched","crafted","welcome","child","crisp","ugly",
-	    "ranks","sea","guy","allbr","homage","throughout","handsome","star","contact","thebr","sings","intensity","achieve",
-	    "walked","terror","Dragon","currently","cinema","remaining","Sure","reviews","novel","bond","advice","endless",
-	    "satisfied","speed","countless","window","lights","Scorsese","committed","slight","recording","excitement","heart",
-	    "decade","campy","lot","Then","SEE","informative","something","adapted","tiny","convince","Romero","hundreds",
-	    "Jeremy","worthwhile","teaches","3rd","Neil","soundtrack","Ultimate","haunted","pointless","saves","raw",
-	    "finale","face","overcome","TV","school","courage","gain","birth","spiritual","movement","fictional",
-	    "material","attention","occasional","Okay","mainstream","director","attempting","passing","menu","thousands",
-	    "proved","myself","hide","say","hype","mouth","Real","push","Philip","cool","waybr","hanging","par",
-	    "conversation","Final","So","danger","Quentin","status","differences","Super","gotta","father","enjoyment",
-	    "EVER","importance","singer","bet","minds","board","DVDbr","stops","The","eight","Fans","Pacino","level",
-	    "that","episodes","Disneys","again","handled","it","vast","techniques","adventures","stood","Ted","Give","80s",
-	    "wall","Denzel","thriller","surface","Victor","hundred","Whether","crash","murders","lonely","Kane","reminiscent",
-	    "La","insane","Films","somebody","he","abandoned","infamous","You","Four","inspiring","audience","instance","writing",
-	    "amazingly","go","gore","destruction","awkward","loaded","outbr","son","episodes","aside","closely","peace","John",
-	    "according","format","daily","Carter","NEVER","honor","Probably","interpretation","Entertainment","robot","Cooper",
-	    "downright","cares","herebr","parts","easier","stock","soft","narration","broke","Mr","notes","enhanced","Right",
-	    "production","Plus","picking","Through","brilliant","Movie","very","treasure","faced","pack","expensive","sets",
-	    "same","episode","identify","Hall","Annie","game","flawed","troubled","teaching","forgot","Bogart","Come","CIA",
-	    "boy","politics","model","National","Five","stories","Cut","medical","corny","Brooks","IF","sorts","anyone",
-	    "3","skin","standards","parody","raise","Art","ONLY","XMen","response","reason","fine","Days","anymore","FILM",
-	    "tear","theater","struck","im","Finally","international","peoples","suffer","songs","instead","BBC","torture",
-	    "Chuck","harsh","releasing","think","funnier","renting","Interesting","draws","refuses","Freeman","horror",
-	    "belief","Campbell","sequel","Timothy","Check","also","terrifying","wins","Yet","Gregory","horrific",
-	    "unnecessary","practice","LOVED","husband","states","security","en","OK","grace","sinister","filmmaking",
-	    "anything","evening","relief","Upon","que","carefully","wit","Albert","come","wont","advanced","rough",
-	    "target","Boy","desperately","California","episode","fallen","sounded","buy","Complete","vehicle","bomb",
-	    "goodbr","thru","Im","another","Curtis","mindless","comics","Blood","suicide","sure","Foster","yourself",
-	    "listed","filmmaker","LIKE","channel","movie","alone","storyline","improvement","Reeves","existence","figures",
-	    "term","brother","gripping","naked","paper","remote","Kurt","teenagers","girl","aint","dressed","Crowe",
-	    "Hunter","masterful","convey","Hepburn","aged","criticism","Josh","locations","planning","bodies","makeup",
-	    "one","degree","cartoons","III","Nicole","regardless","millions","soundtrack","matter","parts","entertain","art",
-	    "spending","combat","statement","appealing","68","subsequent","corporate","Shirley","Mexican","ignore",
-	    "studios","removed","Hope","Hoffman","Seven","cases","Shakespeare","dry","problem","Diane","club","brilliant",
-	    "does","profound","head","written","Murray","represents","neat","Thompson","Hitchcocks","guessing","Emma",
-	    "88","amazon","dinner","then","market","plastic","Greatest","V","qualities","birthday","matches","authentic",
-	    "cool","suffered","depressing","Make","starred","goofy","WHAT","storyline","too","hopefully","challenging",
-	    "mass","thrill","dropped","Fan","corrupt","false","Judy","Mad","lesser","library","town","hours","fought",
-	    "notable","split","instantly","hooked","true","commentaries","film","talked","likeable","individuals",
-	    "entry","creation","clothes","I","Austin","Has","JUST","lawyer","encounters","documentary","successfully",
-	    "grab","fine","anniversary","device","simple","eyes","laugh","young","movie","executed","redeeming",
-	    "devoted","slow","men","rid","risk","westerns","flashbacks","noted","while","person","Chicago","god",
-	    "classical","disc","woman","stolen","thisbr","Cold","Chan","ever","frequently","X","host","task","ages",
-	    "superb","REAL","worry","hiding","ones","arrive","tales","sake","replace","star","far","sequences","why",
-	    "Predator","highlights","hero","pregnant","timely","Leslie","earned","Another","surprises","instant","have",
-	    "factor","Of","Vampire","Adams","teenager","jumps","appreciation","Japan","Fast","established","Sandler",
-	    "stuff","reporter","interaction","shallow","Carpenter","Got","expert","Pixar","overall","Grace","experience",
-	    "play","aired","threat","UK","Ralph","toobr","Tyler","age","prevent","dynamic","Harold","Welles","portion",
-	    "breathtaking","daughter","warning","busy","press","Blade","animation","trash","pathetic","cruel","requires",
-	    "tied","taught","Entertaining","hilarious","endbr","Hannibal","Favorite","dislike","collection","Freddy",
-	    "caring","60s","language","everyone","survivors","versus","Ross","stories","base","sudden","eerie","sword",
-	    "Keanu","underground","checking","newer","Collectors","Man","crying","golden","Tracy","offering","ladies",
-	    "develops","novels","page","no","tense","likable","continued","throwing","Maggie","failure","37","player",
-	    "Stars","problems","YOUR","spots","Price","garbage","belongs","displays","revealing","moviesbr","storytelling",
-	    "musicals","Bay","amongst","side","Myers","escapes","Plus","sum","miles","thriller","game","examples","scale",
-	    "seeks","person","protagonist","Walt","bothered","reality","Coen","always","books","rival","flaw","centers",
-	    "discuss","rule","song","primary","graphics","utter","Although","wears","Meanwhile","inspiration","imagery",
-	    "definition","100","Del","era","Professor","newly","goal","letter","shark","shows","St","inevitable","flight",
-	    "Truly","Lane","slapstick","copy","Emily","site","friend","discussion","humour","Shrek","Ellen","explore",
-	    "horribly","explaining","rape","basis","Natalie","riding","scary","town","non","dead","priest","Kubricks",
-	    "reality","16","Making","Bryan","product","addition","upper","comfortable","Its","Road","material","shipping",
-	    "Poor","technique","one","increasingly","friendly","stretch","hang","Father","of","circumstances","16",
-	    "America","universe","everyones","luck","intellectual","shot","date","Robinson","Jet","historically",
-	    "everything","jumping","evil","happened","lines","relevant","segments","argue","period","pointed","Marie",
-	    "solve","hoped","wrapped","cash","prime","complaints","spoken","native","metal","definitive","Catholic",
-	    "religion","region","new","kid","interest","you","Burtons","THEY","next","hed","Keaton","rolling","theater",
-	    "Even","many","transformation","honest","screaming","Made","sophisticated","blood","outstanding","reallife",
-	    "Francis","Battle","Reynolds","Li","predictable","express","flesh","What","survival","brave","stunts","portrait",
-	    "drinking","Baker","fat","reasonable","causing","performing","this","shot","HBO","guest","albeit","kicks",
-	    "Kill","Island","05","foot","ratio","guys","women","nice","Nancy","score","blows","aging","innocence","Add",
-	    "Theres","wind","Private","Turner","perfectly","mother","Legend","awards","GET","Quite","grade","usual",
-	    "Jesse","Luke","surreal","disappointment","vivid","quote","carrying","anger","Hunt","boxing","evident",
-	    "size","hunt","Keith","weekend","gruesome","contained","br","14","terrible","seriously","Audrey","Kenneth",
-	    "Clooney","wondered","Seeing","Heston","laid","fame","89","look","Century","ive","depicts","D","ruthless",
-	    "sad","accidentally","Should","while","happily","Paramount","wooden","heroic","Hong","clues","bound",
-	    "benefit","maintain","Costner","Law","worlds","controversial","physically","smaller","songs","workout",
-	    "Duke","Von","Norman","bit","C","Dirty","Second","career","Hulk","Hell","doesnt","18","scientific","explores",
-	    "stronger","chief","ourselves","online","specifically","shop","society","Twilight","note","court","Think",
-	    "entertainment","vintage","costumes","thirty","grain","watching","cynical","HE","dedicated","attacked",
-	    "tends","favorite","Baldwin","Europe","isbr","introduces","previews","sympathy","angles","health","reputation",
-	    "casual","expressions","Newman","June","english","clue","art","Heres","Asian","screenwriter","45","anamorphic",
-	    "shared","watchable","glorious","Soviet","Niro","morebr","staying","None","torn","wake","attempted","HIS",
-	    "Las","root","rating","engaged","different","country","skill","socalled","underlying","loyal","Marilyn",
-	    "Randy","Then","bucks","worse","comical","Angelina","careful","name","connected","Great","Movie","accomplished",
-	    "no","flawless","Third","Benjamin","trained","Moon","title","backdrop","thumbs","shut","beings","BD","wanna",
-	    "Patricia","onbr","messages","resolution","p","photo","youbr","Brilliant","obsession","Science","OUT",
-	    "truck","East","strike","Fiction","lacked","challenges","ride","24","captain","theyll","Todd","im",
-	    "Movie","viewer","recomend","capturing","hollywood","Wallace","dollar","Graham","Remember","Rodriguez",
-	    "customer","attacks","Secret","substance","drunk","He","rendition","Nelson","reaches","released","Kids",
-	    "this","improve","Travolta","Marshall","scary","mentally","overlooked","halfway","acted","Lynch","concerns",
-	    "pushed","enters","con","info","moment","Angela","y","Brandon","subtitles","crude","gentle","thousand",
-	    "AN","France","buddy","threw","kid","face","PG13","this","Wes","uncomfortable","Youre","worried","arm",
-	    "El","filmsbr","perfection","signs","riveting","fears","wishes","Rogers","disagree","Meryl","hint","Phil",
-	    "blockbuster","execution","Vegas","masterpiece","Actor","handful","table","fantastic","heroine","unrealistic",
-	    "that","gratuitous","financial","striking","situation","direction","Alec","Toy","theyd","pays","Glenn",
-	    "eccentric","naturally","through","Americas","L","along","Yeah","adventure","edition","areas","legal",
-	    "laughs","dvd","Buffy","ANY","demands","anymore","Quality","player","headed","gags","admire","hours",
-	    "Ive","chasing","dead","Amanda","punch","themselves","superbly","it","worse","piano","Burt","matter",
-	    "transfer","harder","Ethan","OR","silver","fond","pulling","darn","kidnapped","Streep","consequences",
-	    "bus","forever","Air","Masterpiece","dress","liking","directorial","Mexico","sisters","lines","stealing",
-	    "national","least","deaths","Ridley","Drew","passionate","Mom","absurd","groups","fun","also","intelligent",
-	    "Stallone","shine","believing","brilliance","gross","name","THE","Meg","grainy","Count","moment","cliche",
-	    "WAY","well","future","Am","personalities","dogs","criminals","Lees","environment","enormous","yeah",
-	    "Hollywood","urban","Given","bridge","USA","professor","timing","upcoming","laughter","fitting","mountain",
-	    "surrounded","sucked","ripped","official","lives","Greg","workouts","Crystal","Claire","contrived",
-	    "available","selection","Christmas","hardcore","remarkably","lie","tad","DONT","finish","Blair","evil",
-	    "anyway","american","facing","Andrews","decisions","exchange","myself","arguably","beginning","candy",
-	    "dvds","locked","film","BIG","structure","strikes","LA","orders","Years","Kennedy","stole","spoof","bitter",
-	    "budget","civil","admit","60","darkness","Save","TIME","suspense","gradually","hitting","reccomend","to",
-	    "tale","antics","get","fix","Aliens","Colonel","America","appearances","critic","oil","Later","connect",
-	    "von","Dont","typically","right","importantly","Boys","accused","God","associated","Sadly","idea","beneath",
-	    "911","1","helpful","Val","Christ","developing","works","Holly","shipped","mid","nonstop","intent","58",
-	    "wonders","jobs","access","They","settings","code","cell","except","Lois","sacrifice","princess","demonstrates",
-	    "lowbudget","drink","Sharon","regard","Also","3","beats","Southern","sure","Hollywoods","Lloyd","heres",
-	    "Doc","delivering","Sherlock","had","sister","Perry","burning","anyway","mothers","exists","list","secrets",
-	    "herbr","scares","concerning","spoiled","blew","dare","Betty","The","17","ballet","Side","Monty","movements",
-	    "soap","worn","Besides","suggests","purely","mask","traveling","creators","chance","WHO","Hughes",
-	    "Eastwoods","fan","strong","4","Sally","price","Bottom","Vince","Uncle","insult","dragged","Angeles","betterbr",
-	    "Raymond","outrageous","best","Marvel","whereas","reviewing","involved","performers","rely","English","porn",
-	    "Beatles","horror","glass","alive","closed","card","27","form","Keep"
-          };
-        return review_data_terms;
-    }
 
-    string CreateReviewData(ref String[] review_data_terms, int num_terms)
+    string CreateReviewData(int num_terms)
     {
-        string return_string = "";
+        StringBuilder sb = new StringBuilder();
 
         for (int i=0; i < num_terms; i++)
         {
-            return_string = return_string + " " + review_data_terms[Random.Shared.Next(4900)];
+            sb.Append(" ").Append(fake_review_data.review_terms[Random.Shared.Next(fake_review_data.review_term_pool_size)]);
         }
-        return (return_string);
+        return sb.ToString().TrimStart();
     }  // End of CreateReviewData
 
     } // End of Class User
@@ -3573,4 +3504,409 @@ public static class fake_actor_data {
           "Wilson", "Winston", "Witherspoon", "Wolfhard", "Wong", "Wood", "Wright", "Yelchin", "Yeoh", "Yeun", "Zellweger",
           "Zeta-Jones"
         };
+}
+
+public static class fake_review_data {
+
+      // Review data terms compiled from common movie review words
+      // Approximately 4950 terms used to generate synthetic review summaries and text
+
+      public const int review_term_pool_size = 4950;
+
+      public static readonly string[] review_terms = new string[]
+          {"the","and","a","of","to","is","in","I","that","this","it","for","was","with","as","The","movie","on",
+            "but","you","are","have","his","not","film","be","one","by","an","he","from","50","at","all","who",
+            "has","like","they","This","so","about","just","or","my","more","out","very","her","some","good",
+            "great","It","what","will","when","would","their","can","if","up","really","than","see","had",
+            "only","which","its","were","get","been","into","00","story","A","much","there","first","even",
+            "no","time","DVD","also","other","she","most","we","love","its","because","how","me","40","best",
+            "do","movie","your","many","make","it","dont","well","could","watch","any","people","movies","think",
+            "two","The","him","never","over","still","little","Its","then","made","But","being","does","way","them",
+            "If","after","did","too","seen","know","where","these","And","better","movie","He","those","In","ever",
+            "character","film","should","back","films","characters","find","new","say","scenes","makes","Im","off",
+            "through","There","go","such","want","watching","life","11","few","film","original","while","bad","action",
+            "going","own","old","same","didnt","real","i","every","years","scene","both","30","version","must","something",
+            "lot","doesnt","show","am","plot","before","may","look","between","acting","got","worth","always","take",
+            "actually","give","another","Great","cant","man","You","part","end","quite","thought","special","it","I",
+            "Ive","our","us","bit","saw","pretty","THE","The","now","why","set","They","things","series","come","John",
+            "feel","As","10","down","young","work","seems","without","long","since","each","cast","gets","music","One",
+            "thing","around","though","found","fun","big","almost","watched","enough","whole","classic","family","last",
+            "recommend","What","My","isnt","comes","right","Not","enjoy","here","actors","far","done","played","nothing",
+            "different","video","fan","favorite","funny","loved","times","world","book","excellent","horror","probably",
+            "plays","might","quality","When","2","performance","buy","put","true","takes","interesting","For","three",
+            "making","especially","looking","role","She","time","job","01","enjoyed","20","We","shows","during","came",
+            "thats","kind","wonderful","least","12","again","hard","fact","rather","yet","22","youre","read","trying",
+            "away","anyone","This","director","having","sure","need","second","goes","believe","keep","hes","So","play",
+            "sound","until","used","American","stars","anything","truly","effects","All","seeing","wasnt","point",
+            "looks","along","beautiful","seem","Michael","liked","once","help","left","full","main","getting","perfect",
+            "high","gives","picture","nice","use","everything","several","year","3","However","simply","ending",
+            "comedy","become","definitely","That","place","top","TV","everyone","entire","said","kids","day","guy",
+            "bought","His","fans","less","together","J","After","5","able","screen","sense","someone","highly","human",
+            "minutes","wont","live","wanted","release","well","given","features","next","went","Good","While","Movie",
+            "already","star","tell","against","understand","youll","based","Of","James","To","himself","and","let",
+            "woman","Robert","reason","finally","theres","performances","amazing","time","home","start","girl","review",
+            "couple","playing","doing","completely","New","rest","money","With","felt","David","season","small","one",
+            "wife","Even","try","all","remember","men","DVD","Hollywood","is","absolutely","certainly","Best","dvd",
+            "becomes","war","early","entertaining","story","them","short","actor","story","No","M","often","idea",
+            "including","final","mind","half","hope","wants","itself","At","Just","disc","released","course","although",
+            "movies","took","that","reviews","black","line","A","23","script","later","good","Id","Some","fine","Mr","me"
+            ,"again","children","under","fight","instead","audience","couldnt","OF","friends","production","4","others",
+            "me","behind","lost","gave","good","shot","him","turn","person","history","moments","son","Very","greatest",
+            "dark","else","called","heard","humor","problem","seemed","order","happy","care","movies","comic","33","wish",
+            "cut","past","An","works","the","finds","AND","beginning","commentary","documentary","turns","maybe","name",
+            "Tom","father","life","Jack","expect","lives","face","viewer","heart","Christmas","case","death","throughout",
+            "side","cannot","out","friend","course","this","parts","taken","films","totally","group","four","either","school",
+            "however","daughter","episodes","type","1","important","close","George","starts","havent","brilliant","night",
+            "NOT","well","written","Dont","sort","dialogue","huge","coming","women","known","guys","C","extras","musical",
+            "complete","this","add","title","stop","all","strong","somewhat","wrong","modern","On","episode","wait","edition",
+            "bring","knew","L","English","days","head","extremely","Peter","leave","worst","evil","IS","Theres","style",
+            "whose","mother","D","tells","copy","told","great","perhaps","learn","poor","it","lead","Ill","wouldnt","soon",
+            "experience","five","stories","taking","matter","Disney","camera","feeling","says","brings","From","supposed",
+            "major","brought","looked","How","THIS","due","giving","save","songs","exactly","easy","relationship","number",
+            "run","living","If","films","myself","previous","knows","romantic","piece","opening","02","tries","R","cool",
+            "a","named","turned","sets","In","movie","mean","guess","hit","personal","upon","Lee","view","Richard","audio",
+            "box","here","Although","voice","kill","change","Amazon","begins","hear","attention","across","Love","loves",
+            "10","Now","directed","boy","white","too","late","within","Dr","fantastic","laugh","sometimes","Then","DVD",
+            "despite","you","certain","battle","thinking","films","needs","particularly","These","price","Will","glad","S",
+            "started","fact","serious","house","drama","child","score","car","way","Paul","extra","age","overall","that",
+            "itbr","power","lines","theyre","kept","collection","enjoyable","characters","song","single","clear","lots",
+            "nearly","one","violence","ends","deal","British","Is","again","themselves","actual","lack","supporting",
+            "great","arent","older","yourself","way","working","husband","easily","town","hours","decent","13","youve",
+            "Like","end","powerful","tale","using","keeps","Star","end","viewing","dead","happens","saying","art","shes",
+            "wonder","William","stuff","Bond","except","is","Harry","awesome","out","simple","footage","TO","waste","usually",
+            "events","among","feature","chance","life","call","Oscar","novel","eyes","moment","decided","better","running",
+            "series","reading","soundtrack","transfer","Film","fast","scenes","feels","talking","King","him","It","emotional",
+            "Why","visual","Its","and","fall","watch","happened","War","disappointed","move","mostly","flick","moviebr",
+            "Thats","whether","beyond","killed","here","VHS","realize","E","As","buying","low","became","First","showing",
+            "available","seen","interest","acting","stand","34","hilarious","near","hate","moving","Most","game","up",
+            "interested","shown","light","animation","slow","difficult","hour","Man","third","message","writing","leaves",
+            "filmbr","mention","local","follow","falls","characters","Bruce","surprised","appreciate","future","I","alone",
+            "includes","direction","Excellent","body","sequel","funny","involved","added","attempt","Well","sex","which",
+            "means","Smith","meets","famous","various","Her","team","character","included","kid","plenty","forward","superb",
+            "them","ones","include","said","theme","appears","elements","quickly","Kevin","happen","years","typical","storyline",
+            "clearly","44","expected","animated","Bluray","though","unique","hold","above","on","form","missing","act",
+            "police","moves","theatrical","roles","A","her","received","There","French","Who","Hes","check","tried","purchased",
+            "scary","Another","times","similar","incredible","talk","stay","Also","But","problems","IT","created","level","Japanese",
+            "crew","memorable","more","times","obvious","boring","action","eventually","plot","purchase","Jason","waiting","parents",
+            "theater","middle","Martin","sad","there","books","forget","miss","recent","filmed","product","Frank","hero","strange",
+            "pay","words","obviously","historical","usual","word","portrayal","deep","blood","television","figure","By","perfectly",
+            "genre","material","Classic","Bill","particular","minute","Season","Yes","meet","viewers","return","series","K","hand",
+            "worked","track","Ray","doubt","basically","say","World","begin","sit","B","filled","create","female","open","20","or",
+            "Jim","room","brother","band","solid","remake","expecting","leads","bonus","needed","reality","won","collection","longer",
+            "political","Well","fairly","budget","book","Scott","gone","sounds","ago","cinematography","killer","funny","York","girls",
+            "be","dance","amount","Maybe","24","whom","etc","fighting","manages","pick","question","none","Black","IN","uses","forced",
+            "scenes","Big","made","agree","Also","realistic","example","large","de","presented","rent","up","work","Steve","shots","Chris",
+            "suspense","version","stupid","show","stage","inside","career","period","you","Ben","former","towards","world","telling",
+            "fit","killing","Mark","on","portrayed","contains","possible","ways","follows","murder","dramatic","music","terrible","present",
+            "character","Jones","color","match","recently","best","younger","as","addition","versions","quotThe","sequences","outstanding",
+            "thriller","deleted","And","scifi","Tim","nature","pure","crime","standard","familiar","actress","cover","deserves","adds",
+            "popular","sequence","country","class","earlier","terrific","Sam","aspect","admit","whos","whats","slightly","sent","years",
+            "romance","screen","Johnny","Joe","Van","reviewers","epic","consider","caught","free","Christopher","MOVIE","movies","God",
+            "front","focus","science","background","nor","entertainment","changed","today","meant","singing","city","30","following",
+            "who","hands","decides","scene","But","talent","however","amp","information","horrible","Both","beautifully","violent",
+            "average","surprise","compared","book","DVDs","Mary","sees","in","subject","likely","missed","rich","points","there",
+            "likes","write","details","possibly","space","Bob","choice","cast","exciting","Special","plus","incredibly","imagine",
+            "rare","ultimately","ask","interviews","Charles","classic","leading","break","starring","silly","appear","adventure",
+            "social","I","sexual","fantasy","provides","ability","herself","opinion","members","stars","biggest","fully","pThe",
+            "language","fan","ten","remains","US","Its","T","45","effort","eye","Many","outside","depth","masterpiece","White",
+            "Watch","concert","result","straight","spent","Two","offers","image","workout","widescreen","Batman","G","list",
+            "military","P","cinematic","beauty","basic","BluRay","a","truth","alien","believable","together","spend","German",
+            "escape","edge","setting","mystery","wrote","share","runs","much","gore","Though","Every","detail","Stephen","player",
+            "Only","Thomas","drug","issues","win","company","total","bunch","done","bad","changes","somehow","considered","Do",
+            "computer","fun","helps","cute","twist","55","man","chemistry","puts","people","adaptation","ended","zombie","version",
+            "So","worse","considering","stunning","terms","Wayne","stands","secret","holds","decide","adult","Dead","produced","anime",
+            "love","talented","comedy","family","crazy","now","dont","fun","effect","gift","hell","minor","effects","plot","intense",
+            "Daniel","entirely","Director","ordered","Little","America","critics","public","Story","role","Day","people","sister","vs",
+            "her","rock","Mike","showed","laughing","in","did","premise","6","business","work","questions","worthy","delivers","plan",
+            "rate","complex","control","originally","casting","cause","please","Once","catch","funniest","not","GREAT","further","Their",
+            "general","W","Too","writer","Perhaps","actors","twists","respect","thinks","studio","Christian","show","cop","fear","now",
+            "images","Brian","Robin","screenplay","Tony","leaving","impressive","die","hoping","successful","pull","cinema","creepy",
+            "married","provide","More","Steven","monster","YOU","alot","key","male","attempts","boys","jokes","clever","HD","ALL","success",
+            "bad","suggest","brief","Henry","Edward","continue","do","negative","society","Unfortunately","finding","immediately","listen",
+            "touch","LOVE","annoying","western","rating","day","Billy","becoming","knowing","common","ending","quick","Sean","performance",
+	    "writers","Trek","Anthony","sweet","hot","impressed","too","unless","subtle","journey","Academy","unlike","money","concept",
+	    "apparently","explain","hardly","fascinating","weak","ever","scene","Edition","notice","cult","Or","ride","digital","FOR","tough",
+	    "Red","world","15","graphic","Night","35","CGI","note","development","whatever","played","off","dream","Jeff","disappointed",
+	    "government","effective","era","onto","wanting","51","off","mentioned","bluray","aspects","about","intelligent","the",
+	    "mysterious","werent","03","first","chase","over","involving","situation","Jane","fiction","directors","literally",
+	    "mix","Other","value","vampire","though","plain","master","fell","comedy","see","Jennifer","martial","force",
+	    "thrown","arrived","know","ready","speak","THAT","cast","Williams","14","Time","hasnt","meaning","tired","discover",
+	    "H","Ryan","magic","current","Highly","disturbing","moral","cheap","excellent","led","Charlie","touching","Bad",
+	    "City","trailer","music","adults","De","What","train","For","atmosphere","today","ultimate","months","helped","learned",
+	    "A","to","was","odd","difference","Last","II","credits","state","mixed","super","away","Since","creative","barely",
+	    "held","seriously","office","physical","equally","grew","So","credit","opinion","so","step","Captain","tension",
+	    "day","willing","not","Superman","regular","All","humor","directors","continues","ship","were","was","acting",
+	    "Still","college","in","original","baby","Wonderful","Because","finest","spirit","inspired","entertaining","gang",
+	    "then","WAS","otherwise","Buy","Patrick","reasons","trouble","memories","trip","Jr","Get","normal","Despite","thoroughly",
+	    "mood","lose","Moore","wonderfully","tape","generally","action","growing","comedic","pace","todays","natural","feelings",
+	    "extended","superior","indeed","acted","Blu","paid","videos","print","lived","surprisingly","potential","before",
+	    "search","tone","absolute","laughs","either","moved","rented","compelling","Matt","weird","died","impossible",
+	    "drawn","girlfriend","cheesy","themes","VERY","original","six","interview","gay","recommended","Dark","dog","The",
+	    "compare","Danny","race","Having","Still","presence","positive","love","ideas","motion","viewed","80s","Thank","thing",
+	    "awful","lovely","3D","scenery","content","Western","pop","seemingly","job","One","tv","reviewer","Alan","thanks","putting",
+	    "culture","walk","Jackson","air","itself","featuring","party","fresh","filmmakers","case","slowly","yes","example",
+	    "emotions","subtitles","teen","store","dancing","opportunity","charming","pleased","understanding","but","support",
+	    "directing","predictable","Eric","Max","Gary","suddenly","set","editing","rated","People","appeal","Roger","Those",
+	    "humans","asked","family","gotten","discovers","offer","release","Eastwood","with","role","captured","proves",
+	    "ago","attack","convincing","better","excited","fan","B","Oh","seasons","DVDs","stuck","captures","own","Be",
+	    "gun","genius","before","allowed","producers","allow","Better","Your","keeping","million","other","history",
+	    "smart","ridiculous","toward","appearance","Was","Where","8","56","Everyone","experience","Hitchcock","Youll",
+	    "Here","water","ahead","impact","pass","hits","followed","Ed","sitting","pieces","Can","Each","for","soldiers",
+	    "Old","Have","Ford","wondering","wife","thus","picked","revenge","self","returns","numerous","creating","soul",
+	    "place","building","merely","best","constantly","twice","others","My","format","audiences","long","heavy","Joseph",
+	    "amazing","lets","avoid","Everything","bringing","shame","issue","not","Howard","date","beat","interesting","ago","clean","US",
+	    "gorgeous","personally","realized","double","much","Elizabeth","man","stick","youd","Nothing","allows","Potter","colors",
+	    "capture","laughed","ray","innocent","aware","Fun","year","Clint","cold","House","ON","stars","news","later","fellow",
+	    "apart","neither","students","Adam","effects","system","giant","right","childhood","Much","silent","managed","fair","tragic",
+	    "High","West","wrong","falling","down","fire","Fox","struggle","quality","born","video","Stone","Don","week","process","red","hair",
+	    "7","done","part","And","F","reminded","wild","South","arts","agent","prefer","Grant","relate","Overall",
+	    "began","learns","fails","enough","Green","deeply","actors","See","poorly","lacks","spectacular","Warner",
+	    "made","director","sorry","watch","kills","do","hand","drive","introduced","places","Gene","Matthew",
+	    "reminds","multiple","flick","Mrs","serial","turning","accurate","approach","Russell","summer","Never",
+	    "Burton","vision","religious","packed","discs","starting","ones","Now","Lord","limited","flying","brothers",
+	    "comedies","timebr","Life","filming","be","Jerry","interesting","comments","Earth","memory","grow","cartoon",
+	    "with","answer","Halloween","12","25","planet","carry","Sarah","individual","developed","rarely","source",
+	    "Mel","mans","Awesome","walking","Evil","emotion","watching","prison","forces","afraid","performance","When",
+	    "villain","treat","back","Nick","However","leader","Dennis","century","sick","condition","intended","ending","a",
+	    "remarkable","yet","Russian","asks","himself","Part","Alex","throw","honest","failed","itself","shooting","script",
+	    "visually","noticed","mainly","drama","expectations","United","bother","wide","alive","presentation","loving",
+	    "thing","technical","Before","joy","winning","Queen","choose","build","member","hearing","street","Kate",
+	    "BEST","loud","mission","food","genre","Rock","package","marriage","opens","steals","road","suppose","learning",
+	    "bored","so","land","psychological","children","NO","element","test","Eddie","together","Miss","Allen","costumes",
+	    "acts","Italian","energy","Horror","violence","justice","minutes","Andrew","66","Anne","Brad","appeared",
+	    "service","portrays","folks","brutal","realizes","shouldnt","point","gonna","dealing","The","46","dreams",
+	    "traditional","blue","met","strength","excellent","accept","pleasure","charm","prove","lets","Alien","purpose","classic",
+	    "screen","ONE","Go","blu","mind","destroy","artistic","grown","faces","else","wellbr","more","describe","study","Loved",
+	    "players","treatment","utterly","finish","sexy","honestly","teenage","Depp","surprising","Brown","Did",
+	    "additional","Dolby","performances","la","are","Taylor","relationships","professional","actions","breaks",
+	    "short","Instead","moments","exception","Shes","technology","beautiful","WITH","emotionally","release",
+	    "necessary","engaging","deliver","entertaining","zombies","sharp","Worth","Kelly","days","home","Wilson",
+	    "situations","Spanish","visuals","latest","design","N","About","seat","pulled","deserved","theatre",
+	    "direct","lady","legendary","hidden","classics","creates","humor","sing","names","fans","hadnt","provided",
+	    "hated","pictures","theaters","Being","Julie","wasted","Johnson","Anderson","shoot","Digital","detective",
+	    "fights","delivered","student","bigger","focuses","loses","Me","BUT","first","loss","overly","kinda",
+	    "spot","remain","visit","Chinese","HAVE","Yet","door","father","actor","While","nicely","9","Julia",
+	    "camp","enjoying","earth","Three","treated","deals","Blue","performances","other","calls","sheer",
+	    "Americans","Davis","talks","Definitely","capable","Video","SO","point","brilliantly","jump","Brothers",
+	    "remembered","mean","knowledge","believes","presents","central","Arthur","delightful","heroes","Let","disappointing",
+	    "comment","picture","program","Music","lies","40","Our","releases","Jimmy","Guy","item","law","mental","brain",
+	    "around","extreme","minutes","desire","restored","Joan","Criterion","bloody","Paris","send","Jackie","insight","scared",
+	    "aliens","mom","pain","combination","travel","Are","broken","decision","bizarre","weeks","sell","back","hopes",
+	    "R","Watching","doctor","Ron","50","Funny","2nd","unusual","grand","deeper","finished","adding","dangerous",
+	    "constant","like","tears","nominated","disk","Prince","event","perfect","Anyone","Tommy","Arnold","values",
+	    "friends","heads","somewhere","lacking","regret","genuine","conflict","teacher","definately","Douglas","Jean","rescue",
+	    "discovered","it","Miller","have","Dan","Really","fairy","kick","children","Stewart","prior","Jesus","job",
+	    "others","himself","ancient","Walter","intriguing","featured","Cruise","explains","history","Family","dull",
+	    "audience","training","army","quiet","impression","losing","dialogue","reach","essentially","ground",
+	    "involves","flat","Al","film","Picture","cost","loose","hurt","everybody","amusing","Fred","Vincent",
+	    "length","Alice","range","magnificent","Review","standing","complaint","plane","seven","trust","Without",
+	    "greater","narrative","price","Young","enough","Wars","personality","Andy","dying","seen","survive","appropriate",
+	    "Hanks","initial","Movies","tend","101","Overall","thank","generation","Rob","MY","perspective","pulls","to",
+	    "weve","relatively","67","dialog","closer","thats","Rocky","son","witty","meeting","unexpected","introduction",
+	    "protect","producer","bits","dumb","driving","island","higher","lover","built","13","kids","edited","North",
+	    "magical","set","photography","recommended","taste","foreign","Ms","Im","tour","bottom","cry","old","friend",
+	    "favor","money","flaws","characters","surely","confused","thembr","plans","mad","faith","author","blown","us","death",
+	    "You","aside","results","critical","dark","through","forgotten","fabulous","Oh","wearing","Lost","night","Would","flicks",
+	    "who","passed","location","dad","unable","roles","majority","friendship","happening","Whats","frame","London",
+	    "creature","alternate","previously","humanity","Thanks","old","MUST","night","Cant","fits","creatures",
+	    "Stanley","dvd","portraying","Beautiful","skip","lesson","Ever","if","Michelle","machine","Sound","CD","gem",
+	    "boss","Lets","Harris","Lewis","trailers","Amazing","Lady","with","Universal","heart","passion","mind",
+	    "responsible","sat","project","Larry","shock","asking","wrong","surround","bright","lovers","Back",
+	    "entertainment","Oliver","boring","forever","Fantastic","sequels","sides","GOOD","section","listening",
+	    "great","animals","apparent","shocking","over","voices","steal","15","condition","artist","Cameron",
+	    "True","away","serves","conclusion","mess","slasher","speaking","packaging","right","numbers","Sure",
+	    "opera","inner","friends","balance","Clark","radio","Pretty","kids","till","unknown","twenty","Texas",
+	    "things","Indian","haunting","record","holding","Bourne","mistake","favorites","Hugh","manage","manner",
+	    "Lawrence","lame","girl","moments","ok","Morgan","center","Barbara","described","war","Kim","fake","significant",
+	    "connection","part","unfortunately","officer","tragedy","novel","for","strongly","saved","fill","rise",
+	    "performed","placed","media","badly","timeless","Linda","bar","Anyway","theyve","Willis","deserve","down","Hard",
+	    "satisfying","suspect","home","Which","regarding","humorous","efforts","awesome","Kubrick","andor","Spielberg",
+	    "although","Unlike","affair","San","driven","cuts","warm","features","Dean","Jonathan","fans","pair","noir",
+	    "quality","the","Rachel","chose","join","wouldve","experienced","Long","cameo","see","Instead","phone","everyone",
+	    "today","Death","mine","Vietnam","draw","extras","boyfriend","contrast","Los","greatly","Does","Series","70s",
+	    "nobody","whenever","area","Jessica","Award","proper","comparison","20th","largely","enjoy","season","wonderful",
+	    "Susan","Must","victim","faithful","alltime","eat","carries","Lots","Please","imagination","features","Over","makers",
+	    "especially","reveal","sense","damn","spoil","Washington","storybr","skills","video","Helen","Any","Tarantino","fate",
+	    "virtually","recognize","via","criminal","genuinely","death","masterpiece","disappointment","portray","mother","determined",
+	    "offered","okay","like","beloved","powers","04","words","games","war","supposedly","36","opinion","Along","History",
+	    "Woody","teach","holiday","Girl","franchise","though","long","latter","are","facts","Action","Terry","REALLY",
+	    "around","Overall","Rick","General","Nazi","correct","but","extras","didnt","reveals","types","Roman","develop",
+	    "focused","evidence","climax","twisted","FBI","separate","line","delivery","Alexander","award","Nice","2","stuff",
+	    "actor","actresses","ARE","ghost","confusing","horse","Civil","England","flick","fashion","Planet","blow",
+	    "speaks","references","partner","painful","Collection","refreshing","future","trilogy","cant","anybody",
+	    "extraordinary","enjoys","things","script","prepared","enjoyable","lives","accent","1st","To","Craig",
+	    "desperate","Show","oh","private","mediocre","reviews","purchasing","green","nuclear","amazed","movie",
+	    "Roy","reason","ordinary","ruin","experiences","serve","guy","cross","hilarious","J","depiction","core",
+	    "helping","disaster","77","of","woman","saving","OK","57","pacing","drama","did","himbr","scare","President",
+	    "encounter","Golden","year","During","sold","nowhere","like","know","ran","ages","cars","talents","really",
+	    "viewing","lower","wedding","necessarily","Home","Jamie","2","designed","normally","copies","Harrison","joke",
+	    "After","shines","Living","exact","covered","variety","owner","streets","forth","animal","figured","opposite",
+	    "crowd","Take","selling","victims","count","caused","nudity","pleasant","hired","us","struggles","monsters",
+	    "revealed","Comedy","suffers","cops","concerned","once","mark","AS","Finally","sight","Roberts","On","Hill",
+	    "walks","Holmes","required","quest","marvelous","thoughts","tracks","TV","praise","claim","does","Santa","display",
+	    "trapped","Out","raised","European","tribute","Look","pleasantly","apartment","smile","paced","DVD","wonderful",
+	    "dated","Book","line","safe","changing","disc","reaction","vs","Perfect","speech","below","touches","returned",
+	    "Alfred","about","even","Directors","sign","directly","sports","Doctor","another","families","We","convinced",
+	    "Unfortunately","DO","quirky","picture","Dracula","underrated","fantastic","picks","place","yoga","brand","genre",
+	    "breaking","Disc","contemporary","paying","clips","ever","overthetop","Nicholas","chosen","featurette","hotel",
+	    "That","Ian","Cage","angry","receive","depicted","fly","superb","attractive","produce","complicated","handle",
+	    "side","intelligence","spy","deadly","recorded","stated","cinematography","Now","No","dollars","fathers","weight",
+	    "daughter","glimpse","Nicholson","shocked","volume","Simon","heavily","Donald","With","essential","25","themselves",
+	    "hospital","therefore","exceptional","causes","battles","Set","Joel","crap","Baby","favourite","witness","anyway",
+	    "Top","own","May","BE","think","spite","research","different","pI","larger","contain","recall","equal","cat","Audio",
+	    "remastered","gold","Ann","Anniversary","superhero","massive","Murphy","plots","Army","including","description",
+	    "besides","direction","mere","attitude","Sir","Live","exercise","account","choices","Damon","titles","stopped",
+	    "ruined","spends","Master","bank","repeated","obsessed","suspenseful","Parker","dies","kinds","frightening","roll",
+	    "Broadway","excuse","watches","judge","books","sympathetic","Sometimes","Pitt","stellar","Lucy","influence","shape",
+	    "perform","suffering","days","real","documentaries","production","challenge","Saturday","arrives","case","Anna","stays",
+	    "house","served","detailed","legend","lessons","alone","replaced","Irish","nasty","romance","independent","murdered",
+	    "claims","popcorn","First","expected","segment","surrounding","gangster","debut","fourth","opened","Jake","enemy",
+	    "Matrix","community","wear","initially","mebr","least","yes","accident","Especially","of","eating","Gibson","darker",
+	    "explained","However","Could","cutting","Princess","mob","searching","king","Friday","covers","mature","Based","Hopkins",
+	    "perfect","levels","and","marry","church","decades","villains","house","behavior","wife","Original","lifebr","style","2",
+	    "village","Iron","suspense","succeeds","realism","Things","Yes","style","terribly","two","rules","unbelievable","purchase",
+	    "26","struggling","drop","thrilling","beautiful","Dick","Up","breath","views","Leonard","Absolutely",
+	    "Cary","WWII","childrens","related","African","ensemble","time","gory","true","Catherine","scientist","sleep",
+	    "practically","else","seller","per","entertained","sound","career","poignant","1","fault","Barry","anything",
+	    "Elvis","appreciated","month","highest","Carol","chick","for","Gordon","Something","industry","occasionally","Simply",
+	    "Dawn","steps","men","Godzilla","blame","Dave","bed","fail","grows","Laura","Maria","guns","opposed","assume","onebr",
+	    "position","gritty","owned","u","seeking","freedom","at","desert","Indiana","football","Colin","Carl","lucky",
+	    "Connery","couldve","Full","curious","explanation","tons","eyes","boring","everyday","satire","remind","Men",
+	    "anywhere","identity","carried","sadly","unforgettable","MGM","sense","11","Again","amazing","random","stayed",
+	    "Samuel","Kirk","rights","Street","tremendous","wealthy","Such","Space","Lucas","charge","cable","veteran","wise",
+	    "winner","later","post","baseball","Jewish","feet","Jon","commercial","combined","Zombie","holes","colorful","rental",
+	    "tight","facial","Some","complain","installment","yet","proud","Theyre","Wild","ways","once","happen","highlight","blind",
+	    "closing","Saw","SciFi","seek","AT","dialogue","station","ball","works","heck","cultural","Amy","says","Harvey","Ken",
+	    "lighting","enter","age","Die","round","drugs","dubbed","Amazon","dirty","Happy","season","commentary","review","destroyed",
+	    "past","delight","ring","90","past","pilot","Snow","At","guilty","supernatural","BUY","possible","child","pThis","seconds",
+	    "waited","arms","review","flow","Jeffrey","letting","78","M","score","Park","sound","I","Sandra","Not","WILL","restoration",
+	    "unfortunate","FROM","understood","teens","routine","promise","go","definite","advantage","Owen","laugh","upset","exist",
+	    "Jay","sensitive","essence","play","Kong","soldier","library","providing","believable","thrilled","roles","released",
+	    "unlikely","Carrey","believed","reference","violence","women","thin","option","Lisa","Louis","costume","weapons",
+	    "context","Had","chapter","notch","beginning","sex","Angel","school","youth","two","Terminator","field","DTS",
+	    "effectively","States","ice","ways","Way","answers","Next","Greek","builds","revolves","boat","vampires","drag",
+	    "Rose","guitar","chilling","documentary","sequel","drives","againbr","dozen","Almost","bear","School","real",
+	    "tradition","specific","returning","morning","throws","Ghost","floor","primarily","path","Mickey","which","far",
+	    "Wood","allowing","edition","Karen","suit","empty","repeat","matters","blend","sends","calling","favorites",
+	    "artists","47","Bobby","formula","album","improved","touched","crafted","welcome","child","crisp","ugly",
+	    "ranks","sea","guy","allbr","homage","throughout","handsome","star","contact","thebr","sings","intensity","achieve",
+	    "walked","terror","Dragon","currently","cinema","remaining","Sure","reviews","novel","bond","advice","endless",
+	    "satisfied","speed","countless","window","lights","Scorsese","committed","slight","recording","excitement","heart",
+	    "decade","campy","lot","Then","SEE","informative","something","adapted","tiny","convince","Romero","hundreds",
+	    "Jeremy","worthwhile","teaches","3rd","Neil","soundtrack","Ultimate","haunted","pointless","saves","raw",
+	    "finale","face","overcome","TV","school","courage","gain","birth","spiritual","movement","fictional",
+	    "material","attention","occasional","Okay","mainstream","director","attempting","passing","menu","thousands",
+	    "proved","myself","hide","say","hype","mouth","Real","push","Philip","cool","waybr","hanging","par",
+	    "conversation","Final","So","danger","Quentin","status","differences","Super","gotta","father","enjoyment",
+	    "EVER","importance","singer","bet","minds","board","DVDbr","stops","The","eight","Fans","Pacino","level",
+	    "that","episodes","Disneys","again","handled","it","vast","techniques","adventures","stood","Ted","Give","80s",
+	    "wall","Denzel","thriller","surface","Victor","hundred","Whether","crash","murders","lonely","Kane","reminiscent",
+	    "La","insane","Films","somebody","he","abandoned","infamous","You","Four","inspiring","audience","instance","writing",
+	    "amazingly","go","gore","destruction","awkward","loaded","outbr","son","episodes","aside","closely","peace","John",
+	    "according","format","daily","Carter","NEVER","honor","Probably","interpretation","Entertainment","robot","Cooper",
+	    "downright","cares","herebr","parts","easier","stock","soft","narration","broke","Mr","notes","enhanced","Right",
+	    "production","Plus","picking","Through","brilliant","Movie","very","treasure","faced","pack","expensive","sets",
+	    "same","episode","identify","Hall","Annie","game","flawed","troubled","teaching","forgot","Bogart","Come","CIA",
+	    "boy","politics","model","National","Five","stories","Cut","medical","corny","Brooks","IF","sorts","anyone",
+	    "3","skin","standards","parody","raise","Art","ONLY","XMen","response","reason","fine","Days","anymore","FILM",
+	    "tear","theater","struck","im","Finally","international","peoples","suffer","songs","instead","BBC","torture",
+	    "Chuck","harsh","releasing","think","funnier","renting","Interesting","draws","refuses","Freeman","horror",
+	    "belief","Campbell","sequel","Timothy","Check","also","terrifying","wins","Yet","Gregory","horrific",
+	    "unnecessary","practice","LOVED","husband","states","security","en","OK","grace","sinister","filmmaking",
+	    "anything","evening","relief","Upon","que","carefully","wit","Albert","come","wont","advanced","rough",
+	    "target","Boy","desperately","California","episode","fallen","sounded","buy","Complete","vehicle","bomb",
+	    "goodbr","thru","Im","another","Curtis","mindless","comics","Blood","suicide","sure","Foster","yourself",
+	    "listed","filmmaker","LIKE","channel","movie","alone","storyline","improvement","Reeves","existence","figures",
+	    "term","brother","gripping","naked","paper","remote","Kurt","teenagers","girl","aint","dressed","Crowe",
+	    "Hunter","masterful","convey","Hepburn","aged","criticism","Josh","locations","planning","bodies","makeup",
+	    "one","degree","cartoons","III","Nicole","regardless","millions","soundtrack","matter","parts","entertain","art",
+	    "spending","combat","statement","appealing","68","subsequent","corporate","Shirley","Mexican","ignore",
+	    "studios","removed","Hope","Hoffman","Seven","cases","Shakespeare","dry","problem","Diane","club","brilliant",
+	    "does","profound","head","written","Murray","represents","neat","Thompson","Hitchcocks","guessing","Emma",
+	    "88","amazon","dinner","then","market","plastic","Greatest","V","qualities","birthday","matches","authentic",
+	    "cool","suffered","depressing","Make","starred","goofy","WHAT","storyline","too","hopefully","challenging",
+	    "mass","thrill","dropped","Fan","corrupt","false","Judy","Mad","lesser","library","town","hours","fought",
+	    "notable","split","instantly","hooked","true","commentaries","film","talked","likeable","individuals",
+	    "entry","creation","clothes","I","Austin","Has","JUST","lawyer","encounters","documentary","successfully",
+	    "grab","fine","anniversary","device","simple","eyes","laugh","young","movie","executed","redeeming",
+	    "devoted","slow","men","rid","risk","westerns","flashbacks","noted","while","person","Chicago","god",
+	    "classical","disc","woman","stolen","thisbr","Cold","Chan","ever","frequently","X","host","task","ages",
+	    "superb","REAL","worry","hiding","ones","arrive","tales","sake","replace","star","far","sequences","why",
+	    "Predator","highlights","hero","pregnant","timely","Leslie","earned","Another","surprises","instant","have",
+	    "factor","Of","Vampire","Adams","teenager","jumps","appreciation","Japan","Fast","established","Sandler",
+	    "stuff","reporter","interaction","shallow","Carpenter","Got","expert","Pixar","overall","Grace","experience",
+	    "play","aired","threat","UK","Ralph","toobr","Tyler","age","prevent","dynamic","Harold","Welles","portion",
+	    "breathtaking","daughter","warning","busy","press","Blade","animation","trash","pathetic","cruel","requires",
+	    "tied","taught","Entertaining","hilarious","endbr","Hannibal","Favorite","dislike","collection","Freddy",
+	    "caring","60s","language","everyone","survivors","versus","Ross","stories","base","sudden","eerie","sword",
+	    "Keanu","underground","checking","newer","Collectors","Man","crying","golden","Tracy","offering","ladies",
+	    "develops","novels","page","no","tense","likable","continued","throwing","Maggie","failure","37","player",
+	    "Stars","problems","YOUR","spots","Price","garbage","belongs","displays","revealing","moviesbr","storytelling",
+	    "musicals","Bay","amongst","side","Myers","escapes","Plus","sum","miles","thriller","game","examples","scale",
+	    "seeks","person","protagonist","Walt","bothered","reality","Coen","always","books","rival","flaw","centers",
+	    "discuss","rule","song","primary","graphics","utter","Although","wears","Meanwhile","inspiration","imagery",
+	    "definition","100","Del","era","Professor","newly","goal","letter","shark","shows","St","inevitable","flight",
+	    "Truly","Lane","slapstick","copy","Emily","site","friend","discussion","humour","Shrek","Ellen","explore",
+	    "horribly","explaining","rape","basis","Natalie","riding","scary","town","non","dead","priest","Kubricks",
+	    "reality","16","Making","Bryan","product","addition","upper","comfortable","Its","Road","material","shipping",
+	    "Poor","technique","one","increasingly","friendly","stretch","hang","Father","of","circumstances","16",
+	    "America","universe","everyones","luck","intellectual","shot","date","Robinson","Jet","historically",
+	    "everything","jumping","evil","happened","lines","relevant","segments","argue","period","pointed","Marie",
+	    "solve","hoped","wrapped","cash","prime","complaints","spoken","native","metal","definitive","Catholic",
+	    "religion","region","new","kid","interest","you","Burtons","THEY","next","hed","Keaton","rolling","theater",
+	    "Even","many","transformation","honest","screaming","Made","sophisticated","blood","outstanding","reallife",
+	    "Francis","Battle","Reynolds","Li","predictable","express","flesh","What","survival","brave","stunts","portrait",
+	    "drinking","Baker","fat","reasonable","causing","performing","this","shot","HBO","guest","albeit","kicks",
+	    "Kill","Island","05","foot","ratio","guys","women","nice","Nancy","score","blows","aging","innocence","Add",
+	    "Theres","wind","Private","Turner","perfectly","mother","Legend","awards","GET","Quite","grade","usual",
+	    "Jesse","Luke","surreal","disappointment","vivid","quote","carrying","anger","Hunt","boxing","evident",
+	    "size","hunt","Keith","weekend","gruesome","contained","br","14","terrible","seriously","Audrey","Kenneth",
+	    "Clooney","wondered","Seeing","Heston","laid","fame","89","look","Century","ive","depicts","D","ruthless",
+	    "sad","accidentally","Should","while","happily","Paramount","wooden","heroic","Hong","clues","bound",
+	    "benefit","maintain","Costner","Law","worlds","controversial","physically","smaller","songs","workout",
+	    "Duke","Von","Norman","bit","C","Dirty","Second","career","Hulk","Hell","doesnt","18","scientific","explores",
+	    "stronger","chief","ourselves","online","specifically","shop","society","Twilight","note","court","Think",
+	    "entertainment","vintage","costumes","thirty","grain","watching","cynical","HE","dedicated","attacked",
+	    "tends","favorite","Baldwin","Europe","isbr","introduces","previews","sympathy","angles","health","reputation",
+	    "casual","expressions","Newman","June","english","clue","art","Heres","Asian","screenwriter","45","anamorphic",
+	    "shared","watchable","glorious","Soviet","Niro","morebr","staying","None","torn","wake","attempted","HIS",
+	    "Las","root","rating","engaged","different","country","skill","socalled","underlying","loyal","Marilyn",
+	    "Randy","Then","bucks","worse","comical","Angelina","careful","name","connected","Great","Movie","accomplished",
+	    "no","flawless","Third","Benjamin","trained","Moon","title","backdrop","thumbs","shut","beings","BD","wanna",
+	    "Patricia","onbr","messages","resolution","p","photo","youbr","Brilliant","obsession","Science","OUT",
+	    "truck","East","strike","Fiction","lacked","challenges","ride","24","captain","theyll","Todd","im",
+	    "Movie","viewer","recomend","capturing","hollywood","Wallace","dollar","Graham","Remember","Rodriguez",
+	    "customer","attacks","Secret","substance","drunk","He","rendition","Nelson","reaches","released","Kids",
+	    "this","improve","Travolta","Marshall","scary","mentally","overlooked","halfway","acted","Lynch","concerns",
+	    "pushed","enters","con","info","moment","Angela","y","Brandon","subtitles","crude","gentle","thousand",
+	    "AN","France","buddy","threw","kid","face","PG13","this","Wes","uncomfortable","Youre","worried","arm",
+	    "El","filmsbr","perfection","signs","riveting","fears","wishes","Rogers","disagree","Meryl","hint","Phil",
+	    "blockbuster","execution","Vegas","masterpiece","Actor","handful","table","fantastic","heroine","unrealistic",
+	    "that","gratuitous","financial","striking","situation","direction","Alec","Toy","theyd","pays","Glenn",
+	    "eccentric","naturally","through","Americas","L","along","Yeah","adventure","edition","areas","legal",
+	    "laughs","dvd","Buffy","ANY","demands","anymore","Quality","player","headed","gags","admire","hours",
+	    "Ive","chasing","dead","Amanda","punch","themselves","superbly","it","worse","piano","Burt","matter",
+	    "transfer","harder","Ethan","OR","silver","fond","pulling","darn","kidnapped","Streep","consequences",
+	    "bus","forever","Air","Masterpiece","dress","liking","directorial","Mexico","sisters","lines","stealing",
+	    "national","least","deaths","Ridley","Drew","passionate","Mom","absurd","groups","fun","also","intelligent",
+	    "Stallone","shine","believing","brilliance","gross","name","THE","Meg","grainy","Count","moment","cliche",
+	    "WAY","well","future","Am","personalities","dogs","criminals","Lees","environment","enormous","yeah",
+	    "Hollywood","urban","Given","bridge","USA","professor","timing","upcoming","laughter","fitting","mountain",
+	    "surrounded","sucked","ripped","official","lives","Greg","workouts","Crystal","Claire","contrived",
+	    "available","selection","Christmas","hardcore","remarkably","lie","tad","DONT","finish","Blair","evil",
+	    "anyway","american","facing","Andrews","decisions","exchange","myself","arguably","beginning","candy",
+	    "dvds","locked","film","BIG","structure","strikes","LA","orders","Years","Kennedy","stole","spoof","bitter",
+	    "budget","civil","admit","60","darkness","Save","TIME","suspense","gradually","hitting","reccomend","to",
+	    "tale","antics","get","fix","Aliens","Colonel","America","appearances","critic","oil","Later","connect",
+	    "von","Dont","typically","right","importantly","Boys","accused","God","associated","Sadly","idea","beneath",
+	    "911","1","helpful","Val","Christ","developing","works","Holly","shipped","mid","nonstop","intent","58",
+	    "wonders","jobs","access","They","settings","code","cell","except","Lois","sacrifice","princess","demonstrates",
+	    "lowbudget","drink","Sharon","regard","Also","3","beats","Southern","sure","Hollywoods","Lloyd","heres",
+	    "Doc","delivering","Sherlock","had","sister","Perry","burning","anyway","mothers","exists","list","secrets",
+	    "herbr","scares","concerning","spoiled","blew","dare","Betty","The","17","ballet","Side","Monty","movements",
+	    "soap","worn","Besides","suggests","purely","mask","traveling","creators","chance","WHO","Hughes",
+	    "Eastwoods","fan","strong","4","Sally","price","Bottom","Vince","Uncle","insult","dragged","Angeles","betterbr",
+	    "Raymond","outrageous","best","Marvel","whereas","reviewing","involved","performers","rely","English","porn",
+	    "Beatles","horror","glass","alive","closed","card","27","form","Keep"
+          };
 }

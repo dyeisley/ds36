@@ -87,7 +87,7 @@ CREATE TABLE ORDERS$k
   (
   ORDERID INT IDENTITY NOT NULL, 
   ORDERDATE DATETIME NOT NULL, 
-  CUSTOMERID INT NOT NULL, 
+  CUSTOMERID INT,
   NETAMOUNT MONEY NOT NULL, 
   TAX MONEY NOT NULL, 
   TOTALAMOUNT MONEY NOT NULL
@@ -289,16 +289,8 @@ BEGIN
 END;
 GO
 
-DECLARE \@db_id int, \@tbl_id int
-USE DS3
-SET \@db_id = DB_ID('DS3')
-SET \@tbl_id = OBJECT_ID('DS3..CATEGORIES$k')
-DBCC PINTABLE (\@db_id, \@tbl_id)
-
-SET \@db_id = DB_ID('DS3')
-SET \@tbl_id = OBJECT_ID('DS3..PRODUCTS$k')
-DBCC PINTABLE (\@db_id, \@tbl_id)
-USE DS3
+-- DBCC PINTABLE removed - deprecated and ignored in modern SQL Server
+-- Memory management is now automatic
 GO
 \n";
   close $OUT;

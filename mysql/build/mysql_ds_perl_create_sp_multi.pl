@@ -1,6 +1,6 @@
 # mysql_ds_perl_create_sp_multi.pl
 # Script to create a ds3 stored procedures in MySQL with a provided number of copies - supporting multiple stores
-# Syntax to run - perl mysqlds3_perl_create_sp_multi.pl <mysql_target> <number_of_stores> 
+# Syntax to run - perl mysqlds3_perl_create_sp_multi.pl <mysql_target> <number_of_stores>
 
 use strict;
 use warnings;
@@ -11,7 +11,7 @@ my $numberofstores = $ARGV[1];
 my $pathsep;
 
 #Need seperate target directory so that mulitple DB Targets can be loaded at the same time
-my $mysql_targetdir;  
+my $mysql_targetdir;
 
 $mysql_targetdir = $mysqltarget;
 
@@ -38,7 +38,7 @@ CREATE PROCEDURE DS3.NEW_CUSTOMER$k ( IN firstname_in varchar(50), IN lastname_i
   BEGIN
   DECLARE rows_returned INT;
   SELECT COUNT(*) INTO rows_returned FROM CUSTOMERS$k WHERE USERNAME = username_in;
-  IF rows_returned = 0 
+  IF rows_returned = 0
   THEN
     INSERT INTO CUSTOMERS$k
       (
@@ -349,7 +349,7 @@ CREATE PROCEDURE DS3.BROWSE_BY_TITLE$k
   IN title_in                 VARCHAR(50)
   )
 BEGIN
-        select * from PRODUCTS$k where MATCH (TITLE) AGAINST (title_in) LIMIT batch_size_in;
+        select * from PRODUCTS$k where MATCH (TITLE) AGAINST (title_in IN BOOLEAN MODE) LIMIT batch_size_in;
 END; $$
 
 DROP PROCEDURE IF EXISTS DS3.BROWSE_BY_ACTOR$k $$
@@ -360,7 +360,7 @@ CREATE PROCEDURE DS3.BROWSE_BY_ACTOR$k
   IN actor_in                 VARCHAR(50)
   )
 BEGIN
-        select * from PRODUCTS$k where MATCH (ACTOR) AGAINST (actor_in) LIMIT batch_size_in;
+        select * from PRODUCTS$k where MATCH (ACTOR) AGAINST (actor_in IN BOOLEAN MODE) LIMIT batch_size_in;
 END; $$
 
 DROP PROCEDURE IF EXISTS DS3.BROWSE_BY_CATEGORY$k $$
@@ -392,19 +392,20 @@ BEGIN
     FROM PRODUCTS$k
     ORDER BY distance ASC
     LIMIT p_batch_size_in;
-END; $$ 
+END; $$
 
 DROP PROCEDURE IF EXISTS DS3.GET_PROD_REVIEWS_BY_TITLE$k $$
 CREATE PROCEDURE DS3.GET_PROD_REVIEWS_BY_TITLE$k
   (
+  IN batch_size_in            INT,
   IN title_in                 VARCHAR(50),
   IN search_depth_in          INT
   )
 BEGIN
 
   IF search_depth_in = '' || search_depth_in = 0
-  THEN 
-    SET search_depth_in = 500; 
+  THEN
+    SET search_depth_in = 500;
   END IF;
 
     SELECT * FROM (
@@ -421,17 +422,18 @@ BEGIN
             R.total_helpfulness AS totalhelp
         FROM DS3.PRODUCTS$k P
         INNER JOIN DS3.REVIEWS$k R ON P.prod_id = R.prod_id
-        WHERE MATCH (P.title) AGAINST (title_in IN BOOLEAN MODE) 
+        WHERE MATCH (P.title) AGAINST (title_in IN BOOLEAN MODE)
         LIMIT search_depth_in
     ) AS T1
     ORDER BY totalhelp DESC
-    LIMIT 10;
+    LIMIT batch_size_in;
 
 END; $$
 
 DROP PROCEDURE IF EXISTS DS3.GET_PROD_REVIEWS_BY_ACTOR$k $$
 CREATE PROCEDURE DS3.GET_PROD_REVIEWS_BY_ACTOR$k
   (
+  IN batch_size_in            INT,
   IN actor_in                 VARCHAR(50),
   IN search_depth_in          INT
   )
@@ -460,7 +462,7 @@ BEGIN
         LIMIT search_depth_in
     ) AS T1
     ORDER BY totalhelp DESC
-    LIMIT 10;
+    LIMIT batch_size_in;
 
 END; $$
 
@@ -489,7 +491,7 @@ CREATE PROCEDURE DS3.GET_PROD_REVIEWS_BY_STARS$k
   )
 BEGIN
 
-SELECT review_id, prod_id, review_date, stars, customerid, review_summary, review_text, total_helpfulness 
+SELECT review_id, prod_id, review_date, stars, customerid, review_summary, review_text, total_helpfulness
 FROM REVIEWS$k
 WHERE prod_id = prod_in AND STARS = stars_in
 ORDER BY total_helpfulness DESC
@@ -515,8 +517,8 @@ END; $$
 
 DELIMITER $$
 
-DROP PROCEDURE IF EXISTS DS3.sp_AddNewInventoryProduct$k $$
-CREATE PROCEDURE DS3.sp_AddNewInventoryProduct$k 
+DROP PROCEDURE IF EXISTS DS3.AddNewInventoryProduct$k $$
+CREATE PROCEDURE DS3.AddNewInventoryProduct$k
 (
     IN p_cat TINYINT,
     IN p_title VARCHAR(50),

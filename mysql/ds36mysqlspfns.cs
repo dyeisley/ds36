@@ -20,12 +20,10 @@
  */
 
 using System;
-using System.IO;
 using System.Data;
 using MySql.Data.MySqlClient;
-using System.Net;
 using System.Threading;
-using System.Runtime.InteropServices;
+using System.Diagnostics;
 
 namespace ds2xdriver
   {
@@ -34,13 +32,6 @@ namespace ds2xdriver
   /// </summary>
   public class ds2Interface
     {
-#if (USE_WIN32_TIMER)
-    [DllImport("kernel32.dll")]
-    extern static short QueryPerformanceCounter(ref long x);
-    [DllImport("kernel32.dll")]
-    extern static short QueryPerformanceFrequency(ref long x);  
-#endif
-
     int ds2Interfaceid;
     MySqlConnection objConn;
     string conn_str = "";
@@ -51,6 +42,7 @@ namespace ds2xdriver
     MySqlCommand BrowseReviews_by_title, BrowseReviews_by_actor, Get_Prod_Reviews, Get_Reviews_by_stars;
     MySqlCommand Get_Reviews_by_date, Browse_by_title, Browse_by_actor, Browse_by_category, Browse_by_vector;
     MySqlParameter cust_out_param, member_out_param, reviewid_out_param, helpfulnessid_out_param, neworder_out_param;
+    MySqlCommand[] CostQuery = new MySqlCommand[11];
 
 //
 //-------------------------------------------------------------------------------------------------
@@ -135,7 +127,7 @@ namespace ds2xdriver
       New_Helpfulness.Parameters.Add("review_helpfulness_in", MySqlDbType.Int32);
       New_Helpfulness.Parameters.Add(helpfulnessid_out_param);
 
-      New_Product = new MySqlCommand("sp_AddNewInventoryProduct" + target_store_number, objConn);
+      New_Product = new MySqlCommand("AddNewInventoryProduct" + target_store_number, objConn);
       New_Product.CommandType = CommandType.StoredProcedure;
       New_Product.Parameters.Add("p_cat", MySqlDbType.Int32);
       New_Product.Parameters.Add("p_title", MySqlDbType.VarChar,50);
@@ -185,11 +177,13 @@ namespace ds2xdriver
 
       BrowseReviews_by_actor = new MySqlCommand("GET_PROD_REVIEWS_BY_ACTOR" + target_store_number, objConn);
       BrowseReviews_by_actor.CommandType = CommandType.StoredProcedure;
+      BrowseReviews_by_actor.Parameters.Add("batch_size_in", MySqlDbType.Int32);
       BrowseReviews_by_actor.Parameters.Add("actor_in", MySqlDbType.VarChar, 50);
       BrowseReviews_by_actor.Parameters.Add("search_depth_in", MySqlDbType.Int32);
 
       BrowseReviews_by_title = new MySqlCommand("GET_PROD_REVIEWS_BY_TITLE" + target_store_number, objConn);
       BrowseReviews_by_title.CommandType = CommandType.StoredProcedure;
+      BrowseReviews_by_title.Parameters.Add("batch_size_in", MySqlDbType.Int32);
       BrowseReviews_by_title.Parameters.Add("title_in", MySqlDbType.VarChar, 50);
       BrowseReviews_by_title.Parameters.Add("search_depth_in", MySqlDbType.Int32);
 
@@ -208,6 +202,23 @@ namespace ds2xdriver
       Get_Reviews_by_date.CommandType = CommandType.StoredProcedure;
       Get_Reviews_by_date.Parameters.Add("batch_size_in", MySqlDbType.Int32);
       Get_Reviews_by_date.Parameters.Add("prod_in", MySqlDbType.Int32);
+
+      // Pre-compile cost query commands for cart sizes 1-10
+      for (int items = 1; items <= 10; items++)
+      {
+        string query = "SELECT PROD_ID, PRICE FROM PRODUCTS" + target_store_number + " WHERE PROD_ID IN (";
+        for (int i = 0; i < items; i++)
+        {
+          if (i > 0) query += ",";
+          query += "?";
+        }
+        query += ")";
+        CostQuery[items] = new MySqlCommand(query, objConn);
+        for (int i = 0; i < items; i++)
+        {
+          CostQuery[items].Parameters.Add("", MySqlDbType.Int32);
+        }
+      }
     }
  
 //
@@ -232,72 +243,60 @@ namespace ds2xdriver
 //
 //-------------------------------------------------------------------------------------------------
 // 
-    public bool ds2login(string username_in, string password_in, ref int customerid_out, ref int rows_returned, 
+    public bool ds2login(string username_in, string password_in, ref int customerid_out, ref int rows_returned,
       ref string[] title_out, ref string[] actor_out, ref string[] related_title_out, ref double rt)
       {
-      int i_row = 0;
-      bool success = true;
-      MySqlDataReader Rdr;
-
       Login.Parameters["username_in"].Value = username_in;
       Login.Parameters["password_in"].Value = password_in;
-    
-#if (USE_WIN32_TIMER)
-      long ctr0 = 0, ctr = 0, freq = 0;
-      QueryPerformanceFrequency(ref freq); // obtain system freq (ticks/sec)
-      QueryPerformanceCounter(ref ctr0); // Start response time clock   
-#else
-      TimeSpan TS = new TimeSpan();
-      DateTime DT0 = DateTime.Now;
-#endif     
-    
-      try {
-        Rdr = Login.ExecuteReader();
-        Rdr.Read();
-        customerid_out = Rdr.GetInt32(0);
 
-        Rdr.NextResult();
+      Stopwatch timer = Stopwatch.StartNew();
 
-        if (Rdr.HasRows) {
-          while (Rdr.Read() && (i_row < GlobalConstants.MAX_ROWS)) {
-            title_out[i_row] = Rdr.GetString(0);
-            actor_out[i_row] = Rdr.GetString(1);
-            related_title_out[i_row] = Rdr.GetString(2);
-            ++i_row;
+      try
+      {
+        using (MySqlDataReader Rdr = Login.ExecuteReader())
+        {
+          Rdr.Read();
+          customerid_out = Rdr.GetInt32(0);
+
+          Rdr.NextResult();
+
+          int i_row = 0;
+          if (Rdr.HasRows)
+          {
+            while (Rdr.Read() && (i_row < GlobalConstants.MAX_ROWS))
+            {
+              title_out[i_row] = Rdr.GetString(0);
+              actor_out[i_row] = Rdr.GetString(1);
+              related_title_out[i_row] = Rdr.GetString(2);
+              ++i_row;
+            }
           }
+          rows_returned = i_row;
         }
-
-        Rdr.Close();
-        rows_returned = i_row;
-      } // End try
-      catch (MySqlException e) {
+        return true;
+      }
+      catch (MySqlException e)
+      {
         customerid_out = 0;
         Console.WriteLine("Thread {0}: Error in Login: {1}", Thread.CurrentThread.Name, e.Message);
-        success = false;
+        return false;
       }
-
-#if (USE_WIN32_TIMER)
-      QueryPerformanceCounter(ref ctr); // Stop response time clock
-      rt = (ctr - ctr0)/(double) freq; // Calculate response time
-#else
-      TS = DateTime.Now - DT0;
-      rt = TS.TotalSeconds; // Calculate response time
-#endif            
-
-      return(success);
+      finally
+      {
+        rt = timer.Elapsed.TotalSeconds;
+      }
       }  // end ds2login
 //
 //-------------------------------------------------------------------------------------------------
 // 
-    public bool ds2newcustomer(string username_in, string password_in, string firstname_in, 
-      string lastname_in, string address1_in, string address2_in, string city_in, string state_in, 
-      string zip_in, string country_in, string email_in, string phone_in, int creditcardtype_in, 
-      string creditcard_in, int ccexpmon_in, int ccexpyr_in, int age_in, int income_in, 
-      string gender_in, ref int customerid_out, ref double rt) 
+    public bool ds2newcustomer(string username_in, string password_in, string firstname_in,
+      string lastname_in, string address1_in, string address2_in, string city_in, string state_in,
+      string zip_in, string country_in, string email_in, string phone_in, int creditcardtype_in,
+      string creditcard_in, int ccexpmon_in, int ccexpyr_in, int age_in, int income_in,
+      string gender_in, ref int customerid_out, ref double rt)
       {
       int region_in = (country_in == "US") ? 1 : 2;
       string creditcardexpiration_in = String.Format("{0:D4}/{1:D2}", ccexpyr_in, ccexpmon_in);
-      bool success = true;
 
       New_Customer.Parameters["username_in"].Value = username_in;
       New_Customer.Parameters["password_in"].Value = password_in;
@@ -318,55 +317,28 @@ namespace ds2xdriver
       New_Customer.Parameters["age_in"].Value = age_in;
       New_Customer.Parameters["income_in"].Value = income_in;
       New_Customer.Parameters["gender_in"].Value = gender_in;
-    
+
 //    Console.WriteLine("Thread {0}: Calling New_Customer w/username_in= {1}  region={2}  ccexp={3}",
 //      Thread.CurrentThread.Name, username_in, region_in, creditcardexpiration_in);
 
-#if (USE_WIN32_TIMER)
-      long ctr0 = 0, ctr = 0, freq = 0;
-      QueryPerformanceFrequency(ref freq); // obtain system freq (ticks/sec)
-      QueryPerformanceCounter(ref ctr0); // Start response time clock   
-#else
-      TimeSpan TS = new TimeSpan();
-      DateTime DT0 = DateTime.Now;
-#endif
+      Stopwatch timer = Stopwatch.StartNew();
 
-      bool deadlocked = false;      
-      do
+      try
       {
-        try 
-          {
-          deadlocked = false;
-          New_Customer.ExecuteNonQuery();
-          }
-        catch (MySqlException e) 
-          {
-          if (e.Number == 1205)
-            {
-            deadlocked = true;
-            int wait = Random.Shared.Next(1000);
-            Console.WriteLine("Thread {0}: New_Customer deadlocked...waiting {1} msec, then will retry",Thread.CurrentThread.Name, wait);
-            Thread.Sleep(wait); // Wait up to 1 sec, then try again
-            }
-          else
-            {           
-            Console.WriteLine("Thread {0}: MySql Error {1} in New_Customer: {2}", 
-              Thread.CurrentThread.Name, e.Number, e.Message);
-            success = false;
-            }
-          }
-        } while (deadlocked);
-
-        customerid_out = (int) cust_out_param.Value;         
-        
-#if (USE_WIN32_TIMER)
-      QueryPerformanceCounter(ref ctr); // Stop response time clock
-      rt = (ctr - ctr0)/(double) freq; // Calculate response time
-#else
-      TS = DateTime.Now - DT0;
-      rt = TS.TotalSeconds; // Calculate response time
-#endif        
-      return (success);
+        New_Customer.ExecuteNonQuery();
+        customerid_out = (int) cust_out_param.Value;
+        return true;
+      }
+      catch (MySqlException e)
+      {
+        Console.WriteLine("Thread {0}: MySql Error {1} in New_Customer: {2}",
+          Thread.CurrentThread.Name, e.Number, e.Message);
+        return false;
+      }
+      finally
+      {
+        rt = timer.Elapsed.TotalSeconds;
+      }
       } // end ds2newcustomer()
 
 //
@@ -374,76 +346,44 @@ namespace ds2xdriver
 // 
     public bool ds2newmember(int customerid_in, int membershiplevel_in, ref int customerid_out, ref double rt)
     {
-      bool success = true;
-
       New_Member.Parameters["customerid_in"].Value = customerid_in;
       New_Member.Parameters["membershiplevel_in"].Value = membershiplevel_in;
 
-#if (USE_WIN32_TIMER)
-      long ctr0 = 0, ctr = 0, freq = 0;
-      QueryPerformanceFrequency(ref freq); // obtain system freq (ticks/sec)
-      QueryPerformanceCounter(ref ctr0); // Start response time clock   
-#else
-      TimeSpan TS = new TimeSpan();
-      DateTime DT0 = DateTime.Now;
-#endif
+      Stopwatch timer = Stopwatch.StartNew();
 
-      bool deadlocked = false;
-      do
+      try
       {
-          try
-          {
-              deadlocked = false;
-              New_Member.ExecuteNonQuery();
-          }
-          catch (MySqlException e)
-          {
-              if (e.Number == 1205)
-              {
-                  deadlocked = true;
-                  int wait = Random.Shared.Next(1000);
-                  Console.WriteLine("Thread {0}: New_Member deadlocked...waiting {1} msec, then will retry",
-                    Thread.CurrentThread.Name, wait);
-                  Thread.Sleep(wait); // Wait up to 1 sec, then try again
-              }
-              else
-              {
-                  Console.WriteLine("Thread {0}: MySql Error {1} in New_Member: {2}",
-                    Thread.CurrentThread.Name, e.Number, e.Message);
-                  success = false;
-              }
-          }
-      } while (deadlocked);
+        New_Member.ExecuteNonQuery();
+        customerid_out = (int) member_out_param.Value;
 
-      customerid_out = (int) member_out_param.Value;
+//    Console.WriteLine("Thread {0}: New_Customer created w/username_in= {1}  region={2}  customerid={3}",
+//      Thread.CurrentThread.Name, username_in, region_in, customerid_out);
 
-#if (USE_WIN32_TIMER)
-      QueryPerformanceCounter(ref ctr); // Stop response time clock
-      rt = (ctr - ctr0)/(double) freq; // Calculate response time
-#else
-      TS = DateTime.Now - DT0;
-      rt = TS.TotalSeconds; // Calculate response time
-#endif
-
-      //    Console.WriteLine("Thread {0}: New_Customer created w/username_in= {1}  region={2}  customerid={3}",
-      //      Thread.CurrentThread.Name, username_in, region_in, customerid_out);
-
-      return (success);
+        return true;
+      }
+      catch (MySqlException e)
+      {
+        Console.WriteLine("Thread {0}: MySql Error {1} in New_Member: {2}",
+          Thread.CurrentThread.Name, e.Number, e.Message);
+        return false;
+      }
+      finally
+      {
+        rt = timer.Elapsed.TotalSeconds;
+      }
      } // end ds2newmember()
 
 //
 //-------------------------------------------------------------------------------------------------
 // 
     public bool ds2browse(string browse_type_in, string browse_category_in, string browse_actor_in,
-      string browse_title_in, int batch_size_in, int search_depth_in, int customerid_out, ref int rows_returned, 
-      ref int[] prod_id_out, ref string[] title_out, ref string[] actor_out, ref decimal[] price_out, 
+      string browse_title_in, int batch_size_in, int search_depth_in, int customerid_out, ref int rows_returned,
+      ref int[] prod_id_out, ref string[] title_out, ref string[] actor_out, ref decimal[] price_out,
       ref int[] special_out, ref int[] common_prod_id_out, ref double rt)
       {
-      int i_row, special = 0;
-      bool success = true;
+      int special = 0;
       int[] category_out = new int[GlobalConstants.MAX_ROWS];
-      MySqlDataReader Rdr;
-  
+
       Random rand = new();
       int dim = 384;
       float[] vector = new float[dim];
@@ -456,7 +396,7 @@ namespace ds2xdriver
       // Console.WriteLine("Thread {0}: Calling Browse w/ browse_type= {1} batch_size_in= {2}  category= {3}" +
       //   " title= {4}  actor= {5}", Thread.CurrentThread.Name, browse_type_in, batch_size_in, browse_category_in,
       //   browse_title_in, browse_actor_in);
-    
+
       Browse_by_title.Parameters["batch_size_in"].Value = batch_size_in;
       Browse_by_title.Parameters["title_in"].Value = browse_title_in ;
 
@@ -467,7 +407,7 @@ namespace ds2xdriver
       Browse_by_category.Parameters["category_in"].Value = browse_category_in != "" ? Convert.ToInt32(browse_category_in) : 0 ;
       Browse_by_category.Parameters["special_in"].Value = special;
 
-      if (browse_type_in == "vector") 
+      if (browse_type_in == "vector")
       {
 	for (int i = 0; i < dim; i++)
 	{
@@ -479,17 +419,11 @@ namespace ds2xdriver
 	Browse_by_vector.Parameters["p_vector_text"].Value = vectorJson;
       }
 
-#if (USE_WIN32_TIMER)
-      long ctr0 = 0, ctr = 0, freq = 0;
-      QueryPerformanceFrequency(ref freq); // obtain system freq (ticks/sec)
-      QueryPerformanceCounter(ref ctr0); // Start response time clock
-#else
-      TimeSpan TS = new TimeSpan();
-      DateTime DT0 = DateTime.Now;
-#endif
+      Stopwatch timer = Stopwatch.StartNew();
 
       try
-        {
+      {
+        MySqlDataReader Rdr;
       	switch(browse_type_in)
         {
            case "title":
@@ -507,46 +441,43 @@ namespace ds2xdriver
              break;
         }
 
-        i_row = 0;
-        if (Rdr.HasRows)
-         {
-          while (Rdr.Read())
+        using (Rdr)
+        {
+          int i_row = 0;
+          if (Rdr.HasRows)
+          {
+            while (Rdr.Read())
             {
-            prod_id_out[i_row] = Rdr.GetInt32(0);
-            category_out[i_row] = Rdr.GetByte(1);
-            title_out[i_row] = Rdr.GetString(2);
-            actor_out[i_row] = Rdr.GetString(3);
-            price_out[i_row] = Rdr.GetDecimal(4);
-            special_out[i_row] = Rdr.GetByte(5);
-            common_prod_id_out[i_row] = Rdr.GetInt32(6);
-            //Console.WriteLine("\tprod_id_out: {0} category_out: {1} title_out: {2} actor_out: {3} price_out: {4} special_out: {5} common_prod_id_out: {6}",prod_id_out[i_row],category_out[i_row],title_out[i_row],actor_out[i_row],price_out[i_row], special_out[i_row],common_prod_id_out[i_row]);
-            ++i_row;
+              prod_id_out[i_row] = Rdr.GetInt32(0);
+              category_out[i_row] = Rdr.GetByte(1);
+              title_out[i_row] = Rdr.GetString(2);
+              actor_out[i_row] = Rdr.GetString(3);
+              price_out[i_row] = Rdr.GetDecimal(4);
+              special_out[i_row] = Rdr.GetByte(5);
+              common_prod_id_out[i_row] = Rdr.GetInt32(6);
+              //Console.WriteLine("\tprod_id_out: {0} category_out: {1} title_out: {2} actor_out: {3} price_out: {4} special_out: {5} common_prod_id_out: {6}",prod_id_out[i_row],category_out[i_row],title_out[i_row],actor_out[i_row],price_out[i_row], special_out[i_row],common_prod_id_out[i_row]);
+              ++i_row;
             }
           }
-        Rdr.Close();
-        rows_returned = i_row;
+          rows_returned = i_row;
         }
+        return true;
+      }
       catch (MySqlException e)
+      {
+        Console.WriteLine("Thread {0}: Error in Browse: {1}", Thread.CurrentThread.Name, e.Message);
+
+	if (e.Message.ToLower().Contains("vec"))
         {
-           Console.WriteLine("Thread {0}: Error in Browse: {1}", Thread.CurrentThread.Name, e.Message);
-           success = false;
-
-	   if (e.Message.ToLower().Contains("vec"))
-           {
-              Console.WriteLine("  Problem with vector search. Please try with --use_vectors=n");
-              rows_returned = -1;
-	   }
-        }
-
-#if (USE_WIN32_TIMER)
-      QueryPerformanceCounter(ref ctr); // Stop response time clock
-      rt = (ctr - ctr0)/(double) freq; // Calculate response time
-#else
-      TS = DateTime.Now - DT0;
-      rt = TS.TotalSeconds; // Calculate response time
-#endif
-
-      return success;
+          Console.WriteLine("  Problem with vector search. Please try with --use_vectors=n");
+          rows_returned = -1;
+	}
+        return false;
+      }
+      finally
+      {
+        rt = timer.Elapsed.TotalSeconds;
+      }
       } // end ds2browse()
 
 //
@@ -560,30 +491,23 @@ namespace ds2xdriver
     {
         // Reviews Table: "REVIEW_ID" NUMBER,  "PROD_ID" NUMBER,  "REVIEW_DATE" DATE, "STARS" NUMBER,
         // "CUSTOMERID" NUMBER,  "REVIEW_SUMMARY" VARCHAR2(50 byte), "REVIEW_TEXT" VARCHAR2(1000 byte)
-	bool success = true;
-        int i_row;
-        MySqlDataReader Rdr;
 
+        BrowseReviews_by_actor.Parameters["batch_size_in"].Value = batch_size_in;
         BrowseReviews_by_actor.Parameters["actor_in"].Value = get_review_actor_in;
         BrowseReviews_by_actor.Parameters["search_depth_in"].Value = search_depth_in ;
 
+        BrowseReviews_by_title.Parameters["batch_size_in"].Value = batch_size_in;
         BrowseReviews_by_title.Parameters["title_in"].Value = get_review_title_in;
         BrowseReviews_by_title.Parameters["search_depth_in"].Value = search_depth_in ;
 
-        //    Console.WriteLine("Thread {0}: Calling Browse Review w/ browse_type= {1}  search_depth_in= {2}",  
-        //      Thread.CurrentThread.Name, browse_review_type_in, search_depth_in); 
+        //    Console.WriteLine("Thread {0}: Calling Browse Review w/ browse_type= {1}  search_depth_in= {2}",
+        //      Thread.CurrentThread.Name, browse_review_type_in, search_depth_in);
 
-#if (USE_WIN32_TIMER)
-      long ctr0 = 0, ctr = 0, freq = 0;
-      QueryPerformanceFrequency(ref freq); // obtain system freq (ticks/sec)
-      QueryPerformanceCounter(ref ctr0); // Start response time clock   
-#else
-      TimeSpan TS = new TimeSpan();
-      DateTime DT0 = DateTime.Now;
-#endif
+        Stopwatch timer = Stopwatch.StartNew();
 
         try
         {
+            MySqlDataReader Rdr;
             switch (browse_review_type_in)
             {
                case "actor":
@@ -595,9 +519,11 @@ namespace ds2xdriver
 	          break;
 	    }
 
-            i_row = 0;
-            while (Rdr.Read())
+            using (Rdr)
             {
+              int i_row = 0;
+              while (Rdr.Read())
+              {
                 prod_id_out[i_row] = Rdr.GetInt32(0);
                 title_out[i_row] = Rdr.GetString(1);
                 actor_out[i_row] = Rdr.GetString(2);
@@ -610,30 +536,25 @@ namespace ds2xdriver
                 review_helpfulness_sum_out[i_row] = Rdr.GetInt32(9);
 		//Console.WriteLine("\tprod_id_out: {0} title_out: {1} actor_out: {2} review_id_out: {3} review_date_out: {4} review_stars_out: {5} review_customerid_out: {6} review_summary_out: {7}\n\treview_text_out: {8} review_helpfulness_sum_out: {9}\n", prod_id_out[i_row], title_out[i_row], actor_out[i_row], review_id_out[i_row], review_date_out[i_row], review_stars_out[i_row], review_customerid_out[i_row], review_summary_out[i_row], review_text_out[i_row], review_helpfulness_sum_out[i_row] );
                 ++i_row;
-            } // end while rdr.read()
-            Rdr.Close();
-            rows_returned = i_row;
-          }
+              } // end while rdr.read()
+              rows_returned = i_row;
+            }
+            return true;
+        }
         catch (MySqlException e)
         {
             Console.WriteLine("Thread {0}: MySQL Error in Browse Product Reviews: {1}", Thread.CurrentThread.Name, e.Message);
-            success = false;
+            return false;
         }
         catch (System.Exception e)
         {
             Console.WriteLine("Thread {0}: System Error in Browse Product Reviews: {1}", Thread.CurrentThread.Name, e.Message);
-            success = false;
+            return false;
         }
-
-#if (USE_WIN32_TIMER)
-      QueryPerformanceCounter(ref ctr); // Stop response time clock
-      rt = (ctr - ctr0)/(double) freq; // Calculate response time
-#else
-      TS = DateTime.Now - DT0;
-      rt = TS.TotalSeconds; // Calculate response time
-#endif
-
-       return (success);
+        finally
+        {
+          rt = timer.Elapsed.TotalSeconds;
+        }
     } // end ds2browsereview()
 
 //
@@ -644,10 +565,7 @@ namespace ds2xdriver
       ref string[] review_summary_out, ref string[] review_text_out, ref int[] review_helpfulness_sum_out, ref double rt)
     {
         // Reviews Table: "REVIEW_ID" NUMBER,  "PROD_ID" NUMBER,  "REVIEW_DATE" DATE, "STARS" NUMBER,
-        // "CUSTOMERID" NUMBER,  "REVIEW_SUMMARY" VARCHAR2(50 byte), "REVIEW_TEXT" VARCHAR2(1000 byte) 
-        int i_row;
-	bool success = true;
-        MySqlDataReader Rdr;
+        // "CUSTOMERID" NUMBER,  "REVIEW_SUMMARY" VARCHAR2(50 byte), "REVIEW_TEXT" VARCHAR2(1000 byte)
 
         switch (get_review_type_in)
         {
@@ -666,21 +584,15 @@ namespace ds2xdriver
                 Get_Reviews_by_date.Parameters["prod_in"].Value = get_review_prod_in ;
                 break;
         }
-                
+
         //    Console.WriteLine("Thread {0}: Calling ds2getreview w/ browse_type= {1}  batch_size_in= {2} prod_in= {3}",
         //      Thread.CurrentThread.Name, get_review_type_in, batch_size_in, get_review_prod_in);
 
-#if (USE_WIN32_TIMER)
-      long ctr0 = 0, ctr = 0, freq = 0;
-      QueryPerformanceFrequency(ref freq); // obtain system freq (ticks/sec)
-      QueryPerformanceCounter(ref ctr0); // Start response time clock   
-#else
-      TimeSpan TS = new TimeSpan();
-      DateTime DT0 = DateTime.Now;
-#endif
+        Stopwatch timer = Stopwatch.StartNew();
 
         try
         {
+            MySqlDataReader Rdr;
 	    switch (get_review_type_in)
 	    {
 		case "noorder":
@@ -695,9 +607,11 @@ namespace ds2xdriver
 		   break;
 	    }
 
-            i_row = 0;
-            while (Rdr.Read())
+            using (Rdr)
             {
+              int i_row = 0;
+              while (Rdr.Read())
+              {
                 review_id_out[i_row] = Rdr.GetInt32(0);
                 prod_id_out[i_row] = Rdr.GetInt32(1);
                 review_date_out[i_row] = Rdr.GetDateTime(2).ToString();
@@ -709,30 +623,25 @@ namespace ds2xdriver
 		//Console.WriteLine("\treview_id_out: {0} prod_id_out: {1} review_date_out: {2} review_stars_out: {3} review_customerid_out: {4} review_summary_out: {5} review_text_out: {6} review_helpfulness_sum_out: {7}",
 		//  review_id_out[i_row], prod_id_out[i_row], review_date_out[i_row], review_stars_out[i_row], review_customerid_out[i_row], review_summary_out[i_row], review_text_out[i_row], review_helpfulness_sum_out[i_row]);
                 ++i_row;
-            } // end while rdr.read()
-            Rdr.Close();
-            rows_returned = i_row;
+              } // end while rdr.read()
+              rows_returned = i_row;
+            }
+            return true;
         }
         catch (MySqlException e)
         {
             Console.WriteLine("Thread {0}: MySQL Error in Get Product Reviews: {1}", Thread.CurrentThread.Name, e.Message);
-            success = false;
+            return false;
         }
         catch (System.Exception e)
         {
             Console.WriteLine("Thread {0}: System Error in Get Product Reviews: {1}", Thread.CurrentThread.Name, e.Message);
-            success = false;
+            return false;
         }
-
-#if (USE_WIN32_TIMER)
-      QueryPerformanceCounter(ref ctr); // Stop response time clock
-      rt = (ctr - ctr0)/(double) freq; // Calculate response time
-#else
-      TS = DateTime.Now - DT0;
-      rt = TS.TotalSeconds; // Calculate response time
-#endif
-                       
-      return (success);
+        finally
+        {
+          rt = timer.Elapsed.TotalSeconds;
+        }
     } // end ds2getreview()
 
 //
@@ -741,61 +650,30 @@ namespace ds2xdriver
     public bool ds2newreview(int new_review_prod_id_in, int new_review_stars_in, int new_review_customerid_in,
             string new_review_summary_in, string new_review_text_in, ref int newreviewid_out, ref double rt)
     {
-      bool success = true; 
-
       New_Review.Parameters["prod_id_in"].Value = new_review_prod_id_in;
       New_Review.Parameters["stars_in"].Value = new_review_stars_in;
       New_Review.Parameters["customerid_in"].Value = new_review_customerid_in;
       New_Review.Parameters["review_summary_in"].Value = new_review_summary_in;
       New_Review.Parameters["review_text_in"].Value = new_review_text_in;
 
-      bool deadlocked = false;
+      Stopwatch timer = Stopwatch.StartNew();
 
-#if (USE_WIN32_TIMER)
-      long ctr0 = 0, ctr = 0, freq = 0;
-      QueryPerformanceFrequency(ref freq); // obtain system freq (ticks/sec)
-      QueryPerformanceCounter(ref ctr0); // Start response time clock   
-#else
-      TimeSpan TS = new TimeSpan();
-      DateTime DT0 = DateTime.Now;
-#endif
-
-      do
+      try
       {
-          try
-          {
-              deadlocked = false;
-              New_Review.ExecuteNonQuery();
-          }
-          catch (MySqlException e)
-          {
-              if (e.Number == 1205)
-              {
-                  deadlocked = true;
-                  int wait = Random.Shared.Next(1000);
-                  Console.WriteLine("Thread {0}: New_Review deadlocked...waiting {1} msec, then will retry",
-                    Thread.CurrentThread.Name, wait);
-                  Thread.Sleep(wait); // Wait up to 1 sec, then try again
-              }
-              else
-              {
-                  Console.WriteLine("Thread {0}: MySql Error {1} in New_Review: {2}",
-                    Thread.CurrentThread.Name, e.Number, e.Message);
-                  success = false;
-              }
-          }
-      } while (deadlocked);
-
-      newreviewid_out = (int)reviewid_out_param.Value;   
-
-#if (USE_WIN32_TIMER)
-      QueryPerformanceCounter(ref ctr); // Stop response time clock
-      rt = (ctr - ctr0)/(double) freq; // Calculate response time
-#else
-      TS = DateTime.Now - DT0;
-      rt = TS.TotalSeconds; // Calculate response time
-#endif
-      return (success);
+        New_Review.ExecuteNonQuery();
+        newreviewid_out = (int)reviewid_out_param.Value;
+        return true;
+      }
+      catch (MySqlException e)
+      {
+        Console.WriteLine("Thread {0}: MySql Error {1} in New_Review: {2}",
+          Thread.CurrentThread.Name, e.Number, e.Message);
+        return false;
+      }
+      finally
+      {
+        rt = timer.Elapsed.TotalSeconds;
+      }
     } // end ds2newreview()
 
 //
@@ -803,60 +681,28 @@ namespace ds2xdriver
 // 
     public bool ds2newreviewhelpfulness(int reviewid_in, int customerid_in, int reviewhelpfulness_in, ref int reviewhelpfulnessid_out, ref double rt)
     {
-      bool success = true;
-
       New_Helpfulness.Parameters["review_id_in"].Value = reviewid_in;
       New_Helpfulness.Parameters["customerid_in"].Value = customerid_in;
       New_Helpfulness.Parameters["review_helpfulness_in"].Value = reviewhelpfulness_in;
 
-      bool deadlocked = false;
+      Stopwatch timer = Stopwatch.StartNew();
 
-#if (USE_WIN32_TIMER)
-      long ctr0 = 0, ctr = 0, freq = 0;
-      QueryPerformanceFrequency(ref freq); // obtain system freq (ticks/sec)
-      QueryPerformanceCounter(ref ctr0); // Start response time clock   
-#else
-      TimeSpan TS = new TimeSpan();
-      DateTime DT0 = DateTime.Now;
-#endif
-
-      do
+      try
       {
-          try
-          {
-              deadlocked = false;
-              New_Helpfulness.ExecuteNonQuery();
-          }
-          catch (MySqlException e)
-          {
-              if (e.Number == 1205)
-              {
-                  deadlocked = true;
-                  int wait = Random.Shared.Next(1000);
-                  Console.WriteLine("Thread {0}: New_Helpfulness deadlocked...waiting {1} msec, then will retry",
-                    Thread.CurrentThread.Name, wait);
-                  Thread.Sleep(wait); // Wait up to 1 sec, then try again
-              }
-              else
-              {
-                  Console.WriteLine("Thread {0}: MySql Error {1} in New_Helpfulness: {2}",
-                    Thread.CurrentThread.Name, e.Number, e.Message);
-                  success = false;
-              }
-          }
-      } while (deadlocked);
-
-      reviewhelpfulnessid_out = (int)helpfulnessid_out_param.Value;   
-
-#if (USE_WIN32_TIMER)
-      QueryPerformanceCounter(ref ctr); // Stop response time clock
-      rt = (ctr - ctr0)/(double) freq; // Calculate response time
-#else
-      TS = DateTime.Now - DT0;
-      rt = TS.TotalSeconds; // Calculate response time
-#endif
-
-      return (success);
+        New_Helpfulness.ExecuteNonQuery();
+        reviewhelpfulnessid_out = (int)helpfulnessid_out_param.Value;
+        return true;
+      }
+      catch (MySqlException e)
+      {
+        Console.WriteLine("Thread {0}: MySql Error {1} in New_Helpfulness: {2}",
+          Thread.CurrentThread.Name, e.Number, e.Message);
+        return false;
+      }
+      finally
+      {
+        rt = timer.Elapsed.TotalSeconds;
+      }
     } // end ds2newreviewhelpfulness()
 
 //
@@ -865,39 +711,34 @@ namespace ds2xdriver
     public bool ds2purchase(int cart_items, int[] prod_id_in, int[] qty_in, int customerid_out,
       ref int neworderid_out, ref bool IsRollback, ref double rt)
       {
-      int i, j;
-      bool success = true;
-      bool deadlocked = false;
-      MySqlDataReader Rdr;
-      
+      int j;
+
       // Find total cost of purchase
       Decimal netamount_in = 0;
 
-      string db_query = "select PROD_ID, PRICE from PRODUCTS" + target_store_number + " where PROD_ID in (" + prod_id_in[0];
-
-      for (i=1; i<cart_items; i++) {
-         db_query = db_query + "," + prod_id_in[i];
+      // Use pre-compiled cost query command
+      var cost_command = CostQuery[cart_items];
+      for (int i = 0; i < cart_items; i++)
+      {
+        cost_command.Parameters[i].Value = prod_id_in[i];
       }
 
-      db_query = db_query + ")";
-
-      // Console.WriteLine(db_query);
-      
-      MySqlCommand cost_command = new MySqlCommand(db_query, objConn);
-      Rdr = cost_command.ExecuteReader();
-      while (Rdr.Read()) {
-        j = 0;
-        int prod_id = Rdr.GetInt32(0);
-        while (prod_id_in[j] != prod_id) ++j; // Find which product was returned
-        netamount_in = netamount_in + qty_in[j] * Rdr.GetDecimal(1);
-        // Console.WriteLine(j + " " + prod_id + " " + Rdr.GetDecimal(1));
+      using (MySqlDataReader Rdr = cost_command.ExecuteReader())
+      {
+        while (Rdr.Read())
+        {
+          j = 0;
+          int prod_id = Rdr.GetInt32(0);
+          while (prod_id_in[j] != prod_id) ++j; // Find which product was returned
+          netamount_in = netamount_in + qty_in[j] * Rdr.GetDecimal(1);
+          // Console.WriteLine(j + " " + prod_id + " " + Rdr.GetDecimal(1));
+        }
       }
-      Rdr.Close();
 
       Decimal taxamount_in =  (Decimal) 0.0825 * netamount_in;
       Decimal totalamount_in = netamount_in + taxamount_in;
 
-      // Console.WriteLine("Thread {0}: Calling Purchase w/ customerid = {1}  number_items= {2} taxamount_in= {3} totalamount_in= {4}",  
+      // Console.WriteLine("Thread {0}: Calling Purchase w/ customerid = {1}  number_items= {2} taxamount_in= {3} totalamount_in= {4}",
       //   Thread.CurrentThread.Name, customerid_out, cart_items, taxamount_in, totalamount_in);
 
       Purchase.Parameters["customerid_in"].Value = customerid_out;
@@ -916,51 +757,32 @@ namespace ds2xdriver
       Purchase.Parameters["prod_id_in8"].Value = prod_id_in[8]; Purchase.Parameters["qty_in8"].Value = qty_in[8];
       Purchase.Parameters["prod_id_in9"].Value = prod_id_in[9]; Purchase.Parameters["qty_in9"].Value = qty_in[9];
 
-#if (USE_WIN32_TIMER)
-      long ctr0 = 0, ctr = 0, freq = 0;
-      QueryPerformanceFrequency(ref freq); // obtain system freq (ticks/sec)  
-      QueryPerformanceCounter(ref ctr0); // Start response time clock   
-#else
-      TimeSpan TS = new TimeSpan();
-      DateTime DT0 = DateTime.Now;
-#endif
+      Stopwatch timer = Stopwatch.StartNew();
 
-      do {
-        try {
-          deadlocked = false;
-          Purchase.ExecuteScalar();
-          neworderid_out = (int)neworder_out_param.Value;
-          // Console.WriteLine("neworderid_out= {0}",neworderid_out);
-        }  // End Try
-        catch (MySqlException myException) {
-          if (myException.Message.Contains("deadlock")) {
-            deadlocked = true;
-            int wait = Random.Shared.Next(1000);
-            Thread.Sleep(wait); // Wait up to 1 sec, then try again
-            Console.WriteLine("Thread {0}: Purchase deadlocked...waiting {1} msec, then will retry", Thread.CurrentThread.Name, wait);
-          }
-          else {
-            Console.WriteLine("Thread {0}: Error in Purchase: {1}", Thread.CurrentThread.Name, myException.Message);
-            success = false;
-          }
-        } // End Catch
-      } while (deadlocked);
+      try
+      {
+        Purchase.ExecuteScalar();
+        neworderid_out = (int)neworder_out_param.Value;
+        // Console.WriteLine("neworderid_out= {0}",neworderid_out);
 
-#if (USE_WIN32_TIMER)
-      QueryPerformanceCounter(ref ctr); // Stop response time clock
-      rt = (ctr - ctr0)/(double) freq; // Calculate response time
-#else
-      TS = DateTime.Now - DT0;
-      rt = TS.TotalSeconds; // Calculate response time
-#endif
+        if (neworderid_out == 0)
+        {
+          IsRollback = true;
+          //      Console.WriteLine("Thread {0}: Purchase: Insufficient stock for order {1} - order not processed",
+          //        Thread.CurrentThread.Name, neworderid_out);
+        }
 
-      if (neworderid_out == 0) {
-        IsRollback = true;
-        //      Console.WriteLine("Thread {0}: Purchase: Insufficient stock for order {1} - order not processed",
-        //        Thread.CurrentThread.Name, neworderid_out);
+        return true;
       }
-
-      return(success);
+      catch (MySqlException myException)
+      {
+        Console.WriteLine("Thread {0}: Error in Purchase: {1}", Thread.CurrentThread.Name, myException.Message);
+        return false;
+      }
+      finally
+      {
+        rt = timer.Elapsed.TotalSeconds;
+      }
       } // end ds2purchase()
     
 //
@@ -968,67 +790,38 @@ namespace ds2xdriver
 // 
     public bool ds2newproduct(int new_category_in, string new_title_in, string new_actor_in, decimal new_price_in, int new_stock_in, ref int newproduct_id, ref double rt)
     {
-      bool success = true;
-
       New_Product.Parameters["p_cat"].Value = new_category_in;
       New_Product.Parameters["p_title"].Value = new_title_in;
       New_Product.Parameters["p_actor"].Value = new_actor_in;
       New_Product.Parameters["p_price"].Value = new_price_in;
       New_Product.Parameters["p_stock"].Value = new_stock_in;
 
-      bool deadlocked = false;
+      Stopwatch timer = Stopwatch.StartNew();
 
-#if (USE_WIN32_TIMER)
-      long ctr0 = 0, ctr = 0, freq = 0;
-      QueryPerformanceFrequency(ref freq); // obtain system freq (ticks/sec)
-      QueryPerformanceCounter(ref ctr0); // Start response time clock
-#else
-      TimeSpan TS = new TimeSpan();
-      DateTime DT0 = DateTime.Now;
-#endif
-
-      do
+      try
       {
-          try
-          {
-              deadlocked = false;
-              object result = New_Product.ExecuteScalar();
+        object result = New_Product.ExecuteScalar();
 
-              if (result != null)
-              {
-                 newproduct_id = Convert.ToInt32(result);
-              }
-              else
-              {
-                 newproduct_id = 0;
-              }
-          }
-          catch (MySqlException e)
-          {
-              if (e.Number == 1205)
-              {
-                  deadlocked = true;
-                  int wait = Random.Shared.Next(1000);
-                  Console.WriteLine("Thread {0}: New_Product deadlocked...waiting {1} msec, then will retry",Thread.CurrentThread.Name, wait);
-                  Thread.Sleep(wait); // Wait up to 1 sec, then try again
-              }
-              else
-              {
-                  Console.WriteLine("Thread {0}: MySql Error {1} in New_Product: {2}",Thread.CurrentThread.Name, e.Number, e.Message);
-                  success = false;
-              }
-          }
-      } while (deadlocked);
+        if (result != null)
+        {
+          newproduct_id = Convert.ToInt32(result);
+        }
+        else
+        {
+          newproduct_id = 0;
+        }
 
-#if (USE_WIN32_TIMER)
-      QueryPerformanceCounter(ref ctr); // Stop response time clock
-      rt = (ctr - ctr0)/(double) freq; // Calculate response time
-#else
-      TS = DateTime.Now - DT0;
-      rt = TS.TotalSeconds; // Calculate response time
-#endif
-
-      return (success);
+        return true;
+      }
+      catch (MySqlException e)
+      {
+        Console.WriteLine("Thread {0}: MySql Error {1} in New_Product: {2}",Thread.CurrentThread.Name, e.Number, e.Message);
+        return false;
+      }
+      finally
+      {
+        rt = timer.Elapsed.TotalSeconds;
+      }
     }
 
 //

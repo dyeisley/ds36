@@ -79,17 +79,41 @@ FILEGROUP DS_REVIEW_FG
     SIZE = 300MB
     ),
 FILEGROUP DS_FULLTEXT_FG
-	(
-	NAME = 'fulltext1',
-	FILENAME = '{DATAFILE_PATH}fulltext1.ndf',
-	SIZE = 100MB
-	)
+    (
+    NAME = 'fulltext1',
+    FILENAME = '{DATAFILE_PATH}fulltext1.ndf',
+    SIZE = 100MB
+    )
   LOG ON
     (
-    NAME = 'ds_log', 
+    NAME = 'ds_log',
     FILENAME = '{DATAFILE_PATH}ds_log.ldf',
     SIZE = 100MB
     )
+GO
+
+-- Enable modern SQL Server 2025 performance features for OLTP workload
+
+-- Set to SIMPLE recovery for benchmark (reduces transaction log overhead)
+ALTER DATABASE DS3 SET RECOVERY SIMPLE;
+GO
+
+-- Enable Read Committed Snapshot Isolation (MVCC-like behavior)
+-- This eliminates reader/writer blocking, similar to PostgreSQL
+ALTER DATABASE DS3 SET SINGLE_USER WITH ROLLBACK IMMEDIATE;
+ALTER DATABASE DS3 SET READ_COMMITTED_SNAPSHOT ON;
+ALTER DATABASE DS3 SET MULTI_USER;
+GO
+
+-- Enable Snapshot Isolation (allows explicit SNAPSHOT transactions)
+ALTER DATABASE DS3 SET ALLOW_SNAPSHOT_ISOLATION ON;
+GO
+
+-- Enable Accelerated Database Recovery (SQL Server 2019+, optimization for 2025+)
+IF CAST(SERVERPROPERTY('ProductMajorVersion') AS INT) >= 15
+BEGIN
+    ALTER DATABASE DS3 SET ACCELERATED_DATABASE_RECOVERY = ON;
+END
 GO
 
 

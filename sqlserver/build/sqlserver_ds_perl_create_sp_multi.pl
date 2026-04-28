@@ -116,7 +116,7 @@ CREATE PROCEDURE NEW_CUSTOMER$k
       \@income_in,
       \@gender_in
       )
-    SELECT \@\@IDENTITY
+    SELECT SCOPE_IDENTITY()
   END
   ELSE
     SELECT 0
@@ -205,7 +205,7 @@ CREATE PROCEDURE NEW_PROD_REVIEW$k
       \@review_summary_in,
       \@review_text_in
       )
-    SELECT \@\@IDENTITY
+    SELECT SCOPE_IDENTITY()
  GO
 
 
@@ -236,7 +236,7 @@ CREATE PROCEDURE NEW_REVIEW_HELPFULNESS$k
       \@customerid_in,
       \@review_helpfulness_in
       )
-    SELECT \@\@IDENTITY
+    SELECT SCOPE_IDENTITY()
  GO
 
 -- LOGIN
@@ -280,10 +280,8 @@ CREATE PROCEDURE BROWSE_BY_CATEGORY$k
   \@category_in              INT
   )
 
-  AS 
-  SET ROWCOUNT \@batch_size_in
-  SELECT * FROM PRODUCTS$k WHERE CATEGORY=\@category_in and SPECIAL=1
-  SET ROWCOUNT 0
+  AS
+  SELECT TOP (\@batch_size_in) * FROM PRODUCTS$k WHERE CATEGORY=\@category_in and SPECIAL=1
 GO
 
 -- Browse by category for membertype
@@ -299,10 +297,8 @@ CREATE PROCEDURE BROWSE_BY_CATEGORY_FOR_MEMBERTYPE$k
   \@membershiptype_in	    INT
   )
 
-  AS 
-  SET ROWCOUNT \@batch_size_in
-  SELECT * FROM PRODUCTS$k WHERE CATEGORY=\@category_in and SPECIAL=1 and MEMBERSHIP_ITEM<=\@membershiptype_in
-  SET ROWCOUNT 0
+  AS
+  SELECT TOP (\@batch_size_in) * FROM PRODUCTS$k WHERE CATEGORY=\@category_in and SPECIAL=1 and MEMBERSHIP_ITEM<=\@membershiptype_in
 GO
 
 -- get prod reviews
@@ -542,11 +538,9 @@ CREATE PROCEDURE BROWSE_BY_ACTOR$k
   \@actor_in                 VARCHAR(50)
   )
 
-  AS 
+  AS
 
-  SET ROWCOUNT \@batch_size_in
-  SELECT * FROM PRODUCTS$k WITH(FORCESEEK) WHERE CONTAINS(ACTOR, \@actor_in)
-  SET ROWCOUNT 0
+  SELECT TOP (\@batch_size_in) * FROM PRODUCTS$k WHERE CONTAINS(ACTOR, \@actor_in)
 GO
 
 IF EXISTS (SELECT name FROM sysobjects WHERE name = 'BROWSE_BY_TITLE$k' AND type = 'P')
@@ -559,11 +553,9 @@ CREATE PROCEDURE BROWSE_BY_TITLE$k
   \@title_in                 VARCHAR(50)
   )
 
-  AS 
+  AS
 
-  SET ROWCOUNT \@batch_size_in
-  SELECT * FROM PRODUCTS$k WITH(FORCESEEK) WHERE CONTAINS(TITLE, \@title_in)
-  SET ROWCOUNT 0
+  SELECT TOP (\@batch_size_in) * FROM PRODUCTS$k WHERE CONTAINS(TITLE, \@title_in)
 GO
 
 IF EXISTS (SELECT name FROM sysobjects WHERE name = 'PURCHASE$k' AND type = 'P')
@@ -627,7 +619,7 @@ CREATE PROCEDURE PURCHASE$k
     \@totalamount_in
     )
 
-  SET \@neworderid = \@\@IDENTITY
+  SET \@neworderid = SCOPE_IDENTITY()
 
 
   -- ADD LINE ITEMS TO ORDERLINES
@@ -716,11 +708,11 @@ GO
 USE DS3
 GO
 
-IF EXISTS (SELECT name FROM sysobjects WHERE name = 'sp_AddNewInventoryProduct$k' AND type = 'P')
-  DROP PROCEDURE sp_AddNewInventoryProduct$k
+IF EXISTS (SELECT name FROM sysobjects WHERE name = 'AddNewInventoryProduct$k' AND type = 'P')
+  DROP PROCEDURE AddNewInventoryProduct$k
 GO
 
-CREATE PROCEDURE sp_AddNewInventoryProduct$k
+CREATE PROCEDURE AddNewInventoryProduct$k
 (
     \@p_cat TINYINT,
     \@p_title VARCHAR(50),
