@@ -159,7 +159,16 @@ namespace ds2xdriver
     // Value for number of stores to support multi stores
     public static int n_stores = 1;
     public static int n_vectors = 0;
-    public static bool add_products_enabled = false;
+
+    // Manager thread parameters
+    public static bool enable_managers = false;
+    public static int manager_interval = 30;
+    public static int manager_add_product_pct = 40;
+    public static int manager_delete_review_pct = 20;
+    public static int manager_update_price_pct = 25;
+    public static int manager_update_special_pct = 15;
+    public static int manager_review_batch_size_min = 1;
+    public static int manager_review_batch_size_max = 5;
 
     // Variables needed within Controller class
     // Added new Parameter db_size by GSK
@@ -670,16 +679,6 @@ namespace ds2xdriver
         }
       };
 
-      // add_products - add products at runtime
-      definitions["add_products"] = new ParameterDefinition
-      {
-        Name = "add_products",
-        Description = "Add products at run time",
-        DefaultValue = "N",
-        Type = ParamType.Boolean,
-        Validator = ValidateYesNo
-      };
-
       // use_vectors - experimental vectors feature
       definitions["use_vectors"] = new ParameterDefinition
       {
@@ -688,6 +687,86 @@ namespace ds2xdriver
         DefaultValue = "N",
         Type = ParamType.Boolean,
         Validator = ValidateYesNo
+      };
+
+      // enable_managers - enable manager threads
+      definitions["enable_managers"] = new ParameterDefinition
+      {
+        Name = "enable_managers",
+        Description = "Enable manager threads for maintenance operations",
+        DefaultValue = "N",
+        Type = ParamType.Boolean,
+        Validator = ValidateYesNo
+      };
+
+      // manager_interval - seconds between manager operations
+      definitions["manager_interval"] = new ParameterDefinition
+      {
+        Name = "manager_interval",
+        Description = "Seconds between manager operations",
+        DefaultValue = "30",
+        Type = ParamType.Int,
+        Validator = (value) => ValidateInt(value, min: 1, max: 600)
+      };
+
+      // manager_add_product_pct - percentage for add product operation
+      definitions["manager_add_product_pct"] = new ParameterDefinition
+      {
+        Name = "manager_add_product_pct",
+        Description = "Percentage chance of adding product",
+        DefaultValue = "40",
+        Type = ParamType.Int,
+        Validator = (value) => ValidateInt(value, min: 0, max: 100)
+      };
+
+      // manager_delete_review_pct - percentage for delete review operation
+      definitions["manager_delete_review_pct"] = new ParameterDefinition
+      {
+        Name = "manager_delete_review_pct",
+        Description = "Percentage chance of deleting reviews",
+        DefaultValue = "20",
+        Type = ParamType.Int,
+        Validator = (value) => ValidateInt(value, min: 0, max: 100)
+      };
+
+      // manager_update_price_pct - percentage for update price operation
+      definitions["manager_update_price_pct"] = new ParameterDefinition
+      {
+        Name = "manager_update_price_pct",
+        Description = "Percentage chance of adjusting prices",
+        DefaultValue = "25",
+        Type = ParamType.Int,
+        Validator = (value) => ValidateInt(value, min: 0, max: 100)
+      };
+
+      // manager_update_special_pct - percentage for update special operation
+      definitions["manager_update_special_pct"] = new ParameterDefinition
+      {
+        Name = "manager_update_special_pct",
+        Description = "Percentage chance of marking specials",
+        DefaultValue = "15",
+        Type = ParamType.Int,
+        Validator = (value) => ValidateInt(value, min: 0, max: 100)
+      };
+
+      // manager_review_batch_size_min - minimum reviews to delete
+      definitions["manager_review_batch_size_min"] = new ParameterDefinition
+      {
+        Name = "manager_review_batch_size_min",
+        Description = "Minimum reviews to delete per operation",
+        DefaultValue = "1",
+        Type = ParamType.Int,
+        Validator = (value) => ValidateInt(value, min: 1, max: 100)
+      };
+
+      // manager_review_batch_size_max - maximum reviews to delete
+      definitions["manager_review_batch_size_max"] = new ParameterDefinition
+      {
+        Name = "manager_review_batch_size_max",
+        Description = "Maximum reviews to delete per operation",
+        DefaultValue = "5",
+        Type = ParamType.Int,
+        Validator = (value) => ValidateInt(value, min: 1, max: 100)
       };
 
       return definitions;
@@ -722,11 +801,12 @@ namespace ds2xdriver
 
         // Check mutually exclusive options
         bool useVectors = parser.GetValue<bool>("use_vectors");
-        bool addProducts = parser.GetValue<bool>("add_products");
+        bool enableManagers = parser.GetValue<bool>("enable_managers");
+        bool ds2Mode = parser.GetValue<bool>("ds2_mode");
 
-        if (useVectors && addProducts)
+        if (useVectors && enableManagers)
         {
-          errors.Add("Cannot use both --use_vectors=Y and --add_products=Y");
+          errors.Add("Cannot use both --use_vectors=Y and --enable_managers=Y");
         }
 
         // Check performance monitoring configuration
@@ -761,6 +841,17 @@ namespace ds2xdriver
         if (nStores > GlobalConstants.MAX_STORES)
         {
           errors.Add($"n_stores ({nStores}) exceeds MAX_STORES ({GlobalConstants.MAX_STORES})");
+        }
+
+        // Validate manager batch size range
+        if (enableManagers)
+        {
+          int batchMin = parser.GetValue<int>("manager_review_batch_size_min");
+          int batchMax = parser.GetValue<int>("manager_review_batch_size_max");
+          if (batchMin > batchMax)
+          {
+            errors.Add($"manager_review_batch_size_min ({batchMin}) must be <= manager_review_batch_size_max ({batchMax})");
+          }
         }
       }
       catch (Exception ex)
@@ -1149,13 +1240,19 @@ namespace ds2xdriver
         n_vectors = 1;
         }
 
-      // Add products feature (validator returns bool, mutually exclusive with vectors handled in validation)
-      add_products_enabled = parser.GetValue<bool>("add_products");
-      if (add_products_enabled && n_vectors == 1)
-        {
-        Console.WriteLine("\nWARNING: '--use_vectors=y', ignoring parameter '--add_products=y'\n");
-        add_products_enabled = false;
-        }
+      // Manager thread parameters
+      enable_managers = parser.GetValue<bool>("enable_managers");
+      if (enable_managers && ds2_mode)
+      {
+        Console.WriteLine("\nWARNING: --enable_managers=y not recommended in DS2 compatibility mode\n");
+      }
+      manager_interval = parser.GetValue<int>("manager_interval");
+      manager_add_product_pct = parser.GetValue<int>("manager_add_product_pct");
+      manager_delete_review_pct = parser.GetValue<int>("manager_delete_review_pct");
+      manager_update_price_pct = parser.GetValue<int>("manager_update_price_pct");
+      manager_update_special_pct = parser.GetValue<int>("manager_update_special_pct");
+      manager_review_batch_size_min = parser.GetValue<int>("manager_review_batch_size_min");
+      manager_review_batch_size_max = parser.GetValue<int>("manager_review_batch_size_max");
 
       // Display configuration summary
       DisplayConfiguration();
@@ -1404,6 +1501,28 @@ namespace ds2xdriver
         Thread.Sleep ( 500 );
         return;
         }
+
+      Console.WriteLine ( "Controller ({0}): all User threads connected" , DateTime.Now );
+
+      // Create and start manager threads if enabled (one per store)
+      Manager[] managers = new Manager[GlobalConstants.MAX_STORES];
+      Thread[] manager_threads = new Thread[GlobalConstants.MAX_STORES];
+      if (enable_managers)
+      {
+        Console.WriteLine ( "Controller ({0}): creating manager threads" , DateTime.Now );
+        for ( i = 0, server_id = 0 ; i < n_stores ; i++ )
+        {
+          managers[i] = new Manager ( i , server_id, i + 1 );
+          manager_threads[i] = new Thread ( new ThreadStart ( managers[i].RunManager ) );
+          manager_threads[i].Start();
+
+          // Round-robin across servers
+          server_id++;
+          if (server_id >= n_target_servers)
+            server_id = 0;
+        }
+        Console.WriteLine ( "Controller ({0}): {1} manager thread(s) started" , DateTime.Now, n_stores );
+      }
 
       Console.WriteLine ( "Controller ({0}): all threads connected - issuing Start" , DateTime.Now );
       Start = true;
@@ -1822,30 +1941,42 @@ namespace ds2xdriver
       //  "n_login_overall={5} n_newcust_overall={6} n_browse_overall={7} n_purchase_overall={8} " +
       //  "rt_login_avg_msec={9} rt_newcust_avg_msec={10} rt_browse_avg_msec={11} rt_purchase_avg_msec={12} " +
       //  "n_rollbacks_overall={13} rollback_rate = {14,5:F1}%  ",
-      //  et, n_overall, opm, rt_tot_lastn_max_msec, rt_tot_avg_msec, n_login_overall, n_newcust_overall,
-      //  n_browse_overall, n_purchase_overall, rt_login_avg_msec, rt_newcust_avg_msec, rt_browse_avg_msec,
-      //  rt_purchase_avg_msec, n_rollbacks_overall, (100.0 * n_rollbacks_overall) / n_overall);
-      //Changed on 8/8/2010
-      // Changed again on 3/17/2015
-      Console.Write("\nFinal ({0}): et={1,7:F1} n_overall={2} opm={3} rt_tot_lastn_max={4} rt_tot_avg={5} " +
-        "n_login_overall={6} n_newcust_overall={7} n_newmember_overall={8} n_browse_overall={9} " +
-        "n_reviewbrowse={10} n_newreviews={11} n_newhelpfulness={12} n_purchase_overall={13} " +
-        "rt_login_avg_msec={14} rt_newcust_avg_msec={15} rt_rewmember_avg_msec={16} rt_browse_avg_msec={17} " +
-        "rt_reviewbrowse_avg_msec={18} rt_newreview_avg_msec={19} rt_newhelpfulness={20} rt_purchase_avg_msec={21} " +
-        "rt_tot_sampled={22} n_rollbacks_overall={23} rollback_rate = {24,2:F1}%",
-        DateTime.Now, et, n_overall, opm, rt_tot_lastn_max_msec, rt_tot_avg_msec, n_login_overall, n_newcust_overall, n_newmember_overall,
-        n_browse_overall, n_reviewbrowse_overall, n_newreview_overall, n_newhelpfulness_overall,  n_purchase_overall,
-        rt_login_avg_msec, rt_newcust_avg_msec, rt_newmember_avg_msec, rt_browse_avg_msec, rt_reviewbrowse_avg_msec, rt_newreview_avg_msec,
-        rt_newhelpfulness_avg_msec, rt_purchase_avg_msec, rt_tot_sampled, n_rollbacks_overall, (100.0 * n_rollbacks_overall) / n_overall);
-
+      // Print final statistics
+      Console.WriteLine("\n========================================================================");
+      Console.WriteLine("                    FINAL RESULTS - {0}", DateTime.Now);
+      Console.WriteLine("========================================================================");
+      Console.WriteLine("Elapsed Time:           {0,7:F1} sec", et);
+      Console.WriteLine("Total Orders:           {0,7}", n_overall);
+      Console.WriteLine("Orders Per Minute:      {0,7} OPM", opm);
+      Console.WriteLine();
+      Console.WriteLine("Operation Counts:");
+      Console.WriteLine("  Login:                {0,7}", n_login_overall);
+      Console.WriteLine("  New Customer:         {0,7}", n_newcust_overall);
+      Console.WriteLine("  New Member:           {0,7}", n_newmember_overall);
+      Console.WriteLine("  Browse:               {0,7}", n_browse_overall);
       if (n_vectors == 1)
       {
-	Console.WriteLine(" n_browse_vector= {0}",n_browse_vector);
+        Console.WriteLine("  Browse (vector):      {0,7}", n_browse_vector);
       }
-      else
-      {
-	Console.WriteLine("");
-      }
+      Console.WriteLine("  Review Browse:        {0,7}", n_reviewbrowse_overall);
+      Console.WriteLine("  New Review:           {0,7}", n_newreview_overall);
+      Console.WriteLine("  New Helpfulness:      {0,7}", n_newhelpfulness_overall);
+      Console.WriteLine("  Purchase:             {0,7}", n_purchase_overall);
+      Console.WriteLine("  Rollbacks:            {0,7} ({1,4:F1}%)", n_rollbacks_overall, (100.0 * n_rollbacks_overall) / n_overall);
+      Console.WriteLine();
+      Console.WriteLine("Average Response Times (msec):");
+      Console.WriteLine("  Login:                {0,7} msec", rt_login_avg_msec);
+      Console.WriteLine("  New Customer:         {0,7} msec", rt_newcust_avg_msec);
+      Console.WriteLine("  New Member:           {0,7} msec", rt_newmember_avg_msec);
+      Console.WriteLine("  Browse:               {0,7} msec", rt_browse_avg_msec);
+      Console.WriteLine("  Review Browse:        {0,7} msec", rt_reviewbrowse_avg_msec);
+      Console.WriteLine("  New Review:           {0,7} msec", rt_newreview_avg_msec);
+      Console.WriteLine("  New Helpfulness:      {0,7} msec", rt_newhelpfulness_avg_msec);
+      Console.WriteLine("  Purchase:             {0,7} msec", rt_purchase_avg_msec);
+      Console.WriteLine("  Total (avg):          {0,7} msec", rt_tot_avg_msec);
+      Console.WriteLine("  Total (max last {0}):  {1,7} msec", GlobalConstants.LAST_N, rt_tot_lastn_max_msec);
+      Console.WriteLine("  Total (sampled):      {0,7:F3} sec", rt_tot_sampled);
+      Console.WriteLine("========================================================================\n");
 
       if (outfilename != string.Empty)
       {
@@ -2027,14 +2158,14 @@ namespace ds2xdriver
       Console.WriteLine("Parameters can be combined: command line overrides config file values\n");
 
       var definitions = CreateParameterDefinitions();
-      Console.WriteLine($"{"Parameter",-25} {"Type",-10} {"Default",-15} {"Description"}");
-      Console.WriteLine(new string('-', 120));
+      Console.WriteLine($"{"Parameter",-35} {"Type",-10} {"Default",-15} {"Description"}");
+      Console.WriteLine(new string('-', 130));
 
       foreach (var param in definitions.OrderBy(p => p.Key))
       {
         var def = param.Value;
         string typeStr = def.Type.ToString();
-        Console.WriteLine($"{def.Name,-25} {typeStr,-10} {def.DefaultValue,-15} {def.Description}");
+        Console.WriteLine($"{def.Name,-35} {typeStr,-10} {def.DefaultValue,-15} {def.Description}");
       }
 
       Console.WriteLine("\nConfig File Format:");
@@ -2082,7 +2213,17 @@ namespace ds2xdriver
       Console.WriteLine($"Output file: {(string.IsNullOrEmpty(outfilename) ? "(none)" : outfilename)}");
       Console.WriteLine($"DS2 compatibility mode: {(ds2_mode ? "ENABLED" : "DISABLED")}");
       Console.WriteLine($"Vector browse: {(n_vectors > 0 ? "ENABLED" : "DISABLED")}");
-      Console.WriteLine($"Add products: {(add_products_enabled ? "ENABLED" : "DISABLED")}");
+      if (enable_managers)
+      {
+        Console.WriteLine($"Manager threads: ENABLED");
+        Console.WriteLine($"  Interval: {manager_interval} seconds");
+        Console.WriteLine($"  Operations: AddProduct={manager_add_product_pct}%, RemoveReview={manager_delete_review_pct}%, AdjustPrice={manager_update_price_pct}%, MarkSpecial={manager_update_special_pct}%");
+        Console.WriteLine($"  Review batch size: {manager_review_batch_size_min}-{manager_review_batch_size_max}");
+      }
+      else
+      {
+        Console.WriteLine($"Manager threads: DISABLED");
+      }
       Console.WriteLine("============================\n");
     }
 
@@ -2221,7 +2362,6 @@ namespace ds2xdriver
     int customerid_in, membershiplevel_in, reviewid_in, reviewhelpfulness_in;
     string new_review_summary_in, new_review_text_in;
     int new_review_stars_in, new_review_prod_id_in;
-    private int lastprodinsert = 10000;
 
     public int target_server_id = 0;   //Added by GSK (Need this public since it is used by Controller to find out which thread belongs to which DB/Web Server)
 
@@ -2512,7 +2652,6 @@ namespace ds2xdriver
 
           browse_actor_in = "";
           browse_title_in = "";
-          browse_category_in = "";
 
           switch ( search_type )
             {
@@ -2766,40 +2905,6 @@ namespace ds2xdriver
             } //End of IF
             // End of New Helpfulness Phase
 
-            if ((Controller.n_overall > lastprodinsert ) && (Userid == (target_store-1) ) && Controller.add_products_enabled)
-            {
-               //Console.WriteLine ("n_overall: {0} Thread: {1} target_store: {2}",Controller.n_overall, Userid, target_store);
-               int k = Random.Shared.Next(1,20);
-
-               //Console.WriteLine("Adding {0} new products to store {1}.",k,target_store);
-	       for (int j = 0 ; j < k ; j++ )
-	       {
-               int new_category_in = Random.Shared.Next(1, GlobalConstants.MAX_CATEGORY+1);
-               string new_actor_in = CreateActor();
-               string new_title_in = CreateTitle();
-               decimal price_in = 5.99m + (decimal)Random.Shared.NextDouble() * 15;
-               int initial_stock_in = Random.Shared.Next(1,500);
-               //Console.WriteLine ("\tNew product: {0}, {1}, {2}, {3}, {4:F2} {5}",j, new_category_in, new_actor_in, new_title_in, price_in, initial_stock_in);
-
-               int new_prod_id = 0;
-               if ( ds2interfaces[Userid].ds2newproduct(new_category_in, new_title_in, new_actor_in, price_in, initial_stock_in, ref new_prod_id, ref rt) )
-               {
-		  if ( new_prod_id > Controller.max_product[target_store])
-                  {
-                     Controller.max_product[target_store] = new_prod_id;
-                  }
-               }
-	       else // Adding new product failed. Disable.
-	       {
-                  Console.WriteLine("  Failed to add new products. Disabling...");
-                  Controller.add_products_enabled = false;
-                  break;
-	       }
-
-	       }
-               this.lastprodinsert += 1000;
-            }
-
         } // end of if for ds2_mode to exclude reviews and helpfulness opreations
         // Purchase Phase
 
@@ -2999,7 +3104,6 @@ namespace ds2xdriver
     {
       return (fake_title_data.movie_titles[Random.Shared.Next( fake_title_data.title_pool_size )] + " " + fake_title_data.movie_titles[Random.Shared.Next( fake_title_data.title_pool_size )]);
     }
-
 
     string CreateReviewData(int num_terms)
     {

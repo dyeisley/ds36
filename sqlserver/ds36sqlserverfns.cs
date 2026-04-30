@@ -49,6 +49,7 @@ namespace ds2xdriver
     SqlCommand Login, New_Customer, Browse_By_Category, Browse_By_Actor, Browse_By_Vector, Browse_By_Title, Purchase, New_Product;
     SqlCommand Get_Prod_Reviews, Get_Prod_Reviews_By_Actor, Get_Prod_Reviews_By_Title, Get_Prod_Reviews_By_Date, Get_Prod_Reviews_By_Stars;
     SqlCommand New_Member, New_Prod_Review, New_Review_Helpfulness;
+    SqlCommand Remove_Review_By_Product, Remove_Unhelpful_Reviews, Adjust_Prices, Mark_Specials;
     SqlCommand[] CostQuery = new SqlCommand[11];
 
 //
@@ -204,6 +205,23 @@ namespace ds2xdriver
           CostQuery[items].Parameters.Add("@ARG" + i, SqlDbType.Int);
         }
       }
+
+      // Manager thread stored procedures
+      Remove_Review_By_Product = new SqlCommand("RemoveReviewByProduct" + target_store_number, objConn);
+      Remove_Review_By_Product.CommandType = CommandType.StoredProcedure;
+      Remove_Review_By_Product.Parameters.Add("@prod_id", SqlDbType.Int);
+
+      Remove_Unhelpful_Reviews = new SqlCommand("RemoveUnhelpfulReviews" + target_store_number, objConn);
+      Remove_Unhelpful_Reviews.CommandType = CommandType.StoredProcedure;
+      Remove_Unhelpful_Reviews.Parameters.Add("@batch_size_in", SqlDbType.Int);
+
+      Adjust_Prices = new SqlCommand("AdjustPrices" + target_store_number, objConn);
+      Adjust_Prices.CommandType = CommandType.StoredProcedure;
+      Adjust_Prices.Parameters.Add("@prod_id", SqlDbType.Int);
+
+      Mark_Specials = new SqlCommand("MarkSpecials" + target_store_number, objConn);
+      Mark_Specials.CommandType = CommandType.StoredProcedure;
+      Mark_Specials.Parameters.Add("@prod_id", SqlDbType.Int);
 
       //Console.WriteLine("ds2Interface {0} created", ds2Interfaceid);
     }
@@ -827,7 +845,6 @@ namespace ds2xdriver
 //
     public bool ds2newproduct(int new_category_in, string new_title_in, string new_actor_in, decimal new_price_in, int new_stock_in, ref int newproduct_id, ref double rt)
     {
-      bool success = true;
 
       New_Product.Parameters["p_cat"].Value = new_category_in;
       New_Product.Parameters["p_title"].Value = new_title_in;
@@ -867,6 +884,108 @@ namespace ds2xdriver
       {
           rt = timer.Elapsed.TotalSeconds;
       }
+    }
+
+//
+//-------------------------------------------------------------------------------------------------
+// Manager Thread Methods
+//-------------------------------------------------------------------------------------------------
+//
+    public int ds36removereviewbyproduct(int prodId, ref double rt)
+    {
+        Remove_Review_By_Product.Parameters["@prod_id"].Value = prodId;
+
+        Stopwatch timer = Stopwatch.StartNew();
+
+        try
+        {
+            object result = Remove_Review_By_Product.ExecuteScalar();
+            return result != null ? Convert.ToInt32(result) : 0;
+        }
+        catch (Exception e)
+        {
+            Console.WriteLine($"Thread {Thread.CurrentThread.Name}: ds36removereviewbyproduct error: {e.Message}");
+            return 0;
+        }
+        finally
+        {
+            rt = timer.Elapsed.TotalSeconds;
+        }
+    }
+
+//
+//-------------------------------------------------------------------------------------------------
+//
+    public int ds36removeunhelpfulreviews(int batchSize, ref double rt)
+    {
+        Remove_Unhelpful_Reviews.Parameters["@batch_size_in"].Value = batchSize;
+
+        Stopwatch timer = Stopwatch.StartNew();
+
+        try
+        {
+            object result = Remove_Unhelpful_Reviews.ExecuteScalar();
+            return result != null ? Convert.ToInt32(result) : 0;
+        }
+        catch (Exception e)
+        {
+            Console.WriteLine($"Thread {Thread.CurrentThread.Name}: ds36removeunhelpfulreviews error: {e.Message}");
+            return 0;
+        }
+        finally
+        {
+            rt = timer.Elapsed.TotalSeconds;
+        }
+    }
+
+//
+//-------------------------------------------------------------------------------------------------
+//
+    public int ds36adjustprices(int prodId, ref double rt)
+    {
+        Adjust_Prices.Parameters["@prod_id"].Value = prodId;
+
+        Stopwatch timer = Stopwatch.StartNew();
+
+        try
+        {
+            object result = Adjust_Prices.ExecuteScalar();
+            return result != null ? Convert.ToInt32(result) : 0;
+        }
+        catch (Exception e)
+        {
+            Console.WriteLine($"Thread {Thread.CurrentThread.Name}: ds36adjustprices error: {e.Message}");
+            return 0;
+        }
+        finally
+        {
+            rt = timer.Elapsed.TotalSeconds;
+        }
+    }
+
+//
+//-------------------------------------------------------------------------------------------------
+//
+    public int ds36markspecials(int prodId, ref double rt)
+    {
+        Mark_Specials.Parameters["@prod_id"].Value = prodId;
+
+        Stopwatch timer = Stopwatch.StartNew();
+
+        try
+        {
+            object result = Mark_Specials.ExecuteScalar();
+            return result != null ? Convert.ToInt32(result) : 0;
+        }
+        catch (Exception e)
+        {
+            Console.WriteLine($"Thread {Thread.CurrentThread.Name}: ds36markspecials error: {e.Message}");
+            return 0;
+        }
+        finally
+        {
+            rt = timer.Elapsed.TotalSeconds;
+        }
     }
 
 //

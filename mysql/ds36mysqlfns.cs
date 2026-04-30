@@ -865,6 +865,97 @@ namespace ds2xdriver
 
 //
 //-------------------------------------------------------------------------------------------------
+// Manager Thread Methods
+//-------------------------------------------------------------------------------------------------
+//
+    public int RemoveReviewByProduct(int prodId, int batchSize)
+    {
+        try
+        {
+            MySqlCommand cmd = new MySqlCommand($"DS3.RemoveReviewByProduct{target_store_number}", objConn)
+            {
+                CommandType = System.Data.CommandType.StoredProcedure
+            };
+            cmd.Parameters.AddWithValue("p_prod_id", prodId);
+            cmd.Parameters.AddWithValue("p_batch_size", batchSize);
+
+            return cmd.ExecuteNonQuery();
+        }
+        catch (Exception e)
+        {
+            Console.WriteLine($"Thread {Thread.CurrentThread.Name}: RemoveReviewByProduct error: {e.Message}");
+            return 0;
+        }
+    }
+
+//
+//-------------------------------------------------------------------------------------------------
+//
+    public int RemoveUnhelpfulReviews(int batchSize)
+    {
+        try
+        {
+            MySqlCommand cmd = new MySqlCommand($"DS3.RemoveUnhelpfulReviews{target_store_number}", objConn)
+            {
+                CommandType = System.Data.CommandType.StoredProcedure
+            };
+            cmd.Parameters.AddWithValue("p_batch_size", batchSize);
+
+            return cmd.ExecuteNonQuery();
+        }
+        catch (Exception e)
+        {
+            Console.WriteLine($"Thread {Thread.CurrentThread.Name}: RemoveUnhelpfulReviews error: {e.Message}");
+            return 0;
+        }
+    }
+
+//
+//-------------------------------------------------------------------------------------------------
+//
+    public int AdjustPrices(int prodId)
+    {
+        try
+        {
+            MySqlCommand cmd = new MySqlCommand($"DS3.AdjustPrices{target_store_number}", objConn)
+            {
+                CommandType = System.Data.CommandType.StoredProcedure
+            };
+            cmd.Parameters.AddWithValue("p_prod_id", prodId);
+
+            return cmd.ExecuteNonQuery();
+        }
+        catch (Exception e)
+        {
+            Console.WriteLine($"Thread {Thread.CurrentThread.Name}: AdjustPrices error: {e.Message}");
+            return 0;
+        }
+    }
+
+//
+//-------------------------------------------------------------------------------------------------
+//
+    public int MarkSpecials(int prodId)
+    {
+        try
+        {
+            MySqlCommand cmd = new MySqlCommand($"DS3.MarkSpecials{target_store_number}", objConn)
+            {
+                CommandType = System.Data.CommandType.StoredProcedure
+            };
+            cmd.Parameters.AddWithValue("p_prod_id", prodId);
+
+            return cmd.ExecuteNonQuery();
+        }
+        catch (Exception e)
+        {
+            Console.WriteLine($"Thread {Thread.CurrentThread.Name}: MarkSpecials error: {e.Message}");
+            return 0;
+        }
+    }
+
+//
+//-------------------------------------------------------------------------------------------------
 //
     public bool ds2close()
       {
