@@ -557,6 +557,81 @@ BEGIN
     SELECT v_new_id AS generated_id;
 END $$
 
+DROP PROCEDURE IF EXISTS DS3.RemoveReviewByProduct$k $$
+CREATE PROCEDURE DS3.RemoveReviewByProduct$k
+(
+    IN p_prod_id INT
+)
+BEGIN
+    DECLARE v_review_id INT DEFAULT 0;
+
+    -- Find one random review for this specific product
+    -- (simulates product-specific spam moderation)
+    SELECT REVIEW_ID INTO v_review_id
+    FROM REVIEWS$k
+    WHERE PROD_ID = p_prod_id
+    ORDER BY RAND()
+    LIMIT 1
+    FOR UPDATE SKIP LOCKED;
+
+    -- Delete it if found
+    IF v_review_id > 0 THEN
+        DELETE FROM REVIEWS$k WHERE REVIEW_ID = v_review_id;
+    END IF;
+
+    SELECT v_review_id AS deleted_review_id;
+END $$
+
+DROP PROCEDURE IF EXISTS DS3.RemoveUnhelpfulReviews$k $$
+CREATE PROCEDURE DS3.RemoveUnhelpfulReviews$k
+(
+    IN p_batch_size INT
+)
+BEGIN
+    -- Delete N least helpful reviews across all products
+    -- (simulates global cleanup of low-quality reviews)
+    DELETE FROM REVIEWS$k
+    WHERE REVIEW_ID IN (
+        SELECT REVIEW_ID
+        FROM REVIEWS$k
+        ORDER BY TOTAL_HELPFULNESS ASC, REVIEW_ID ASC
+        LIMIT p_batch_size
+        FOR UPDATE SKIP LOCKED
+    );
+    SELECT ROW_COUNT() AS rows_affected;
+END $$
+
+DROP PROCEDURE IF EXISTS DS3.AdjustPrices$k $$
+CREATE PROCEDURE DS3.AdjustPrices$k
+(
+    IN p_prod_id INT
+)
+BEGIN
+    DECLARE v_adjustment_factor DECIMAL(4,3);
+
+    -- Randomly adjust price by -10% to +10%
+    SET v_adjustment_factor = 0.90 + (RAND() * 0.20);
+
+    UPDATE PRODUCTS$k
+    SET PRICE = PRICE * v_adjustment_factor
+    WHERE PROD_ID = p_prod_id;
+    SELECT ROW_COUNT() AS rows_affected;
+END $$
+
+DROP PROCEDURE IF EXISTS DS3.MarkSpecials$k $$
+CREATE PROCEDURE DS3.MarkSpecials$k
+(
+    IN p_prod_id INT
+)
+BEGIN
+    -- Toggle SPECIAL flag (0→1 or 1→0)
+    -- Simulates rotating promotions/featured items
+    UPDATE PRODUCTS$k
+    SET SPECIAL = CASE WHEN SPECIAL = 1 THEN 0 ELSE 1 END
+    WHERE PROD_ID = p_prod_id;
+    SELECT ROW_COUNT() AS rows_affected;
+END $$
+
 \n";
   close $OUT;
   sleep(1);

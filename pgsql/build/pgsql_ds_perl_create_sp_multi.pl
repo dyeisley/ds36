@@ -671,6 +671,94 @@ BEGIN
 END;
 \$\$;
 
+CREATE OR REPLACE FUNCTION removereviewbyproduct$k(
+    p_prod_id int,
+    OUT deleted_review_id int
+)
+LANGUAGE plpgsql
+AS \$\$
+BEGIN
+    deleted_review_id := 0;
+
+    -- Find one random review for this specific product
+    -- (simulates product-specific spam moderation)
+    SELECT review_id INTO deleted_review_id
+    FROM reviews$k
+    WHERE prod_id = p_prod_id
+    ORDER BY random()
+    LIMIT 1
+    FOR UPDATE SKIP LOCKED;
+
+    -- Delete it if found
+    IF deleted_review_id > 0 THEN
+        DELETE FROM reviews$k WHERE review_id = deleted_review_id;
+    END IF;
+
+EXCEPTION
+    WHEN NO_DATA_FOUND THEN
+        deleted_review_id := 0;
+END;
+\$\$;
+
+CREATE OR REPLACE FUNCTION removeunhelpfulreviews$k(
+    p_batch_size int,
+    OUT rows_deleted int
+)
+LANGUAGE plpgsql
+AS \$\$
+BEGIN
+    -- Delete N least helpful reviews across all products
+    -- (simulates global cleanup of low-quality reviews)
+    DELETE FROM reviews$k
+    WHERE review_id IN (
+        SELECT review_id
+        FROM reviews$k
+        ORDER BY total_helpfulness ASC, review_id ASC
+        LIMIT p_batch_size
+        FOR UPDATE SKIP LOCKED
+    );
+
+    GET DIAGNOSTICS rows_deleted = ROW_COUNT;
+END;
+\$\$;
+
+CREATE OR REPLACE FUNCTION adjustprices$k(
+    p_prod_id int,
+    OUT rows_updated int
+)
+LANGUAGE plpgsql
+AS \$\$
+DECLARE
+    v_adjustment_factor numeric(4,3);
+BEGIN
+    -- Randomly adjust price by -10% to +10%
+    v_adjustment_factor := 0.90 + (random() * 0.20);
+
+    UPDATE products$k
+    SET price = price * v_adjustment_factor
+    WHERE prod_id = p_prod_id;
+
+    GET DIAGNOSTICS rows_updated = ROW_COUNT;
+END;
+\$\$;
+
+CREATE OR REPLACE FUNCTION markspecials$k(
+    p_prod_id int,
+    OUT rows_updated int
+)
+LANGUAGE plpgsql
+AS \$\$
+BEGIN
+    -- Toggle SPECIAL flag (0→1 or 1→0)
+    -- Simulates rotating promotions/featured items
+    UPDATE products$k
+    SET special = CASE WHEN special = 1 THEN 0 ELSE 1 END
+    WHERE prod_id = p_prod_id;
+
+    GET DIAGNOSTICS rows_updated = ROW_COUNT;
+END;
+\$\$;
+
 \n";
 	close $OUT;
 	sleep(1);

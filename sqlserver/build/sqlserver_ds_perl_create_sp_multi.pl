@@ -294,7 +294,7 @@ CREATE PROCEDURE BROWSE_BY_CATEGORY_FOR_MEMBERTYPE$k
   (
   \@batch_size_in            INT,
   \@category_in              INT,
-  \@membershiptype_in	    INT
+  \@membershiptype_in	     INT
   )
 
   AS
@@ -777,6 +777,107 @@ INNER JOIN (
     FROM REVIEWS_HELPFULNESS$k
     GROUP BY REVIEW_ID
 ) AS H ON R.REVIEW_ID = H.REVIEW_ID;
+
+-- Manager Thread Stored Procedures
+
+IF EXISTS (SELECT name FROM sysobjects WHERE name = 'RemoveReviewByProduct$k' AND type = 'P')
+  DROP PROCEDURE RemoveReviewByProduct$k
+GO
+
+CREATE PROCEDURE RemoveReviewByProduct$k
+  (
+  \@prod_id             INT
+  )
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    DECLARE \@review_id INT = 0;
+
+    -- Find one random review for this specific product
+    -- (simulates product-specific spam moderation)
+    SELECT TOP 1 \@review_id = REVIEW_ID
+    FROM REVIEWS$k WITH (READPAST)
+    WHERE PROD_ID = \@prod_id
+    ORDER BY NEWID();
+
+    -- Delete it if found
+    IF \@review_id > 0
+        DELETE FROM REVIEWS$k WHERE REVIEW_ID = \@review_id;
+
+    SELECT \@review_id AS review_id;
+END
+GO
+
+IF EXISTS (SELECT name FROM sysobjects WHERE name = 'RemoveUnhelpfulReviews$k' AND type = 'P')
+  DROP PROCEDURE RemoveUnhelpfulReviews$k
+GO
+
+CREATE PROCEDURE RemoveUnhelpfulReviews$k
+  (
+  \@batch_size_in       INT
+  )
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    -- Delete N least helpful reviews across all products
+    -- (simulates global cleanup of low-quality reviews)
+    DELETE FROM REVIEWS$k
+    WHERE REVIEW_ID IN (
+        SELECT TOP (\@batch_size_in) REVIEW_ID
+        FROM REVIEWS$k WITH (READPAST)
+        ORDER BY TOTAL_HELPFULNESS ASC, REVIEW_ID ASC
+    );
+
+    SELECT \@\@ROWCOUNT;
+END
+GO
+
+IF EXISTS (SELECT name FROM sysobjects WHERE name = 'AdjustPrices$k' AND type = 'P')
+  DROP PROCEDURE AdjustPrices$k
+GO
+
+CREATE PROCEDURE AdjustPrices$k
+  (
+  \@prod_id             INT
+  )
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    DECLARE \@adjustment_factor DECIMAL(4,3);
+    SET \@adjustment_factor = 0.90 + (RAND() * 0.20);  -- Range: 0.90 to 1.10 (±10%)
+
+    UPDATE PRODUCTS$k WITH (READPAST)
+    SET PRICE = PRICE * \@adjustment_factor
+    WHERE PROD_ID = \@prod_id;
+
+    SELECT \@\@ROWCOUNT;
+END
+GO
+
+IF EXISTS (SELECT name FROM sysobjects WHERE name = 'MarkSpecials$k' AND type = 'P')
+  DROP PROCEDURE MarkSpecials$k
+GO
+
+CREATE PROCEDURE MarkSpecials$k
+  (
+  \@prod_id             INT
+  )
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    -- Toggle SPECIAL flag (0→1 or 1→0)
+    -- Simulates rotating promotions/featured items
+    UPDATE PRODUCTS$k WITH (READPAST)
+    SET SPECIAL = CASE WHEN SPECIAL = 1 THEN 0 ELSE 1 END
+    WHERE PROD_ID = \@prod_id;
+
+    SELECT \@\@ROWCOUNT;
+END
+GO
 
 \n";
   close $OUT;

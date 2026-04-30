@@ -790,6 +790,146 @@ BEGIN
 END RESTOCK$k;
 /
 
+CREATE OR REPLACE PROCEDURE DS3.RemoveReviewByProduct$k (
+    p_prod_id    IN  NUMBER,
+    p_review_id  OUT NUMBER
+) AS
+    -- Cursor to select one random review with locking
+    CURSOR c_review IS
+        SELECT REVIEW_ID
+        FROM DS3.REVIEWS$k
+        WHERE PROD_ID = p_prod_id
+        ORDER BY DBMS_RANDOM.VALUE
+        FOR UPDATE SKIP LOCKED;
+BEGIN
+    p_review_id := 0;
+
+    -- Find one random review for this specific product
+    -- (simulates product-specific spam moderation)
+    BEGIN
+        OPEN c_review;
+        FETCH c_review INTO p_review_id;
+        CLOSE c_review;
+    EXCEPTION
+        WHEN NO_DATA_FOUND THEN
+            p_review_id := 0;
+    END;
+
+    -- Delete it if found
+    IF p_review_id > 0 THEN
+        -- Disable trigger to avoid mutating table error
+        EXECUTE IMMEDIATE 'ALTER TRIGGER DS3.TRG_HELPFULNESS_SYNC$k DISABLE';
+
+        DELETE FROM DS3.REVIEWS$k WHERE REVIEW_ID = p_review_id;
+
+        -- Re-enable trigger
+        EXECUTE IMMEDIATE 'ALTER TRIGGER DS3.TRG_HELPFULNESS_SYNC$k ENABLE';
+    END IF;
+
+    COMMIT;
+
+EXCEPTION
+    WHEN OTHERS THEN
+        -- Re-enable trigger even on error
+        BEGIN
+            EXECUTE IMMEDIATE 'ALTER TRIGGER DS3.TRG_HELPFULNESS_SYNC$k ENABLE';
+        EXCEPTION
+            WHEN OTHERS THEN NULL;
+        END;
+        ROLLBACK;
+        RAISE;
+END;
+/
+
+CREATE OR REPLACE PROCEDURE DS3.RemoveUnhelpfulReviews$k (
+    p_batch_size IN  NUMBER
+) AS
+    TYPE reviewid_array IS TABLE OF NUMBER INDEX BY PLS_INTEGER;
+    v_review_ids reviewid_array;
+
+    -- Cursor to select reviews with locking
+    CURSOR c_reviews IS
+        SELECT REVIEW_ID
+        FROM DS3.REVIEWS$k
+        ORDER BY TOTAL_HELPFULNESS ASC, REVIEW_ID ASC
+        FOR UPDATE SKIP LOCKED;
+BEGIN
+    -- Delete N least helpful reviews across all products
+    -- (simulates global cleanup of low-quality reviews)
+
+    -- Open cursor and fetch up to batch_size rows
+    OPEN c_reviews;
+    FETCH c_reviews BULK COLLECT INTO v_review_ids LIMIT p_batch_size;
+    CLOSE c_reviews;
+
+    -- Then delete them
+    IF v_review_ids.COUNT > 0 THEN
+        -- Disable trigger to avoid mutating table error
+        EXECUTE IMMEDIATE 'ALTER TRIGGER DS3.TRG_HELPFULNESS_SYNC$k DISABLE';
+
+        FORALL i IN 1..v_review_ids.COUNT
+            DELETE FROM DS3.REVIEWS$k
+            WHERE REVIEW_ID = v_review_ids(i);
+
+        -- Re-enable trigger
+        EXECUTE IMMEDIATE 'ALTER TRIGGER DS3.TRG_HELPFULNESS_SYNC$k ENABLE';
+    END IF;
+
+    COMMIT;
+
+EXCEPTION
+    WHEN OTHERS THEN
+        -- Re-enable trigger even on error
+        BEGIN
+            EXECUTE IMMEDIATE 'ALTER TRIGGER DS3.TRG_HELPFULNESS_SYNC$k ENABLE';
+        EXCEPTION
+            WHEN OTHERS THEN NULL;
+        END;
+        ROLLBACK;
+        RAISE;
+END;
+/
+
+CREATE OR REPLACE PROCEDURE DS3.AdjustPrices$k (
+    p_prod_id IN  NUMBER
+) AS
+    v_adjustment_factor NUMBER;
+BEGIN
+    -- Randomly adjust price by -10% to +10%
+    v_adjustment_factor := 0.90 + (DBMS_RANDOM.VALUE * 0.20);
+
+    UPDATE DS3.PRODUCTS$k
+    SET PRICE = PRICE * v_adjustment_factor
+    WHERE PROD_ID = p_prod_id;
+
+    COMMIT;
+
+EXCEPTION
+    WHEN OTHERS THEN
+        ROLLBACK;
+        RAISE;
+END;
+/
+
+CREATE OR REPLACE PROCEDURE DS3.MarkSpecials$k (
+    p_prod_id IN  NUMBER
+) AS
+BEGIN
+    -- Toggle SPECIAL flag (0→1 or 1→0)
+    -- Simulates rotating promotions/featured items
+    UPDATE DS3.PRODUCTS$k
+    SET SPECIAL = CASE WHEN SPECIAL = 1 THEN 0 ELSE 1 END
+    WHERE PROD_ID = p_prod_id;
+
+    COMMIT;
+
+EXCEPTION
+    WHEN OTHERS THEN
+        ROLLBACK;
+        RAISE;
+END;
+/
+
 CREATE OR REPLACE TRIGGER \"DS3\".\"TRG_HELPFULNESS_SYNC$k\"
 AFTER INSERT OR UPDATE OR DELETE ON \"DS3\".\"REVIEWS_HELPFULNESS$k\"
 FOR EACH ROW
