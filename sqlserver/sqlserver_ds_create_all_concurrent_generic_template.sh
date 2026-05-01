@@ -37,5 +37,9 @@ perl sqlserver_ds_perl_create_sp_multi.pl $TARGET $STORES $PASSWORD $USEVECTORS
 echo sqlcmd -C -S $TARGET -U sa -P $PASSWORD -i sqlserver_ds_create_user.sql
 sqlcmd -C -S $TARGET -U sa -P $PASSWORD -i sqlserver_ds_create_user.sql
 
+cd ../validate
+echo sqlcmd -C -S $TARGET -U sa -P $PASSWORD -i validate_before.sql
+sqlcmd -C -S $TARGET -U sa -P $PASSWORD -i validate_before.sql > validate_before.txt
+
 cd ..
 
