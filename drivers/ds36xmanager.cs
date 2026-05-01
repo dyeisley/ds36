@@ -179,9 +179,9 @@ namespace ds2xdriver
                 n_products_added++;
               }
               // Update max_product for this store if needed
-              if (newproduct_id > Controller.max_product[target_store - 1])
+              if (newproduct_id > Controller.max_product[target_store])
               {
-                Controller.max_product[target_store - 1] = newproduct_id;
+                Controller.max_product[target_store] = newproduct_id;
               }
               //Console.WriteLine("Thread {0}: Added product {1}: {2} - {3}", Thread.CurrentThread.Name, newproduct_id, new_title_in, new_actor_in);
             }
@@ -192,7 +192,7 @@ namespace ds2xdriver
             if (Random.Shared.Next(2) == 0)
             {
               // RemoveReviewByProduct - deletes 1 review, returns its ID (0 if none deleted)
-              int prod_id = GetSkewedProductId(Controller.max_product[target_store - 1]);
+              int prod_id = GetSkewedProductId(Controller.max_product[target_store]);
               int deleted_review_id = ds2interface.ds36removereviewbyproduct(prod_id, ref rt);
               n_remove_review_by_product++;
               rt_remove_review_by_product += rt;
@@ -216,7 +216,7 @@ namespace ds2xdriver
           else if (roll < Controller.manager_add_product_pct + Controller.manager_delete_review_pct + Controller.manager_update_price_pct)
           {
             // AdjustPrices (25% default)
-            int prod_id = GetSkewedProductId(Controller.max_product[target_store - 1]);
+            int prod_id = GetSkewedProductId(Controller.max_product[target_store]);
             rows_affected = ds2interface.ds36adjustprices(prod_id, ref rt);
             n_adjust_prices++;
             n_products_price_changed += rows_affected;
@@ -226,7 +226,7 @@ namespace ds2xdriver
           else
           {
             // MarkSpecials (15% default)
-            int prod_id = GetSkewedProductId(Controller.max_product[target_store - 1]);
+            int prod_id = GetSkewedProductId(Controller.max_product[target_store]);
             rows_affected = ds2interface.ds36markspecials(prod_id, ref rt);
             n_mark_specials++;
             n_products_special_changed += rows_affected;
