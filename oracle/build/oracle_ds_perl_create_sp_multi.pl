@@ -262,7 +262,8 @@ BEGIN
 CREATE OR REPLACE PROCEDURE \"DS3\".\"BROWSE_BY_CATEGORY$k\"
   (
   p_category_in  IN  INTEGER,
-  p_batch_size   IN  INTEGER
+  p_batch_size   IN  INTEGER,
+  p_special_in   IN  INTEGER
   )
 AS
   v_cursor SYS_REFCURSOR;
@@ -279,8 +280,7 @@ BEGIN
         MEMBERSHIP_ITEM
     FROM PRODUCTS$k
     WHERE CATEGORY = p_category_in
-      AND SPECIAL = 1
-    ORDER BY TITLE
+      AND SPECIAL = p_special_in
     FETCH NEXT p_batch_size ROWS ONLY;
 
   DBMS_SQL.RETURN_RESULT(v_cursor);
@@ -324,6 +324,32 @@ CREATE OR REPLACE PROCEDURE \"DS3\".\"BROWSE_BY_CAT_FOR_MEMBERTY$k\"
       END IF;
     END LOOP;
   END BROWSE_BY_CAT_FOR_MEMBERTY$k;
+/
+
+CREATE OR REPLACE PROCEDURE \"DS3\".\"BROWSE_BY_MEMBERSHIP$k\"
+  (
+  p_batch_size        IN  INTEGER,
+  p_membershiptype_in IN  INTEGER
+  )
+AS
+  v_cursor SYS_REFCURSOR;
+BEGIN
+  OPEN v_cursor FOR
+    SELECT
+        PROD_ID,
+        CATEGORY,
+        TITLE,
+        ACTOR,
+        PRICE,
+        SPECIAL,
+        COMMON_PROD_ID,
+        MEMBERSHIP_ITEM
+    FROM PRODUCTS$k
+    WHERE MEMBERSHIP_ITEM = p_membershiptype_in
+    FETCH NEXT p_batch_size ROWS ONLY;
+
+  DBMS_SQL.RETURN_RESULT(v_cursor);
+END;
 /
 
 
@@ -842,7 +868,8 @@ END;
 /
 
 CREATE OR REPLACE PROCEDURE DS3.RemoveUnhelpfulReviews$k (
-    p_batch_size IN  NUMBER
+    p_batch_size     IN  NUMBER,
+    p_rows_affected  OUT NUMBER
 ) AS
     TYPE reviewid_array IS TABLE OF NUMBER INDEX BY PLS_INTEGER;
     v_review_ids reviewid_array;
@@ -873,6 +900,10 @@ BEGIN
 
         -- Re-enable trigger
         EXECUTE IMMEDIATE 'ALTER TRIGGER DS3.TRG_HELPFULNESS_SYNC$k ENABLE';
+
+        p_rows_affected := v_review_ids.COUNT;
+    ELSE
+        p_rows_affected := 0;
     END IF;
 
     COMMIT;
@@ -891,7 +922,8 @@ END;
 /
 
 CREATE OR REPLACE PROCEDURE DS3.AdjustPrices$k (
-    p_prod_id IN  NUMBER
+    p_prod_id        IN  NUMBER,
+    p_rows_affected  OUT NUMBER
 ) AS
     v_adjustment_factor NUMBER;
 BEGIN
@@ -901,6 +933,8 @@ BEGIN
     UPDATE DS3.PRODUCTS$k
     SET PRICE = PRICE * v_adjustment_factor
     WHERE PROD_ID = p_prod_id;
+
+    p_rows_affected := SQL%ROWCOUNT;
 
     COMMIT;
 
@@ -912,7 +946,8 @@ END;
 /
 
 CREATE OR REPLACE PROCEDURE DS3.MarkSpecials$k (
-    p_prod_id IN  NUMBER
+    p_prod_id        IN  NUMBER,
+    p_rows_affected  OUT NUMBER
 ) AS
 BEGIN
     -- Toggle SPECIAL flag (0→1 or 1→0)
@@ -920,6 +955,8 @@ BEGIN
     UPDATE DS3.PRODUCTS$k
     SET SPECIAL = CASE WHEN SPECIAL = 1 THEN 0 ELSE 1 END
     WHERE PROD_ID = p_prod_id;
+
+    p_rows_affected := SQL%ROWCOUNT;
 
     COMMIT;
 

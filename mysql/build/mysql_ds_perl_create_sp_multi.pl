@@ -374,6 +374,16 @@ BEGIN
         select * from PRODUCTS$k WHERE CATEGORY=category_in and SPECIAL=special_in limit batch_size_in;
 END; $$
 
+DROP PROCEDURE IF EXISTS DS3.BROWSE_BY_MEMBERSHIP$k $$
+CREATE PROCEDURE DS3.BROWSE_BY_MEMBERSHIP$k
+  (
+  IN batch_size_in            INT,
+  IN membershiptype_in        INT
+  )
+BEGIN
+        select * from PRODUCTS$k WHERE MEMBERSHIP_ITEM=membershiptype_in limit batch_size_in;
+END; $$
+
 CREATE OR REPLACE PROCEDURE DS3.BROWSE_BY_VECTOR$k (
     IN p_batch_size_in INT,
     IN p_vector_text TEXT -- Pass the vector as a JSON string
@@ -590,14 +600,14 @@ CREATE PROCEDURE DS3.RemoveUnhelpfulReviews$k
 BEGIN
     -- Delete N least helpful reviews across all products
     -- (simulates global cleanup of low-quality reviews)
-    DELETE FROM REVIEWS$k
-    WHERE REVIEW_ID IN (
+    DELETE r FROM REVIEWS$k r
+    INNER JOIN (
         SELECT REVIEW_ID
         FROM REVIEWS$k
         ORDER BY TOTAL_HELPFULNESS ASC, REVIEW_ID ASC
         LIMIT p_batch_size
         FOR UPDATE SKIP LOCKED
-    );
+    ) AS to_delete ON r.REVIEW_ID = to_delete.REVIEW_ID;
     SELECT ROW_COUNT() AS rows_affected;
 END $$
 

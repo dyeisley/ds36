@@ -177,13 +177,14 @@ END;
 
 CREATE OR REPLACE FUNCTION BROWSE_BY_CATEGORY$k (
     IN batch_size_in INTEGER,
-    IN category_in INTEGER
+    IN category_in INTEGER,
+    IN special_in INTEGER
 )
 RETURNS SETOF PRODUCTS$k
 LANGUAGE plpgsql
 AS \$\$
 BEGIN
-    RETURN QUERY SELECT * FROM PRODUCTS$k WHERE CATEGORY=category_in AND SPECIAL=1 LIMIT batch_size_in;
+    RETURN QUERY SELECT * FROM PRODUCTS$k WHERE CATEGORY=category_in AND SPECIAL=special_in LIMIT batch_size_in;
     RETURN;
 END;
 \$\$;
@@ -218,6 +219,20 @@ DECLARE
 BEGIN
     vector_in := replace(trim(both from title_in), ' ','&');
     RETURN QUERY SELECT * FROM PRODUCTS$k WHERE to_tsvector('simple',TITLE) \@\@ to_tsquery(vector_in) LIMIT batch_size_in;
+    RETURN;
+END;
+\$\$;
+
+
+CREATE OR REPLACE FUNCTION BROWSE_BY_MEMBERSHIP$k (
+    IN batch_size_in INTEGER,
+    IN membershiptype_in INTEGER
+)
+RETURNS SETOF PRODUCTS$k
+LANGUAGE plpgsql
+AS \$\$
+BEGIN
+    RETURN QUERY SELECT * FROM PRODUCTS$k WHERE MEMBERSHIP_ITEM=membershiptype_in LIMIT batch_size_in;
     RETURN;
 END;
 \$\$;

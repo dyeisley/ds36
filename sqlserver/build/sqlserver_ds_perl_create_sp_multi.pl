@@ -277,11 +277,12 @@ GO
 CREATE PROCEDURE BROWSE_BY_CATEGORY$k
   (
   \@batch_size_in            INT,
-  \@category_in              INT
+  \@category_in              INT,
+  \@special_in               INT
   )
 
   AS
-  SELECT TOP (\@batch_size_in) * FROM PRODUCTS$k WHERE CATEGORY=\@category_in and SPECIAL=1
+  SELECT TOP (\@batch_size_in) * FROM PRODUCTS$k WHERE CATEGORY=\@category_in and SPECIAL=\@special_in
 GO
 
 -- Browse by category for membertype
@@ -299,6 +300,22 @@ CREATE PROCEDURE BROWSE_BY_CATEGORY_FOR_MEMBERTYPE$k
 
   AS
   SELECT TOP (\@batch_size_in) * FROM PRODUCTS$k WHERE CATEGORY=\@category_in and SPECIAL=1 and MEMBERSHIP_ITEM<=\@membershiptype_in
+GO
+
+-- Browse by membership
+
+IF EXISTS (SELECT name FROM sysobjects WHERE name = 'BROWSE_BY_MEMBERSHIP$k' AND type = 'P')
+  DROP PROCEDURE BROWSE_BY_MEMBERSHIP$k
+GO
+
+CREATE PROCEDURE BROWSE_BY_MEMBERSHIP$k
+  (
+  \@batch_size_in            INT,
+  \@membershiptype_in	     INT
+  )
+
+  AS
+  SELECT TOP (\@batch_size_in) * FROM PRODUCTS$k WHERE MEMBERSHIP_ITEM=\@membershiptype_in
 GO
 
 -- get prod reviews
