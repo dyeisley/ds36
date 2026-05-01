@@ -43,7 +43,7 @@ namespace ds2xdriver
     {
     int ds2Interfaceid;
     OracleConnection objConn;
-    OracleCommand Login, New_Customer, Browse_By_Category, Browse_By_Actor, Browse_By_Title, New_Product, Purchase;
+    OracleCommand Login, New_Customer, Browse_By_Category, Browse_By_Actor, Browse_By_Title, Browse_By_Membership, New_Product, Purchase;
     OracleCommand Get_Prod_Reviews, Get_Prod_Reviews_By_Actor, Get_Prod_Reviews_By_Title, Get_Prod_Reviews_By_Date, Get_Prod_Reviews_By_Stars;
     OracleCommand New_Member, New_Prod_Review, New_Review_Helpfulness;
     OracleCommand Remove_Review_By_Product, Remove_Unhelpful_Reviews, Adjust_Prices, Mark_Specials;
@@ -125,6 +125,7 @@ namespace ds2xdriver
       Browse_By_Category.CommandType = CommandType.StoredProcedure;
       Browse_By_Category.Parameters.Add("p_category_in", OracleDbType.Int32);
       Browse_By_Category.Parameters.Add("p_batch_size", OracleDbType.Int32);
+      Browse_By_Category.Parameters.Add("p_special_in", OracleDbType.Int32);
 
       //Browse_By_Actor
       Browse_By_Actor = new OracleCommand("Browse_By_Actor" + target_store_number, objConn);
@@ -137,6 +138,12 @@ namespace ds2xdriver
       Browse_By_Title.CommandType = CommandType.StoredProcedure;
       Browse_By_Title.Parameters.Add("p_title_in", OracleDbType.Varchar2);
       Browse_By_Title.Parameters.Add("p_batch_size", OracleDbType.Int32);
+
+      //Browse_By_Membership
+      Browse_By_Membership = new OracleCommand("BROWSE_BY_MEMBERSHIP" + target_store_number, objConn);
+      Browse_By_Membership.CommandType = CommandType.StoredProcedure;
+      Browse_By_Membership.Parameters.Add("p_batch_size", OracleDbType.Int32);
+      Browse_By_Membership.Parameters.Add("p_membershiptype_in", OracleDbType.Int32);
 
       // Get_Prod_Reviews
 
@@ -248,14 +255,17 @@ namespace ds2xdriver
       Remove_Unhelpful_Reviews = new OracleCommand("DS3.RemoveUnhelpfulReviews" + target_store_number, objConn);
       Remove_Unhelpful_Reviews.CommandType = CommandType.StoredProcedure;
       Remove_Unhelpful_Reviews.Parameters.Add("p_batch_size", OracleDbType.Int32);
+      Remove_Unhelpful_Reviews.Parameters.Add("p_rows_affected", OracleDbType.Int32, ParameterDirection.Output);
 
       Adjust_Prices = new OracleCommand("DS3.AdjustPrices" + target_store_number, objConn);
       Adjust_Prices.CommandType = CommandType.StoredProcedure;
       Adjust_Prices.Parameters.Add("p_prod_id", OracleDbType.Int32);
+      Adjust_Prices.Parameters.Add("p_rows_affected", OracleDbType.Int32, ParameterDirection.Output);
 
       Mark_Specials = new OracleCommand("DS3.MarkSpecials" + target_store_number, objConn);
       Mark_Specials.CommandType = CommandType.StoredProcedure;
       Mark_Specials.Parameters.Add("p_prod_id", OracleDbType.Int32);
+      Mark_Specials.Parameters.Add("p_rows_affected", OracleDbType.Int32, ParameterDirection.Output);
     }
 
 //
@@ -452,31 +462,47 @@ namespace ds2xdriver
       {
       // Products table: PROD_ID INT, CATEGORY TINYINT, TITLE VARCHAR(50), ACTOR VARCHAR(50),
       //   PRICE DECIMAL(12,2), SPECIAL TINYINT, COMMON_PROD_ID INT
+      int membership_item = 0;
+      int special = 0;
       string data_in = string.Empty;
       int[] category_out = new int[GlobalConstants.MAX_ROWS];
+
+      // Search for special half the time
+      if (Random.Shared.Next(100) < 50) {
+        special = 1;
+      }
 
       switch(browse_type_in)
         {
         case "category":
           Browse_By_Category.Parameters["p_category_in"].Value = Convert.ToInt32(browse_category_in);
           Browse_By_Category.Parameters["p_batch_size"].Value = batch_size_in;
+          Browse_By_Category.Parameters["p_special_in"].Value = special;
           data_in = browse_category_in;
           break;
         case "actor":
           Browse_By_Actor.Parameters["p_actor_in"].Value = browse_actor_in.Split(' ')[0];;
           Browse_By_Actor.Parameters["p_batch_size"].Value = batch_size_in;
-          data_in = browse_actor_in;
+	  data_in = "\"" + browse_actor_in + "\"";
           break;
         case "title":
           Browse_By_Title.Parameters["p_title_in"].Value = browse_title_in.Split(' ')[0];
           Browse_By_Title.Parameters["p_batch_size"].Value = batch_size_in;
-          data_in = browse_title_in;
+	  data_in = "\"" + browse_title_in + "\"";
+          break;
+        case "membership":
+          Browse_By_Membership.Parameters["p_batch_size"].Value = batch_size_in;
+          Browse_By_Membership.Parameters["p_membershiptype_in"].Value = Random.Shared.Next(1, 4);
+	  data_in = "membership level: " + Browse_By_Membership.Parameters["p_membershiptype_in"].Value;
           break;
         default:
           Console.WriteLine("  Browse type '{0}' unsupported.",browse_type_in);
           rows_returned = -1;
           return false;
         }
+
+      //Console.WriteLine("Thread {0}: Calling Browse w/ browse_type= {1} batch_size_in= {2} data_in= {3}",
+      //Thread.CurrentThread.Name, browse_type_in, batch_size_in, data_in );
 
       Stopwatch timer = Stopwatch.StartNew();
 
@@ -495,6 +521,9 @@ namespace ds2xdriver
           case "title":
             Rdr = Browse_By_Title.ExecuteReader();
             break;
+          case "membership":
+            Rdr = Browse_By_Membership.ExecuteReader();
+            break;
           }
 
         using (Rdr)
@@ -509,7 +538,8 @@ namespace ds2xdriver
             price_out[i_row] = Rdr.GetDecimal(4);
             special_out[i_row] = Rdr.GetByte(5);
             common_prod_id_out[i_row] = Rdr.GetInt32(6);
-            // Console.WriteLine("\tprod_id_out: {0} category_out: {1} title_out: {2} actor_out: {3} price_out: {4} special_out: {5} common_prod_id_out: {6}",prod_id_out[i_row],category_out[i_row],title_out[i_row],actor_out[i_row],price_out[i_row], special_out[i_row],common_prod_id_out[i_row]);
+	    membership_item = Rdr.GetInt32(7);
+            //Console.WriteLine("\tprod_id_out: {0} category_out: {1} title_out: {2} actor_out: {3} price_out: {4} special_out: {5} common_prod_id_out: {6} membership_item: {7}",prod_id_out[i_row],category_out[i_row],title_out[i_row],actor_out[i_row],price_out[i_row], special_out[i_row],common_prod_id_out[i_row], membership_item);
             ++i_row;
           }
           rows_returned = i_row;
@@ -544,7 +574,6 @@ namespace ds2xdriver
     {
         // Reviews Table: "REVIEW_ID" NUMBER,  "PROD_ID" NUMBER,  "REVIEW_DATE" DATE, "STARS" NUMBER,
         // "CUSTOMERID" NUMBER,  "REVIEW_SUMMARY" VARCHAR2(50 byte), "REVIEW_TEXT" VARCHAR2(1000 byte)
-        string data_in = string.Empty;
 
         switch (browse_review_type_in)
         {
@@ -553,13 +582,11 @@ namespace ds2xdriver
                 Get_Prod_Reviews_By_Actor.Parameters["p_actor_in"].Value = get_review_actor_in;
                 Get_Prod_Reviews_By_Actor.Parameters["p_batch_size"].Value = batch_size_in;
                 Get_Prod_Reviews_By_Actor.Parameters["p_search_depth"].Value = search_depth_in;
-                data_in = get_review_actor_in;
                 break;
             case "title":
                 Get_Prod_Reviews_By_Title.Parameters["p_title_in"].Value = get_review_title_in;
                 Get_Prod_Reviews_By_Title.Parameters["p_batch_size"].Value = batch_size_in;
                 Get_Prod_Reviews_By_Title.Parameters["p_search_depth"].Value = search_depth_in;
-                data_in = get_review_title_in;
                 break;
         }
 
@@ -941,7 +968,9 @@ namespace ds2xdriver
 
         try
         {
-            return Remove_Unhelpful_Reviews.ExecuteNonQuery();
+            Remove_Unhelpful_Reviews.ExecuteNonQuery();
+            object result = Remove_Unhelpful_Reviews.Parameters["p_rows_affected"].Value;
+            return result != null && result != DBNull.Value ? Convert.ToInt32(result) : 0;
         }
         catch (Exception e)
         {
@@ -965,7 +994,9 @@ namespace ds2xdriver
 
         try
         {
-            return Adjust_Prices.ExecuteNonQuery();
+            Adjust_Prices.ExecuteNonQuery();
+            object result = Adjust_Prices.Parameters["p_rows_affected"].Value;
+            return result != null && result != DBNull.Value ? Convert.ToInt32(result) : 0;
         }
         catch (Exception e)
         {
@@ -989,7 +1020,9 @@ namespace ds2xdriver
 
         try
         {
-            return Mark_Specials.ExecuteNonQuery();
+            Mark_Specials.ExecuteNonQuery();
+            object result = Mark_Specials.Parameters["p_rows_affected"].Value;
+            return result != null && result != DBNull.Value ? Convert.ToInt32(result) : 0;
         }
         catch (Exception e)
         {

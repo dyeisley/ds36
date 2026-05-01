@@ -46,7 +46,7 @@ namespace ds2xdriver
     string target_server;       //Added by GSK
     int target_store_number = 1; //Added to support Multiple stores - default is 1
     SqlConnection objConn;
-    SqlCommand Login, New_Customer, Browse_By_Category, Browse_By_Actor, Browse_By_Vector, Browse_By_Title, Purchase, New_Product;
+    SqlCommand Login, New_Customer, Browse_By_Category, Browse_By_Actor, Browse_By_Vector, Browse_By_Title, Browse_By_Membership, Purchase, New_Product;
     SqlCommand Get_Prod_Reviews, Get_Prod_Reviews_By_Actor, Get_Prod_Reviews_By_Title, Get_Prod_Reviews_By_Date, Get_Prod_Reviews_By_Stars;
     SqlCommand New_Member, New_Prod_Review, New_Review_Helpfulness;
     SqlCommand Remove_Review_By_Product, Remove_Unhelpful_Reviews, Adjust_Prices, Mark_Specials;
@@ -119,6 +119,7 @@ namespace ds2xdriver
       Browse_By_Category.CommandType = CommandType.StoredProcedure;
       Browse_By_Category.Parameters.Add("@batch_size_in", SqlDbType.Int);
       Browse_By_Category.Parameters.Add("@category_in", SqlDbType.Int);
+      Browse_By_Category.Parameters.Add("@special_in", SqlDbType.Int);
 
       Browse_By_Actor = new SqlCommand("BROWSE_BY_ACTOR" + target_store_number, objConn);
       Browse_By_Actor.CommandType = CommandType.StoredProcedure;
@@ -134,6 +135,11 @@ namespace ds2xdriver
       Browse_By_Title.CommandType = CommandType.StoredProcedure;
       Browse_By_Title.Parameters.Add("@batch_size_in", SqlDbType.Int);
       Browse_By_Title.Parameters.Add("@title_in", SqlDbType.VarChar, 50);
+
+      Browse_By_Membership = new SqlCommand("BROWSE_BY_MEMBERSHIP" + target_store_number, objConn);
+      Browse_By_Membership.CommandType = CommandType.StoredProcedure;
+      Browse_By_Membership.Parameters.Add("@batch_size_in", SqlDbType.Int);
+      Browse_By_Membership.Parameters.Add("@membershiptype_in", SqlDbType.Int);
 
       Get_Prod_Reviews = new SqlCommand("GET_PROD_REVIEWS" + target_store_number, objConn);
       Get_Prod_Reviews.CommandType = CommandType.StoredProcedure;
@@ -403,18 +409,24 @@ namespace ds2xdriver
       {
       // Products table: PROD_ID INT, CATEGORY TINYINT, TITLE VARCHAR(50), ACTOR VARCHAR(50),
       //   PRICE DECIMAL(12,2), SPECIAL TINYINT, COMMON_PROD_ID INT
-      int i_row;
+      int i_row, special = 0, membership_item = 0;
       string data_in = string.Empty;
       int[] category_out = new int[GlobalConstants.MAX_ROWS];
 
       int dim = 384;
       float[] vector = new float[dim];
 
+      // Search for special half the time
+      if (Random.Shared.Next(100) < 50) {
+        special = 1;
+      }
+
       switch(browse_type_in)
         {
         case "category":
           Browse_By_Category.Parameters["@batch_size_in"].Value = batch_size_in;
           Browse_By_Category.Parameters["@category_in"].Value = Convert.ToInt32(browse_category_in);
+          Browse_By_Category.Parameters["@special_in"].Value = special;
           data_in = browse_category_in;
           break;
         case "actor":
@@ -437,6 +449,11 @@ namespace ds2xdriver
           Browse_By_Vector.Parameters["@batch_size_in"].Value = batch_size_in;
           Browse_By_Vector.Parameters["@vector_in"].Value = sqlVector;
 	  data_in = JsonSerializer.Serialize(sqlVector);
+          break;
+        case "membership":
+          Browse_By_Membership.Parameters["@batch_size_in"].Value = batch_size_in;
+          Browse_By_Membership.Parameters["@membershiptype_in"].Value = Random.Shared.Next(1, 4);
+          data_in = "membership level: " + Browse_By_Membership.Parameters["@membershiptype_in"].Value;
           break;
         }
 
@@ -463,6 +480,9 @@ namespace ds2xdriver
           case "vector":
             Rdr = Browse_By_Vector.ExecuteReader();
             break;
+          case "membership":
+            Rdr = Browse_By_Membership.ExecuteReader();
+            break;
           }
 
         using (Rdr)
@@ -477,7 +497,8 @@ namespace ds2xdriver
             price_out[i_row] = Rdr.GetDecimal(4);
             special_out[i_row] = Rdr.GetByte(5);
             common_prod_id_out[i_row] = Rdr.GetInt32(6);
-            //Console.WriteLine("\tprod_id_out: {0} category_out: {1} title_out: {2} actor_out: {3} price_out: {4} special_out: {5} common_prod_id_out: {6}",prod_id_out[i_row],category_out[i_row],title_out[i_row],actor_out[i_row],price_out[i_row], special_out[i_row],common_prod_id_out[i_row]);
+	    membership_item = Rdr.GetInt32(7); 	// We don't actually do anything with this. 
+            //Console.WriteLine("\tprod_id_out: {0} category_out: {1} title_out: {2} actor_out: {3} price_out: {4} special_out: {5} common_prod_id_out: {6} membership_item: {7}",prod_id_out[i_row],category_out[i_row],title_out[i_row],actor_out[i_row],price_out[i_row], special_out[i_row],common_prod_id_out[i_row], membership_item);
             ++i_row;
           }
           rows_returned = i_row;

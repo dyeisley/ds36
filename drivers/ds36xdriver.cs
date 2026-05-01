@@ -2378,7 +2378,7 @@ namespace ds2xdriver
 	zip_in = country_in = email_in = phone_in = creditcard_in = gender_in = string.Empty;
 	new_review_summary_in = new_review_text_in = string.Empty;
 
-        //Console.WriteLine("user {0} created", userid);
+        //Console.WriteLine("user {0} created, target_store: {1}", userid, target_store);
     }
 
     //
@@ -2648,7 +2648,7 @@ namespace ds2xdriver
         for ( int ib = 0 ; ib < n_browse ; ib++ )
           {
           batch_size_in = Random.Shared.Next(1, 2 * Controller.search_batch_size); // request avg of search_batch_size lines
-          int search_type = Random.Shared.Next(3 + Controller.n_vectors); // randomly select search type
+          int search_type = Random.Shared.Next(4 + Controller.n_vectors); // randomly select search type
 
           browse_actor_in = "";
           browse_title_in = "";
@@ -2670,7 +2670,11 @@ namespace ds2xdriver
               browse_title_in = CreateTitle();
               browse_criteria = browse_title_in;
               break;
-	    case 3: // Vector search
+            case 3: // Membership search
+              browse_type_in = "membership";
+              browse_criteria = browse_type_in;
+              break;
+	    case 4: // Vector search
 	      browse_type_in = "vector";
               browse_criteria = browse_type_in;
 	      Controller.n_browse_vector++;

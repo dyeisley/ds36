@@ -47,7 +47,7 @@ namespace ds2xdriver
     //string conn_str = "";
     int target_store_number = 1; // Added to support multiple stores - default is 1
     NpgsqlConnection objConn;
-    NpgsqlCommand Login, New_Customer, Browse_By_Category, Browse_By_Actor, Browse_By_Title, Purchase;
+    NpgsqlCommand Login, New_Customer, Browse_By_Category, Browse_By_Actor, Browse_By_Title, Browse_By_Membership, Purchase;
     NpgsqlCommand New_Member, New_Prod_Review, New_Review_Helpfulness, New_Product;
     NpgsqlCommand Get_Prod_Reviews, Get_Prod_Reviews_By_Date, Get_Prod_Reviews_By_Stars, Get_Prod_Reviews_By_Actor, Get_Prod_Reviews_By_Title;
     NpgsqlCommand Remove_Review_By_Product, Remove_Unhelpful_Reviews, Adjust_Prices, Mark_Specials;
@@ -120,6 +120,7 @@ namespace ds2xdriver
 	Browse_By_Category.CommandType = CommandType.StoredProcedure; 
 	Browse_By_Category.Parameters.Add("batch_size_in", NpgsqlDbType.Integer);
 	Browse_By_Category.Parameters.Add("category_in", NpgsqlDbType.Integer);
+	Browse_By_Category.Parameters.Add("special_in", NpgsqlDbType.Integer);
 	
 	Browse_By_Actor = new NpgsqlCommand("BROWSE_BY_ACTOR" + target_store_number, objConn);
 	Browse_By_Actor.CommandType = CommandType.StoredProcedure; 
@@ -127,10 +128,15 @@ namespace ds2xdriver
 	Browse_By_Actor.Parameters.Add("actor_in", NpgsqlDbType.Varchar, 50);
 
 	Browse_By_Title = new NpgsqlCommand("BROWSE_BY_TITLE" + target_store_number, objConn);
-	Browse_By_Title.CommandType = CommandType.StoredProcedure; 
+	Browse_By_Title.CommandType = CommandType.StoredProcedure;
 	Browse_By_Title.Parameters.Add("batch_size_in", NpgsqlDbType.Integer);
 	Browse_By_Title.Parameters.Add("title_in", NpgsqlDbType.Varchar, 50);
-	    
+
+	Browse_By_Membership = new NpgsqlCommand("BROWSE_BY_MEMBERSHIP" + target_store_number, objConn);
+	Browse_By_Membership.CommandType = CommandType.StoredProcedure;
+	Browse_By_Membership.Parameters.Add("batch_size_in", NpgsqlDbType.Integer);
+	Browse_By_Membership.Parameters.Add("membershiptype_in", NpgsqlDbType.Integer);
+
 	Get_Prod_Reviews = new NpgsqlCommand("GET_PROD_REVIEWS" + target_store_number, objConn);
 	Get_Prod_Reviews.CommandType = CommandType.StoredProcedure;
 	Get_Prod_Reviews.Parameters.Add("batch_size_in", NpgsqlDbType.Integer);
@@ -389,14 +395,21 @@ namespace ds2xdriver
       {
       // Products table: PROD_ID INT, CATEGORY TINYINT, TITLE VARCHAR(50), ACTOR VARCHAR(50),
       //   PRICE DECIMAL(12,2), SPECIAL TINYINT, COMMON_PROD_ID INT
-      string data_in = null;
+      string data_in = string.Empty;
       int[] category_out = new int[GlobalConstants.MAX_ROWS];
+      int membership_item = 0, special = 0;
+
+      // Search for special half the time
+      if (Random.Shared.Next(100) < 50) {
+        special = 1;
+      }
 
       switch(browse_type_in)
         {
         case "category":
           Browse_By_Category.Parameters["batch_size_in"].Value = batch_size_in;
           Browse_By_Category.Parameters["category_in"].Value = Convert.ToInt32(browse_category_in);
+          Browse_By_Category.Parameters["special_in"].Value = special;
           data_in = browse_category_in;
           break;
         case "actor":
@@ -408,6 +421,11 @@ namespace ds2xdriver
           Browse_By_Title.Parameters["batch_size_in"].Value = batch_size_in;
           Browse_By_Title.Parameters["title_in"].Value = "\"" + browse_title_in + "\"";
           data_in = "\"" + browse_title_in + "\"";
+          break;
+        case "membership":
+          Browse_By_Membership.Parameters["batch_size_in"].Value = batch_size_in;
+          Browse_By_Membership.Parameters["membershiptype_in"].Value = Random.Shared.Next(1, 4);
+          data_in = "membership item: " + Browse_By_Membership.Parameters["membershiptype_in"].Value;
           break;
         default:
           Console.WriteLine("  Browse type '{0}' unsupported.",browse_type_in);
@@ -431,6 +449,9 @@ namespace ds2xdriver
           case "actor":
             Rdr = Browse_By_Actor.ExecuteReader();
             break;
+          case "membership":
+            Rdr = Browse_By_Membership.ExecuteReader();
+            break;
           default:
           case "title":
             Rdr = Browse_By_Title.ExecuteReader();
@@ -449,7 +470,8 @@ namespace ds2xdriver
             price_out[i_row] = Rdr.GetDecimal(4);
             special_out[i_row] = Rdr.GetInt16(5);
             common_prod_id_out[i_row] = Rdr.GetInt32(6);
-            //Console.Write("{0} ,{1} ,{2}\n", prod_id_out[i_row], title_out[i_row], actor_out[i_row]);
+	    membership_item = Rdr.GetInt32(7);
+            //Console.WriteLine("\tprod_id_out: {0} category_out: {1} title_out: {2} actor_out: {3} price_out: {4} special_out: {5} common_prod_id_out: {6} membership_item: {7}",prod_id_out[i_row],category_out[i_row],title_out[i_row],actor_out[i_row],price_out[i_row], special_out[i_row],common_prod_id_out[i_row], membership_item);
             ++i_row;
           }
           rows_returned = i_row;

@@ -373,10 +373,17 @@ namespace ds2xdriver
           break;
         case "category":
           query = "SELECT * FROM PRODUCTS" + target_store_number +
-            " WHERE CATEGORY=@category AND SPECIAL=1 LIMIT @batch_size";
+            " WHERE CATEGORY=@category AND SPECIAL=@special LIMIT @batch_size";
           Browse = new MySqlCommand(query, objConn);
           Browse.Parameters.AddWithValue("@category", Convert.ToInt32(browse_category_in));
+          Browse.Parameters.AddWithValue("@special", Random.Shared.Next(100) < 50 ? 1 : 0);
           Browse.Parameters.AddWithValue("@batch_size", batch_size_in);
+          break;
+        case "membership":
+          query = "SELECT * FROM PRODUCTS" + target_store_number +
+	    " WHERE MEMBERSHIP_ITEM=@membershiptype_in LIMIT @batch_size;
+          Browse.Parameters.AddWithValue("@batch_size", batch_size_in);
+          Browse.Parameters.AddWithValue("@membershiptype_in", Random.Shared.Next(1, 4));
           break;
         }
 

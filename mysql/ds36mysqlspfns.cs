@@ -40,7 +40,7 @@ namespace ds2xdriver
 
     MySqlCommand Login, New_Customer, New_Member, New_Review, New_Helpfulness, New_Product, Purchase;
     MySqlCommand BrowseReviews_by_title, BrowseReviews_by_actor, Get_Prod_Reviews, Get_Reviews_by_stars;
-    MySqlCommand Get_Reviews_by_date, Browse_by_title, Browse_by_actor, Browse_by_category, Browse_by_vector;
+    MySqlCommand Get_Reviews_by_date, Browse_by_title, Browse_by_actor, Browse_by_category, Browse_by_membership, Browse_by_vector;
     MySqlCommand Remove_Review_By_Product, Remove_Unhelpful_Reviews, Adjust_Prices, Mark_Specials;
     MySqlParameter cust_out_param, member_out_param, reviewid_out_param, helpfulnessid_out_param, neworder_out_param;
     MySqlCommand[] CostQuery = new MySqlCommand[11];
@@ -170,6 +170,11 @@ namespace ds2xdriver
       Browse_by_category.Parameters.Add("batch_size_in", MySqlDbType.Int32);
       Browse_by_category.Parameters.Add("category_in", MySqlDbType.VarChar, 50);
       Browse_by_category.Parameters.Add("special_in", MySqlDbType.Int32);
+
+      Browse_by_membership = new MySqlCommand("BROWSE_BY_MEMBERSHIP" + target_store_number, objConn);
+      Browse_by_membership.CommandType = CommandType.StoredProcedure;
+      Browse_by_membership.Parameters.Add("batch_size_in", MySqlDbType.Int32);
+      Browse_by_membership.Parameters.Add("membershiptype_in", MySqlDbType.Int32);
 
       Browse_by_vector = new MySqlCommand("BROWSE_BY_VECTOR" + target_store_number, objConn);
       Browse_by_vector.CommandType = CommandType.StoredProcedure;
@@ -400,6 +405,7 @@ namespace ds2xdriver
       ref int[] special_out, ref int[] common_prod_id_out, ref double rt)
       {
       int special = 0;
+      int membership_item = 0;
       int[] category_out = new int[GlobalConstants.MAX_ROWS];
 
       Random rand = new();
@@ -424,6 +430,9 @@ namespace ds2xdriver
       Browse_by_category.Parameters["batch_size_in"].Value = batch_size_in;
       Browse_by_category.Parameters["category_in"].Value = browse_category_in != "" ? Convert.ToInt32(browse_category_in) : 0 ;
       Browse_by_category.Parameters["special_in"].Value = special;
+
+      Browse_by_membership.Parameters["batch_size_in"].Value = batch_size_in;
+      Browse_by_membership.Parameters["membershiptype_in"].Value = Random.Shared.Next(1, 4);
 
       if (browse_type_in == "vector")
       {
@@ -450,6 +459,9 @@ namespace ds2xdriver
            case "actor":
              Rdr = Browse_by_actor.ExecuteReader();
              break;
+           case "membership":
+             Rdr = Browse_by_membership.ExecuteReader();
+             break;
            case "category":
            default:
              Rdr = Browse_by_category.ExecuteReader();
@@ -473,7 +485,8 @@ namespace ds2xdriver
               price_out[i_row] = Rdr.GetDecimal(4);
               special_out[i_row] = Rdr.GetByte(5);
               common_prod_id_out[i_row] = Rdr.GetInt32(6);
-              //Console.WriteLine("\tprod_id_out: {0} category_out: {1} title_out: {2} actor_out: {3} price_out: {4} special_out: {5} common_prod_id_out: {6}",prod_id_out[i_row],category_out[i_row],title_out[i_row],actor_out[i_row],price_out[i_row], special_out[i_row],common_prod_id_out[i_row]);
+              membership_item = Rdr.GetInt32(7);
+              //Console.WriteLine("\tprod_id_out: {0} category_out: {1} title_out: {2} actor_out: {3} price_out: {4} special_out: {5} common_prod_id_out: {6} membership_item: {7}",prod_id_out[i_row],category_out[i_row],title_out[i_row],actor_out[i_row],price_out[i_row], special_out[i_row],common_prod_id_out[i_row], membership_item);
               ++i_row;
             }
           }
