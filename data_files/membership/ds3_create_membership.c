@@ -90,6 +90,10 @@ int main(int argc, char* argv[])
     n_cust_members = 10;
     }
 
+  r_year = current_time->tm_year + 1900;
+  int lower = r_year - 5;
+  int upper = r_year + 5;
+
   n_interval_size = floor(n_cust / n_cust_members);
 
   for (i=1; i<=n_cust; (i=i+n_interval_size) )
@@ -98,7 +102,8 @@ int main(int argc, char* argv[])
 
       r_membership_type = random2(1, 3);
 
-      r_year = current_time->tm_year + 1900 + (rand() % 5);  // All memberships expire in the next 5 years.
+      r_year = (rand() % (upper - lower + 1)) + lower;
+
       r_month = random2(1, 12);
       sprintf(r_membership_exp,"%4d/%02d/15", r_year, r_month);
 
