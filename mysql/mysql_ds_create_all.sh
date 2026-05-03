@@ -16,5 +16,5 @@ cd ../build
 perl mysql_ds_perl_create_indexes_multi.pl $TARGET $STORES $VECTORS
 perl mysql_ds_perl_create_trigger_multi.pl $TARGET $STORES $VECTORS
 cd ../validate
-mariadb  -N -s -h $TARGET -u web --password=web < validate/validate_before.sql > before.txt
+mariadb  -N -s -h $TARGET -u web --password=web < validate_before.sql > before.txt
 cd ../

@@ -41,7 +41,7 @@ namespace ds2xdriver
     MySqlCommand Login, New_Customer, New_Member, New_Review, New_Helpfulness, New_Product, Purchase;
     MySqlCommand BrowseReviews_by_title, BrowseReviews_by_actor, Get_Prod_Reviews, Get_Reviews_by_stars;
     MySqlCommand Get_Reviews_by_date, Browse_by_title, Browse_by_actor, Browse_by_category, Browse_by_membership, Browse_by_vector;
-    MySqlCommand Remove_Review_By_Product, Remove_Unhelpful_Reviews, Adjust_Prices, Mark_Specials;
+    MySqlCommand Remove_Review_By_Product, Remove_Unhelpful_Reviews, Remove_Reviews_By_Date, Adjust_Prices, Mark_Specials, Expire_Memberships;
     MySqlParameter cust_out_param, member_out_param, reviewid_out_param, helpfulnessid_out_param, neworder_out_param;
     MySqlCommand[] CostQuery = new MySqlCommand[11];
 
@@ -235,6 +235,10 @@ namespace ds2xdriver
       Remove_Unhelpful_Reviews.CommandType = CommandType.StoredProcedure;
       Remove_Unhelpful_Reviews.Parameters.Add("p_batch_size", MySqlDbType.Int32);
 
+      Remove_Reviews_By_Date = new MySqlCommand("DS3.RemoveReviewsByDate" + target_store_number, objConn);
+      Remove_Reviews_By_Date.CommandType = CommandType.StoredProcedure;
+      Remove_Reviews_By_Date.Parameters.Add("p_batch_size", MySqlDbType.Int32);
+
       Adjust_Prices = new MySqlCommand("DS3.AdjustPrices" + target_store_number, objConn);
       Adjust_Prices.CommandType = CommandType.StoredProcedure;
       Adjust_Prices.Parameters.Add("p_prod_id", MySqlDbType.Int32);
@@ -242,6 +246,10 @@ namespace ds2xdriver
       Mark_Specials = new MySqlCommand("DS3.MarkSpecials" + target_store_number, objConn);
       Mark_Specials.CommandType = CommandType.StoredProcedure;
       Mark_Specials.Parameters.Add("p_prod_id", MySqlDbType.Int32);
+
+      Expire_Memberships = new MySqlCommand("DS3.ExpireMemberships" + target_store_number, objConn);
+      Expire_Memberships.CommandType = CommandType.StoredProcedure;
+      Expire_Memberships.Parameters.Add("p_batch_size", MySqlDbType.Int32);
     }
  
 //
@@ -949,6 +957,56 @@ namespace ds2xdriver
         catch (Exception e)
         {
             Console.WriteLine($"Thread {Thread.CurrentThread.Name}: ds36markspecials error: {e.Message}");
+            return 0;
+        }
+        finally
+        {
+            rt = timer.Elapsed.TotalSeconds;
+        }
+    }
+
+//
+//-------------------------------------------------------------------------------------------------
+//
+    public int ds36removereviewsbydate(int batchSize, ref double rt)
+    {
+        Remove_Reviews_By_Date.Parameters["p_batch_size"].Value = batchSize;
+
+        Stopwatch timer = Stopwatch.StartNew();
+
+        try
+        {
+            object result = Remove_Reviews_By_Date.ExecuteScalar();
+            return result != null ? Convert.ToInt32(result) : 0;
+        }
+        catch (Exception e)
+        {
+            Console.WriteLine($"Thread {Thread.CurrentThread.Name}: ds36removereviewsbydate error: {e.Message}");
+            return 0;
+        }
+        finally
+        {
+            rt = timer.Elapsed.TotalSeconds;
+        }
+    }
+
+//
+//-------------------------------------------------------------------------------------------------
+//
+    public int ds36expirememberships(int batchSize, ref double rt)
+    {
+        Expire_Memberships.Parameters["p_batch_size"].Value = batchSize;
+
+        Stopwatch timer = Stopwatch.StartNew();
+
+        try
+        {
+            object result = Expire_Memberships.ExecuteScalar();
+            return result != null ? Convert.ToInt32(result) : 0;
+        }
+        catch (Exception e)
+        {
+            Console.WriteLine($"Thread {Thread.CurrentThread.Name}: ds36expirememberships error: {e.Message}");
             return 0;
         }
         finally

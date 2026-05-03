@@ -243,6 +243,18 @@ SELECT CONCAT('Manager-Created Products (price .01): ', @manager_products);
 SELECT CONCAT('Products Marked Special (SPECIAL=1): ', @special_products);
 SELECT '  ** Record this count to compare with post-test results **';
 
+-- Membership counts
+SET @total_memberships = (SELECT COUNT(*) FROM MEMBERSHIP1);
+SET @expired_memberships = (SELECT COUNT(*) FROM MEMBERSHIP1 WHERE EXPIREDATE < NOW());
+
+SELECT '';
+SELECT 'Membership Status:';
+SELECT 'Verifying: Baseline membership counts and expiration status';
+SELECT CONCAT('  Total Memberships: ', @total_memberships);
+SELECT CONCAT('  Expired Memberships: ', @expired_memberships);
+SELECT CONCAT('  Active Memberships: ', @total_memberships - @expired_memberships);
+
+SELECT '';
 SELECT 'Top 10 Newest Customers (highest CUSTOMERID):';
 SELECT
     LPAD(CUSTOMERID, 10) AS CUSTOMERID,
@@ -258,7 +270,9 @@ INSERT INTO VALIDATION_METRICS (metric_name, metric_value)
 VALUES ('MANAGER_PRODUCTS_COUNT', @manager_products),
        ('SPECIAL_PRODUCTS_COUNT', @special_products),
        ('TOTAL_HELPFULNESS', @total_helpfulness),
-       ('MAX_CUSTOMERID', @max_customerid);
+       ('MAX_CUSTOMERID', @max_customerid),
+       ('TOTAL_MEMBERSHIPS', @total_memberships),
+       ('EXPIRED_MEMBERSHIPS', @expired_memberships);
 
 SELECT '========================================================================';
 SELECT 'Pre-Test Validation Complete';

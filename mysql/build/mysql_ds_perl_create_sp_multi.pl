@@ -108,7 +108,7 @@ BEGIN
       (
       customerid_in,
       membershiplevel_in,
-      SYSDATE()
+      DATE_ADD(NOW(), INTERVAL 1 YEAR)
       )
       ;
     SET customerid_out = customerid_in;
@@ -611,6 +611,24 @@ BEGIN
     SELECT ROW_COUNT() AS rows_affected;
 END $$
 
+DROP PROCEDURE IF EXISTS DS3.RemoveReviewsByDate$k $$
+CREATE PROCEDURE DS3.RemoveReviewsByDate$k
+(
+    IN p_batch_size INT
+)
+BEGIN
+    -- Delete N oldest reviews by REVIEW_DATE
+    DELETE r FROM REVIEWS$k r
+    INNER JOIN (
+        SELECT REVIEW_ID
+        FROM REVIEWS$k
+        ORDER BY REVIEW_DATE ASC
+        LIMIT p_batch_size
+        FOR UPDATE SKIP LOCKED
+    ) AS to_delete ON r.REVIEW_ID = to_delete.REVIEW_ID;
+    SELECT ROW_COUNT() AS rows_affected;
+END $$
+
 DROP PROCEDURE IF EXISTS DS3.AdjustPrices$k $$
 CREATE PROCEDURE DS3.AdjustPrices$k
 (
@@ -639,6 +657,27 @@ BEGIN
     UPDATE PRODUCTS$k
     SET SPECIAL = CASE WHEN SPECIAL = 1 THEN 0 ELSE 1 END
     WHERE PROD_ID = p_prod_id;
+    SELECT ROW_COUNT() AS rows_affected;
+END $$
+
+DROP PROCEDURE IF EXISTS DS3.ExpireMemberships$k $$
+CREATE PROCEDURE DS3.ExpireMemberships$k
+(
+    IN p_batch_size INT
+)
+BEGIN
+    -- Delete expired memberships (oldest first)
+    -- Simulates cleanup of lapsed subscriptions
+    -- Uses JOIN pattern for MariaDB LIMIT compatibility
+    DELETE m FROM MEMBERSHIP$k m
+    INNER JOIN (
+        SELECT CUSTOMERID
+        FROM MEMBERSHIP$k
+        WHERE EXPIREDATE < NOW()
+        ORDER BY EXPIREDATE ASC
+        LIMIT p_batch_size
+        FOR UPDATE SKIP LOCKED
+    ) AS to_delete ON m.CUSTOMERID = to_delete.CUSTOMERID;
     SELECT ROW_COUNT() AS rows_affected;
 END $$
 

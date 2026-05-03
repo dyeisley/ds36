@@ -133,7 +133,6 @@ SELECT '';
 SELECT '--- TOP 20 REORDER BY QUANTITY (Restock Trigger Verification) ---';
 SELECT 'Verifying: Restock trigger fired for products that sold out';
 SELECT 'Expected: REORDER table should show new restocking activity';
-SELECT 'Expected: Popular products (ID % 10000 = 0) should appear frequently';
 SELECT '';
 
 SELECT
@@ -218,7 +217,6 @@ SELECT CONCAT('    Pre:   ', @total_helpfulness_pre);
 SELECT CONCAT('    Post:  ', @total_helpfulness);
 SELECT CONCAT('    Delta: ', @total_helpfulness - @total_helpfulness_pre);
 SELECT 'Reviews for Popular Products (ID % 10000 = 0):';
-SELECT '  Expected: Increase when managers disabled, increase at a slower rate when managers enabled';
 
 SELECT
     LPAD(IFNULL(pre.prod_id, post.PROD_ID), 8) AS PROD_ID,
@@ -356,6 +354,67 @@ WHERE (PRICE - FLOOR(PRICE)) != 0.99 AND (PRICE - FLOOR(PRICE)) != 0.01
 ORDER BY PROD_ID
 LIMIT 10;
 
+-- Membership expirations
+SET @total_memberships = (SELECT COUNT(*) FROM MEMBERSHIP1);
+SET @expired_memberships = (SELECT COUNT(*) FROM MEMBERSHIP1 WHERE EXPIREDATE < NOW());
+SET @total_memberships_pre = (SELECT metric_value FROM VALIDATION_METRICS WHERE metric_name = 'TOTAL_MEMBERSHIPS');
+SET @expired_memberships_pre = (SELECT metric_value FROM VALIDATION_METRICS WHERE metric_name = 'EXPIRED_MEMBERSHIPS');
+
+SELECT '';
+SELECT 'Membership Status:';
+SELECT 'Verifying: Membership changes during benchmark';
+SELECT 'Expected: New memberships created, expired memberships may be deleted by ExpireMemberships manager';
+SELECT '  Total Memberships:';
+SELECT CONCAT('    Pre:   ', @total_memberships_pre);
+SELECT CONCAT('    Post:  ', @total_memberships);
+SELECT CONCAT('    Delta: ', @total_memberships - @total_memberships_pre);
+SELECT '  Expired Memberships (EXPIREDATE < current date):';
+SELECT CONCAT('    Pre:   ', @expired_memberships_pre);
+SELECT CONCAT('    Post:  ', @expired_memberships);
+SELECT CONCAT('    Delta: ', @expired_memberships - @expired_memberships_pre);
+SELECT '  Active Memberships:';
+SELECT CONCAT('    Pre:   ', @total_memberships_pre - @expired_memberships_pre);
+SELECT CONCAT('    Post:  ', @total_memberships - @expired_memberships);
+SELECT CONCAT('    Delta: ', (@total_memberships - @expired_memberships) - (@total_memberships_pre - @expired_memberships_pre));
+
+SELECT '';
+SELECT '';
+
+-- =======================================================================
+-- CASCADE DELETE VERIFICATION
+-- Purpose: Verify REVIEWS_HELPFULNESS cascade deletes when reviews removed
+-- Expected: Helpfulness votes deleted when reviews deleted by manager operations
+-- =======================================================================
+SELECT '--- CASCADE DELETE VERIFICATION (REVIEWS_HELPFULNESS) ---';
+SELECT 'Verifying: Foreign key CASCADE DELETE when reviews are removed';
+SELECT 'Expected: REVIEWS_HELPFULNESS records deleted automatically when parent review deleted';
+SELECT '';
+
+SET @reviews_before = (SELECT metric_value FROM VALIDATION_METRICS WHERE metric_name = 'REVIEWS_COUNT');
+SET @reviews_helpfulness_before = (SELECT metric_value FROM VALIDATION_METRICS WHERE metric_name = 'REVIEWS_HELPFULNESS_COUNT');
+
+SET @reviews_after = (SELECT COUNT(*) FROM REVIEWS1);
+SET @reviews_helpfulness_after = (SELECT COUNT(*) FROM REVIEWS_HELPFULNESS1);
+
+SET @reviews_delta = @reviews_after - @reviews_before;
+SET @helpfulness_deleted = @reviews_helpfulness_before - @reviews_helpfulness_after;
+
+SELECT 'Reviews:';
+SELECT CONCAT('  Pre:     ', @reviews_before);
+SELECT CONCAT('  Post:    ', @reviews_after);
+SELECT CONCAT('  Deleted: ', -@reviews_delta);
+
+SELECT 'Reviews Helpfulness (should cascade delete with reviews):';
+SELECT CONCAT('  Pre:     ', @reviews_helpfulness_before);
+SELECT CONCAT('  Post:    ', @reviews_helpfulness_after);
+SELECT CONCAT('  Deleted: ', @helpfulness_deleted);
+
+SELECT IF(@reviews_delta < 0,
+    CONCAT('  Avg helpfulness votes per deleted review: ', ROUND(@helpfulness_deleted / -@reviews_delta, 2)),
+    '  (No reviews deleted - cascade not tested)') AS CascadeVerification;
+
+SELECT '';
+SELECT '';
 
 -- =======================================================================
 -- BENCHMARK ACTIVITY SUMMARY
@@ -366,19 +425,20 @@ SELECT '';
 -- Calculate deltas from baseline
 SET @customers_before = (SELECT metric_value FROM VALIDATION_METRICS WHERE metric_name = 'CUSTOMERS_COUNT');
 SET @orders_before = (SELECT metric_value FROM VALIDATION_METRICS WHERE metric_name = 'ORDERS_COUNT');
-SET @reviews_before = (SELECT metric_value FROM VALIDATION_METRICS WHERE metric_name = 'REVIEWS_COUNT');
 SET @products_before = (SELECT metric_value FROM VALIDATION_METRICS WHERE metric_name = 'PRODUCTS_COUNT');
+SET @memberships_before = (SELECT metric_value FROM VALIDATION_METRICS WHERE metric_name = 'MEMBERSHIP_COUNT');
 
 SET @customers_after = (SELECT COUNT(*) FROM CUSTOMERS1);
 SET @orders_after = (SELECT COUNT(*) FROM ORDERS1);
-SET @reviews_after = (SELECT COUNT(*) FROM REVIEWS1);
 SET @products_after = (SELECT COUNT(*) FROM PRODUCTS1);
+SET @memberships_after = (SELECT COUNT(*) FROM MEMBERSHIP1);
 
 SELECT 'New Records Created During Benchmark:';
-SELECT CONCAT('  Customers: ', @customers_after - @customers_before);
-SELECT CONCAT('  Orders:    ', @orders_after - @orders_before);
-SELECT CONCAT('  Reviews:   ', @reviews_after - @reviews_before);
-SELECT CONCAT('  Products:  ', @products_after - @products_before);
+SELECT CONCAT('  Customers:   ', @customers_after - @customers_before);
+SELECT CONCAT('  Orders:      ', @orders_after - @orders_before);
+SELECT CONCAT('  Reviews:     ', @reviews_after - @reviews_before);
+SELECT CONCAT('  Products:    ', @products_after - @products_before);
+SELECT CONCAT('  Memberships: ', @memberships_after - @memberships_before);
 
 SELECT 'Manager Operation Impact:';
 SELECT CONCAT('  Products with Adjusted Prices: ', @adjusted_prices);
