@@ -139,7 +139,6 @@ PRINT '';
 PRINT '--- TOP 20 REORDER BY QUANTITY (Restock Trigger Verification) ---';
 PRINT 'Verifying: Restock trigger fired for products that sold out';
 PRINT 'Expected: REORDER table should show new restocking activity';
-PRINT 'Expected: Popular products (ID % 10000 = 0) should appear frequently';
 PRINT '';
 
 SELECT TOP 20
@@ -230,7 +229,6 @@ PRINT '    Post:  ' + CAST(@TotalHelpfulness AS VARCHAR);
 PRINT '    Delta: ' + CAST(@TotalHelpfulness - @TotalHelpfulnessPre AS VARCHAR);
 PRINT '';
 PRINT 'Reviews for Popular Products (ID % 10000 = 0):';
-PRINT '  Expected: Increase when managers disabled, increase at a slower rate when managers enabled';
 PRINT '';
 
 SELECT
@@ -370,6 +368,33 @@ FROM PRODUCTS1
 WHERE PRICE - FLOOR(PRICE) != 0.99 AND PRICE - FLOOR(PRICE) != 0.01
 ORDER BY PROD_ID;
 
+-- Membership expirations
+DECLARE @TotalMemberships INT, @TotalMembershipsPre INT;
+DECLARE @ExpiredMemberships INT, @ExpiredMembershipsPre INT;
+
+SELECT @TotalMemberships = COUNT(*) FROM MEMBERSHIP1;
+SELECT @ExpiredMemberships = COUNT(*) FROM MEMBERSHIP1 WHERE EXPIREDATE < GETDATE();
+
+SELECT @TotalMembershipsPre = metric_value FROM VALIDATION_METRICS WHERE metric_name = 'TOTAL_MEMBERSHIPS';
+SELECT @ExpiredMembershipsPre = metric_value FROM VALIDATION_METRICS WHERE metric_name = 'EXPIRED_MEMBERSHIPS';
+
+PRINT '';
+PRINT 'Membership Status:';
+PRINT 'Verifying: Membership changes during benchmark';
+PRINT 'Expected: New memberships created, expired memberships may be deleted by ExpireMemberships manager';
+PRINT '  Total Memberships:';
+PRINT '    Pre:   ' + CAST(@TotalMembershipsPre AS VARCHAR);
+PRINT '    Post:  ' + CAST(@TotalMemberships AS VARCHAR);
+PRINT '    Delta: ' + CAST(@TotalMemberships - @TotalMembershipsPre AS VARCHAR);
+PRINT '  Expired Memberships (EXPIREDATE < current date):';
+PRINT '    Pre:   ' + CAST(@ExpiredMembershipsPre AS VARCHAR);
+PRINT '    Post:  ' + CAST(@ExpiredMemberships AS VARCHAR);
+PRINT '    Delta: ' + CAST(@ExpiredMemberships - @ExpiredMembershipsPre AS VARCHAR);
+PRINT '  Active Memberships:';
+PRINT '    Pre:   ' + CAST(@TotalMembershipsPre - @ExpiredMembershipsPre AS VARCHAR);
+PRINT '    Post:  ' + CAST(@TotalMemberships - @ExpiredMemberships AS VARCHAR);
+PRINT '    Delta: ' + CAST((@TotalMemberships - @ExpiredMemberships) - (@TotalMembershipsPre - @ExpiredMembershipsPre) AS VARCHAR);
+
 PRINT '';
 PRINT '';
 
@@ -380,31 +405,92 @@ PRINT '--- BENCHMARK ACTIVITY SUMMARY ---';
 PRINT '';
 
 -- Calculate deltas from baseline
+-- =======================================================================
+-- CASCADE DELETE VERIFICATION
+-- Purpose: Verify REVIEWS_HELPFULNESS cascade deletes when reviews removed
+-- Expected: Helpfulness votes deleted when reviews deleted by manager operations
+-- =======================================================================
+PRINT '';
+PRINT '';
+PRINT '--- CASCADE DELETE VERIFICATION (REVIEWS_HELPFULNESS) ---';
+PRINT 'Verifying: Foreign key CASCADE DELETE when reviews are removed';
+PRINT 'Expected: REVIEWS_HELPFULNESS records deleted automatically when parent review deleted';
+PRINT '';
+
+DECLARE @ReviewsBefore INT, @ReviewsAfter INT, @ReviewsDelta INT;
+DECLARE @ReviewsHelpfulnessBefore INT, @ReviewsHelpfulnessAfter INT, @HelpfulnessDeleted INT;
+
+SELECT @ReviewsBefore = metric_value FROM VALIDATION_METRICS WHERE metric_name = 'REVIEWS_COUNT';
+SELECT @ReviewsHelpfulnessBefore = metric_value FROM VALIDATION_METRICS WHERE metric_name = 'REVIEWS_HELPFULNESS_COUNT';
+
+SELECT @ReviewsAfter = COUNT(*) FROM REVIEWS1;
+SELECT @ReviewsHelpfulnessAfter = COUNT(*) FROM REVIEWS_HELPFULNESS1;
+
+SET @ReviewsDelta = @ReviewsAfter - @ReviewsBefore;
+SET @HelpfulnessDeleted = @ReviewsHelpfulnessBefore - @ReviewsHelpfulnessAfter;
+
+PRINT 'Reviews:';
+PRINT '  Pre:     ' + CAST(@ReviewsBefore AS VARCHAR);
+PRINT '  Post:    ' + CAST(@ReviewsAfter AS VARCHAR);
+PRINT '  Deleted: ' + CAST(-@ReviewsDelta AS VARCHAR);
+
+PRINT 'Reviews Helpfulness (should cascade delete with reviews):';
+PRINT '  Pre:     ' + CAST(@ReviewsHelpfulnessBefore AS VARCHAR);
+PRINT '  Post:    ' + CAST(@ReviewsHelpfulnessAfter AS VARCHAR);
+PRINT '  Deleted: ' + CAST(@HelpfulnessDeleted AS VARCHAR);
+
+IF @ReviewsDelta < 0
+BEGIN
+    DECLARE @AvgHelpfulnessPerReview DECIMAL(10,2);
+    SET @AvgHelpfulnessPerReview = CAST(@HelpfulnessDeleted AS DECIMAL(10,2)) / CAST(-@ReviewsDelta AS DECIMAL(10,2));
+    PRINT '  Avg helpfulness votes per deleted review: ' + CAST(@AvgHelpfulnessPerReview AS VARCHAR);
+END
+ELSE
+BEGIN
+    PRINT '  (No reviews deleted - cascade not tested)';
+END
+
+PRINT '';
+PRINT '';
+
+-- =======================================================================
+-- NEW RECORDS CREATED DURING BENCHMARK
+-- =======================================================================
 DECLARE @CustomersBefore INT, @CustomersAfter INT, @CustomersDelta INT;
 DECLARE @OrdersBefore INT, @OrdersAfter INT, @OrdersDelta INT;
-DECLARE @ReviewsBefore INT, @ReviewsAfter INT, @ReviewsDelta INT;
+DECLARE @ReviewsBeforeNew INT, @ReviewsAfterNew INT, @ReviewsDeltaNew INT;
 DECLARE @ProductsBefore INT, @ProductsAfter INT, @ProductsDelta INT;
+DECLARE @MembershipsBefore INT, @MembershipsAfter INT, @MembershipsDelta INT;
 
 SELECT @CustomersBefore = metric_value FROM VALIDATION_METRICS WHERE metric_name = 'CUSTOMERS_COUNT';
 SELECT @OrdersBefore = metric_value FROM VALIDATION_METRICS WHERE metric_name = 'ORDERS_COUNT';
-SELECT @ReviewsBefore = metric_value FROM VALIDATION_METRICS WHERE metric_name = 'REVIEWS_COUNT';
+SELECT @ReviewsBeforeNew = metric_value FROM VALIDATION_METRICS WHERE metric_name = 'REVIEWS_COUNT';
 SELECT @ProductsBefore = metric_value FROM VALIDATION_METRICS WHERE metric_name = 'PRODUCTS_COUNT';
+SELECT @MembershipsBefore = metric_value FROM VALIDATION_METRICS WHERE metric_name = 'MEMBERSHIP_COUNT';
 
 SELECT @CustomersAfter = COUNT(*) FROM CUSTOMERS1;
 SELECT @OrdersAfter = COUNT(*) FROM ORDERS1;
-SELECT @ReviewsAfter = COUNT(*) FROM REVIEWS1;
+SELECT @ReviewsAfterNew = COUNT(*) FROM REVIEWS1;
 SELECT @ProductsAfter = COUNT(*) FROM PRODUCTS1;
+SELECT @MembershipsAfter = COUNT(*) FROM MEMBERSHIP1;
 
 SET @CustomersDelta = @CustomersAfter - @CustomersBefore;
 SET @OrdersDelta = @OrdersAfter - @OrdersBefore;
-SET @ReviewsDelta = @ReviewsAfter - @ReviewsBefore;
+SET @ReviewsDeltaNew = @ReviewsAfterNew - @ReviewsBeforeNew;
 SET @ProductsDelta = @ProductsAfter - @ProductsBefore;
+SET @MembershipsDelta = @MembershipsAfter - @MembershipsBefore;
 
 PRINT 'New Records Created During Benchmark:';
-PRINT '  Customers: ' + CAST(@CustomersDelta AS VARCHAR);
-PRINT '  Orders:    ' + CAST(@OrdersDelta AS VARCHAR);
-PRINT '  Reviews:   ' + CAST(@ReviewsDelta AS VARCHAR);
-PRINT '  Products:  ' + CAST(@ProductsDelta AS VARCHAR);
+PRINT '  Customers:   ' + CAST(@CustomersDelta AS VARCHAR);
+PRINT '  Orders:      ' + CAST(@OrdersDelta AS VARCHAR);
+PRINT '  Reviews:     ' + CAST(@ReviewsDeltaNew AS VARCHAR);
+PRINT '  Products:    ' + CAST(@ProductsDelta AS VARCHAR);
+PRINT '  Memberships: ' + CAST(@MembershipsDelta AS VARCHAR);
+
+SELECT @AdjustedPrices = COUNT(*)
+FROM PRODUCTS1
+WHERE (PRICE - FLOOR(PRICE)) != 0.99 AND (PRICE - FLOOR(PRICE)) != 0.01;
+
 PRINT '';
 PRINT 'Manager Operation Impact:';
 PRINT '  Products with Adjusted Prices: ' + CAST(@AdjustedPrices AS VARCHAR);

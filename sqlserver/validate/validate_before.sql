@@ -259,6 +259,19 @@ DECLARE @TotalHelpfulness BIGINT;
 SELECT @TotalHelpfulness = ISNULL(SUM(TOTAL_HELPFULNESS), 0)
 FROM REVIEWS1;
 
+-- Membership counts
+DECLARE @TotalMemberships INT;
+DECLARE @ExpiredMemberships INT;
+SELECT @TotalMemberships = COUNT(*) FROM MEMBERSHIP1;
+SELECT @ExpiredMemberships = COUNT(*) FROM MEMBERSHIP1 WHERE EXPIREDATE < GETDATE();
+
+PRINT '';
+PRINT 'Membership Status:';
+PRINT 'Verifying: Baseline membership counts and expiration status';
+PRINT '  Total Memberships: ' + CAST(@TotalMemberships AS VARCHAR);
+PRINT '  Expired Memberships: ' + CAST(@ExpiredMemberships AS VARCHAR);
+PRINT '  Active Memberships: ' + CAST(@TotalMemberships - @ExpiredMemberships AS VARCHAR);
+
 -- Top 10 newest customers (by CUSTOMERID)
 DECLARE @MaxCustomerID INT;
 SELECT @MaxCustomerID = MAX(CUSTOMERID) FROM CUSTOMERS1;
@@ -278,7 +291,9 @@ INSERT INTO VALIDATION_METRICS (metric_name, metric_value)
 VALUES ('MANAGER_PRODUCTS_COUNT', @ManagerProducts),
        ('SPECIAL_PRODUCTS_COUNT', @SpecialProducts),
        ('TOTAL_HELPFULNESS', @TotalHelpfulness),
-       ('MAX_CUSTOMERID', @MaxCustomerID);
+       ('MAX_CUSTOMERID', @MaxCustomerID),
+       ('TOTAL_MEMBERSHIPS', @TotalMemberships),
+       ('EXPIRED_MEMBERSHIPS', @ExpiredMemberships);
 
 PRINT '';
 PRINT '========================================================================';

@@ -141,7 +141,7 @@ CREATE PROCEDURE NEW_MEMBER$k
 
   SET DATEFORMAT ymd
 
-  SET \@date_in = GETDATE()
+  SET \@date_in = DATEADD(year, 1, GETDATE())
 
   IF (SELECT COUNT(*) FROM MEMBERSHIP$k WHERE CUSTOMERID=\@customerid_in) = 0
   BEGIN
@@ -851,6 +851,30 @@ BEGIN
 END
 GO
 
+IF EXISTS (SELECT name FROM sysobjects WHERE name = 'RemoveReviewsByDate$k' AND type = 'P')
+  DROP PROCEDURE RemoveReviewsByDate$k
+GO
+
+CREATE PROCEDURE RemoveReviewsByDate$k
+  (
+  \@batch_size_in       INT
+  )
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    -- Delete N oldest reviews by REVIEW_DATE
+    DELETE FROM REVIEWS$k
+    WHERE REVIEW_ID IN (
+        SELECT TOP (\@batch_size_in) REVIEW_ID
+        FROM REVIEWS$k WITH (READPAST)
+        ORDER BY REVIEW_DATE ASC
+    );
+
+    SELECT \@\@ROWCOUNT;
+END
+GO
+
 IF EXISTS (SELECT name FROM sysobjects WHERE name = 'AdjustPrices$k' AND type = 'P')
   DROP PROCEDURE AdjustPrices$k
 GO
@@ -891,6 +915,32 @@ BEGIN
     UPDATE PRODUCTS$k WITH (READPAST)
     SET SPECIAL = CASE WHEN SPECIAL = 1 THEN 0 ELSE 1 END
     WHERE PROD_ID = \@prod_id;
+
+    SELECT \@\@ROWCOUNT;
+END
+GO
+
+IF EXISTS (SELECT name FROM sysobjects WHERE name = 'ExpireMemberships$k' AND type = 'P')
+  DROP PROCEDURE ExpireMemberships$k
+GO
+
+CREATE PROCEDURE ExpireMemberships$k
+  (
+  \@batch_size          INT
+  )
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    -- Delete expired memberships (oldest first)
+    -- Simulates cleanup of lapsed subscriptions
+    DELETE FROM MEMBERSHIP$k
+    WHERE CUSTOMERID IN (
+        SELECT TOP (\@batch_size) CUSTOMERID
+        FROM MEMBERSHIP$k WITH (READPAST)
+        WHERE EXPIREDATE < GETDATE()
+        ORDER BY EXPIREDATE ASC
+    );
 
     SELECT \@\@ROWCOUNT;
 END

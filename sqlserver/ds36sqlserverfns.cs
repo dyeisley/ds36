@@ -49,7 +49,7 @@ namespace ds2xdriver
     SqlCommand Login, New_Customer, Browse_By_Category, Browse_By_Actor, Browse_By_Vector, Browse_By_Title, Browse_By_Membership, Purchase, New_Product;
     SqlCommand Get_Prod_Reviews, Get_Prod_Reviews_By_Actor, Get_Prod_Reviews_By_Title, Get_Prod_Reviews_By_Date, Get_Prod_Reviews_By_Stars;
     SqlCommand New_Member, New_Prod_Review, New_Review_Helpfulness;
-    SqlCommand Remove_Review_By_Product, Remove_Unhelpful_Reviews, Adjust_Prices, Mark_Specials;
+    SqlCommand Remove_Review_By_Product, Remove_Unhelpful_Reviews, Remove_Reviews_By_Date, Adjust_Prices, Mark_Specials, Expire_Memberships;
     SqlCommand[] CostQuery = new SqlCommand[11];
 
 //
@@ -221,6 +221,10 @@ namespace ds2xdriver
       Remove_Unhelpful_Reviews.CommandType = CommandType.StoredProcedure;
       Remove_Unhelpful_Reviews.Parameters.Add("@batch_size_in", SqlDbType.Int);
 
+      Remove_Reviews_By_Date = new SqlCommand("RemoveReviewsByDate" + target_store_number, objConn);
+      Remove_Reviews_By_Date.CommandType = CommandType.StoredProcedure;
+      Remove_Reviews_By_Date.Parameters.Add("@batch_size_in", SqlDbType.Int);
+
       Adjust_Prices = new SqlCommand("AdjustPrices" + target_store_number, objConn);
       Adjust_Prices.CommandType = CommandType.StoredProcedure;
       Adjust_Prices.Parameters.Add("@prod_id", SqlDbType.Int);
@@ -228,6 +232,10 @@ namespace ds2xdriver
       Mark_Specials = new SqlCommand("MarkSpecials" + target_store_number, objConn);
       Mark_Specials.CommandType = CommandType.StoredProcedure;
       Mark_Specials.Parameters.Add("@prod_id", SqlDbType.Int);
+
+      Expire_Memberships = new SqlCommand("ExpireMemberships" + target_store_number, objConn);
+      Expire_Memberships.CommandType = CommandType.StoredProcedure;
+      Expire_Memberships.Parameters.Add("@batch_size", SqlDbType.Int);
 
       //Console.WriteLine("ds2Interface {0} created", ds2Interfaceid);
     }
@@ -962,6 +970,31 @@ namespace ds2xdriver
 //
 //-------------------------------------------------------------------------------------------------
 //
+    public int ds36removereviewsbydate(int batchSize, ref double rt)
+    {
+        Remove_Reviews_By_Date.Parameters["@batch_size_in"].Value = batchSize;
+
+        Stopwatch timer = Stopwatch.StartNew();
+
+        try
+        {
+            object result = Remove_Reviews_By_Date.ExecuteScalar();
+            return result != null ? Convert.ToInt32(result) : 0;
+        }
+        catch (Exception e)
+        {
+            Console.WriteLine($"Thread {Thread.CurrentThread.Name}: ds36removereviewsbydate error: {e.Message}");
+            return 0;
+        }
+        finally
+        {
+            rt = timer.Elapsed.TotalSeconds;
+        }
+    }
+
+//
+//-------------------------------------------------------------------------------------------------
+//
     public int ds36adjustprices(int prodId, ref double rt)
     {
         Adjust_Prices.Parameters["@prod_id"].Value = prodId;
@@ -1001,6 +1034,31 @@ namespace ds2xdriver
         catch (Exception e)
         {
             Console.WriteLine($"Thread {Thread.CurrentThread.Name}: ds36markspecials error: {e.Message}");
+            return 0;
+        }
+        finally
+        {
+            rt = timer.Elapsed.TotalSeconds;
+        }
+    }
+
+//
+//-------------------------------------------------------------------------------------------------
+//
+    public int ds36expirememberships(int batchSize, ref double rt)
+    {
+        Expire_Memberships.Parameters["@batch_size"].Value = batchSize;
+
+        Stopwatch timer = Stopwatch.StartNew();
+
+        try
+        {
+            object result = Expire_Memberships.ExecuteScalar();
+            return result != null ? Convert.ToInt32(result) : 0;
+        }
+        catch (Exception e)
+        {
+            Console.WriteLine($"Thread {Thread.CurrentThread.Name}: ds36expirememberships error: {e.Message}");
             return 0;
         }
         finally
