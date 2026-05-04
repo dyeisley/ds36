@@ -43,18 +43,24 @@ namespace ds2xdriver
     public int n_add_product = 0;
     public int n_remove_review_by_product = 0;
     public int n_remove_unhelpful_reviews = 0;
+    public int n_remove_reviews_by_date = 0;
     public int n_adjust_prices = 0;
     public int n_mark_specials = 0;
+    public int n_expire_memberships = 0;
     public int n_products_added = 0;
     public int n_reviews_removed_by_product = 0;
     public int n_reviews_removed_unhelpful = 0;
+    public int n_reviews_removed_by_date = 0;
     public int n_products_price_changed = 0;
     public int n_products_special_changed = 0;
+    public int n_memberships_expired = 0;
     public double rt_add_product = 0.0;
     public double rt_remove_review_by_product = 0.0;
     public double rt_remove_unhelpful_reviews = 0.0;
+    public double rt_remove_reviews_by_date = 0.0;
     public double rt_adjust_prices = 0.0;
     public double rt_mark_specials = 0.0;
+    public double rt_expire_memberships = 0.0;
 
     //
     //-------------------------------------------------------------------------------------------------
@@ -146,7 +152,8 @@ namespace ds2xdriver
 
         // Randomly select operation based on percentages
         int total_pct = Controller.manager_add_product_pct + Controller.manager_delete_review_pct +
-                        Controller.manager_update_price_pct + Controller.manager_update_special_pct;
+                        Controller.manager_update_price_pct + Controller.manager_update_special_pct +
+                        Controller.manager_expire_memberships_pct;
 
         if (total_pct == 0)
         {
@@ -188,8 +195,9 @@ namespace ds2xdriver
           }
           else if (roll < Controller.manager_add_product_pct + Controller.manager_delete_review_pct)
           {
-            // RemoveReview - 50% by product, 50% unhelpful globally (20% default)
-            if (Random.Shared.Next(2) == 0)
+            // RemoveReview - 33% by product, 33% unhelpful, 33% by date (20% default)
+            int review_op = Random.Shared.Next(3);
+            if (review_op == 0)
             {
               // RemoveReviewByProduct - deletes 1 review, returns its ID (0 if none deleted)
               int prod_id = GetSkewedProductId(Controller.max_product[target_store]);
@@ -202,15 +210,25 @@ namespace ds2xdriver
                 //Console.WriteLine("Thread {0}: Removed review {1} for product {2}", Thread.CurrentThread.Name, deleted_review_id, prod_id);
               }
             }
-            else
+            else if (review_op == 1)
             {
               // RemoveUnhelpfulReviews
-              int batch_size = Random.Shared.Next(Controller.manager_review_batch_size_min, Controller.manager_review_batch_size_max + 1);
+              int batch_size = Random.Shared.Next(Controller.manager_batch_size_min, Controller.manager_batch_size_max + 1);
               rows_affected = ds2interface.ds36removeunhelpfulreviews(batch_size, ref rt);
               n_remove_unhelpful_reviews++;
               n_reviews_removed_unhelpful += rows_affected;
               rt_remove_unhelpful_reviews += rt;
               //Console.WriteLine("Thread {0}: Removed {1} unhelpful reviews", Thread.CurrentThread.Name, rows_affected);
+            }
+            else
+            {
+              // RemoveReviewsByDate
+              int batch_size = Random.Shared.Next(Controller.manager_batch_size_min, Controller.manager_batch_size_max + 1);
+              rows_affected = ds2interface.ds36removereviewsbydate(batch_size, ref rt);
+              n_remove_reviews_by_date++;
+              n_reviews_removed_by_date += rows_affected;
+              rt_remove_reviews_by_date += rt;
+              //Console.WriteLine("Thread {0}: Removed {1} reviews by date", Thread.CurrentThread.Name, rows_affected);
             }
           }
           else if (roll < Controller.manager_add_product_pct + Controller.manager_delete_review_pct + Controller.manager_update_price_pct)
@@ -223,7 +241,7 @@ namespace ds2xdriver
             rt_adjust_prices += rt;
             //Console.WriteLine("Thread {0}: Adjusted price for product {1}, rows affected: {2}", Thread.CurrentThread.Name, prod_id, rows_affected);
           }
-          else
+          else if (roll < Controller.manager_add_product_pct + Controller.manager_delete_review_pct + Controller.manager_update_price_pct + Controller.manager_update_special_pct)
           {
             // MarkSpecials (15% default)
             int prod_id = GetSkewedProductId(Controller.max_product[target_store]);
@@ -232,6 +250,16 @@ namespace ds2xdriver
             n_products_special_changed += rows_affected;
             rt_mark_specials += rt;
             //Console.WriteLine("Thread {0}: Toggled special for product {1}, rows affected: {2}", Thread.CurrentThread.Name, prod_id, rows_affected);
+          }
+          else
+          {
+            // ExpireMemberships (1% default)
+            int batch_size = Random.Shared.Next(Controller.manager_batch_size_min, Controller.manager_batch_size_max + 1);
+            rows_affected = ds2interface.ds36expirememberships(batch_size, ref rt);
+            n_expire_memberships++;
+            n_memberships_expired += rows_affected;
+            rt_expire_memberships += rt;
+            //Console.WriteLine("Thread {0}: Expired {1} memberships", Thread.CurrentThread.Name, rows_affected);
           }
         }
         catch (Exception e)
@@ -245,7 +273,7 @@ namespace ds2xdriver
 
       // Print statistics
       int total_operations = n_add_product + n_remove_review_by_product + n_remove_unhelpful_reviews +
-                             n_adjust_prices + n_mark_specials;
+                             n_adjust_prices + n_mark_specials + n_expire_memberships;
       int total_review_ops = n_remove_review_by_product + n_remove_unhelpful_reviews;
       double total_review_rt = rt_remove_review_by_product + rt_remove_unhelpful_reviews;
       Console.WriteLine("\n========== Manager Thread {0} Statistics (Store {1}) ==========", ManagerId, target_store);
@@ -259,7 +287,10 @@ namespace ds2xdriver
       Console.WriteLine("  RemoveUnhelpfulReviews:  {0,6} operations, {1,6} reviews removed{2}",
                         n_remove_unhelpful_reviews, n_reviews_removed_unhelpful,
                         n_remove_unhelpful_reviews > 0 ? string.Format(", avg RT: {0:F3} sec", rt_remove_unhelpful_reviews / n_remove_unhelpful_reviews) : "");
-      int total_reviews_removed = n_reviews_removed_by_product + n_reviews_removed_unhelpful;
+      Console.WriteLine("  RemoveReviewsByDate:     {0,6} operations, {1,6} reviews removed{2}",
+                        n_remove_reviews_by_date, n_reviews_removed_by_date,
+                        n_remove_reviews_by_date > 0 ? string.Format(", avg RT: {0:F3} sec", rt_remove_reviews_by_date / n_remove_reviews_by_date) : "");
+      int total_reviews_removed = n_reviews_removed_by_product + n_reviews_removed_unhelpful + n_reviews_removed_by_date;
       Console.WriteLine("  RemoveReview (combined): {0,6} operations, {1,6} reviews removed{2}",
                         total_review_ops, total_reviews_removed,
                         total_review_ops > 0 ? string.Format(", avg RT: {0:F3} sec", total_review_rt / total_review_ops) : "");
@@ -269,6 +300,9 @@ namespace ds2xdriver
       Console.WriteLine("  MarkSpecials:            {0,6} operations, {1,6} products changed{2}",
                         n_mark_specials, n_products_special_changed,
                         n_mark_specials > 0 ? string.Format(", avg RT: {0:F3} sec", rt_mark_specials / n_mark_specials) : "");
+      Console.WriteLine("  ExpireMemberships:       {0,6} operations, {1,6} memberships expired{2}",
+                        n_expire_memberships, n_memberships_expired,
+                        n_expire_memberships > 0 ? string.Format(", avg RT: {0:F3} sec", rt_expire_memberships / n_expire_memberships) : "");
       Console.WriteLine("================================================================\n");
 
       Console.WriteLine("Thread {0}: Manager thread exiting", Thread.CurrentThread.Name);
