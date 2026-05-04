@@ -171,7 +171,6 @@ BEGIN
     DBMS_OUTPUT.PUT_LINE('--- TOP 20 REORDER BY QUANTITY (Restock Trigger Verification) ---');
     DBMS_OUTPUT.PUT_LINE('Verifying: Restock trigger fired for products that sold out');
     DBMS_OUTPUT.PUT_LINE('Expected: REORDER table should show new restocking activity');
-    DBMS_OUTPUT.PUT_LINE('Expected: Popular products (ID % 10000 = 0) should appear frequently');
     DBMS_OUTPUT.PUT_LINE('');
 END;
 /
@@ -242,13 +241,17 @@ BEGIN
 END;
 /
 
-SELECT * FROM (
+SELECT
+    ROWNUM AS Rank,
+    LPAD(TO_CHAR(REVIEW_ID), 10) AS ReviewID,
+    LPAD(TO_CHAR(PROD_ID), 10) AS ProdID,
+    LPAD(TO_CHAR(TOTAL_HELPFULNESS), 12) AS Helpfulness,
+    RPAD(CASE WHEN MOD(PROD_ID, 10000) = 0 THEN '**POPULAR**' ELSE '' END, 12) AS Popular
+FROM (
     SELECT
-        ROWNUM AS Rank,
-        LPAD(TO_CHAR(REVIEW_ID), 10) AS ReviewID,
-        LPAD(TO_CHAR(PROD_ID), 10) AS ProdID,
-        LPAD(TO_CHAR(TOTAL_HELPFULNESS), 12) AS Helpfulness,
-        RPAD(CASE WHEN MOD(PROD_ID, 10000) = 0 THEN '**POPULAR**' ELSE '' END, 12) AS Popular
+        REVIEW_ID,
+        PROD_ID,
+        TOTAL_HELPFULNESS
     FROM DS3.REVIEWS1
     ORDER BY TOTAL_HELPFULNESS DESC, REVIEW_ID
 )
@@ -283,7 +286,6 @@ BEGIN
     DBMS_OUTPUT.PUT_LINE('    Delta: ' || (v_total_helpfulness - v_total_helpfulness_pre));
     DBMS_OUTPUT.PUT_LINE('');
     DBMS_OUTPUT.PUT_LINE('Reviews for Popular Products (ID % 10000 = 0):');
-    DBMS_OUTPUT.PUT_LINE('  Expected: Increase when managers disabled, increase at a slower rate when managers enabled');
     DBMS_OUTPUT.PUT_LINE('');
 END;
 /
@@ -456,6 +458,41 @@ SELECT * FROM (
 )
 WHERE ROWNUM <= 10;
 
+-- Membership Expiration Verification
+DECLARE
+    v_total_memberships NUMBER;
+    v_expired_memberships NUMBER;
+    v_total_memberships_pre NUMBER;
+    v_expired_memberships_pre NUMBER;
+BEGIN
+    -- Get current membership counts
+    SELECT COUNT(*) INTO v_total_memberships FROM DS3.MEMBERSHIP1;
+    SELECT COUNT(*) INTO v_expired_memberships FROM DS3.MEMBERSHIP1 WHERE EXPIREDATE < SYSDATE;
+
+    -- Get pre-test membership counts
+    SELECT metric_value INTO v_total_memberships_pre FROM VALIDATION_METRICS WHERE metric_name = 'TOTAL_MEMBERSHIPS';
+    SELECT metric_value INTO v_expired_memberships_pre FROM VALIDATION_METRICS WHERE metric_name = 'EXPIRED_MEMBERSHIPS';
+
+    DBMS_OUTPUT.PUT_LINE('');
+    DBMS_OUTPUT.PUT_LINE('Membership Status:');
+    DBMS_OUTPUT.PUT_LINE('Verifying: Membership changes during benchmark');
+    DBMS_OUTPUT.PUT_LINE('Expected: New memberships created, expired memberships may be deleted by ExpireMemberships manager');
+    DBMS_OUTPUT.PUT_LINE('  Total Memberships:');
+    DBMS_OUTPUT.PUT_LINE('    Pre:   ' || v_total_memberships_pre);
+    DBMS_OUTPUT.PUT_LINE('    Post:  ' || v_total_memberships);
+    DBMS_OUTPUT.PUT_LINE('    Delta: ' || (v_total_memberships - v_total_memberships_pre));
+    DBMS_OUTPUT.PUT_LINE('  Expired Memberships (EXPIREDATE < current date):');
+    DBMS_OUTPUT.PUT_LINE('    Pre:   ' || v_expired_memberships_pre);
+    DBMS_OUTPUT.PUT_LINE('    Post:  ' || v_expired_memberships);
+    DBMS_OUTPUT.PUT_LINE('    Delta: ' || (v_expired_memberships - v_expired_memberships_pre));
+    DBMS_OUTPUT.PUT_LINE('  Active Memberships:');
+    DBMS_OUTPUT.PUT_LINE('    Pre:   ' || (v_total_memberships_pre - v_expired_memberships_pre));
+    DBMS_OUTPUT.PUT_LINE('    Post:  ' || (v_total_memberships - v_expired_memberships));
+    DBMS_OUTPUT.PUT_LINE('    Delta: ' || ((v_total_memberships - v_expired_memberships) - (v_total_memberships_pre - v_expired_memberships_pre)));
+    DBMS_OUTPUT.PUT_LINE('  (ExpireMemberships deletes expired entries, reducing total count)');
+END;
+/
+
 -- New Product Verification
 DECLARE
     v_max_prod_id_pre NUMBER;
@@ -577,11 +614,57 @@ DECLARE
     v_orders_after NUMBER;
     v_reviews_before NUMBER;
     v_reviews_after NUMBER;
+    v_reviews_helpfulness_before NUMBER;
+    v_reviews_helpfulness_after NUMBER;
     v_products_before NUMBER;
     v_products_after NUMBER;
+    v_memberships_before NUMBER;
+    v_memberships_after NUMBER;
     v_adjusted_prices NUMBER;
     v_max_customerid_pre NUMBER;
+    v_reviews_delta NUMBER;
+    v_helpfulness_deleted NUMBER;
+    v_avg_helpfulness NUMBER;
 BEGIN
+    DBMS_OUTPUT.PUT_LINE('');
+    DBMS_OUTPUT.PUT_LINE('');
+
+    -- =======================================================================
+    -- CASCADE DELETE VERIFICATION
+    -- Purpose: Verify REVIEWS_HELPFULNESS cascade deletes when reviews removed
+    -- Expected: Helpfulness votes deleted when reviews deleted by manager operations
+    -- =======================================================================
+    DBMS_OUTPUT.PUT_LINE('--- CASCADE DELETE VERIFICATION (REVIEWS_HELPFULNESS) ---');
+    DBMS_OUTPUT.PUT_LINE('Verifying: Foreign key CASCADE DELETE when reviews are removed');
+    DBMS_OUTPUT.PUT_LINE('Expected: REVIEWS_HELPFULNESS records deleted automatically when parent review deleted');
+    DBMS_OUTPUT.PUT_LINE('');
+
+    SELECT metric_value INTO v_reviews_before FROM VALIDATION_METRICS WHERE metric_name = 'REVIEWS_COUNT';
+    SELECT metric_value INTO v_reviews_helpfulness_before FROM VALIDATION_METRICS WHERE metric_name = 'REVIEWS_HELPFULNESS_COUNT';
+
+    SELECT COUNT(*) INTO v_reviews_after FROM DS3.REVIEWS1;
+    SELECT COUNT(*) INTO v_reviews_helpfulness_after FROM DS3.REVIEWS_HELPFULNESS1;
+
+    v_reviews_delta := v_reviews_after - v_reviews_before;
+    v_helpfulness_deleted := v_reviews_helpfulness_before - v_reviews_helpfulness_after;
+
+    DBMS_OUTPUT.PUT_LINE('Reviews:');
+    DBMS_OUTPUT.PUT_LINE('  Pre:     ' || v_reviews_before);
+    DBMS_OUTPUT.PUT_LINE('  Post:    ' || v_reviews_after);
+    DBMS_OUTPUT.PUT_LINE('  Deleted: ' || (-v_reviews_delta));
+
+    DBMS_OUTPUT.PUT_LINE('Reviews Helpfulness (should cascade delete with reviews):');
+    DBMS_OUTPUT.PUT_LINE('  Pre:     ' || v_reviews_helpfulness_before);
+    DBMS_OUTPUT.PUT_LINE('  Post:    ' || v_reviews_helpfulness_after);
+    DBMS_OUTPUT.PUT_LINE('  Deleted: ' || v_helpfulness_deleted);
+
+    IF v_reviews_delta < 0 THEN
+        v_avg_helpfulness := ROUND(v_helpfulness_deleted / (-v_reviews_delta), 2);
+        DBMS_OUTPUT.PUT_LINE('  Avg helpfulness votes per deleted review: ' || v_avg_helpfulness);
+    ELSE
+        DBMS_OUTPUT.PUT_LINE('  (No reviews deleted - cascade not tested)');
+    END IF;
+
     DBMS_OUTPUT.PUT_LINE('');
     DBMS_OUTPUT.PUT_LINE('');
 
@@ -594,19 +677,20 @@ BEGIN
     -- Calculate deltas from baseline
     SELECT metric_value INTO v_customers_before FROM VALIDATION_METRICS WHERE metric_name = 'CUSTOMERS_COUNT';
     SELECT metric_value INTO v_orders_before FROM VALIDATION_METRICS WHERE metric_name = 'ORDERS_COUNT';
-    SELECT metric_value INTO v_reviews_before FROM VALIDATION_METRICS WHERE metric_name = 'REVIEWS_COUNT';
     SELECT metric_value INTO v_products_before FROM VALIDATION_METRICS WHERE metric_name = 'PRODUCTS_COUNT';
+    SELECT metric_value INTO v_memberships_before FROM VALIDATION_METRICS WHERE metric_name = 'MEMBERSHIP_COUNT';
 
     SELECT COUNT(*) INTO v_customers_after FROM DS3.CUSTOMERS1;
     SELECT COUNT(*) INTO v_orders_after FROM DS3.ORDERS1;
-    SELECT COUNT(*) INTO v_reviews_after FROM DS3.REVIEWS1;
     SELECT COUNT(*) INTO v_products_after FROM DS3.PRODUCTS1;
+    SELECT COUNT(*) INTO v_memberships_after FROM DS3.MEMBERSHIP1;
 
     DBMS_OUTPUT.PUT_LINE('New Records Created During Benchmark:');
-    DBMS_OUTPUT.PUT_LINE('  Customers: ' || (v_customers_after - v_customers_before));
-    DBMS_OUTPUT.PUT_LINE('  Orders:    ' || (v_orders_after - v_orders_before));
-    DBMS_OUTPUT.PUT_LINE('  Reviews:   ' || (v_reviews_after - v_reviews_before));
-    DBMS_OUTPUT.PUT_LINE('  Products:  ' || (v_products_after - v_products_before));
+    DBMS_OUTPUT.PUT_LINE('  Customers:   ' || (v_customers_after - v_customers_before));
+    DBMS_OUTPUT.PUT_LINE('  Orders:      ' || (v_orders_after - v_orders_before));
+    DBMS_OUTPUT.PUT_LINE('  Reviews:     ' || (v_reviews_after - v_reviews_before));
+    DBMS_OUTPUT.PUT_LINE('  Products:    ' || (v_products_after - v_products_before));
+    DBMS_OUTPUT.PUT_LINE('  Memberships: ' || (v_memberships_after - v_memberships_before));
 
     DBMS_OUTPUT.PUT_LINE('');
     DBMS_OUTPUT.PUT_LINE('Manager Operation Impact:');

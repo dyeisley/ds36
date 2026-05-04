@@ -255,9 +255,13 @@ WHERE ROWNUM <= 10;
 
 -- Save top reviews to snapshot table
 INSERT INTO VALIDATION_TOP_REVIEWS (rank_position, review_id, prod_id, total_helpfulness)
-SELECT * FROM (
+SELECT
+    ROWNUM AS rank_position,
+    REVIEW_ID,
+    PROD_ID,
+    TOTAL_HELPFULNESS
+FROM (
     SELECT
-        ROWNUM AS rank_position,
         REVIEW_ID,
         PROD_ID,
         TOTAL_HELPFULNESS
@@ -302,6 +306,8 @@ DECLARE
     v_special_products NUMBER;
     v_total_helpfulness NUMBER;
     v_max_customerid NUMBER;
+    v_total_memberships NUMBER;
+    v_expired_memberships NUMBER;
 BEGIN
     DBMS_OUTPUT.PUT_LINE('');
     DBMS_OUTPUT.PUT_LINE('');
@@ -333,6 +339,20 @@ BEGIN
     SELECT MAX(CUSTOMERID) INTO v_max_customerid
     FROM DS3.CUSTOMERS1;
 
+    -- Membership counts
+    SELECT COUNT(*) INTO v_total_memberships
+    FROM DS3.MEMBERSHIP1;
+    SELECT COUNT(*) INTO v_expired_memberships
+    FROM DS3.MEMBERSHIP1
+    WHERE EXPIREDATE < SYSDATE;
+
+    DBMS_OUTPUT.PUT_LINE('');
+    DBMS_OUTPUT.PUT_LINE('Membership Status:');
+    DBMS_OUTPUT.PUT_LINE('Verifying: Baseline membership counts and expiration status');
+    DBMS_OUTPUT.PUT_LINE('  Total Memberships: ' || v_total_memberships);
+    DBMS_OUTPUT.PUT_LINE('  Expired Memberships: ' || v_expired_memberships);
+    DBMS_OUTPUT.PUT_LINE('  Active Memberships: ' || (v_total_memberships - v_expired_memberships));
+
     DBMS_OUTPUT.PUT_LINE('');
     DBMS_OUTPUT.PUT_LINE('Top 10 Newest Customers (highest CUSTOMERID):');
 
@@ -345,6 +365,10 @@ BEGIN
     VALUES ('TOTAL_HELPFULNESS', v_total_helpfulness);
     INSERT INTO VALIDATION_METRICS (metric_name, metric_value)
     VALUES ('MAX_CUSTOMERID', v_max_customerid);
+    INSERT INTO VALIDATION_METRICS (metric_name, metric_value)
+    VALUES ('TOTAL_MEMBERSHIPS', v_total_memberships);
+    INSERT INTO VALIDATION_METRICS (metric_name, metric_value)
+    VALUES ('EXPIRED_MEMBERSHIPS', v_expired_memberships);
     COMMIT;
 END;
 /

@@ -146,7 +146,7 @@ CREATE OR REPLACE  PROCEDURE \"DS3\".\"NEW_MEMBER$k\"
         (
         customerid_in,
         membershiplevel_in,
-        SYSDATE
+        ADD_MONTHS(SYSDATE, 12)
         );
       customerid_out := customerid_in;
     ELSE
@@ -921,6 +921,59 @@ EXCEPTION
 END;
 /
 
+CREATE OR REPLACE PROCEDURE DS3.RemoveReviewsByDate$k (
+    p_batch_size     IN  NUMBER,
+    p_rows_affected  OUT NUMBER
+) AS
+    TYPE reviewid_array IS TABLE OF NUMBER INDEX BY PLS_INTEGER;
+    v_review_ids reviewid_array;
+
+    -- Cursor to select oldest reviews with locking
+    CURSOR c_reviews IS
+        SELECT REVIEW_ID
+        FROM DS3.REVIEWS$k
+        ORDER BY REVIEW_DATE ASC
+        FOR UPDATE SKIP LOCKED;
+BEGIN
+    -- Delete N oldest reviews by REVIEW_DATE
+
+    -- Open cursor and fetch up to batch_size rows
+    OPEN c_reviews;
+    FETCH c_reviews BULK COLLECT INTO v_review_ids LIMIT p_batch_size;
+    CLOSE c_reviews;
+
+    -- Then delete them
+    IF v_review_ids.COUNT > 0 THEN
+        -- Disable trigger to avoid mutating table error
+        EXECUTE IMMEDIATE 'ALTER TRIGGER DS3.TRG_HELPFULNESS_SYNC$k DISABLE';
+
+        FORALL i IN 1..v_review_ids.COUNT
+            DELETE FROM DS3.REVIEWS$k
+            WHERE REVIEW_ID = v_review_ids(i);
+
+        -- Re-enable trigger
+        EXECUTE IMMEDIATE 'ALTER TRIGGER DS3.TRG_HELPFULNESS_SYNC$k ENABLE';
+
+        p_rows_affected := v_review_ids.COUNT;
+    ELSE
+        p_rows_affected := 0;
+    END IF;
+
+    COMMIT;
+
+EXCEPTION
+    WHEN OTHERS THEN
+        -- Re-enable trigger even on error
+        BEGIN
+            EXECUTE IMMEDIATE 'ALTER TRIGGER DS3.TRG_HELPFULNESS_SYNC$k ENABLE';
+        EXCEPTION
+            WHEN OTHERS THEN NULL;
+        END;
+        ROLLBACK;
+        RAISE;
+END;
+/
+
 CREATE OR REPLACE PROCEDURE DS3.AdjustPrices$k (
     p_prod_id        IN  NUMBER,
     p_rows_affected  OUT NUMBER
@@ -955,6 +1008,40 @@ BEGIN
     UPDATE DS3.PRODUCTS$k
     SET SPECIAL = CASE WHEN SPECIAL = 1 THEN 0 ELSE 1 END
     WHERE PROD_ID = p_prod_id;
+
+    p_rows_affected := SQL%ROWCOUNT;
+
+    COMMIT;
+
+EXCEPTION
+    WHEN OTHERS THEN
+        ROLLBACK;
+        RAISE;
+END;
+/
+
+CREATE OR REPLACE PROCEDURE DS3.ExpireMemberships$k (
+    p_batch_size     IN  NUMBER,
+    p_rows_affected  OUT NUMBER
+) AS
+    TYPE customer_ids IS TABLE OF NUMBER;
+    v_customer_ids customer_ids;
+BEGIN
+    -- Delete expired memberships (oldest first)
+    -- Simulates cleanup of lapsed subscriptions
+    SELECT CUSTOMERID
+    BULK COLLECT INTO v_customer_ids
+    FROM (
+        SELECT CUSTOMERID
+        FROM DS3.MEMBERSHIP$k
+        WHERE EXPIREDATE < SYSDATE
+        ORDER BY EXPIREDATE ASC
+    )
+    WHERE ROWNUM <= p_batch_size;
+
+    FORALL i IN 1 .. v_customer_ids.COUNT
+        DELETE FROM DS3.MEMBERSHIP$k
+        WHERE CUSTOMERID = v_customer_ids(i);
 
     p_rows_affected := SQL%ROWCOUNT;
 
