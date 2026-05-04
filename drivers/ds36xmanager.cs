@@ -169,28 +169,33 @@ namespace ds2xdriver
         {
           if (roll < Controller.manager_add_product_pct)
           {
-            // AddNewInventoryProduct (40% default)
-            int new_category_in = Random.Shared.Next(1, GlobalConstants.MAX_CATEGORY + 1);
-            string new_actor_in = CreateActor();
-            string new_title_in = CreateTitle();
-            decimal price_in = Random.Shared.Next(6, 21) + 0.01m;  // Prices from 6.01 to 20.01
-            int initial_stock_in = Random.Shared.Next(1, 500);
+            // AddNewInventoryProduct - add batch of products
+            int batch_size = Random.Shared.Next(Controller.manager_batch_size_min, Controller.manager_batch_size_max + 1);
+            n_add_product++;  // OUTSIDE loop - operation selected once per interval
 
-            int newproduct_id = 0;
-            if (ds2interface.ds2newproduct(new_category_in, new_title_in, new_actor_in, price_in, initial_stock_in, ref newproduct_id, ref rt))
+            for (int i = 0; i < batch_size; i++)
             {
-              n_add_product++;
-              rt_add_product += rt;
-              if (newproduct_id > 0)
+              int new_category_in = Random.Shared.Next(1, GlobalConstants.MAX_CATEGORY + 1);
+              string new_actor_in = CreateActor();
+              string new_title_in = CreateTitle();
+              decimal price_in = Random.Shared.Next(6, 21) + 0.01m;  // Prices from 6.01 to 20.01
+              int initial_stock_in = Random.Shared.Next(1, 500);
+
+              int newproduct_id = 0;
+              if (ds2interface.ds2newproduct(new_category_in, new_title_in, new_actor_in, price_in, initial_stock_in, ref newproduct_id, ref rt))
               {
-                n_products_added++;
+                rt_add_product += rt;  // INSIDE loop - accumulate response times
+                if (newproduct_id > 0)
+                {
+                  n_products_added++;  // INSIDE loop - count products actually added
+                }
+                // Update max_product for this store if needed
+                if (newproduct_id > Controller.max_product[target_store])
+                {
+                  Controller.max_product[target_store] = newproduct_id;
+                }
+                //Console.WriteLine("Thread {0}: Added product {1}: {2} - {3}", Thread.CurrentThread.Name, newproduct_id, new_title_in, new_actor_in);
               }
-              // Update max_product for this store if needed
-              if (newproduct_id > Controller.max_product[target_store])
-              {
-                Controller.max_product[target_store] = newproduct_id;
-              }
-              //Console.WriteLine("Thread {0}: Added product {1}: {2} - {3}", Thread.CurrentThread.Name, newproduct_id, new_title_in, new_actor_in);
             }
           }
           else if (roll < Controller.manager_add_product_pct + Controller.manager_delete_review_pct)
@@ -199,15 +204,20 @@ namespace ds2xdriver
             int review_op = Random.Shared.Next(3);
             if (review_op == 0)
             {
-              // RemoveReviewByProduct - deletes 1 review, returns its ID (0 if none deleted)
-              int prod_id = GetSkewedProductId(Controller.max_product[target_store]);
-              int deleted_review_id = ds2interface.ds36removereviewbyproduct(prod_id, ref rt);
-              n_remove_review_by_product++;
-              rt_remove_review_by_product += rt;
-              if (deleted_review_id > 0)
+              // RemoveReviewByProduct - delete batch of reviews
+              int batch_size = Random.Shared.Next(Controller.manager_batch_size_min, Controller.manager_batch_size_max + 1);
+              n_remove_review_by_product++;  // OUTSIDE loop - operation selected once per interval
+
+              for (int i = 0; i < batch_size; i++)
               {
-                n_reviews_removed_by_product++;
-                //Console.WriteLine("Thread {0}: Removed review {1} for product {2}", Thread.CurrentThread.Name, deleted_review_id, prod_id);
+                int prod_id = GetSkewedProductId(Controller.max_product[target_store]);
+                int deleted_review_id = ds2interface.ds36removereviewbyproduct(prod_id, ref rt);
+                rt_remove_review_by_product += rt;  // INSIDE loop - accumulate response times
+                if (deleted_review_id > 0)
+                {
+                  n_reviews_removed_by_product++;  // INSIDE loop - count reviews actually deleted
+                  //Console.WriteLine("Thread {0}: Removed review {1} for product {2}", Thread.CurrentThread.Name, deleted_review_id, prod_id);
+                }
               }
             }
             else if (review_op == 1)
@@ -233,23 +243,33 @@ namespace ds2xdriver
           }
           else if (roll < Controller.manager_add_product_pct + Controller.manager_delete_review_pct + Controller.manager_update_price_pct)
           {
-            // AdjustPrices (25% default)
-            int prod_id = GetSkewedProductId(Controller.max_product[target_store]);
-            rows_affected = ds2interface.ds36adjustprices(prod_id, ref rt);
-            n_adjust_prices++;
-            n_products_price_changed += rows_affected;
-            rt_adjust_prices += rt;
-            //Console.WriteLine("Thread {0}: Adjusted price for product {1}, rows affected: {2}", Thread.CurrentThread.Name, prod_id, rows_affected);
+            // AdjustPrices - adjust batch of product prices
+            int batch_size = Random.Shared.Next(Controller.manager_batch_size_min, Controller.manager_batch_size_max + 1);
+            n_adjust_prices++;  // OUTSIDE loop - operation selected once per interval
+
+            for (int i = 0; i < batch_size; i++)
+            {
+              int prod_id = GetSkewedProductId(Controller.max_product[target_store]);
+              rows_affected = ds2interface.ds36adjustprices(prod_id, ref rt);
+              rt_adjust_prices += rt;  // INSIDE loop - accumulate response times
+              n_products_price_changed += rows_affected;  // INSIDE loop - count products actually changed
+              //Console.WriteLine("Thread {0}: Adjusted price for product {1}, rows affected: {2}", Thread.CurrentThread.Name, prod_id, rows_affected);
+            }
           }
           else if (roll < Controller.manager_add_product_pct + Controller.manager_delete_review_pct + Controller.manager_update_price_pct + Controller.manager_update_special_pct)
           {
-            // MarkSpecials (15% default)
-            int prod_id = GetSkewedProductId(Controller.max_product[target_store]);
-            rows_affected = ds2interface.ds36markspecials(prod_id, ref rt);
-            n_mark_specials++;
-            n_products_special_changed += rows_affected;
-            rt_mark_specials += rt;
-            //Console.WriteLine("Thread {0}: Toggled special for product {1}, rows affected: {2}", Thread.CurrentThread.Name, prod_id, rows_affected);
+            // MarkSpecials - toggle batch of product special flags
+            int batch_size = Random.Shared.Next(Controller.manager_batch_size_min, Controller.manager_batch_size_max + 1);
+            n_mark_specials++;  // OUTSIDE loop - operation selected once per interval
+
+            for (int i = 0; i < batch_size; i++)
+            {
+              int prod_id = GetSkewedProductId(Controller.max_product[target_store]);
+              rows_affected = ds2interface.ds36markspecials(prod_id, ref rt);
+              rt_mark_specials += rt;  // INSIDE loop - accumulate response times
+              n_products_special_changed += rows_affected;  // INSIDE loop - count products actually changed
+              //Console.WriteLine("Thread {0}: Toggled special for product {1}, rows affected: {2}", Thread.CurrentThread.Name, prod_id, rows_affected);
+            }
           }
           else
           {
