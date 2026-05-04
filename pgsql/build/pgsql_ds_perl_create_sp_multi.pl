@@ -370,7 +370,7 @@ CREATE OR REPLACE FUNCTION new_member$k (
          (
          customerid_in,
          membershiplevel_in,
-         current_date
+         current_date + INTERVAL '1 year'
          )
        RETURNING customerid INTO customerid_out;
            RETURN customerid_out;
@@ -737,6 +737,27 @@ BEGIN
 END;
 \$\$;
 
+CREATE OR REPLACE FUNCTION removereviewsbydate$k(
+    p_batch_size int,
+    OUT rows_deleted int
+)
+LANGUAGE plpgsql
+AS \$\$
+BEGIN
+    -- Delete N oldest reviews by REVIEW_DATE
+    DELETE FROM reviews$k
+    WHERE review_id IN (
+        SELECT review_id
+        FROM reviews$k
+        ORDER BY review_date ASC
+        LIMIT p_batch_size
+        FOR UPDATE SKIP LOCKED
+    );
+
+    GET DIAGNOSTICS rows_deleted = ROW_COUNT;
+END;
+\$\$;
+
 CREATE OR REPLACE FUNCTION adjustprices$k(
     p_prod_id int,
     OUT rows_updated int
@@ -771,6 +792,28 @@ BEGIN
     WHERE prod_id = p_prod_id;
 
     GET DIAGNOSTICS rows_updated = ROW_COUNT;
+END;
+\$\$;
+
+CREATE OR REPLACE FUNCTION expirememberships$k(
+    p_batch_size int,
+    OUT rows_deleted int
+)
+LANGUAGE plpgsql
+AS \$\$
+BEGIN
+    -- Delete expired memberships (oldest first)
+    -- Simulates cleanup of lapsed subscriptions
+    DELETE FROM membership$k
+    WHERE customerid IN (
+        SELECT customerid
+        FROM membership$k
+        WHERE expiredate < CURRENT_TIMESTAMP
+        ORDER BY expiredate ASC
+        LIMIT p_batch_size
+    );
+
+    GET DIAGNOSTICS rows_deleted = ROW_COUNT;
 END;
 \$\$;
 

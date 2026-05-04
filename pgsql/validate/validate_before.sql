@@ -242,6 +242,8 @@ DECLARE
     v_special_products INT;
     v_total_helpfulness BIGINT;
     v_max_customerid INT;
+    v_total_memberships INT;
+    v_expired_memberships INT;
 BEGIN
     RAISE NOTICE '';
     RAISE NOTICE '';
@@ -273,6 +275,20 @@ BEGIN
     SELECT MAX(CUSTOMERID) INTO v_max_customerid
     FROM CUSTOMERS1;
 
+    -- Membership counts
+    SELECT COUNT(*) INTO v_total_memberships
+    FROM MEMBERSHIP1;
+    SELECT COUNT(*) INTO v_expired_memberships
+    FROM MEMBERSHIP1
+    WHERE EXPIREDATE < CURRENT_TIMESTAMP;
+
+    RAISE NOTICE '';
+    RAISE NOTICE 'Membership Status:';
+    RAISE NOTICE 'Verifying: Baseline membership counts and expiration status';
+    RAISE NOTICE '  Total Memberships: %', v_total_memberships;
+    RAISE NOTICE '  Expired Memberships: %', v_expired_memberships;
+    RAISE NOTICE '  Active Memberships: %', v_total_memberships - v_expired_memberships;
+
     RAISE NOTICE '';
     RAISE NOTICE 'Top 10 Newest Customers (highest CUSTOMERID):';
 
@@ -281,7 +297,9 @@ BEGIN
     VALUES ('MANAGER_PRODUCTS_COUNT', v_manager_products),
            ('SPECIAL_PRODUCTS_COUNT', v_special_products),
            ('TOTAL_HELPFULNESS', v_total_helpfulness),
-           ('MAX_CUSTOMERID', v_max_customerid);
+           ('MAX_CUSTOMERID', v_max_customerid),
+           ('TOTAL_MEMBERSHIPS', v_total_memberships),
+           ('EXPIRED_MEMBERSHIPS', v_expired_memberships);
 END $$;
 
 SELECT

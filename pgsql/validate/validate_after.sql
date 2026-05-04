@@ -155,7 +155,6 @@ BEGIN
     RAISE NOTICE '--- TOP 20 REORDER BY QUANTITY (Restock Trigger Verification) ---';
     RAISE NOTICE 'Verifying: Restock trigger fired for products that sold out';
     RAISE NOTICE 'Expected: REORDER table should show new restocking activity';
-    RAISE NOTICE 'Expected: Popular products (ID %% 10000 = 0) should appear frequently';
     RAISE NOTICE '';
 END $$;
 
@@ -263,7 +262,6 @@ BEGIN
     RAISE NOTICE '    Delta: %', v_total_helpfulness - v_total_helpfulness_pre;
     RAISE NOTICE '';
     RAISE NOTICE 'Reviews for Popular Products (ID %% 10000 = 0):';
-    RAISE NOTICE '  Expected: Increase when managers disabled, increase at a slower rate when managers enabled';
     RAISE NOTICE '';
 
     RAISE NOTICE '';
@@ -431,6 +429,41 @@ WHERE (PRICE - FLOOR(PRICE)) != 0.99 AND (PRICE - FLOOR(PRICE)) != 0.01
 ORDER BY PROD_ID
 LIMIT 10;
 
+-- Membership Expiration Verification
+DO $$
+DECLARE
+    v_total_memberships INT;
+    v_expired_memberships INT;
+    v_total_memberships_pre INT;
+    v_expired_memberships_pre INT;
+BEGIN
+    -- Get current membership counts
+    SELECT COUNT(*) INTO v_total_memberships FROM MEMBERSHIP1;
+    SELECT COUNT(*) INTO v_expired_memberships FROM MEMBERSHIP1 WHERE EXPIREDATE < CURRENT_TIMESTAMP;
+
+    -- Get pre-test membership counts
+    SELECT metric_value INTO v_total_memberships_pre FROM VALIDATION_METRICS WHERE metric_name = 'TOTAL_MEMBERSHIPS';
+    SELECT metric_value INTO v_expired_memberships_pre FROM VALIDATION_METRICS WHERE metric_name = 'EXPIRED_MEMBERSHIPS';
+
+    RAISE NOTICE '';
+    RAISE NOTICE 'Membership Status:';
+    RAISE NOTICE 'Verifying: Membership changes during benchmark';
+    RAISE NOTICE 'Expected: New memberships created, expired memberships may be deleted by ExpireMemberships manager';
+    RAISE NOTICE '  Total Memberships:';
+    RAISE NOTICE '    Pre:   %', v_total_memberships_pre;
+    RAISE NOTICE '    Post:  %', v_total_memberships;
+    RAISE NOTICE '    Delta: %', v_total_memberships - v_total_memberships_pre;
+    RAISE NOTICE '  Expired Memberships (EXPIREDATE < current date):';
+    RAISE NOTICE '    Pre:   %', v_expired_memberships_pre;
+    RAISE NOTICE '    Post:  %', v_expired_memberships;
+    RAISE NOTICE '    Delta: %', v_expired_memberships - v_expired_memberships_pre;
+    RAISE NOTICE '  Active Memberships:';
+    RAISE NOTICE '    Pre:   %', v_total_memberships_pre - v_expired_memberships_pre;
+    RAISE NOTICE '    Post:  %', v_total_memberships - v_expired_memberships;
+    RAISE NOTICE '    Delta: %', (v_total_memberships - v_expired_memberships) - (v_total_memberships_pre - v_expired_memberships_pre);
+    RAISE NOTICE '  (ExpireMemberships deletes expired entries, reducing total count)';
+END $$;
+
 -- New Product Verification
 DO $$
 DECLARE
@@ -555,11 +588,57 @@ DECLARE
     v_orders_after INT;
     v_reviews_before INT;
     v_reviews_after INT;
+    v_reviews_helpfulness_before INT;
+    v_reviews_helpfulness_after INT;
     v_products_before INT;
     v_products_after INT;
+    v_memberships_before INT;
+    v_memberships_after INT;
     v_max_customerid_pre INT;
     v_adjusted_prices INT;
+    v_reviews_delta INT;
+    v_helpfulness_deleted INT;
+    v_avg_helpfulness NUMERIC(10,2);
 BEGIN
+    RAISE NOTICE '';
+    RAISE NOTICE '';
+
+    -- =======================================================================
+    -- CASCADE DELETE VERIFICATION
+    -- Purpose: Verify REVIEWS_HELPFULNESS cascade deletes when reviews removed
+    -- Expected: Helpfulness votes deleted when reviews deleted by manager operations
+    -- =======================================================================
+    RAISE NOTICE '--- CASCADE DELETE VERIFICATION (REVIEWS_HELPFULNESS) ---';
+    RAISE NOTICE 'Verifying: Foreign key CASCADE DELETE when reviews are removed';
+    RAISE NOTICE 'Expected: REVIEWS_HELPFULNESS records deleted automatically when parent review deleted';
+    RAISE NOTICE '';
+
+    SELECT metric_value INTO v_reviews_before FROM VALIDATION_METRICS WHERE metric_name = 'REVIEWS_COUNT';
+    SELECT metric_value INTO v_reviews_helpfulness_before FROM VALIDATION_METRICS WHERE metric_name = 'REVIEWS_HELPFULNESS_COUNT';
+
+    SELECT COUNT(*) INTO v_reviews_after FROM REVIEWS1;
+    SELECT COUNT(*) INTO v_reviews_helpfulness_after FROM REVIEWS_HELPFULNESS1;
+
+    v_reviews_delta := v_reviews_after - v_reviews_before;
+    v_helpfulness_deleted := v_reviews_helpfulness_before - v_reviews_helpfulness_after;
+
+    RAISE NOTICE 'Reviews:';
+    RAISE NOTICE '  Pre:     %', v_reviews_before;
+    RAISE NOTICE '  Post:    %', v_reviews_after;
+    RAISE NOTICE '  Deleted: %', -v_reviews_delta;
+
+    RAISE NOTICE 'Reviews Helpfulness (should cascade delete with reviews):';
+    RAISE NOTICE '  Pre:     %', v_reviews_helpfulness_before;
+    RAISE NOTICE '  Post:    %', v_reviews_helpfulness_after;
+    RAISE NOTICE '  Deleted: %', v_helpfulness_deleted;
+
+    IF v_reviews_delta < 0 THEN
+        v_avg_helpfulness := v_helpfulness_deleted::NUMERIC / (-v_reviews_delta)::NUMERIC;
+        RAISE NOTICE '  Avg helpfulness votes per deleted review: %', v_avg_helpfulness;
+    ELSE
+        RAISE NOTICE '  (No reviews deleted - cascade not tested)';
+    END IF;
+
     RAISE NOTICE '';
     RAISE NOTICE '';
 
@@ -572,23 +651,24 @@ BEGIN
     -- Calculate deltas from baseline
     SELECT metric_value INTO v_customers_before FROM VALIDATION_METRICS WHERE metric_name = 'CUSTOMERS_COUNT';
     SELECT metric_value INTO v_orders_before FROM VALIDATION_METRICS WHERE metric_name = 'ORDERS_COUNT';
-    SELECT metric_value INTO v_reviews_before FROM VALIDATION_METRICS WHERE metric_name = 'REVIEWS_COUNT';
     SELECT metric_value INTO v_products_before FROM VALIDATION_METRICS WHERE metric_name = 'PRODUCTS_COUNT';
+    SELECT metric_value INTO v_memberships_before FROM VALIDATION_METRICS WHERE metric_name = 'MEMBERSHIP_COUNT';
 
     SELECT COUNT(*) INTO v_customers_after FROM CUSTOMERS1;
     SELECT COUNT(*) INTO v_orders_after FROM ORDERS1;
-    SELECT COUNT(*) INTO v_reviews_after FROM REVIEWS1;
     SELECT COUNT(*) INTO v_products_after FROM PRODUCTS1;
+    SELECT COUNT(*) INTO v_memberships_after FROM MEMBERSHIP1;
 
     SELECT COUNT(*) INTO v_adjusted_prices
     FROM PRODUCTS1
     WHERE (PRICE - FLOOR(PRICE)) != 0.99 AND (PRICE - FLOOR(PRICE)) != 0.01;
 
     RAISE NOTICE 'New Records Created During Benchmark:';
-    RAISE NOTICE '  Customers: %', v_customers_after - v_customers_before;
-    RAISE NOTICE '  Orders:    %', v_orders_after - v_orders_before;
-    RAISE NOTICE '  Reviews:   %', v_reviews_after - v_reviews_before;
-    RAISE NOTICE '  Products:  %', v_products_after - v_products_before;
+    RAISE NOTICE '  Customers:   %', v_customers_after - v_customers_before;
+    RAISE NOTICE '  Orders:      %', v_orders_after - v_orders_before;
+    RAISE NOTICE '  Reviews:     %', v_reviews_after - v_reviews_before;
+    RAISE NOTICE '  Products:    %', v_products_after - v_products_before;
+    RAISE NOTICE '  Memberships: %', v_memberships_after - v_memberships_before;
 
     RAISE NOTICE '';
     RAISE NOTICE 'Manager Operation Impact:';
