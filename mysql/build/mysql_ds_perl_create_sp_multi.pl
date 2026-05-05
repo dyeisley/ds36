@@ -550,7 +550,7 @@ BEGIN
         SET v_common_id = FLOOR(1 + (RAND() * v_max_id));
     END IF;
 
-    SET v_membership = FLOOR(1 + (RAND() * 3));
+    SET v_membership = FLOOR(RAND() * 4);
 
     START TRANSACTION;
 
@@ -698,6 +698,47 @@ BEGIN
         LIMIT p_batch_size
         FOR UPDATE SKIP LOCKED
     ) AS to_delete ON o.ORDERID = to_delete.ORDERID;
+    SELECT ROW_COUNT() AS rows_affected;
+END $$
+
+DROP PROCEDURE IF EXISTS DS3.UpgradeMembership$k $$
+CREATE PROCEDURE DS3.UpgradeMembership$k
+(
+    IN p_batch_size INT
+)
+BEGIN
+    -- Time-based slicing: process 1% of customer base per minute
+    -- Full coverage every 100 minutes, then repeats (stateless partitioning)
+    DECLARE v_current_slice INT DEFAULT MOD(MINUTE(NOW()), 100);
+
+    -- Count total purchases per customer, upgrade membership if thresholds met
+    -- Gold (3): >= 20 purchases, Silver (2): >= 10 purchases
+    -- UPGRADE ONLY - never downgrade
+    -- Reward: extend expiration by 180 days when upgrading
+    UPDATE MEMBERSHIP$k m
+    INNER JOIN (
+        SELECT
+            ch.CUSTOMERID,
+            CASE
+                WHEN COUNT(*) >= 20 THEN 3  -- Gold
+                WHEN COUNT(*) >= 10 THEN 2  -- Silver
+                ELSE 1
+            END AS new_level
+        FROM CUST_HIST$k ch
+        INNER JOIN MEMBERSHIP$k m2 ON ch.CUSTOMERID = m2.CUSTOMERID
+        WHERE MOD(ch.CUSTOMERID, 100) = v_current_slice
+        GROUP BY ch.CUSTOMERID, m2.MEMBERSHIPTYPE
+        HAVING CASE
+            WHEN COUNT(*) >= 20 THEN 3
+            WHEN COUNT(*) >= 10 THEN 2
+            ELSE 1
+        END > m2.MEMBERSHIPTYPE
+        LIMIT p_batch_size
+    ) AS upgrades ON m.CUSTOMERID = upgrades.CUSTOMERID
+    SET
+        m.MEMBERSHIPTYPE = upgrades.new_level,
+        m.EXPIREDATE = DATE_ADD(m.EXPIREDATE, INTERVAL 180 DAY);
+
     SELECT ROW_COUNT() AS rows_affected;
 END $$
 

@@ -62,7 +62,7 @@ SELECT
     END), 10) AS DELTA
 FROM VALIDATION_METRICS m
 WHERE m.metric_name LIKE '%_COUNT'
-    AND m.metric_name NOT IN ('MANAGER_PRODUCTS_COUNT', 'SPECIAL_PRODUCTS_COUNT', 'OLD_ORDERS_COUNT')
+    AND m.metric_name NOT IN ('MANAGER_PRODUCTS_COUNT', 'SPECIAL_PRODUCTS_COUNT', 'OLD_ORDERS_COUNT', 'SILVER_MEMBERS_COUNT', 'GOLD_MEMBERS_COUNT')
 ORDER BY TABLENAME;
 
 BEGIN
@@ -633,6 +633,12 @@ DECLARE
     v_old_orders_before NUMBER;
     v_old_orders_after NUMBER;
     v_old_orders_deleted NUMBER;
+    v_silver_members_before NUMBER;
+    v_silver_members_after NUMBER;
+    v_silver_upgrades NUMBER;
+    v_gold_members_before NUMBER;
+    v_gold_members_after NUMBER;
+    v_gold_upgrades NUMBER;
 BEGIN
     DBMS_OUTPUT.PUT_LINE('');
     DBMS_OUTPUT.PUT_LINE('');
@@ -726,6 +732,86 @@ BEGIN
     DBMS_OUTPUT.PUT_LINE('');
 
     -- =======================================================================
+    -- MEMBERSHIP TIER UPGRADES
+    -- =======================================================================
+    DBMS_OUTPUT.PUT_LINE('--- MEMBERSHIP TIER UPGRADES ---');
+
+    SELECT metric_value INTO v_silver_members_before FROM VALIDATION_METRICS WHERE metric_name = 'SILVER_MEMBERS_COUNT';
+    SELECT metric_value INTO v_gold_members_before FROM VALIDATION_METRICS WHERE metric_name = 'GOLD_MEMBERS_COUNT';
+
+    SELECT COUNT(*) INTO v_silver_members_after FROM DS3.MEMBERSHIP1 WHERE MEMBERSHIPTYPE = 2;
+    SELECT COUNT(*) INTO v_gold_members_after FROM DS3.MEMBERSHIP1 WHERE MEMBERSHIPTYPE = 3;
+
+    v_silver_upgrades := v_silver_members_after - v_silver_members_before;
+    v_gold_upgrades := v_gold_members_after - v_gold_members_before;
+
+    DBMS_OUTPUT.PUT_LINE('Silver Members (Level 2):');
+    DBMS_OUTPUT.PUT_LINE('  Pre:      ' || v_silver_members_before);
+    DBMS_OUTPUT.PUT_LINE('  Post:     ' || v_silver_members_after);
+    DBMS_OUTPUT.PUT_LINE('  Upgrades: ' || v_silver_upgrades);
+
+    DBMS_OUTPUT.PUT_LINE('Gold Members (Level 3):');
+    DBMS_OUTPUT.PUT_LINE('  Pre:      ' || v_gold_members_before);
+    DBMS_OUTPUT.PUT_LINE('  Post:     ' || v_gold_members_after);
+    DBMS_OUTPUT.PUT_LINE('  Upgrades: ' || v_gold_upgrades);
+
+    DBMS_OUTPUT.PUT_LINE('');
+    DBMS_OUTPUT.PUT_LINE('--- MEMBERSHIP SAMPLE TRACKING (Top 25 Changes from 10000 Sampled) ---');
+END;
+/
+
+-- Display sample tracking results
+SELECT * FROM (
+    SELECT
+        s.CUSTOMERID,
+        s.MEMBERSHIPTYPE AS before_level,
+        NVL(m.MEMBERSHIPTYPE, -1) AS after_level,
+        TO_CHAR(s.EXPIREDATE, 'YYYY-MM-DD') AS before_expire,
+        NVL(TO_CHAR(m.EXPIREDATE, 'YYYY-MM-DD'), 'N/A') AS after_expire,
+        CASE
+            WHEN m.CUSTOMERID IS NULL THEN 'DELETED'
+            WHEN m.MEMBERSHIPTYPE > s.MEMBERSHIPTYPE THEN 'UPGRADED'
+            WHEN m.EXPIREDATE > s.EXPIREDATE THEN 'EXTENDED'
+            ELSE 'NO CHANGE'
+        END AS status
+    FROM VALIDATION_MEMBERSHIP_SAMPLE s
+    LEFT JOIN DS3.MEMBERSHIP1 m ON s.CUSTOMERID = m.CUSTOMERID
+    WHERE
+        m.CUSTOMERID IS NULL OR
+        m.MEMBERSHIPTYPE > s.MEMBERSHIPTYPE OR
+        m.EXPIREDATE > s.EXPIREDATE
+    ORDER BY
+        CASE
+            WHEN m.CUSTOMERID IS NULL THEN 0
+            WHEN m.MEMBERSHIPTYPE > s.MEMBERSHIPTYPE THEN 1
+            WHEN m.EXPIREDATE > s.EXPIREDATE THEN 2
+            ELSE 3
+        END,
+        s.CUSTOMERID
+)
+WHERE ROWNUM <= 25;
+
+DECLARE
+    v_customers_before NUMBER;
+    v_customers_after NUMBER;
+    v_customers_delta NUMBER;
+    v_orders_before NUMBER;
+    v_orders_after NUMBER;
+    v_orders_delta NUMBER;
+    v_products_before NUMBER;
+    v_products_after NUMBER;
+    v_products_delta NUMBER;
+    v_memberships_before NUMBER;
+    v_memberships_after NUMBER;
+    v_memberships_delta NUMBER;
+    v_reviews_before NUMBER;
+    v_reviews_after NUMBER;
+    v_adjusted_prices NUMBER;
+    v_max_customerid_pre NUMBER;
+BEGIN
+    DBMS_OUTPUT.PUT_LINE('');
+
+    -- =======================================================================
     -- BENCHMARK ACTIVITY SUMMARY
     -- =======================================================================
     DBMS_OUTPUT.PUT_LINE('--- BENCHMARK ACTIVITY SUMMARY ---');
@@ -736,11 +822,13 @@ BEGIN
     SELECT metric_value INTO v_orders_before FROM VALIDATION_METRICS WHERE metric_name = 'ORDERS_COUNT';
     SELECT metric_value INTO v_products_before FROM VALIDATION_METRICS WHERE metric_name = 'PRODUCTS_COUNT';
     SELECT metric_value INTO v_memberships_before FROM VALIDATION_METRICS WHERE metric_name = 'MEMBERSHIP_COUNT';
+    SELECT metric_value INTO v_reviews_before FROM VALIDATION_METRICS WHERE metric_name = 'REVIEWS_COUNT';
 
     SELECT COUNT(*) INTO v_customers_after FROM DS3.CUSTOMERS1;
     SELECT COUNT(*) INTO v_orders_after FROM DS3.ORDERS1;
     SELECT COUNT(*) INTO v_products_after FROM DS3.PRODUCTS1;
     SELECT COUNT(*) INTO v_memberships_after FROM DS3.MEMBERSHIP1;
+    SELECT COUNT(*) INTO v_reviews_after FROM DS3.REVIEWS1;
 
     DBMS_OUTPUT.PUT_LINE('New Records Created During Benchmark:');
     DBMS_OUTPUT.PUT_LINE('  Customers:   ' || (v_customers_after - v_customers_before));

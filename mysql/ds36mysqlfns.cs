@@ -42,7 +42,7 @@ namespace ds2xdriver
     int ds2Interfaceid;
     MySqlConnection objConn;
     MySqlCommand Login, New_Customer, New_Member, Browse, BrowseReviews, GetReviews, New_Review, New_Helpfulness, Purchase;
-    MySqlCommand Remove_Review_By_Product, Remove_Unhelpful_Reviews, Remove_Reviews_By_Date, Adjust_Prices, Mark_Specials, Expire_Memberships, Purge_Old_Orders;
+    MySqlCommand Remove_Review_By_Product, Remove_Unhelpful_Reviews, Remove_Reviews_By_Date, Adjust_Prices, Mark_Specials, Expire_Memberships, Purge_Old_Orders, Upgrade_Membership;
     MySqlParameter cust_out_param, reviewid_out_param, helpfulnessid_out_param;
     //string conn_str = "Server=" +  Controller.target + ";User ID=web;Password=web;Database=DS2";
     //Changed by GSK (connection string will be initialized in new Overloaded constructor )
@@ -182,6 +182,10 @@ namespace ds2xdriver
       Purge_Old_Orders = new MySqlCommand("PurgeOldOrders" + target_store_number, objConn);
       Purge_Old_Orders.CommandType = CommandType.StoredProcedure;
       Purge_Old_Orders.Parameters.Add("p_batch_size", MySqlDbType.Int32);
+
+      Upgrade_Membership = new MySqlCommand("UpgradeMembership" + target_store_number, objConn);
+      Upgrade_Membership.CommandType = CommandType.StoredProcedure;
+      Upgrade_Membership.Parameters.Add("p_batch_size", MySqlDbType.Int32);
 
       return(true);
       } // end ds2connect()
@@ -1157,6 +1161,27 @@ namespace ds2xdriver
         catch (Exception e)
         {
             Console.WriteLine($"Thread {Thread.CurrentThread.Name}: ds36purgeoldorders error: {e.Message}");
+            return 0;
+        }
+        finally
+        {
+            rt = timer.Elapsed.TotalSeconds;
+        }
+    }
+
+    public int ds36upgrademembership(int batchSize, ref double rt)
+    {
+        Upgrade_Membership.Parameters["p_batch_size"].Value = batchSize;
+
+        Stopwatch timer = Stopwatch.StartNew();
+        try
+        {
+            object result = Upgrade_Membership.ExecuteScalar();
+            return result != null ? Convert.ToInt32(result) : 0;
+        }
+        catch (Exception e)
+        {
+            Console.WriteLine($"Thread {Thread.CurrentThread.Name}: ds36upgrademembership error: {e.Message}");
             return 0;
         }
         finally

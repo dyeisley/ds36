@@ -674,7 +674,7 @@ BEGIN
         v_common_id := floor(1 + (random() * v_max_id))::int;
     END IF;
 
-    v_membership := floor(1 + (random() * 3))::int;
+    v_membership := floor(random() * 4)::int;
 
     INSERT INTO products$k (category, title, actor, price, special, common_prod_id, membership_item)
     VALUES (p_cat, p_title, p_actor, p_price, 0, v_common_id, v_membership)
@@ -835,6 +835,53 @@ BEGIN
     );
 
     GET DIAGNOSTICS rows_deleted = ROW_COUNT;
+END;
+\$\$;
+
+CREATE OR REPLACE FUNCTION upgrade_membership$k (
+    IN p_batch_size int,
+    OUT rows_upgraded int
+)
+LANGUAGE plpgsql
+AS \$\$
+DECLARE
+    v_current_slice int;
+BEGIN
+    -- Time-based slicing: process 1% of customer base per minute
+    -- Full coverage every 100 minutes, then repeats (stateless partitioning)
+    v_current_slice := EXTRACT(MINUTE FROM CURRENT_TIMESTAMP)::int % 100;
+
+    -- Count total purchases per customer, upgrade membership if thresholds met
+    -- Gold (3): >= 20 purchases, Silver (2): >= 10 purchases
+    -- UPGRADE ONLY - never downgrade
+    -- Reward: extend expiration by 180 days when upgrading
+    WITH customer_purchases AS (
+        SELECT
+            ch.customerid,
+            CASE
+                WHEN COUNT(*) >= 20 THEN 3  -- Gold
+                WHEN COUNT(*) >= 10 THEN 2  -- Silver
+                ELSE m.membershiptype
+            END AS new_level
+        FROM cust_hist$k ch
+        INNER JOIN membership$k m ON ch.customerid = m.customerid
+        WHERE ch.customerid % 100 = v_current_slice
+        GROUP BY ch.customerid, m.membershiptype
+        HAVING CASE
+            WHEN COUNT(*) >= 20 THEN 3
+            WHEN COUNT(*) >= 10 THEN 2
+            ELSE m.membershiptype
+        END > m.membershiptype
+        LIMIT p_batch_size
+    )
+    UPDATE membership$k m
+    SET
+        membershiptype = cp.new_level,
+        expiredate = m.expiredate + INTERVAL '180 days'
+    FROM customer_purchases cp
+    WHERE m.customerid = cp.customerid;
+
+    GET DIAGNOSTICS rows_upgraded = ROW_COUNT;
 END;
 \$\$;
 

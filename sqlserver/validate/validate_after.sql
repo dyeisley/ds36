@@ -54,7 +54,7 @@ SELECT
         END AS VARCHAR), 15) AS [Delta]
 FROM VALIDATION_METRICS m
 WHERE m.metric_name LIKE '%_COUNT'
-    AND m.metric_name NOT IN ('MANAGER_PRODUCTS_COUNT', 'SPECIAL_PRODUCTS_COUNT', 'OLD_ORDERS_COUNT')
+    AND m.metric_name NOT IN ('MANAGER_PRODUCTS_COUNT', 'SPECIAL_PRODUCTS_COUNT', 'OLD_ORDERS_COUNT', 'SILVER_MEMBERS_COUNT', 'GOLD_MEMBERS_COUNT')
 ORDER BY [Table];
 
 PRINT '';
@@ -509,6 +509,64 @@ BEGIN
 END
 
 PRINT '';
+
+-- =======================================================================
+-- MEMBERSHIP TIER UPGRADES
+-- =======================================================================
+PRINT '--- MEMBERSHIP TIER UPGRADES ---';
+-- Track upgrades from purchase-based tier advancement
+DECLARE @SilverMembersBefore INT, @SilverMembersAfter INT, @SilverUpgrades INT;
+DECLARE @GoldMembersBefore INT, @GoldMembersAfter INT, @GoldUpgrades INT;
+
+SELECT @SilverMembersBefore = metric_value FROM VALIDATION_METRICS WHERE metric_name = 'SILVER_MEMBERS_COUNT';
+SELECT @GoldMembersBefore = metric_value FROM VALIDATION_METRICS WHERE metric_name = 'GOLD_MEMBERS_COUNT';
+
+SELECT @SilverMembersAfter = COUNT(*) FROM MEMBERSHIP1 WHERE MEMBERSHIPTYPE = 2;
+SELECT @GoldMembersAfter = COUNT(*) FROM MEMBERSHIP1 WHERE MEMBERSHIPTYPE = 3;
+
+SET @SilverUpgrades = @SilverMembersAfter - @SilverMembersBefore;
+SET @GoldUpgrades = @GoldMembersAfter - @GoldMembersBefore;
+
+PRINT 'Silver Members (Level 2):';
+PRINT '  Pre:      ' + CAST(@SilverMembersBefore AS VARCHAR);
+PRINT '  Post:     ' + CAST(@SilverMembersAfter AS VARCHAR);
+PRINT '  Upgrades: ' + CAST(@SilverUpgrades AS VARCHAR);
+
+PRINT 'Gold Members (Level 3):';
+PRINT '  Pre:      ' + CAST(@GoldMembersBefore AS VARCHAR);
+PRINT '  Post:     ' + CAST(@GoldMembersAfter AS VARCHAR);
+PRINT '  Upgrades: ' + CAST(@GoldUpgrades AS VARCHAR);
+
+PRINT '';
+PRINT '--- MEMBERSHIP SAMPLE TRACKING (Top 25 Changes from 10000 Sampled) ---';
+
+SELECT TOP 25
+    s.CUSTOMERID,
+    s.MEMBERSHIPTYPE AS before_level,
+    ISNULL(m.MEMBERSHIPTYPE, -1) AS after_level,
+    CONVERT(VARCHAR(10), s.EXPIREDATE, 120) AS before_expire,
+    ISNULL(CONVERT(VARCHAR(10), m.EXPIREDATE, 120), 'N/A') AS after_expire,
+    CASE
+        WHEN m.CUSTOMERID IS NULL THEN 'DELETED'
+        WHEN m.MEMBERSHIPTYPE > s.MEMBERSHIPTYPE THEN 'UPGRADED'
+        WHEN m.EXPIREDATE > s.EXPIREDATE THEN 'EXTENDED'
+        ELSE 'NO CHANGE'
+    END AS status
+FROM VALIDATION_MEMBERSHIP_SAMPLE s
+LEFT JOIN MEMBERSHIP1 m ON s.CUSTOMERID = m.CUSTOMERID
+WHERE
+    m.CUSTOMERID IS NULL OR
+    m.MEMBERSHIPTYPE > s.MEMBERSHIPTYPE OR
+    m.EXPIREDATE > s.EXPIREDATE
+ORDER BY
+    CASE
+        WHEN m.CUSTOMERID IS NULL THEN 0
+        WHEN m.MEMBERSHIPTYPE > s.MEMBERSHIPTYPE THEN 1
+        WHEN m.EXPIREDATE > s.EXPIREDATE THEN 2
+        ELSE 3
+    END,
+    s.CUSTOMERID;
+
 PRINT '';
 
 -- =======================================================================

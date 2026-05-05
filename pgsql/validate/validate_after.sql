@@ -54,7 +54,7 @@ SELECT
     END - m.metric_value)::TEXT, 15) AS "Delta"
 FROM VALIDATION_METRICS m
 WHERE m.metric_name LIKE '%_COUNT'
-    AND m.metric_name NOT IN ('MANAGER_PRODUCTS_COUNT', 'SPECIAL_PRODUCTS_COUNT', 'OLD_ORDERS_COUNT')
+    AND m.metric_name NOT IN ('MANAGER_PRODUCTS_COUNT', 'SPECIAL_PRODUCTS_COUNT', 'OLD_ORDERS_COUNT', 'SILVER_MEMBERS_COUNT', 'GOLD_MEMBERS_COUNT')
 ORDER BY "Table";
 
 DO $$
@@ -607,6 +607,12 @@ DECLARE
     v_old_orders_before INT;
     v_old_orders_after INT;
     v_old_orders_deleted INT;
+    v_silver_members_before INT;
+    v_silver_members_after INT;
+    v_silver_upgrades INT;
+    v_gold_members_before INT;
+    v_gold_members_after INT;
+    v_gold_upgrades INT;
 BEGIN
     RAISE NOTICE '';
     RAISE NOTICE '';
@@ -700,6 +706,80 @@ BEGIN
     RAISE NOTICE '';
 
     -- =======================================================================
+    -- MEMBERSHIP TIER UPGRADES
+    -- =======================================================================
+    RAISE NOTICE '--- MEMBERSHIP TIER UPGRADES ---';
+
+    SELECT metric_value INTO v_silver_members_before FROM VALIDATION_METRICS WHERE metric_name = 'SILVER_MEMBERS_COUNT';
+    SELECT metric_value INTO v_gold_members_before FROM VALIDATION_METRICS WHERE metric_name = 'GOLD_MEMBERS_COUNT';
+
+    SELECT COUNT(*) INTO v_silver_members_after FROM MEMBERSHIP1 WHERE MEMBERSHIPTYPE = 2;
+    SELECT COUNT(*) INTO v_gold_members_after FROM MEMBERSHIP1 WHERE MEMBERSHIPTYPE = 3;
+
+    v_silver_upgrades := v_silver_members_after - v_silver_members_before;
+    v_gold_upgrades := v_gold_members_after - v_gold_members_before;
+
+    RAISE NOTICE 'Silver Members (Level 2):';
+    RAISE NOTICE '  Pre:      %', v_silver_members_before;
+    RAISE NOTICE '  Post:     %', v_silver_members_after;
+    RAISE NOTICE '  Upgrades: %', v_silver_upgrades;
+
+    RAISE NOTICE 'Gold Members (Level 3):';
+    RAISE NOTICE '  Pre:      %', v_gold_members_before;
+    RAISE NOTICE '  Post:     %', v_gold_members_after;
+    RAISE NOTICE '  Upgrades: %', v_gold_upgrades;
+
+    RAISE NOTICE '';
+    RAISE NOTICE '--- MEMBERSHIP SAMPLE TRACKING (Top 25 Changes from 10000 Sampled) ---';
+END $$;
+
+-- Display sample tracking results (outside DO block for table output)
+SELECT
+    s.CUSTOMERID,
+    s.MEMBERSHIPTYPE AS before_level,
+    COALESCE(m.MEMBERSHIPTYPE, -1) AS after_level,
+    TO_CHAR(s.EXPIREDATE, 'YYYY-MM-DD') AS before_expire,
+    COALESCE(TO_CHAR(m.EXPIREDATE, 'YYYY-MM-DD'), 'N/A') AS after_expire,
+    CASE
+        WHEN m.CUSTOMERID IS NULL THEN 'DELETED'
+        WHEN m.MEMBERSHIPTYPE > s.MEMBERSHIPTYPE THEN 'UPGRADED'
+        WHEN m.EXPIREDATE > s.EXPIREDATE THEN 'EXTENDED'
+        ELSE 'NO CHANGE'
+    END AS status
+FROM VALIDATION_MEMBERSHIP_SAMPLE s
+LEFT JOIN MEMBERSHIP1 m ON s.CUSTOMERID = m.CUSTOMERID
+WHERE
+    m.CUSTOMERID IS NULL OR
+    m.MEMBERSHIPTYPE > s.MEMBERSHIPTYPE OR
+    m.EXPIREDATE > s.EXPIREDATE
+ORDER BY
+    CASE
+        WHEN m.CUSTOMERID IS NULL THEN 0
+        WHEN m.MEMBERSHIPTYPE > s.MEMBERSHIPTYPE THEN 1
+        WHEN m.EXPIREDATE > s.EXPIREDATE THEN 2
+        ELSE 3
+    END,
+    s.CUSTOMERID
+LIMIT 25;
+
+DO $$
+DECLARE
+    v_customers_before INT;
+    v_customers_after INT;
+    v_orders_before INT;
+    v_orders_after INT;
+    v_products_before INT;
+    v_products_after INT;
+    v_memberships_before INT;
+    v_memberships_after INT;
+    v_reviews_before INT;
+    v_reviews_after INT;
+    v_adjusted_prices INT;
+    v_max_customerid_pre INT;
+BEGIN
+    RAISE NOTICE '';
+
+    -- =======================================================================
     -- BENCHMARK ACTIVITY SUMMARY
     -- =======================================================================
     RAISE NOTICE '--- BENCHMARK ACTIVITY SUMMARY ---';
@@ -710,11 +790,13 @@ BEGIN
     SELECT metric_value INTO v_orders_before FROM VALIDATION_METRICS WHERE metric_name = 'ORDERS_COUNT';
     SELECT metric_value INTO v_products_before FROM VALIDATION_METRICS WHERE metric_name = 'PRODUCTS_COUNT';
     SELECT metric_value INTO v_memberships_before FROM VALIDATION_METRICS WHERE metric_name = 'MEMBERSHIP_COUNT';
+    SELECT metric_value INTO v_reviews_before FROM VALIDATION_METRICS WHERE metric_name = 'REVIEWS_COUNT';
 
     SELECT COUNT(*) INTO v_customers_after FROM CUSTOMERS1;
     SELECT COUNT(*) INTO v_orders_after FROM ORDERS1;
     SELECT COUNT(*) INTO v_products_after FROM PRODUCTS1;
     SELECT COUNT(*) INTO v_memberships_after FROM MEMBERSHIP1;
+    SELECT COUNT(*) INTO v_reviews_after FROM REVIEWS1;
 
     SELECT COUNT(*) INTO v_adjusted_prices
     FROM PRODUCTS1

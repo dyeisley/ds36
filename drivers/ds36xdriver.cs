@@ -166,9 +166,10 @@ namespace ds2xdriver
     public static int manager_add_product_pct = 40;
     public static int manager_delete_review_pct = 20;
     public static int manager_update_price_pct = 25;
-    public static int manager_update_special_pct = 15;
+    public static int manager_update_special_pct = 5;
     public static int manager_expire_memberships_pct = 1;
     public static int manager_purge_old_orders_pct = 5;
+    public static int manager_upgrade_membership_pct = 1;
     public static int manager_batch_size_min = 1;
     public static int manager_batch_size_max = 5;
 
@@ -756,7 +757,7 @@ namespace ds2xdriver
       {
         Name = "manager_update_special_pct",
         Description = "Percentage chance of marking specials",
-        DefaultValue = "15",
+        DefaultValue = "5",
         Type = ParamType.Int,
         Validator = (value) => ValidateInt(value, min: 0, max: 100)
       };
@@ -777,6 +778,16 @@ namespace ds2xdriver
         Name = "manager_purge_old_orders_pct",
         Description = "Percentage chance of purging oldest orders (data retention/GDPR compliance)",
         DefaultValue = "5",
+        Type = ParamType.Int,
+        Validator = (value) => ValidateInt(value, min: 0, max: 100)
+      };
+
+      // manager_upgrade_membership_pct - percentage for upgrade membership operation
+      definitions["manager_upgrade_membership_pct"] = new ParameterDefinition
+      {
+        Name = "manager_upgrade_membership_pct",
+        Description = "Percentage chance of upgrading customer memberships based on purchase history",
+        DefaultValue = "1",
         Type = ParamType.Int,
         Validator = (value) => ValidateInt(value, min: 0, max: 100)
       };
@@ -1286,6 +1297,7 @@ namespace ds2xdriver
       manager_update_special_pct = parser.GetValue<int>("manager_update_special_pct");
       manager_expire_memberships_pct = parser.GetValue<int>("manager_expire_memberships_pct");
       manager_purge_old_orders_pct = parser.GetValue<int>("manager_purge_old_orders_pct");
+      manager_upgrade_membership_pct = parser.GetValue<int>("manager_upgrade_membership_pct");
       manager_batch_size_min = parser.GetValue<int>("manager_batch_size_min");
       manager_batch_size_max = parser.GetValue<int>("manager_batch_size_max");
 
@@ -2260,6 +2272,7 @@ namespace ds2xdriver
         Console.WriteLine($"    MarkSpecial={manager_update_special_pct}%");
         Console.WriteLine($"    ExpireMemberships={manager_expire_memberships_pct}%");
         Console.WriteLine($"    PurgeOldOrders={manager_purge_old_orders_pct}%");
+        Console.WriteLine($"    UpgradeMembership={manager_upgrade_membership_pct}%");
         Console.WriteLine($"  Batch size: {manager_batch_size_min}-{manager_batch_size_max}");
       }
       else

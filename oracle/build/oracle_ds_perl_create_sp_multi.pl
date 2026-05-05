@@ -768,7 +768,7 @@ BEGIN
         v_common_id := TRUNC(DBMS_RANDOM.VALUE(1, v_max_id + 1));
     END IF;
 
-    v_membership := TRUNC(DBMS_RANDOM.VALUE(1, 4));
+    v_membership := TRUNC(DBMS_RANDOM.VALUE(0, 4));
 
     INSERT INTO PRODUCTS$k (
         PROD_ID, CATEGORY, TITLE, ACTOR, PRICE, SPECIAL, COMMON_PROD_ID, MEMBERSHIP_ITEM
@@ -1077,6 +1077,61 @@ BEGIN
         WHERE ORDERID = v_order_ids(i);
 
     p_rows_affected := SQL%ROWCOUNT;
+
+    COMMIT;
+
+EXCEPTION
+    WHEN OTHERS THEN
+        ROLLBACK;
+        RAISE;
+END;
+/
+
+CREATE OR REPLACE PROCEDURE DS3.UpgradeMembership$k (
+    p_batch_size     IN  NUMBER,
+    p_rows_upgraded  OUT NUMBER
+) AS
+    v_current_slice NUMBER;
+BEGIN
+    -- Time-based slicing: process 1% of customer base per minute
+    -- Full coverage every 100 minutes, then repeats (stateless partitioning)
+    v_current_slice := MOD(EXTRACT(MINUTE FROM SYSTIMESTAMP), 100);
+
+    -- Count total purchases per customer, upgrade membership if thresholds met
+    -- Gold (3): >= 20 purchases, Silver (2): >= 10 purchases
+    -- UPGRADE ONLY - never downgrade
+    -- Reward: extend expiration by 180 days when upgrading
+    MERGE INTO DS3.MEMBERSHIP$k m
+    USING (
+        SELECT CUSTOMERID, new_level FROM (
+            SELECT
+                ch.CUSTOMERID,
+                CASE
+                    WHEN COUNT(*) >= 20 THEN 3
+                    WHEN COUNT(*) >= 10 THEN 2
+                END AS new_level,
+                m2.MEMBERSHIPTYPE AS current_level
+            FROM DS3.CUST_HIST$k ch
+            INNER JOIN DS3.MEMBERSHIP$k m2 ON ch.CUSTOMERID = m2.CUSTOMERID
+            WHERE MOD(ch.CUSTOMERID, 100) = v_current_slice
+            GROUP BY ch.CUSTOMERID, m2.MEMBERSHIPTYPE
+            HAVING COUNT(*) >= 10
+                AND (
+                    CASE
+                        WHEN COUNT(*) >= 20 THEN 3
+                        WHEN COUNT(*) >= 10 THEN 2
+                    END
+                ) > m2.MEMBERSHIPTYPE
+        )
+        WHERE ROWNUM <= p_batch_size
+    ) upgrades
+    ON (m.CUSTOMERID = upgrades.CUSTOMERID)
+    WHEN MATCHED THEN
+        UPDATE SET
+            m.MEMBERSHIPTYPE = upgrades.new_level,
+            m.EXPIREDATE = m.EXPIREDATE + 180;
+
+    p_rows_upgraded := SQL%ROWCOUNT;
 
     COMMIT;
 

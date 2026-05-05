@@ -50,7 +50,7 @@ SELECT
     END, 12) AS `Delta`
 FROM VALIDATION_METRICS m
 WHERE m.metric_name LIKE '%_COUNT'
-    AND m.metric_name NOT IN ('MANAGER_PRODUCTS_COUNT', 'SPECIAL_PRODUCTS_COUNT', 'OLD_ORDERS_COUNT')
+    AND m.metric_name NOT IN ('MANAGER_PRODUCTS_COUNT', 'SPECIAL_PRODUCTS_COUNT', 'OLD_ORDERS_COUNT', 'SILVER_MEMBERS_COUNT', 'GOLD_MEMBERS_COUNT')
 ORDER BY `Table`;
 
 SELECT '';
@@ -460,6 +460,63 @@ SELECT IF(@orders_delta < 0,
     '  (Net positive change - cannot verify cascade ratio)') AS CascadeVerification;
 
 SELECT '';
+SELECT '';
+
+-- =======================================================================
+-- MEMBERSHIP TIER UPGRADES
+-- =======================================================================
+SELECT '--- MEMBERSHIP TIER UPGRADES ---';
+
+SET @silver_members_before = (SELECT metric_value FROM VALIDATION_METRICS WHERE metric_name = 'SILVER_MEMBERS_COUNT');
+SET @gold_members_before = (SELECT metric_value FROM VALIDATION_METRICS WHERE metric_name = 'GOLD_MEMBERS_COUNT');
+
+SET @silver_members_after = (SELECT COUNT(*) FROM MEMBERSHIP1 WHERE MEMBERSHIPTYPE = 2);
+SET @gold_members_after = (SELECT COUNT(*) FROM MEMBERSHIP1 WHERE MEMBERSHIPTYPE = 3);
+
+SET @silver_upgrades = @silver_members_after - @silver_members_before;
+SET @gold_upgrades = @gold_members_after - @gold_members_before;
+
+SELECT CONCAT('Silver Members (Level 2):');
+SELECT CONCAT('  Pre:      ', @silver_members_before);
+SELECT CONCAT('  Post:     ', @silver_members_after);
+SELECT CONCAT('  Upgrades: ', @silver_upgrades);
+
+SELECT CONCAT('Gold Members (Level 3):');
+SELECT CONCAT('  Pre:      ', @gold_members_before);
+SELECT CONCAT('  Post:     ', @gold_members_after);
+SELECT CONCAT('  Upgrades: ', @gold_upgrades);
+
+SELECT '';
+SELECT '--- MEMBERSHIP SAMPLE TRACKING (Top 25 Changes from 10000 Sampled) ---';
+
+SELECT
+    s.CUSTOMERID,
+    s.MEMBERSHIPTYPE AS before_level,
+    IFNULL(m.MEMBERSHIPTYPE, -1) AS after_level,
+    DATE_FORMAT(s.EXPIREDATE, '%Y-%m-%d') AS before_expire,
+    IFNULL(DATE_FORMAT(m.EXPIREDATE, '%Y-%m-%d'), 'N/A') AS after_expire,
+    CASE
+        WHEN m.CUSTOMERID IS NULL THEN 'DELETED'
+        WHEN m.MEMBERSHIPTYPE > s.MEMBERSHIPTYPE THEN 'UPGRADED'
+        WHEN m.EXPIREDATE > s.EXPIREDATE THEN 'EXTENDED'
+        ELSE 'NO CHANGE'
+    END AS status
+FROM VALIDATION_MEMBERSHIP_SAMPLE s
+LEFT JOIN MEMBERSHIP1 m ON s.CUSTOMERID = m.CUSTOMERID
+WHERE
+    m.CUSTOMERID IS NULL OR
+    m.MEMBERSHIPTYPE > s.MEMBERSHIPTYPE OR
+    m.EXPIREDATE > s.EXPIREDATE
+ORDER BY
+    CASE
+        WHEN m.CUSTOMERID IS NULL THEN 0
+        WHEN m.MEMBERSHIPTYPE > s.MEMBERSHIPTYPE THEN 1
+        WHEN m.EXPIREDATE > s.EXPIREDATE THEN 2
+        ELSE 3
+    END,
+    s.CUSTOMERID
+LIMIT 25;
+
 SELECT '';
 
 -- =======================================================================

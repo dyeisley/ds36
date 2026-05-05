@@ -757,7 +757,7 @@ BEGIN
         SET \@v_common_id = FLOOR(1 + (RAND() * \@v_max_id));
     END
 
-    SET \@v_membership = FLOOR(1 + (RAND() * 3));
+    SET \@v_membership = FLOOR(RAND() * 4);
 
     BEGIN TRY
         BEGIN TRANSACTION;
@@ -966,6 +966,54 @@ BEGIN
         FROM ORDERS$k WITH (READPAST)
         ORDER BY ORDERDATE ASC
     );
+
+    SELECT \@\@ROWCOUNT;
+END
+GO
+
+CREATE PROCEDURE UpgradeMembership$k
+    (
+    \@batch_size          INT
+    )
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    -- Time-based slicing: process 1% of customer base per minute
+    -- Full coverage every 100 minutes, then repeats (stateless partitioning)
+    DECLARE \@current_slice INT = DATEPART(MINUTE, GETDATE()) % 100;
+
+    -- Count total purchases per customer, upgrade membership if thresholds met
+    -- Gold (3): >= 20 purchases, Silver (2): >= 10 purchases
+    -- UPGRADE ONLY - never downgrade
+    -- Reward: extend expiration by 180 days when upgrading
+    WITH CustomerPurchases AS (
+        SELECT TOP (\@batch_size)
+            m.CUSTOMERID,
+            m.MEMBERSHIPTYPE,
+            m.EXPIREDATE,
+            COUNT(*) AS products_purchased,
+            CASE
+                WHEN COUNT(*) >= 20 THEN 3  -- Gold
+                WHEN COUNT(*) >= 10 THEN 2  -- Silver
+                ELSE m.MEMBERSHIPTYPE
+            END AS new_level
+        FROM MEMBERSHIP$k m WITH (READPAST)
+        INNER JOIN CUST_HIST$k ch ON m.CUSTOMERID = ch.CUSTOMERID
+        WHERE m.CUSTOMERID % 100 = \@current_slice
+        GROUP BY m.CUSTOMERID, m.MEMBERSHIPTYPE, m.EXPIREDATE
+        HAVING CASE
+            WHEN COUNT(*) >= 20 THEN 3
+            WHEN COUNT(*) >= 10 THEN 2
+            ELSE m.MEMBERSHIPTYPE
+        END > m.MEMBERSHIPTYPE
+    )
+    UPDATE m
+    SET
+        MEMBERSHIPTYPE = cp.new_level,
+        EXPIREDATE = DATEADD(DAY, 180, m.EXPIREDATE)
+    FROM MEMBERSHIP$k m
+    INNER JOIN CustomerPurchases cp ON m.CUSTOMERID = cp.CUSTOMERID;
 
     SELECT \@\@ROWCOUNT;
 END
