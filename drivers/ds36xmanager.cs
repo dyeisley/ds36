@@ -47,6 +47,7 @@ namespace ds2xdriver
     public int n_adjust_prices = 0;
     public int n_mark_specials = 0;
     public int n_expire_memberships = 0;
+    public int n_purge_old_orders = 0;
     public int n_products_added = 0;
     public int n_reviews_removed_by_product = 0;
     public int n_reviews_removed_unhelpful = 0;
@@ -54,6 +55,7 @@ namespace ds2xdriver
     public int n_products_price_changed = 0;
     public int n_products_special_changed = 0;
     public int n_memberships_expired = 0;
+    public int n_orders_purged = 0;
     public double rt_add_product = 0.0;
     public double rt_remove_review_by_product = 0.0;
     public double rt_remove_unhelpful_reviews = 0.0;
@@ -61,6 +63,7 @@ namespace ds2xdriver
     public double rt_adjust_prices = 0.0;
     public double rt_mark_specials = 0.0;
     public double rt_expire_memberships = 0.0;
+    public double rt_purge_old_orders = 0.0;
 
     //
     //-------------------------------------------------------------------------------------------------
@@ -153,7 +156,7 @@ namespace ds2xdriver
         // Randomly select operation based on percentages
         int total_pct = Controller.manager_add_product_pct + Controller.manager_delete_review_pct +
                         Controller.manager_update_price_pct + Controller.manager_update_special_pct +
-                        Controller.manager_expire_memberships_pct;
+                        Controller.manager_expire_memberships_pct + Controller.manager_purge_old_orders_pct;
 
         if (total_pct == 0)
         {
@@ -271,7 +274,7 @@ namespace ds2xdriver
               //Console.WriteLine("Thread {0}: Toggled special for product {1}, rows affected: {2}", Thread.CurrentThread.Name, prod_id, rows_affected);
             }
           }
-          else
+          else if (roll < Controller.manager_add_product_pct + Controller.manager_delete_review_pct + Controller.manager_update_price_pct + Controller.manager_update_special_pct + Controller.manager_expire_memberships_pct)
           {
             // ExpireMemberships (1% default)
             int batch_size = Random.Shared.Next(Controller.manager_batch_size_min, Controller.manager_batch_size_max + 1);
@@ -280,6 +283,16 @@ namespace ds2xdriver
             n_memberships_expired += rows_affected;
             rt_expire_memberships += rt;
             //Console.WriteLine("Thread {0}: Expired {1} memberships", Thread.CurrentThread.Name, rows_affected);
+          }
+          else
+          {
+            // PurgeOldOrders (data retention/GDPR compliance - low % default)
+            int batch_size = Random.Shared.Next(Controller.manager_batch_size_min, Controller.manager_batch_size_max + 1);
+            rows_affected = ds2interface.ds36purgeoldorders(batch_size, ref rt);
+            n_purge_old_orders++;
+            n_orders_purged += rows_affected;
+            rt_purge_old_orders += rt;
+            //Console.WriteLine("Thread {0}: Purged {1} old orders", Thread.CurrentThread.Name, rows_affected);
           }
         }
         catch (Exception e)
@@ -293,7 +306,7 @@ namespace ds2xdriver
 
       // Print statistics
       int total_operations = n_add_product + n_remove_review_by_product + n_remove_unhelpful_reviews +
-                             n_adjust_prices + n_mark_specials + n_expire_memberships;
+                             n_adjust_prices + n_mark_specials + n_expire_memberships + n_purge_old_orders;
       int total_review_ops = n_remove_review_by_product + n_remove_unhelpful_reviews;
       double total_review_rt = rt_remove_review_by_product + rt_remove_unhelpful_reviews;
       Console.WriteLine("\n========== Manager Thread {0} Statistics (Store {1}) ==========", ManagerId, target_store);
@@ -323,6 +336,9 @@ namespace ds2xdriver
       Console.WriteLine("  ExpireMemberships:       {0,6} operations, {1,6} memberships expired{2}",
                         n_expire_memberships, n_memberships_expired,
                         n_expire_memberships > 0 ? string.Format(", avg RT: {0:F3} sec", rt_expire_memberships / n_expire_memberships) : "");
+      Console.WriteLine("  PurgeOldOrders:          {0,6} operations, {1,6} orders purged{2}",
+                        n_purge_old_orders, n_orders_purged,
+                        n_purge_old_orders > 0 ? string.Format(", avg RT: {0:F3} sec", rt_purge_old_orders / n_purge_old_orders) : "");
       Console.WriteLine("================================================================\n");
 
       Console.WriteLine("Thread {0}: Manager thread exiting", Thread.CurrentThread.Name);

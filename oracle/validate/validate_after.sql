@@ -62,7 +62,7 @@ SELECT
     END), 10) AS DELTA
 FROM VALIDATION_METRICS m
 WHERE m.metric_name LIKE '%_COUNT'
-    AND m.metric_name NOT IN ('MANAGER_PRODUCTS_COUNT', 'SPECIAL_PRODUCTS_COUNT')
+    AND m.metric_name NOT IN ('MANAGER_PRODUCTS_COUNT', 'SPECIAL_PRODUCTS_COUNT', 'OLD_ORDERS_COUNT')
 ORDER BY TABLENAME;
 
 BEGIN
@@ -625,6 +625,14 @@ DECLARE
     v_reviews_delta NUMBER;
     v_helpfulness_deleted NUMBER;
     v_avg_helpfulness NUMBER;
+    v_orderlines_before NUMBER;
+    v_orderlines_after NUMBER;
+    v_orders_delta NUMBER;
+    v_orderlines_deleted NUMBER;
+    v_avg_orderlines NUMBER;
+    v_old_orders_before NUMBER;
+    v_old_orders_after NUMBER;
+    v_old_orders_deleted NUMBER;
 BEGIN
     DBMS_OUTPUT.PUT_LINE('');
     DBMS_OUTPUT.PUT_LINE('');
@@ -637,6 +645,7 @@ BEGIN
     DBMS_OUTPUT.PUT_LINE('--- CASCADE DELETE VERIFICATION (REVIEWS_HELPFULNESS) ---');
     DBMS_OUTPUT.PUT_LINE('Verifying: Foreign key CASCADE DELETE when reviews are removed');
     DBMS_OUTPUT.PUT_LINE('Expected: REVIEWS_HELPFULNESS records deleted automatically when parent review deleted');
+    DBMS_OUTPUT.PUT_LINE('Note: Users add reviews and managers delete reviews. Disable adding reviews with --ds2_mode=y');
     DBMS_OUTPUT.PUT_LINE('');
 
     SELECT metric_value INTO v_reviews_before FROM VALIDATION_METRICS WHERE metric_name = 'REVIEWS_COUNT';
@@ -649,20 +658,68 @@ BEGIN
     v_helpfulness_deleted := v_reviews_helpfulness_before - v_reviews_helpfulness_after;
 
     DBMS_OUTPUT.PUT_LINE('Reviews:');
-    DBMS_OUTPUT.PUT_LINE('  Pre:     ' || v_reviews_before);
-    DBMS_OUTPUT.PUT_LINE('  Post:    ' || v_reviews_after);
-    DBMS_OUTPUT.PUT_LINE('  Deleted: ' || (-v_reviews_delta));
+    DBMS_OUTPUT.PUT_LINE('  Pre:        ' || v_reviews_before);
+    DBMS_OUTPUT.PUT_LINE('  Post:       ' || v_reviews_after);
+    DBMS_OUTPUT.PUT_LINE('  Net change: ' || v_reviews_delta);
 
     DBMS_OUTPUT.PUT_LINE('Reviews Helpfulness (should cascade delete with reviews):');
-    DBMS_OUTPUT.PUT_LINE('  Pre:     ' || v_reviews_helpfulness_before);
-    DBMS_OUTPUT.PUT_LINE('  Post:    ' || v_reviews_helpfulness_after);
-    DBMS_OUTPUT.PUT_LINE('  Deleted: ' || v_helpfulness_deleted);
+    DBMS_OUTPUT.PUT_LINE('  Pre:        ' || v_reviews_helpfulness_before);
+    DBMS_OUTPUT.PUT_LINE('  Post:       ' || v_reviews_helpfulness_after);
+    DBMS_OUTPUT.PUT_LINE('  Net change: ' || (-v_helpfulness_deleted));
 
     IF v_reviews_delta < 0 THEN
         v_avg_helpfulness := ROUND(v_helpfulness_deleted / (-v_reviews_delta), 2);
         DBMS_OUTPUT.PUT_LINE('  Avg helpfulness votes per deleted review: ' || v_avg_helpfulness);
     ELSE
-        DBMS_OUTPUT.PUT_LINE('  (No reviews deleted - cascade not tested)');
+        DBMS_OUTPUT.PUT_LINE('  (Net positive change - cannot verify cascade ratio)');
+    END IF;
+
+    DBMS_OUTPUT.PUT_LINE('');
+    DBMS_OUTPUT.PUT_LINE('');
+
+    -- =======================================================================
+    -- CASCADE DELETE VERIFICATION (ORDERLINES)
+    -- Purpose: Verify ORDERLINES cascade deletes when orders removed
+    -- Expected: Orderlines deleted when orders deleted by manager PurgeOldOrders operation
+    -- =======================================================================
+    DBMS_OUTPUT.PUT_LINE('--- CASCADE DELETE VERIFICATION (ORDERLINES) ---');
+    DBMS_OUTPUT.PUT_LINE('Verifying: Foreign key CASCADE DELETE when orders are purged');
+    DBMS_OUTPUT.PUT_LINE('Expected: ORDERLINES records deleted automatically when parent order deleted');
+    DBMS_OUTPUT.PUT_LINE('Note: Users create orders and managers purge old orders.');
+    DBMS_OUTPUT.PUT_LINE('');
+
+    SELECT metric_value INTO v_orders_before FROM VALIDATION_METRICS WHERE metric_name = 'ORDERS_COUNT';
+    SELECT metric_value INTO v_orderlines_before FROM VALIDATION_METRICS WHERE metric_name = 'ORDERLINES_COUNT';
+    SELECT metric_value INTO v_old_orders_before FROM VALIDATION_METRICS WHERE metric_name = 'OLD_ORDERS_COUNT';
+
+    SELECT COUNT(*) INTO v_orders_after FROM DS3.ORDERS1;
+    SELECT COUNT(*) INTO v_orderlines_after FROM DS3.ORDERLINES1;
+    SELECT COUNT(*) INTO v_old_orders_after FROM DS3.ORDERS1 WHERE ORDERDATE < TRUNC(SYSDATE);
+
+    v_orders_delta := v_orders_after - v_orders_before;
+    v_orderlines_deleted := v_orderlines_before - v_orderlines_after;
+    v_old_orders_deleted := v_old_orders_before - v_old_orders_after;
+
+    DBMS_OUTPUT.PUT_LINE('Orders (all):');
+    DBMS_OUTPUT.PUT_LINE('  Pre:        ' || v_orders_before);
+    DBMS_OUTPUT.PUT_LINE('  Post:       ' || v_orders_after);
+    DBMS_OUTPUT.PUT_LINE('  Net change: ' || v_orders_delta);
+
+    DBMS_OUTPUT.PUT_LINE('Orders (old - prior to today):');
+    DBMS_OUTPUT.PUT_LINE('  Pre:        ' || v_old_orders_before);
+    DBMS_OUTPUT.PUT_LINE('  Post:       ' || v_old_orders_after);
+    DBMS_OUTPUT.PUT_LINE('  Deleted:    ' || v_old_orders_deleted);
+
+    DBMS_OUTPUT.PUT_LINE('Orderlines (should cascade delete with orders):');
+    DBMS_OUTPUT.PUT_LINE('  Pre:        ' || v_orderlines_before);
+    DBMS_OUTPUT.PUT_LINE('  Post:       ' || v_orderlines_after);
+    DBMS_OUTPUT.PUT_LINE('  Net change: ' || (-v_orderlines_deleted));
+
+    IF v_orders_delta < 0 THEN
+        v_avg_orderlines := ROUND(v_orderlines_deleted / (-v_orders_delta), 2);
+        DBMS_OUTPUT.PUT_LINE('  Avg orderlines per purged order: ' || v_avg_orderlines || ' (expected: ~5-6)');
+    ELSE
+        DBMS_OUTPUT.PUT_LINE('  (Net positive change - cannot verify cascade ratio)');
     END IF;
 
     DBMS_OUTPUT.PUT_LINE('');

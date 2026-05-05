@@ -54,7 +54,7 @@ SELECT
     END - m.metric_value)::TEXT, 15) AS "Delta"
 FROM VALIDATION_METRICS m
 WHERE m.metric_name LIKE '%_COUNT'
-    AND m.metric_name NOT IN ('MANAGER_PRODUCTS_COUNT', 'SPECIAL_PRODUCTS_COUNT')
+    AND m.metric_name NOT IN ('MANAGER_PRODUCTS_COUNT', 'SPECIAL_PRODUCTS_COUNT', 'OLD_ORDERS_COUNT')
 ORDER BY "Table";
 
 DO $$
@@ -599,6 +599,14 @@ DECLARE
     v_reviews_delta INT;
     v_helpfulness_deleted INT;
     v_avg_helpfulness NUMERIC(10,2);
+    v_orderlines_before INT;
+    v_orderlines_after INT;
+    v_orders_delta INT;
+    v_orderlines_deleted INT;
+    v_avg_orderlines NUMERIC(10,2);
+    v_old_orders_before INT;
+    v_old_orders_after INT;
+    v_old_orders_deleted INT;
 BEGIN
     RAISE NOTICE '';
     RAISE NOTICE '';
@@ -611,6 +619,7 @@ BEGIN
     RAISE NOTICE '--- CASCADE DELETE VERIFICATION (REVIEWS_HELPFULNESS) ---';
     RAISE NOTICE 'Verifying: Foreign key CASCADE DELETE when reviews are removed';
     RAISE NOTICE 'Expected: REVIEWS_HELPFULNESS records deleted automatically when parent review deleted';
+    RAISE NOTICE 'Note: Users add reviews and managers delete reviews. Disable adding reviews with --ds2_mode=y';
     RAISE NOTICE '';
 
     SELECT metric_value INTO v_reviews_before FROM VALIDATION_METRICS WHERE metric_name = 'REVIEWS_COUNT';
@@ -623,20 +632,68 @@ BEGIN
     v_helpfulness_deleted := v_reviews_helpfulness_before - v_reviews_helpfulness_after;
 
     RAISE NOTICE 'Reviews:';
-    RAISE NOTICE '  Pre:     %', v_reviews_before;
-    RAISE NOTICE '  Post:    %', v_reviews_after;
-    RAISE NOTICE '  Deleted: %', -v_reviews_delta;
+    RAISE NOTICE '  Pre:        %', v_reviews_before;
+    RAISE NOTICE '  Post:       %', v_reviews_after;
+    RAISE NOTICE '  Net change: %', v_reviews_delta;
 
     RAISE NOTICE 'Reviews Helpfulness (should cascade delete with reviews):';
-    RAISE NOTICE '  Pre:     %', v_reviews_helpfulness_before;
-    RAISE NOTICE '  Post:    %', v_reviews_helpfulness_after;
-    RAISE NOTICE '  Deleted: %', v_helpfulness_deleted;
+    RAISE NOTICE '  Pre:        %', v_reviews_helpfulness_before;
+    RAISE NOTICE '  Post:       %', v_reviews_helpfulness_after;
+    RAISE NOTICE '  Net change: %', -v_helpfulness_deleted;
 
     IF v_reviews_delta < 0 THEN
         v_avg_helpfulness := v_helpfulness_deleted::NUMERIC / (-v_reviews_delta)::NUMERIC;
         RAISE NOTICE '  Avg helpfulness votes per deleted review: %', v_avg_helpfulness;
     ELSE
-        RAISE NOTICE '  (No reviews deleted - cascade not tested)';
+        RAISE NOTICE '  (Net positive change - cannot verify cascade ratio)';
+    END IF;
+
+    RAISE NOTICE '';
+    RAISE NOTICE '';
+
+    -- =======================================================================
+    -- CASCADE DELETE VERIFICATION (ORDERLINES)
+    -- Purpose: Verify ORDERLINES cascade deletes when orders removed
+    -- Expected: Orderlines deleted when orders deleted by manager PurgeOldOrders operation
+    -- =======================================================================
+    RAISE NOTICE '--- CASCADE DELETE VERIFICATION (ORDERLINES) ---';
+    RAISE NOTICE 'Verifying: Foreign key CASCADE DELETE when orders are purged';
+    RAISE NOTICE 'Expected: ORDERLINES records deleted automatically when parent order deleted';
+    RAISE NOTICE 'Note: Users create orders and managers purge old orders.';
+    RAISE NOTICE '';
+
+    SELECT metric_value INTO v_orders_before FROM VALIDATION_METRICS WHERE metric_name = 'ORDERS_COUNT';
+    SELECT metric_value INTO v_orderlines_before FROM VALIDATION_METRICS WHERE metric_name = 'ORDERLINES_COUNT';
+    SELECT metric_value INTO v_old_orders_before FROM VALIDATION_METRICS WHERE metric_name = 'OLD_ORDERS_COUNT';
+
+    SELECT COUNT(*) INTO v_orders_after FROM ORDERS1;
+    SELECT COUNT(*) INTO v_orderlines_after FROM ORDERLINES1;
+    SELECT COUNT(*) INTO v_old_orders_after FROM ORDERS1 WHERE ORDERDATE < CURRENT_DATE;
+
+    v_orders_delta := v_orders_after - v_orders_before;
+    v_orderlines_deleted := v_orderlines_before - v_orderlines_after;
+    v_old_orders_deleted := v_old_orders_before - v_old_orders_after;
+
+    RAISE NOTICE 'Orders (all):';
+    RAISE NOTICE '  Pre:        %', v_orders_before;
+    RAISE NOTICE '  Post:       %', v_orders_after;
+    RAISE NOTICE '  Net change: %', v_orders_delta;
+
+    RAISE NOTICE 'Orders (old - prior to today):';
+    RAISE NOTICE '  Pre:        %', v_old_orders_before;
+    RAISE NOTICE '  Post:       %', v_old_orders_after;
+    RAISE NOTICE '  Deleted:    %', v_old_orders_deleted;
+
+    RAISE NOTICE 'Orderlines (should cascade delete with orders):';
+    RAISE NOTICE '  Pre:        %', v_orderlines_before;
+    RAISE NOTICE '  Post:       %', v_orderlines_after;
+    RAISE NOTICE '  Net change: %', -v_orderlines_deleted;
+
+    IF v_orders_delta < 0 THEN
+        v_avg_orderlines := v_orderlines_deleted::NUMERIC / (-v_orders_delta)::NUMERIC;
+        RAISE NOTICE '  Avg orderlines per purged order: % (expected: ~5-6)', v_avg_orderlines;
+    ELSE
+        RAISE NOTICE '  (Net positive change - cannot verify cascade ratio)';
     END IF;
 
     RAISE NOTICE '';

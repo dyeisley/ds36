@@ -946,6 +946,31 @@ BEGIN
 END
 GO
 
+IF EXISTS (SELECT name FROM sysobjects WHERE name = 'PurgeOldOrders$k' AND type = 'P')
+  DROP PROCEDURE PurgeOldOrders$k
+GO
+
+CREATE PROCEDURE PurgeOldOrders$k
+  (
+  \@batch_size          INT
+  )
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    -- Delete oldest orders (data retention policy, GDPR compliance)
+    -- ORDERLINES cascade delete via foreign key ON DELETE CASCADE
+    DELETE FROM ORDERS$k
+    WHERE ORDERID IN (
+        SELECT TOP (\@batch_size) ORDERID
+        FROM ORDERS$k WITH (READPAST)
+        ORDER BY ORDERDATE ASC
+    );
+
+    SELECT \@\@ROWCOUNT;
+END
+GO
+
 \n";
   close $OUT;
 }

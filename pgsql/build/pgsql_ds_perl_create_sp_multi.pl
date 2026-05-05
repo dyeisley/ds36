@@ -817,6 +817,27 @@ BEGIN
 END;
 \$\$;
 
+CREATE OR REPLACE FUNCTION purge_old_orders$k (
+    IN p_batch_size int,
+    OUT rows_deleted int
+)
+LANGUAGE plpgsql
+AS \$\$
+BEGIN
+    -- Delete oldest orders (data retention policy, GDPR compliance)
+    -- ORDERLINES cascade delete via foreign key ON DELETE CASCADE
+    DELETE FROM orders$k
+    WHERE orderid IN (
+        SELECT orderid
+        FROM orders$k
+        ORDER BY orderdate ASC
+        LIMIT p_batch_size
+    );
+
+    GET DIAGNOSTICS rows_deleted = ROW_COUNT;
+END;
+\$\$;
+
 \n";
 	close $OUT;
 	sleep(1);

@@ -168,6 +168,7 @@ namespace ds2xdriver
     public static int manager_update_price_pct = 25;
     public static int manager_update_special_pct = 15;
     public static int manager_expire_memberships_pct = 1;
+    public static int manager_purge_old_orders_pct = 5;
     public static int manager_batch_size_min = 1;
     public static int manager_batch_size_max = 5;
 
@@ -770,6 +771,16 @@ namespace ds2xdriver
         Validator = (value) => ValidateInt(value, min: 0, max: 100)
       };
 
+      // manager_purge_old_orders_pct - percentage for purge old orders operation
+      definitions["manager_purge_old_orders_pct"] = new ParameterDefinition
+      {
+        Name = "manager_purge_old_orders_pct",
+        Description = "Percentage chance of purging oldest orders (data retention/GDPR compliance)",
+        DefaultValue = "5",
+        Type = ParamType.Int,
+        Validator = (value) => ValidateInt(value, min: 0, max: 100)
+      };
+
       // manager_batch_size_min - minimum batch size for manager operations
       definitions["manager_batch_size_min"] = new ParameterDefinition
       {
@@ -1274,6 +1285,7 @@ namespace ds2xdriver
       manager_update_price_pct = parser.GetValue<int>("manager_update_price_pct");
       manager_update_special_pct = parser.GetValue<int>("manager_update_special_pct");
       manager_expire_memberships_pct = parser.GetValue<int>("manager_expire_memberships_pct");
+      manager_purge_old_orders_pct = parser.GetValue<int>("manager_purge_old_orders_pct");
       manager_batch_size_min = parser.GetValue<int>("manager_batch_size_min");
       manager_batch_size_max = parser.GetValue<int>("manager_batch_size_max");
 
@@ -2247,6 +2259,7 @@ namespace ds2xdriver
         Console.WriteLine($"    AdjustPrice={manager_update_price_pct}%");
         Console.WriteLine($"    MarkSpecial={manager_update_special_pct}%");
         Console.WriteLine($"    ExpireMemberships={manager_expire_memberships_pct}%");
+        Console.WriteLine($"    PurgeOldOrders={manager_purge_old_orders_pct}%");
         Console.WriteLine($"  Batch size: {manager_batch_size_min}-{manager_batch_size_max}");
       }
       else

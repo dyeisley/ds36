@@ -50,7 +50,7 @@ SELECT
     END, 12) AS `Delta`
 FROM VALIDATION_METRICS m
 WHERE m.metric_name LIKE '%_COUNT'
-    AND m.metric_name NOT IN ('MANAGER_PRODUCTS_COUNT', 'SPECIAL_PRODUCTS_COUNT')
+    AND m.metric_name NOT IN ('MANAGER_PRODUCTS_COUNT', 'SPECIAL_PRODUCTS_COUNT', 'OLD_ORDERS_COUNT')
 ORDER BY `Table`;
 
 SELECT '';
@@ -388,6 +388,7 @@ SELECT '';
 SELECT '--- CASCADE DELETE VERIFICATION (REVIEWS_HELPFULNESS) ---';
 SELECT 'Verifying: Foreign key CASCADE DELETE when reviews are removed';
 SELECT 'Expected: REVIEWS_HELPFULNESS records deleted automatically when parent review deleted';
+SELECT 'Note: Users add reviews and managers delete reviews. Disable adding reviews with --ds2_mode=y';
 SELECT '';
 
 SET @reviews_before = (SELECT metric_value FROM VALIDATION_METRICS WHERE metric_name = 'REVIEWS_COUNT');
@@ -400,18 +401,63 @@ SET @reviews_delta = @reviews_after - @reviews_before;
 SET @helpfulness_deleted = @reviews_helpfulness_before - @reviews_helpfulness_after;
 
 SELECT 'Reviews:';
-SELECT CONCAT('  Pre:     ', @reviews_before);
-SELECT CONCAT('  Post:    ', @reviews_after);
-SELECT CONCAT('  Deleted: ', -@reviews_delta);
+SELECT CONCAT('  Pre:        ', @reviews_before);
+SELECT CONCAT('  Post:       ', @reviews_after);
+SELECT CONCAT('  Net change: ', @reviews_delta);
 
 SELECT 'Reviews Helpfulness (should cascade delete with reviews):';
-SELECT CONCAT('  Pre:     ', @reviews_helpfulness_before);
-SELECT CONCAT('  Post:    ', @reviews_helpfulness_after);
-SELECT CONCAT('  Deleted: ', @helpfulness_deleted);
+SELECT CONCAT('  Pre:        ', @reviews_helpfulness_before);
+SELECT CONCAT('  Post:       ', @reviews_helpfulness_after);
+SELECT CONCAT('  Net change: ', -@helpfulness_deleted);
 
 SELECT IF(@reviews_delta < 0,
     CONCAT('  Avg helpfulness votes per deleted review: ', ROUND(@helpfulness_deleted / -@reviews_delta, 2)),
-    '  (No reviews deleted - cascade not tested)') AS CascadeVerification;
+    '  (Net positive change - cannot verify cascade ratio)') AS CascadeVerification;
+
+SELECT '';
+SELECT '';
+
+-- =======================================================================
+-- CASCADE DELETE VERIFICATION (ORDERLINES)
+-- Purpose: Verify ORDERLINES cascade deletes when orders removed
+-- Expected: Orderlines deleted when orders deleted by manager PurgeOldOrders operation
+-- =======================================================================
+SELECT '--- CASCADE DELETE VERIFICATION (ORDERLINES) ---';
+SELECT 'Verifying: Foreign key CASCADE DELETE when orders are purged';
+SELECT 'Expected: ORDERLINES records deleted automatically when parent order deleted';
+SELECT 'Note: Users create orders and managers purge old orders.';
+SELECT '';
+
+SET @orders_before = (SELECT metric_value FROM VALIDATION_METRICS WHERE metric_name = 'ORDERS_COUNT');
+SET @orderlines_before = (SELECT metric_value FROM VALIDATION_METRICS WHERE metric_name = 'ORDERLINES_COUNT');
+SET @old_orders_before = (SELECT metric_value FROM VALIDATION_METRICS WHERE metric_name = 'OLD_ORDERS_COUNT');
+
+SET @orders_after = (SELECT COUNT(*) FROM ORDERS1);
+SET @orderlines_after = (SELECT COUNT(*) FROM ORDERLINES1);
+SET @old_orders_after = (SELECT COUNT(*) FROM ORDERS1 WHERE ORDERDATE < CURDATE());
+
+SET @orders_delta = @orders_after - @orders_before;
+SET @orderlines_deleted = @orderlines_before - @orderlines_after;
+SET @old_orders_deleted = @old_orders_before - @old_orders_after;
+
+SELECT 'Orders (all):';
+SELECT CONCAT('  Pre:        ', @orders_before);
+SELECT CONCAT('  Post:       ', @orders_after);
+SELECT CONCAT('  Net change: ', @orders_delta);
+
+SELECT 'Orders (old - prior to today):';
+SELECT CONCAT('  Pre:        ', @old_orders_before);
+SELECT CONCAT('  Post:       ', @old_orders_after);
+SELECT CONCAT('  Deleted:    ', @old_orders_deleted);
+
+SELECT 'Orderlines (should cascade delete with orders):';
+SELECT CONCAT('  Pre:        ', @orderlines_before);
+SELECT CONCAT('  Post:       ', @orderlines_after);
+SELECT CONCAT('  Net change: ', -@orderlines_deleted);
+
+SELECT IF(@orders_delta < 0,
+    CONCAT('  Avg orderlines per purged order: ', ROUND(@orderlines_deleted / -@orders_delta, 2), ' (expected: ~5-6)'),
+    '  (Net positive change - cannot verify cascade ratio)') AS CascadeVerification;
 
 SELECT '';
 SELECT '';

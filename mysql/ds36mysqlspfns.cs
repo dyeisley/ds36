@@ -41,7 +41,7 @@ namespace ds2xdriver
     MySqlCommand Login, New_Customer, New_Member, New_Review, New_Helpfulness, New_Product, Purchase;
     MySqlCommand BrowseReviews_by_title, BrowseReviews_by_actor, Get_Prod_Reviews, Get_Reviews_by_stars;
     MySqlCommand Get_Reviews_by_date, Browse_by_title, Browse_by_actor, Browse_by_category, Browse_by_membership, Browse_by_vector;
-    MySqlCommand Remove_Review_By_Product, Remove_Unhelpful_Reviews, Remove_Reviews_By_Date, Adjust_Prices, Mark_Specials, Expire_Memberships;
+    MySqlCommand Remove_Review_By_Product, Remove_Unhelpful_Reviews, Remove_Reviews_By_Date, Adjust_Prices, Mark_Specials, Expire_Memberships, Purge_Old_Orders;
     MySqlParameter cust_out_param, member_out_param, reviewid_out_param, helpfulnessid_out_param, neworder_out_param;
     MySqlCommand[] CostQuery = new MySqlCommand[11];
 
@@ -250,6 +250,10 @@ namespace ds2xdriver
       Expire_Memberships = new MySqlCommand("DS3.ExpireMemberships" + target_store_number, objConn);
       Expire_Memberships.CommandType = CommandType.StoredProcedure;
       Expire_Memberships.Parameters.Add("p_batch_size", MySqlDbType.Int32);
+
+      Purge_Old_Orders = new MySqlCommand("DS3.PurgeOldOrders" + target_store_number, objConn);
+      Purge_Old_Orders.CommandType = CommandType.StoredProcedure;
+      Purge_Old_Orders.Parameters.Add("p_batch_size", MySqlDbType.Int32);
     }
  
 //
@@ -1007,6 +1011,31 @@ namespace ds2xdriver
         catch (Exception e)
         {
             Console.WriteLine($"Thread {Thread.CurrentThread.Name}: ds36expirememberships error: {e.Message}");
+            return 0;
+        }
+        finally
+        {
+            rt = timer.Elapsed.TotalSeconds;
+        }
+    }
+
+//
+//-------------------------------------------------------------------------------------------------
+//
+    public int ds36purgeoldorders(int batchSize, ref double rt)
+    {
+        Purge_Old_Orders.Parameters["p_batch_size"].Value = batchSize;
+
+        Stopwatch timer = Stopwatch.StartNew();
+
+        try
+        {
+            object result = Purge_Old_Orders.ExecuteScalar();
+            return result != null ? Convert.ToInt32(result) : 0;
+        }
+        catch (Exception e)
+        {
+            Console.WriteLine($"Thread {Thread.CurrentThread.Name}: ds36purgeoldorders error: {e.Message}");
             return 0;
         }
         finally

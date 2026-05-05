@@ -54,7 +54,7 @@ SELECT
         END AS VARCHAR), 15) AS [Delta]
 FROM VALIDATION_METRICS m
 WHERE m.metric_name LIKE '%_COUNT'
-    AND m.metric_name NOT IN ('MANAGER_PRODUCTS_COUNT', 'SPECIAL_PRODUCTS_COUNT')
+    AND m.metric_name NOT IN ('MANAGER_PRODUCTS_COUNT', 'SPECIAL_PRODUCTS_COUNT', 'OLD_ORDERS_COUNT')
 ORDER BY [Table];
 
 PRINT '';
@@ -415,6 +415,7 @@ PRINT '';
 PRINT '--- CASCADE DELETE VERIFICATION (REVIEWS_HELPFULNESS) ---';
 PRINT 'Verifying: Foreign key CASCADE DELETE when reviews are removed';
 PRINT 'Expected: REVIEWS_HELPFULNESS records deleted automatically when parent review deleted';
+PRINT 'Note: Users add reviews and managers delete reviews. Disable adding reviews with --ds2_mode=y';
 PRINT '';
 
 DECLARE @ReviewsBefore INT, @ReviewsAfter INT, @ReviewsDelta INT;
@@ -430,14 +431,14 @@ SET @ReviewsDelta = @ReviewsAfter - @ReviewsBefore;
 SET @HelpfulnessDeleted = @ReviewsHelpfulnessBefore - @ReviewsHelpfulnessAfter;
 
 PRINT 'Reviews:';
-PRINT '  Pre:     ' + CAST(@ReviewsBefore AS VARCHAR);
-PRINT '  Post:    ' + CAST(@ReviewsAfter AS VARCHAR);
-PRINT '  Deleted: ' + CAST(-@ReviewsDelta AS VARCHAR);
+PRINT '  Pre:        ' + CAST(@ReviewsBefore AS VARCHAR);
+PRINT '  Post:       ' + CAST(@ReviewsAfter AS VARCHAR);
+PRINT '  Net change: ' + CAST(@ReviewsDelta AS VARCHAR);
 
 PRINT 'Reviews Helpfulness (should cascade delete with reviews):';
-PRINT '  Pre:     ' + CAST(@ReviewsHelpfulnessBefore AS VARCHAR);
-PRINT '  Post:    ' + CAST(@ReviewsHelpfulnessAfter AS VARCHAR);
-PRINT '  Deleted: ' + CAST(@HelpfulnessDeleted AS VARCHAR);
+PRINT '  Pre:        ' + CAST(@ReviewsHelpfulnessBefore AS VARCHAR);
+PRINT '  Post:       ' + CAST(@ReviewsHelpfulnessAfter AS VARCHAR);
+PRINT '  Net change: ' + CAST(-@HelpfulnessDeleted AS VARCHAR);
 
 IF @ReviewsDelta < 0
 BEGIN
@@ -447,7 +448,64 @@ BEGIN
 END
 ELSE
 BEGIN
-    PRINT '  (No reviews deleted - cascade not tested)';
+    PRINT '  (Net positive change - cannot verify cascade ratio)';
+END
+
+PRINT '';
+PRINT '';
+
+-- =======================================================================
+-- CASCADE DELETE VERIFICATION (ORDERLINES)
+-- Purpose: Verify ORDERLINES cascade deletes when orders removed
+-- Expected: Orderlines deleted when orders deleted by manager PurgeOldOrders operation
+-- =======================================================================
+PRINT '--- CASCADE DELETE VERIFICATION (ORDERLINES) ---';
+PRINT 'Verifying: Foreign key CASCADE DELETE when orders are purged';
+PRINT 'Expected: ORDERLINES records deleted automatically when parent order deleted';
+PRINT 'Note: Users create orders and managers purge old orders.';
+PRINT '';
+
+DECLARE @OrdersCascadeBefore INT, @OrdersCascadeAfter INT, @OrdersCascadeDelta INT;
+DECLARE @OrderlinesCascadeBefore INT, @OrderlinesCascadeAfter INT, @OrderlinesCascadeDeleted INT;
+DECLARE @OldOrdersCascadeBefore INT, @OldOrdersCascadeAfter INT, @OldOrdersCascadeDeleted INT;
+
+SELECT @OrdersCascadeBefore = metric_value FROM VALIDATION_METRICS WHERE metric_name = 'ORDERS_COUNT';
+SELECT @OrderlinesCascadeBefore = metric_value FROM VALIDATION_METRICS WHERE metric_name = 'ORDERLINES_COUNT';
+SELECT @OldOrdersCascadeBefore = metric_value FROM VALIDATION_METRICS WHERE metric_name = 'OLD_ORDERS_COUNT';
+
+SELECT @OrdersCascadeAfter = COUNT(*) FROM ORDERS1;
+SELECT @OrderlinesCascadeAfter = COUNT(*) FROM ORDERLINES1;
+SELECT @OldOrdersCascadeAfter = COUNT(*) FROM ORDERS1 WHERE ORDERDATE < CAST(GETDATE() AS DATE);
+
+SET @OrdersCascadeDelta = @OrdersCascadeAfter - @OrdersCascadeBefore;
+SET @OrderlinesCascadeDeleted = @OrderlinesCascadeBefore - @OrderlinesCascadeAfter;
+SET @OldOrdersCascadeDeleted = @OldOrdersCascadeBefore - @OldOrdersCascadeAfter;
+
+PRINT 'Orders (all):';
+PRINT '  Pre:        ' + CAST(@OrdersCascadeBefore AS VARCHAR);
+PRINT '  Post:       ' + CAST(@OrdersCascadeAfter AS VARCHAR);
+PRINT '  Net change: ' + CAST(@OrdersCascadeDelta AS VARCHAR);
+
+PRINT 'Orders (old - prior to today):';
+PRINT '  Pre:        ' + CAST(@OldOrdersCascadeBefore AS VARCHAR);
+PRINT '  Post:       ' + CAST(@OldOrdersCascadeAfter AS VARCHAR);
+PRINT '  Deleted:    ' + CAST(@OldOrdersCascadeDeleted AS VARCHAR);
+
+PRINT 'Orderlines (should cascade delete with orders):';
+PRINT '  Pre:        ' + CAST(@OrderlinesCascadeBefore AS VARCHAR);
+PRINT '  Post:       ' + CAST(@OrderlinesCascadeAfter AS VARCHAR);
+PRINT '  Net change: ' + CAST(-@OrderlinesCascadeDeleted AS VARCHAR);
+
+IF @OrdersCascadeDelta < 0
+BEGIN
+    DECLARE @AvgOrderlinesPerOrder DECIMAL(10,2);
+    SET @AvgOrderlinesPerOrder = CAST(@OrderlinesCascadeDeleted AS DECIMAL(10,2)) / CAST(-@OrdersCascadeDelta AS DECIMAL(10,2));
+    PRINT '  Avg orderlines per purged order: ' + CAST(@AvgOrderlinesPerOrder AS VARCHAR);
+    PRINT '  Expected: ~5-6 orderlines per order';
+END
+ELSE
+BEGIN
+    PRINT '  (Net positive change - cannot verify cascade ratio)';
 END
 
 PRINT '';

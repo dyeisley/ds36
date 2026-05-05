@@ -1054,6 +1054,39 @@ EXCEPTION
 END;
 /
 
+CREATE OR REPLACE PROCEDURE DS3.PurgeOldOrders$k (
+    p_batch_size     IN  NUMBER,
+    p_rows_affected  OUT NUMBER
+) AS
+    TYPE order_ids IS TABLE OF NUMBER;
+    v_order_ids order_ids;
+BEGIN
+    -- Delete oldest orders (data retention policy, GDPR compliance)
+    -- ORDERLINES cascade delete via foreign key ON DELETE CASCADE
+    SELECT ORDERID
+    BULK COLLECT INTO v_order_ids
+    FROM (
+        SELECT ORDERID
+        FROM DS3.ORDERS$k
+        ORDER BY ORDERDATE ASC
+    )
+    WHERE ROWNUM <= p_batch_size;
+
+    FORALL i IN 1 .. v_order_ids.COUNT
+        DELETE FROM DS3.ORDERS$k
+        WHERE ORDERID = v_order_ids(i);
+
+    p_rows_affected := SQL%ROWCOUNT;
+
+    COMMIT;
+
+EXCEPTION
+    WHEN OTHERS THEN
+        ROLLBACK;
+        RAISE;
+END;
+/
+
 CREATE OR REPLACE TRIGGER \"DS3\".\"TRG_HELPFULNESS_SYNC$k\"
 AFTER INSERT OR UPDATE OR DELETE ON \"DS3\".\"REVIEWS_HELPFULNESS$k\"
 FOR EACH ROW

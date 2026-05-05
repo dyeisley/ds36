@@ -681,6 +681,26 @@ BEGIN
     SELECT ROW_COUNT() AS rows_affected;
 END $$
 
+DROP PROCEDURE IF EXISTS DS3.PurgeOldOrders$k $$
+CREATE PROCEDURE DS3.PurgeOldOrders$k
+(
+    IN p_batch_size INT
+)
+BEGIN
+    -- Delete oldest orders (data retention policy, GDPR compliance)
+    -- ORDERLINES cascade delete via foreign key ON DELETE CASCADE
+    -- Uses JOIN pattern for MariaDB LIMIT compatibility
+    DELETE o FROM ORDERS$k o
+    INNER JOIN (
+        SELECT ORDERID
+        FROM ORDERS$k
+        ORDER BY ORDERDATE ASC
+        LIMIT p_batch_size
+        FOR UPDATE SKIP LOCKED
+    ) AS to_delete ON o.ORDERID = to_delete.ORDERID;
+    SELECT ROW_COUNT() AS rows_affected;
+END $$
+
 \n";
   close $OUT;
   sleep(1);
