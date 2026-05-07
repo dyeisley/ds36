@@ -840,7 +840,9 @@ END;
 
 CREATE OR REPLACE FUNCTION upgrade_membership$k (
     IN p_batch_size int,
-    OUT rows_upgraded int
+    OUT rows_upgraded int,
+    OUT gold_threshold numeric,
+    OUT silver_threshold numeric
 )
 LANGUAGE plpgsql
 AS \$\$
@@ -851,16 +853,36 @@ BEGIN
     -- Full coverage every 100 minutes, then repeats (stateless partitioning)
     v_current_slice := EXTRACT(MINUTE FROM CURRENT_TIMESTAMP)::int % 100;
 
+    -- Calculate percentile thresholds for purchase counts in current slice
+    -- Gold (3): >= 90th percentile, Silver (2): >= 75th percentile
+    WITH slice_purchase_counts AS (
+        SELECT COUNT(*) AS purchase_count
+        FROM membership$k m
+        INNER JOIN cust_hist$k ch ON m.customerid = ch.customerid
+        WHERE m.customerid % 100 = v_current_slice
+        GROUP BY m.customerid
+    )
+    SELECT
+        PERCENTILE_CONT(0.90) WITHIN GROUP (ORDER BY purchase_count),
+        PERCENTILE_CONT(0.75) WITHIN GROUP (ORDER BY purchase_count)
+    INTO gold_threshold, silver_threshold
+    FROM slice_purchase_counts;
+
+    -- Fallback to hardcoded thresholds if no data in slice
+    IF gold_threshold IS NULL THEN
+        gold_threshold := 20;
+        silver_threshold := 10;
+    END IF;
+
     -- Count total purchases per customer, upgrade membership if thresholds met
-    -- Gold (3): >= 20 purchases, Silver (2): >= 10 purchases
     -- UPGRADE ONLY - never downgrade
     -- Reward: extend expiration by 180 days when upgrading
     WITH customer_purchases AS (
         SELECT
             ch.customerid,
             CASE
-                WHEN COUNT(*) >= 20 THEN 3  -- Gold
-                WHEN COUNT(*) >= 10 THEN 2  -- Silver
+                WHEN COUNT(*) >= gold_threshold THEN 3  -- Gold (90th percentile)
+                WHEN COUNT(*) >= silver_threshold THEN 2  -- Silver (75th percentile)
                 ELSE m.membershiptype
             END AS new_level
         FROM cust_hist$k ch
@@ -868,8 +890,8 @@ BEGIN
         WHERE ch.customerid % 100 = v_current_slice
         GROUP BY ch.customerid, m.membershiptype
         HAVING CASE
-            WHEN COUNT(*) >= 20 THEN 3
-            WHEN COUNT(*) >= 10 THEN 2
+            WHEN COUNT(*) >= gold_threshold THEN 3  -- Gold (90th percentile)
+            WHEN COUNT(*) >= silver_threshold THEN 2  -- Silver (75th percentile)
             ELSE m.membershiptype
         END > m.membershiptype
         LIMIT p_batch_size
