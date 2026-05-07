@@ -971,6 +971,9 @@ BEGIN
 END
 GO
 
+IF EXISTS (SELECT name FROM sysobjects WHERE name = 'UpgradeMembership$k' AND type = 'P')
+  DROP PROCEDURE UpgradeMembership$k
+GO
 CREATE PROCEDURE UpgradeMembership$k
     (
     \@batch_size          INT
@@ -983,8 +986,31 @@ BEGIN
     -- Full coverage every 100 minutes, then repeats (stateless partitioning)
     DECLARE \@current_slice INT = DATEPART(MINUTE, GETDATE()) % 100;
 
+    -- Calculate percentile thresholds for purchase counts in current slice
+    DECLARE \@gold_threshold DECIMAL(10,2);
+    DECLARE \@silver_threshold DECIMAL(10,2);
+
+    WITH SlicePurchaseCounts AS (
+        SELECT COUNT(*) AS purchase_count
+        FROM MEMBERSHIP$k m
+        INNER JOIN CUST_HIST$k ch ON m.CUSTOMERID = ch.CUSTOMERID
+        WHERE m.CUSTOMERID % 100 = \@current_slice
+        GROUP BY m.CUSTOMERID
+    )
+    SELECT TOP 1
+        \@gold_threshold = PERCENTILE_CONT(0.90) WITHIN GROUP (ORDER BY purchase_count) OVER(),
+        \@silver_threshold = PERCENTILE_CONT(0.75) WITHIN GROUP (ORDER BY purchase_count) OVER()
+    FROM SlicePurchaseCounts;
+
+    -- Fallback to hardcoded thresholds if no data in slice
+    IF \@gold_threshold IS NULL
+    BEGIN
+        SET \@gold_threshold = 20;
+        SET \@silver_threshold = 10;
+    END;
+
     -- Count total purchases per customer, upgrade membership if thresholds met
-    -- Gold (3): >= 20 purchases, Silver (2): >= 10 purchases
+    -- Gold (3): >= 90th percentile, Silver (2): >= 75th percentile
     -- UPGRADE ONLY - never downgrade
     -- Reward: extend expiration by 180 days when upgrading
     WITH CustomerPurchases AS (
@@ -994,8 +1020,8 @@ BEGIN
             m.EXPIREDATE,
             COUNT(*) AS products_purchased,
             CASE
-                WHEN COUNT(*) >= 20 THEN 3  -- Gold
-                WHEN COUNT(*) >= 10 THEN 2  -- Silver
+                WHEN COUNT(*) >= \@gold_threshold THEN 3  -- Gold (90th percentile)
+                WHEN COUNT(*) >= \@silver_threshold THEN 2  -- Silver (75th percentile)
                 ELSE m.MEMBERSHIPTYPE
             END AS new_level
         FROM MEMBERSHIP$k m WITH (READPAST)
@@ -1003,8 +1029,8 @@ BEGIN
         WHERE m.CUSTOMERID % 100 = \@current_slice
         GROUP BY m.CUSTOMERID, m.MEMBERSHIPTYPE, m.EXPIREDATE
         HAVING CASE
-            WHEN COUNT(*) >= 20 THEN 3
-            WHEN COUNT(*) >= 10 THEN 2
+            WHEN COUNT(*) >= \@gold_threshold THEN 3  -- Gold (90th percentile)
+            WHEN COUNT(*) >= \@silver_threshold THEN 2  -- Silver (75th percentile)
             ELSE m.MEMBERSHIPTYPE
         END > m.MEMBERSHIPTYPE
     )
@@ -1015,7 +1041,7 @@ BEGIN
     FROM MEMBERSHIP$k m
     INNER JOIN CustomerPurchases cp ON m.CUSTOMERID = cp.CUSTOMERID;
 
-    SELECT \@\@ROWCOUNT;
+    SELECT \@\@ROWCOUNT AS rows_updated, \@gold_threshold AS gold_threshold, \@silver_threshold AS silver_threshold;
 END
 GO
 
