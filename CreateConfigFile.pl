@@ -41,7 +41,7 @@ my $manager_batch_size_max = 100;			#Maximum batch size for manager operations d
 my $manager_add_product_pct = 0;			#Percentage chance for AddProduct operation default = 0
 my $manager_delete_review_pct = 0;		        #Percentage chance for Remove Reviews operation default = 0
 my $manager_update_price_pct = 0;			#Percentage chance for AdjustPrices operation default = 0
-my $manager_mark_special_pct = 0;			#Percentage chance for MarkSpecials operation default = 0
+my $manager_update_special_pct = 0;			#Percentage chance for MarkSpecials operation default = 0
 my $manager_expire_memberships_pct = 0;			#Percentage chance for ExpireMemberships operation default = 0
 my $manager_purge_old_orders_pct = 0;			#Percentage chance for PurgeOldOrders operation default = 0
 my $manager_upgrade_membership_pct = 0;			#Percentage chance for UpgradeMembership operation default = 0
@@ -103,8 +103,8 @@ print "Manager AdjustPrices percentage (0-100) [0] : ";
 chomp($manager_update_price_pct = <STDIN>);
 $manager_update_price_pct ||= 0;
 print "Manager MarkSpecials percentage (0-100) [0] : ";
-chomp($manager_mark_special_pct = <STDIN>);
-$manager_mark_special_pct ||= 0;
+chomp($manager_update_special_pct = <STDIN>);
+$manager_update_special_pct ||= 0;
 print "Manager ExpireMemberships percentage (0-100) [0] : ";
 chomp($manager_expire_memberships_pct = <STDIN>);
 $manager_expire_memberships_pct ||= 0;
@@ -199,7 +199,7 @@ print NEWFILE $end_line;
 $line = "manager_update_price_pct=".$manager_update_price_pct;
 print NEWFILE $line;
 print NEWFILE $end_line;
-$line = "manager_mark_special_pct=".$manager_mark_special_pct;
+$line = "manager_update_special_pct=".$manager_update_special_pct;
 print NEWFILE $line;
 print NEWFILE $end_line;
 $line = "manager_expire_memberships_pct=".$manager_expire_memberships_pct;
