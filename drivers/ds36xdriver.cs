@@ -165,11 +165,11 @@ namespace ds2xdriver
     public static int manager_interval = 30;
     public static int manager_add_product_pct = 40;
     public static int manager_delete_review_pct = 20;
-    public static int manager_update_price_pct = 25;
+    public static int manager_update_price_pct = 20;
     public static int manager_update_special_pct = 5;
-    public static int manager_expire_memberships_pct = 1;
+    public static int manager_expire_memberships_pct = 5;
     public static int manager_purge_old_orders_pct = 5;
-    public static int manager_upgrade_membership_pct = 1;
+    public static int manager_upgrade_membership_pct = 5;
     public static int manager_batch_size_min = 1;
     public static int manager_batch_size_max = 5;
 
@@ -2253,9 +2253,12 @@ namespace ds2xdriver
       Console.WriteLine($"Line items per order: {n_line_items} avg");
       Console.WriteLine($"Operations:");
       Console.WriteLine($"  New customers: {pct_newcustomers}%");
-      Console.WriteLine($"  New members: {pct_newmember}%");
-      Console.WriteLine($"  New reviews: {pct_newreviews}%");
-      Console.WriteLine($"  Review helpfulness ratings: {pct_newhelpfulness}%");
+      if (!ds2_mode)
+      {
+        Console.WriteLine($"  New members: {pct_newmember}%");
+        Console.WriteLine($"  New reviews: {pct_newreviews}%");
+        Console.WriteLine($"  Review helpfulness ratings: {pct_newhelpfulness}%");
+      }
       Console.WriteLine($"Windows perf monitoring: {(string.IsNullOrEmpty(windows_perf_host) ? "(none)" : windows_perf_host)}");
       Console.WriteLine($"Linux perf monitoring: {(string.IsNullOrEmpty(linux_perf_host) ? "(none)" : linux_perf_host)}");
       Console.WriteLine($"Output file: {(string.IsNullOrEmpty(outfilename) ? "(none)" : outfilename)}");
