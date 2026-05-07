@@ -34,6 +34,18 @@ my $windows_perf_host = "";				#target hostname for Perfmon CPU% display (Window
 my $detailed_view = "N";				#Parameter to display detailed view of Runtime Statistics on Each target machine default = N
 my $linux_perf_host = "";				#Parameter for linux CPU utilization Required format for value: <username>:<password>:<IP Address>
 my $use_vectors= "N";					#use vector search
+my $enable_managers = "N";				#Enable manager operations default = N
+my $manager_interval = 30;				#Manager operation interval in seconds default = 30
+my $manager_batch_size_min = 10;			#Minimum batch size for manager operations default = 10
+my $manager_batch_size_max = 100;			#Maximum batch size for manager operations default = 100
+my $manager_add_product_pct = 0;			#Percentage chance for AddProduct operation default = 0
+my $manager_delete_review_pct = 0;		        #Percentage chance for Remove Reviews operation default = 0
+my $manager_update_price_pct = 0;			#Percentage chance for AdjustPrices operation default = 0
+my $manager_mark_special_pct = 0;			#Percentage chance for MarkSpecials operation default = 0
+my $manager_expire_memberships_pct = 0;			#Percentage chance for ExpireMemberships operation default = 0
+my $manager_purge_old_orders_pct = 0;			#Percentage chance for PurgeOldOrders operation default = 0
+my $manager_upgrade_membership_pct = 0;			#Percentage chance for UpgradeMembership operation default = 0
+my $ds2_mode = "N";					#DS2 compatibility mode (3 browse types only) default = N
 
 my $line = "";
 my $end_line = "";					#End of line character
@@ -59,6 +71,49 @@ if(lc($^O) eq lc("linux"))
 print "Enable vector search ( Y / N ) [N] : ";
 chomp($use_vectors = <STDIN>);
 $use_vectors ||= "N";
+}
+
+print "DS2 compatibility mode - 3 browse types only, no review browse ( Y / N ) [N] : ";
+chomp($ds2_mode = <STDIN>);
+$ds2_mode ||= "N";
+
+print "Enable manager operations ( Y / N ) [N] : ";
+chomp($enable_managers = <STDIN>);
+$enable_managers ||= "N";
+
+if(uc($enable_managers) eq "Y")
+{
+print "\n--- Manager Operation Parameters ---\n";
+print "Manager operation interval in seconds [30] : ";
+chomp($manager_interval = <STDIN>);
+$manager_interval ||= 30;
+print "Manager batch size min [10] : ";
+chomp($manager_batch_size_min = <STDIN>);
+$manager_batch_size_min ||= 10;
+print "Manager batch size max [100] : ";
+chomp($manager_batch_size_max = <STDIN>);
+$manager_batch_size_max ||= 100;
+print "Manager AddProduct percentage (0-100) [0] : ";
+chomp($manager_add_product_pct = <STDIN>);
+$manager_add_product_pct ||= 0;
+print "Manager DeleteReview percentage (0-100) [0] : ";
+chomp($manager_delete_review_pct = <STDIN>);
+$manager_delete_review_pct ||= 0;
+print "Manager AdjustPrices percentage (0-100) [0] : ";
+chomp($manager_update_price_pct = <STDIN>);
+$manager_update_price_pct ||= 0;
+print "Manager MarkSpecials percentage (0-100) [0] : ";
+chomp($manager_mark_special_pct = <STDIN>);
+$manager_mark_special_pct ||= 0;
+print "Manager ExpireMemberships percentage (0-100) [0] : ";
+chomp($manager_expire_memberships_pct = <STDIN>);
+$manager_expire_memberships_pct ||= 0;
+print "Manager PurgeOldOrders percentage (0-100) [0] : ";
+chomp($manager_purge_old_orders_pct = <STDIN>);
+$manager_purge_old_orders_pct ||= 0;
+print "Manager UpgradeMembership percentage (0-100) [0] : ";
+chomp($manager_upgrade_membership_pct = <STDIN>);
+$manager_upgrade_membership_pct ||= 0;
 }
 
 print "***********************************\n";
@@ -121,6 +176,42 @@ $line = "detailed_view=".$detailed_view;
 print NEWFILE $line;
 print NEWFILE $end_line;
 $line = "use_vectors=".$use_vectors;
+print NEWFILE $line;
+print NEWFILE $end_line;
+$line = "enable_managers=".$enable_managers;
+print NEWFILE $line;
+print NEWFILE $end_line;
+$line = "manager_interval=".$manager_interval;
+print NEWFILE $line;
+print NEWFILE $end_line;
+$line = "manager_batch_size_min=".$manager_batch_size_min;
+print NEWFILE $line;
+print NEWFILE $end_line;
+$line = "manager_batch_size_max=".$manager_batch_size_max;
+print NEWFILE $line;
+print NEWFILE $end_line;
+$line = "manager_add_product_pct=".$manager_add_product_pct;
+print NEWFILE $line;
+print NEWFILE $end_line;
+$line = "manager_delete_review_pct=".$manager_delete_review_pct;
+print NEWFILE $line;
+print NEWFILE $end_line;
+$line = "manager_update_price_pct=".$manager_update_price_pct;
+print NEWFILE $line;
+print NEWFILE $end_line;
+$line = "manager_mark_special_pct=".$manager_mark_special_pct;
+print NEWFILE $line;
+print NEWFILE $end_line;
+$line = "manager_expire_memberships_pct=".$manager_expire_memberships_pct;
+print NEWFILE $line;
+print NEWFILE $end_line;
+$line = "manager_purge_old_orders_pct=".$manager_purge_old_orders_pct;
+print NEWFILE $line;
+print NEWFILE $end_line;
+$line = "manager_upgrade_membership_pct=".$manager_upgrade_membership_pct;
+print NEWFILE $line;
+print NEWFILE $end_line;
+$line = "ds2_mode=".$ds2_mode;
 print NEWFILE $line;
 print NEWFILE $end_line;
 
