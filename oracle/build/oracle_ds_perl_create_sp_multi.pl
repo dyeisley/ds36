@@ -1088,8 +1088,10 @@ END;
 /
 
 CREATE OR REPLACE PROCEDURE DS3.UpgradeMembership$k (
-    p_batch_size     IN  NUMBER,
-    p_rows_upgraded  OUT NUMBER
+    p_batch_size       IN  NUMBER,
+    p_rows_upgraded    OUT NUMBER,
+    p_gold_threshold   OUT NUMBER,
+    p_silver_threshold OUT NUMBER
 ) AS
     v_current_slice NUMBER;
 BEGIN
@@ -1097,8 +1099,27 @@ BEGIN
     -- Full coverage every 100 minutes, then repeats (stateless partitioning)
     v_current_slice := MOD(EXTRACT(MINUTE FROM SYSTIMESTAMP), 100);
 
+    -- Calculate percentile thresholds for purchase counts in current slice
+    -- Gold (3): >= 90th percentile, Silver (2): >= 75th percentile
+    SELECT
+        PERCENTILE_CONT(0.90) WITHIN GROUP (ORDER BY purchase_count),
+        PERCENTILE_CONT(0.75) WITHIN GROUP (ORDER BY purchase_count)
+    INTO p_gold_threshold, p_silver_threshold
+    FROM (
+        SELECT COUNT(*) AS purchase_count
+        FROM DS3.MEMBERSHIP$k m
+        INNER JOIN DS3.CUST_HIST$k ch ON m.CUSTOMERID = ch.CUSTOMERID
+        WHERE MOD(m.CUSTOMERID, 100) = v_current_slice
+        GROUP BY m.CUSTOMERID
+    );
+
+    -- Fallback to hardcoded thresholds if no data in slice
+    IF p_gold_threshold IS NULL THEN
+        p_gold_threshold := 20;
+        p_silver_threshold := 10;
+    END IF;
+
     -- Count total purchases per customer, upgrade membership if thresholds met
-    -- Gold (3): >= 20 purchases, Silver (2): >= 10 purchases
     -- UPGRADE ONLY - never downgrade
     -- Reward: extend expiration by 180 days when upgrading
     MERGE INTO DS3.MEMBERSHIP$k m
@@ -1107,19 +1128,19 @@ BEGIN
             SELECT
                 ch.CUSTOMERID,
                 CASE
-                    WHEN COUNT(*) >= 20 THEN 3
-                    WHEN COUNT(*) >= 10 THEN 2
+                    WHEN COUNT(*) >= p_gold_threshold THEN 3  -- Gold (90th percentile)
+                    WHEN COUNT(*) >= p_silver_threshold THEN 2  -- Silver (75th percentile)
                 END AS new_level,
                 m2.MEMBERSHIPTYPE AS current_level
             FROM DS3.CUST_HIST$k ch
             INNER JOIN DS3.MEMBERSHIP$k m2 ON ch.CUSTOMERID = m2.CUSTOMERID
             WHERE MOD(ch.CUSTOMERID, 100) = v_current_slice
             GROUP BY ch.CUSTOMERID, m2.MEMBERSHIPTYPE
-            HAVING COUNT(*) >= 10
+            HAVING COUNT(*) >= p_silver_threshold
                 AND (
                     CASE
-                        WHEN COUNT(*) >= 20 THEN 3
-                        WHEN COUNT(*) >= 10 THEN 2
+                        WHEN COUNT(*) >= p_gold_threshold THEN 3  -- Gold (90th percentile)
+                        WHEN COUNT(*) >= p_silver_threshold THEN 2  -- Silver (75th percentile)
                     END
                 ) > m2.MEMBERSHIPTYPE
         )

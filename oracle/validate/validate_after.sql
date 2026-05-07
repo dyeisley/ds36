@@ -635,10 +635,10 @@ DECLARE
     v_old_orders_deleted NUMBER;
     v_silver_members_before NUMBER;
     v_silver_members_after NUMBER;
-    v_silver_upgrades NUMBER;
+    v_silver_delta NUMBER;
     v_gold_members_before NUMBER;
     v_gold_members_after NUMBER;
-    v_gold_upgrades NUMBER;
+    v_gold_delta NUMBER;
 BEGIN
     DBMS_OUTPUT.PUT_LINE('');
     DBMS_OUTPUT.PUT_LINE('');
@@ -732,9 +732,9 @@ BEGIN
     DBMS_OUTPUT.PUT_LINE('');
 
     -- =======================================================================
-    -- MEMBERSHIP TIER UPGRADES
+    -- MEMBERSHIP TIER
     -- =======================================================================
-    DBMS_OUTPUT.PUT_LINE('--- MEMBERSHIP TIER UPGRADES ---');
+    DBMS_OUTPUT.PUT_LINE('--- MEMBERSHIP TIER ---');
 
     SELECT metric_value INTO v_silver_members_before FROM VALIDATION_METRICS WHERE metric_name = 'SILVER_MEMBERS_COUNT';
     SELECT metric_value INTO v_gold_members_before FROM VALIDATION_METRICS WHERE metric_name = 'GOLD_MEMBERS_COUNT';
@@ -742,54 +742,180 @@ BEGIN
     SELECT COUNT(*) INTO v_silver_members_after FROM DS3.MEMBERSHIP1 WHERE MEMBERSHIPTYPE = 2;
     SELECT COUNT(*) INTO v_gold_members_after FROM DS3.MEMBERSHIP1 WHERE MEMBERSHIPTYPE = 3;
 
-    v_silver_upgrades := v_silver_members_after - v_silver_members_before;
-    v_gold_upgrades := v_gold_members_after - v_gold_members_before;
+    v_silver_delta := v_silver_members_after - v_silver_members_before;
+    v_gold_delta := v_gold_members_after - v_gold_members_before;
 
     DBMS_OUTPUT.PUT_LINE('Silver Members (Level 2):');
-    DBMS_OUTPUT.PUT_LINE('  Pre:      ' || v_silver_members_before);
-    DBMS_OUTPUT.PUT_LINE('  Post:     ' || v_silver_members_after);
-    DBMS_OUTPUT.PUT_LINE('  Upgrades: ' || v_silver_upgrades);
+    DBMS_OUTPUT.PUT_LINE('  Pre:   ' || v_silver_members_before);
+    DBMS_OUTPUT.PUT_LINE('  Post:  ' || v_silver_members_after);
+    DBMS_OUTPUT.PUT_LINE('  Delta: ' || v_silver_delta);
 
     DBMS_OUTPUT.PUT_LINE('Gold Members (Level 3):');
-    DBMS_OUTPUT.PUT_LINE('  Pre:      ' || v_gold_members_before);
-    DBMS_OUTPUT.PUT_LINE('  Post:     ' || v_gold_members_after);
-    DBMS_OUTPUT.PUT_LINE('  Upgrades: ' || v_gold_upgrades);
+    DBMS_OUTPUT.PUT_LINE('  Pre:   ' || v_gold_members_before);
+    DBMS_OUTPUT.PUT_LINE('  Post:  ' || v_gold_members_after);
+    DBMS_OUTPUT.PUT_LINE('  Delta: ' || v_gold_delta);
 
     DBMS_OUTPUT.PUT_LINE('');
-    DBMS_OUTPUT.PUT_LINE('--- MEMBERSHIP SAMPLE TRACKING (Top 25 Changes from 10000 Sampled) ---');
+    DBMS_OUTPUT.PUT_LINE('--- MEMBERSHIP CHANGE TRACKING (Full Snapshot Comparison) ---');
+    DBMS_OUTPUT.PUT_LINE('');
 END;
 /
 
--- Display sample tracking results
+-- Summary counts of all changes (optimized: separate queries instead of FULL OUTER JOIN)
+DECLARE
+    v_total NUMBER;
+    v_deleted NUMBER;
+    v_new NUMBER;
+    v_up_1_2 NUMBER;
+    v_up_2_3 NUMBER;
+    v_up_1_3 NUMBER;
+    v_extended NUMBER;
+BEGIN
+    SELECT COUNT(*) INTO v_deleted
+    FROM MEMBERSHIP_SNAPSHOT s
+    LEFT JOIN DS3.MEMBERSHIP1 m ON s.CUSTOMERID = m.CUSTOMERID
+    WHERE m.CUSTOMERID IS NULL;
+
+    SELECT COUNT(*) INTO v_new
+    FROM DS3.MEMBERSHIP1 m
+    LEFT JOIN MEMBERSHIP_SNAPSHOT s ON m.CUSTOMERID = s.CUSTOMERID
+    WHERE s.CUSTOMERID IS NULL;
+
+    SELECT COUNT(*) INTO v_up_1_2
+    FROM MEMBERSHIP_SNAPSHOT s
+    INNER JOIN DS3.MEMBERSHIP1 m ON s.CUSTOMERID = m.CUSTOMERID
+    WHERE s.MEMBERSHIPTYPE = 1 AND m.MEMBERSHIPTYPE = 2;
+
+    SELECT COUNT(*) INTO v_up_2_3
+    FROM MEMBERSHIP_SNAPSHOT s
+    INNER JOIN DS3.MEMBERSHIP1 m ON s.CUSTOMERID = m.CUSTOMERID
+    WHERE s.MEMBERSHIPTYPE = 2 AND m.MEMBERSHIPTYPE = 3;
+
+    SELECT COUNT(*) INTO v_up_1_3
+    FROM MEMBERSHIP_SNAPSHOT s
+    INNER JOIN DS3.MEMBERSHIP1 m ON s.CUSTOMERID = m.CUSTOMERID
+    WHERE s.MEMBERSHIPTYPE = 1 AND m.MEMBERSHIPTYPE = 3;
+
+    SELECT COUNT(*) INTO v_extended
+    FROM MEMBERSHIP_SNAPSHOT s
+    INNER JOIN DS3.MEMBERSHIP1 m ON s.CUSTOMERID = m.CUSTOMERID
+    WHERE m.MEMBERSHIPTYPE = s.MEMBERSHIPTYPE AND m.EXPIREDATE > s.EXPIREDATE;
+
+    v_total := v_deleted + v_new + v_up_1_2 + v_up_2_3 + v_up_1_3 + v_extended;
+
+    DBMS_OUTPUT.PUT_LINE(RPAD('TOTAL_CHANGES', 15) || RPAD('DELETED', 12) || RPAD('NEW_MEMBERSHIPS', 17) ||
+                         RPAD('UPGRADES_1_TO_2', 17) || RPAD('UPGRADES_2_TO_3', 17) ||
+                         RPAD('UPGRADES_1_TO_3', 17) || 'EXTENDED_ONLY');
+    DBMS_OUTPUT.PUT_LINE(RPAD('-', 15, '-') || RPAD('-', 12, '-') || RPAD('-', 17, '-') ||
+                         RPAD('-', 17, '-') || RPAD('-', 17, '-') || RPAD('-', 17, '-') || RPAD('-', 13, '-'));
+    DBMS_OUTPUT.PUT_LINE(RPAD(v_total, 15) || RPAD(v_deleted, 12) || RPAD(v_new, 17) ||
+                         RPAD(v_up_1_2, 17) || RPAD(v_up_2_3, 17) || RPAD(v_up_1_3, 17) || v_extended);
+END;
+/
+
+BEGIN
+    DBMS_OUTPUT.PUT_LINE('');
+    DBMS_OUTPUT.PUT_LINE('Top 30 Changes (Diverse Sample - Rarest First):');
+    DBMS_OUTPUT.PUT_LINE('');
+END;
+/
+
+-- Top N of each change type for diverse representation
+-- Top 5: 1->3 jumps (rarest)
 SELECT * FROM (
     SELECT
         s.CUSTOMERID,
         s.MEMBERSHIPTYPE AS before_level,
-        NVL(m.MEMBERSHIPTYPE, -1) AS after_level,
+        m.MEMBERSHIPTYPE AS after_level,
         TO_CHAR(s.EXPIREDATE, 'YYYY-MM-DD') AS before_expire,
-        NVL(TO_CHAR(m.EXPIREDATE, 'YYYY-MM-DD'), 'N/A') AS after_expire,
-        CASE
-            WHEN m.CUSTOMERID IS NULL THEN 'DELETED'
-            WHEN m.MEMBERSHIPTYPE > s.MEMBERSHIPTYPE THEN 'UPGRADED'
-            WHEN m.EXPIREDATE > s.EXPIREDATE THEN 'EXTENDED'
-            ELSE 'NO CHANGE'
-        END AS status
-    FROM VALIDATION_MEMBERSHIP_SAMPLE s
-    LEFT JOIN DS3.MEMBERSHIP1 m ON s.CUSTOMERID = m.CUSTOMERID
-    WHERE
-        m.CUSTOMERID IS NULL OR
-        m.MEMBERSHIPTYPE > s.MEMBERSHIPTYPE OR
-        m.EXPIREDATE > s.EXPIREDATE
-    ORDER BY
-        CASE
-            WHEN m.CUSTOMERID IS NULL THEN 0
-            WHEN m.MEMBERSHIPTYPE > s.MEMBERSHIPTYPE THEN 1
-            WHEN m.EXPIREDATE > s.EXPIREDATE THEN 2
-            ELSE 3
-        END,
-        s.CUSTOMERID
+        TO_CHAR(m.EXPIREDATE, 'YYYY-MM-DD') AS after_expire,
+        '1->3 JUMP' AS status
+    FROM MEMBERSHIP_SNAPSHOT s
+    INNER JOIN DS3.MEMBERSHIP1 m ON s.CUSTOMERID = m.CUSTOMERID
+    WHERE s.MEMBERSHIPTYPE = 1 AND m.MEMBERSHIPTYPE = 3
+    ORDER BY s.CUSTOMERID
 )
-WHERE ROWNUM <= 25;
+WHERE ROWNUM <= 5
+UNION ALL
+-- Top 5: 2->3 upgrades
+SELECT * FROM (
+    SELECT
+        s.CUSTOMERID,
+        s.MEMBERSHIPTYPE AS before_level,
+        m.MEMBERSHIPTYPE AS after_level,
+        TO_CHAR(s.EXPIREDATE, 'YYYY-MM-DD') AS before_expire,
+        TO_CHAR(m.EXPIREDATE, 'YYYY-MM-DD') AS after_expire,
+        '2->3 UPGRADE' AS status
+    FROM MEMBERSHIP_SNAPSHOT s
+    INNER JOIN DS3.MEMBERSHIP1 m ON s.CUSTOMERID = m.CUSTOMERID
+    WHERE s.MEMBERSHIPTYPE = 2 AND m.MEMBERSHIPTYPE = 3
+    ORDER BY s.CUSTOMERID
+)
+WHERE ROWNUM <= 5
+UNION ALL
+-- Top 5: DELETED (in snapshot but not in current table)
+SELECT * FROM (
+    SELECT
+        s.CUSTOMERID,
+        s.MEMBERSHIPTYPE AS before_level,
+        -1 AS after_level,
+        TO_CHAR(s.EXPIREDATE, 'YYYY-MM-DD') AS before_expire,
+        'N/A' AS after_expire,
+        'DELETED' AS status
+    FROM MEMBERSHIP_SNAPSHOT s
+    LEFT JOIN DS3.MEMBERSHIP1 m ON s.CUSTOMERID = m.CUSTOMERID
+    WHERE m.CUSTOMERID IS NULL
+    ORDER BY s.CUSTOMERID
+)
+WHERE ROWNUM <= 5
+UNION ALL
+-- Top 5: NEW (in current table but not in snapshot)
+SELECT * FROM (
+    SELECT
+        m.CUSTOMERID,
+        -1 AS before_level,
+        m.MEMBERSHIPTYPE AS after_level,
+        'N/A' AS before_expire,
+        TO_CHAR(m.EXPIREDATE, 'YYYY-MM-DD') AS after_expire,
+        'NEW' AS status
+    FROM DS3.MEMBERSHIP1 m
+    LEFT JOIN MEMBERSHIP_SNAPSHOT s ON m.CUSTOMERID = s.CUSTOMERID
+    WHERE s.CUSTOMERID IS NULL
+    ORDER BY m.CUSTOMERID
+)
+WHERE ROWNUM <= 5
+UNION ALL
+-- Top 10: 1->2 upgrades (most common, so show more)
+SELECT * FROM (
+    SELECT
+        s.CUSTOMERID,
+        s.MEMBERSHIPTYPE AS before_level,
+        m.MEMBERSHIPTYPE AS after_level,
+        TO_CHAR(s.EXPIREDATE, 'YYYY-MM-DD') AS before_expire,
+        TO_CHAR(m.EXPIREDATE, 'YYYY-MM-DD') AS after_expire,
+        '1->2 UPGRADE' AS status
+    FROM MEMBERSHIP_SNAPSHOT s
+    INNER JOIN DS3.MEMBERSHIP1 m ON s.CUSTOMERID = m.CUSTOMERID
+    WHERE s.MEMBERSHIPTYPE = 1 AND m.MEMBERSHIPTYPE = 2
+    ORDER BY s.CUSTOMERID
+)
+WHERE ROWNUM <= 10
+UNION ALL
+-- Top 5: EXTENDED (membership type unchanged but expiration date extended)
+SELECT * FROM (
+    SELECT
+        s.CUSTOMERID,
+        s.MEMBERSHIPTYPE AS before_level,
+        m.MEMBERSHIPTYPE AS after_level,
+        TO_CHAR(s.EXPIREDATE, 'YYYY-MM-DD') AS before_expire,
+        TO_CHAR(m.EXPIREDATE, 'YYYY-MM-DD') AS after_expire,
+        'EXTENDED' AS status
+    FROM MEMBERSHIP_SNAPSHOT s
+    INNER JOIN DS3.MEMBERSHIP1 m ON s.CUSTOMERID = m.CUSTOMERID
+    WHERE s.MEMBERSHIPTYPE = m.MEMBERSHIPTYPE AND m.EXPIREDATE > s.EXPIREDATE
+    ORDER BY s.CUSTOMERID
+)
+WHERE ROWNUM <= 5;
 
 DECLARE
     v_customers_before NUMBER;

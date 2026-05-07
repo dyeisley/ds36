@@ -286,6 +286,8 @@ namespace ds2xdriver
       Upgrade_Membership.CommandType = CommandType.StoredProcedure;
       Upgrade_Membership.Parameters.Add("p_batch_size", OracleDbType.Int32);
       Upgrade_Membership.Parameters.Add("p_rows_upgraded", OracleDbType.Int32, ParameterDirection.Output);
+      Upgrade_Membership.Parameters.Add("p_gold_threshold", OracleDbType.Decimal, ParameterDirection.Output);
+      Upgrade_Membership.Parameters.Add("p_silver_threshold", OracleDbType.Decimal, ParameterDirection.Output);
     }
 
 //
