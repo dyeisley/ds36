@@ -463,9 +463,9 @@ SELECT '';
 SELECT '';
 
 -- =======================================================================
--- MEMBERSHIP TIER UPGRADES
+-- MEMBERSHIP TIER
 -- =======================================================================
-SELECT '--- MEMBERSHIP TIER UPGRADES ---';
+SELECT '--- MEMBERSHIP TIER ---';
 
 SET @silver_members_before = (SELECT metric_value FROM VALIDATION_METRICS WHERE metric_name = 'SILVER_MEMBERS_COUNT');
 SET @gold_members_before = (SELECT metric_value FROM VALIDATION_METRICS WHERE metric_name = 'GOLD_MEMBERS_COUNT');
@@ -473,49 +473,161 @@ SET @gold_members_before = (SELECT metric_value FROM VALIDATION_METRICS WHERE me
 SET @silver_members_after = (SELECT COUNT(*) FROM MEMBERSHIP1 WHERE MEMBERSHIPTYPE = 2);
 SET @gold_members_after = (SELECT COUNT(*) FROM MEMBERSHIP1 WHERE MEMBERSHIPTYPE = 3);
 
-SET @silver_upgrades = @silver_members_after - @silver_members_before;
-SET @gold_upgrades = @gold_members_after - @gold_members_before;
+SET @silver_delta = @silver_members_after - @silver_members_before;
+SET @gold_delta = @gold_members_after - @gold_members_before;
 
 SELECT CONCAT('Silver Members (Level 2):');
-SELECT CONCAT('  Pre:      ', @silver_members_before);
-SELECT CONCAT('  Post:     ', @silver_members_after);
-SELECT CONCAT('  Upgrades: ', @silver_upgrades);
+SELECT CONCAT('  Pre:   ', @silver_members_before);
+SELECT CONCAT('  Post:  ', @silver_members_after);
+SELECT CONCAT('  Delta: ', @silver_delta);
 
 SELECT CONCAT('Gold Members (Level 3):');
-SELECT CONCAT('  Pre:      ', @gold_members_before);
-SELECT CONCAT('  Post:     ', @gold_members_after);
-SELECT CONCAT('  Upgrades: ', @gold_upgrades);
+SELECT CONCAT('  Pre:   ', @gold_members_before);
+SELECT CONCAT('  Post:  ', @gold_members_after);
+SELECT CONCAT('  Delta: ', @gold_delta);
 
 SELECT '';
-SELECT '--- MEMBERSHIP SAMPLE TRACKING (Top 25 Changes from 10000 Sampled) ---';
+SELECT '--- MEMBERSHIP CHANGE TRACKING (Full Snapshot Comparison) ---';
+SELECT '';
+SELECT 'Columns: total_changes | deleted | new_memberships | upgrades_1_to_2 | upgrades_2_to_3 | upgrades_1_to_3 | extended_only';
+SELECT '';
 
+-- Summary counts of all changes (optimized: separate queries instead of UNION)
 SELECT
-    s.CUSTOMERID,
-    s.MEMBERSHIPTYPE AS before_level,
-    IFNULL(m.MEMBERSHIPTYPE, -1) AS after_level,
-    DATE_FORMAT(s.EXPIREDATE, '%Y-%m-%d') AS before_expire,
-    IFNULL(DATE_FORMAT(m.EXPIREDATE, '%Y-%m-%d'), 'N/A') AS after_expire,
-    CASE
-        WHEN m.CUSTOMERID IS NULL THEN 'DELETED'
-        WHEN m.MEMBERSHIPTYPE > s.MEMBERSHIPTYPE THEN 'UPGRADED'
-        WHEN m.EXPIREDATE > s.EXPIREDATE THEN 'EXTENDED'
-        ELSE 'NO CHANGE'
-    END AS status
-FROM VALIDATION_MEMBERSHIP_SAMPLE s
-LEFT JOIN MEMBERSHIP1 m ON s.CUSTOMERID = m.CUSTOMERID
-WHERE
-    m.CUSTOMERID IS NULL OR
-    m.MEMBERSHIPTYPE > s.MEMBERSHIPTYPE OR
-    m.EXPIREDATE > s.EXPIREDATE
-ORDER BY
-    CASE
-        WHEN m.CUSTOMERID IS NULL THEN 0
-        WHEN m.MEMBERSHIPTYPE > s.MEMBERSHIPTYPE THEN 1
-        WHEN m.EXPIREDATE > s.EXPIREDATE THEN 2
-        ELSE 3
-    END,
-    s.CUSTOMERID
-LIMIT 25;
+    (SELECT COUNT(*) FROM MEMBERSHIP_SNAPSHOT s
+     LEFT JOIN MEMBERSHIP1 m ON s.CUSTOMERID = m.CUSTOMERID
+     WHERE m.CUSTOMERID IS NULL
+        OR m.MEMBERSHIPTYPE > s.MEMBERSHIPTYPE
+        OR m.EXPIREDATE > s.EXPIREDATE) +
+    (SELECT COUNT(*) FROM MEMBERSHIP1 m
+     LEFT JOIN MEMBERSHIP_SNAPSHOT s ON m.CUSTOMERID = s.CUSTOMERID
+     WHERE s.CUSTOMERID IS NULL)
+    AS total_changes,
+
+    (SELECT COUNT(*) FROM MEMBERSHIP_SNAPSHOT s
+     LEFT JOIN MEMBERSHIP1 m ON s.CUSTOMERID = m.CUSTOMERID
+     WHERE m.CUSTOMERID IS NULL) AS deleted,
+
+    (SELECT COUNT(*) FROM MEMBERSHIP1 m
+     LEFT JOIN MEMBERSHIP_SNAPSHOT s ON m.CUSTOMERID = s.CUSTOMERID
+     WHERE s.CUSTOMERID IS NULL) AS new_memberships,
+
+    (SELECT COUNT(*) FROM MEMBERSHIP_SNAPSHOT s
+     INNER JOIN MEMBERSHIP1 m ON s.CUSTOMERID = m.CUSTOMERID
+     WHERE s.MEMBERSHIPTYPE = 1 AND m.MEMBERSHIPTYPE = 2) AS upgrades_1_to_2,
+
+    (SELECT COUNT(*) FROM MEMBERSHIP_SNAPSHOT s
+     INNER JOIN MEMBERSHIP1 m ON s.CUSTOMERID = m.CUSTOMERID
+     WHERE s.MEMBERSHIPTYPE = 2 AND m.MEMBERSHIPTYPE = 3) AS upgrades_2_to_3,
+
+    (SELECT COUNT(*) FROM MEMBERSHIP_SNAPSHOT s
+     INNER JOIN MEMBERSHIP1 m ON s.CUSTOMERID = m.CUSTOMERID
+     WHERE s.MEMBERSHIPTYPE = 1 AND m.MEMBERSHIPTYPE = 3) AS upgrades_1_to_3,
+
+    (SELECT COUNT(*) FROM MEMBERSHIP_SNAPSHOT s
+     INNER JOIN MEMBERSHIP1 m ON s.CUSTOMERID = m.CUSTOMERID
+     WHERE m.MEMBERSHIPTYPE = s.MEMBERSHIPTYPE AND m.EXPIREDATE > s.EXPIREDATE) AS extended_only;
+
+SELECT '';
+SELECT 'Sample Changes by Type (Top 5 of each type):';
+SELECT '';
+
+-- Diverse sample: Top 5 of each change type (35 total max)
+(
+    -- 1->3 jumps (top 5)
+    SELECT
+        s.CUSTOMERID,
+        s.MEMBERSHIPTYPE AS before_level,
+        m.MEMBERSHIPTYPE AS after_level,
+        DATE_FORMAT(s.EXPIREDATE, '%Y-%m-%d') AS before_expire,
+        DATE_FORMAT(m.EXPIREDATE, '%Y-%m-%d') AS after_expire,
+        '1->3 JUMP' AS status
+    FROM MEMBERSHIP_SNAPSHOT s
+    INNER JOIN MEMBERSHIP1 m ON s.CUSTOMERID = m.CUSTOMERID
+    WHERE s.MEMBERSHIPTYPE = 1 AND m.MEMBERSHIPTYPE = 3
+    ORDER BY s.CUSTOMERID
+    LIMIT 5
+)
+UNION ALL
+(
+    -- 2->3 upgrades (top 5)
+    SELECT
+        s.CUSTOMERID,
+        s.MEMBERSHIPTYPE AS before_level,
+        m.MEMBERSHIPTYPE AS after_level,
+        DATE_FORMAT(s.EXPIREDATE, '%Y-%m-%d') AS before_expire,
+        DATE_FORMAT(m.EXPIREDATE, '%Y-%m-%d') AS after_expire,
+        '2->3 UPGRADE' AS status
+    FROM MEMBERSHIP_SNAPSHOT s
+    INNER JOIN MEMBERSHIP1 m ON s.CUSTOMERID = m.CUSTOMERID
+    WHERE s.MEMBERSHIPTYPE = 2 AND m.MEMBERSHIPTYPE = 3
+    ORDER BY s.CUSTOMERID
+    LIMIT 5
+)
+UNION ALL
+(
+    -- Deleted memberships (top 5)
+    SELECT
+        s.CUSTOMERID,
+        s.MEMBERSHIPTYPE AS before_level,
+        -1 AS after_level,
+        DATE_FORMAT(s.EXPIREDATE, '%Y-%m-%d') AS before_expire,
+        'N/A' AS after_expire,
+        'DELETED' AS status
+    FROM MEMBERSHIP_SNAPSHOT s
+    LEFT JOIN MEMBERSHIP1 m ON s.CUSTOMERID = m.CUSTOMERID
+    WHERE m.CUSTOMERID IS NULL
+    ORDER BY s.CUSTOMERID
+    LIMIT 5
+)
+UNION ALL
+(
+    -- New memberships (top 5)
+    SELECT
+        m.CUSTOMERID,
+        -1 AS before_level,
+        m.MEMBERSHIPTYPE AS after_level,
+        'N/A' AS before_expire,
+        DATE_FORMAT(m.EXPIREDATE, '%Y-%m-%d') AS after_expire,
+        'NEW' AS status
+    FROM MEMBERSHIP1 m
+    LEFT JOIN MEMBERSHIP_SNAPSHOT s ON m.CUSTOMERID = s.CUSTOMERID
+    WHERE s.CUSTOMERID IS NULL
+    ORDER BY m.CUSTOMERID
+    LIMIT 5
+)
+UNION ALL
+(
+    -- 1->2 upgrades (top 10 - most common)
+    SELECT
+        s.CUSTOMERID,
+        s.MEMBERSHIPTYPE AS before_level,
+        m.MEMBERSHIPTYPE AS after_level,
+        DATE_FORMAT(s.EXPIREDATE, '%Y-%m-%d') AS before_expire,
+        DATE_FORMAT(m.EXPIREDATE, '%Y-%m-%d') AS after_expire,
+        '1->2 UPGRADE' AS status
+    FROM MEMBERSHIP_SNAPSHOT s
+    INNER JOIN MEMBERSHIP1 m ON s.CUSTOMERID = m.CUSTOMERID
+    WHERE s.MEMBERSHIPTYPE = 1 AND m.MEMBERSHIPTYPE = 2
+    ORDER BY s.CUSTOMERID
+    LIMIT 10
+)
+UNION ALL
+(
+    -- Extended only (top 5)
+    SELECT
+        s.CUSTOMERID,
+        s.MEMBERSHIPTYPE AS before_level,
+        m.MEMBERSHIPTYPE AS after_level,
+        DATE_FORMAT(s.EXPIREDATE, '%Y-%m-%d') AS before_expire,
+        DATE_FORMAT(m.EXPIREDATE, '%Y-%m-%d') AS after_expire,
+        'EXTENDED' AS status
+    FROM MEMBERSHIP_SNAPSHOT s
+    INNER JOIN MEMBERSHIP1 m ON s.CUSTOMERID = m.CUSTOMERID
+    WHERE s.MEMBERSHIPTYPE = m.MEMBERSHIPTYPE AND m.EXPIREDATE > s.EXPIREDATE
+    ORDER BY s.CUSTOMERID
+    LIMIT 5
+);
 
 SELECT '';
 
