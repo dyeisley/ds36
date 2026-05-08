@@ -100,7 +100,14 @@ int main(int argc, char* argv[])
     {
       r_custid = random2(i, i+n_interval_size-1);
 
-      r_membership_type = random2(1, 3);
+      // Pyramid distribution: 60% Bronze, 30% Silver, 10% Gold
+      int roll = random2(1, 100);
+      if (roll <= 60)
+          r_membership_type = 1;      // 60% Bronze
+      else if (roll <= 90)
+          r_membership_type = 2;      // 30% Silver
+      else
+          r_membership_type = 3;      // 10% Gold
 
       r_year = (rand() % (upper - lower + 1)) + lower;
 

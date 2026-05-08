@@ -128,7 +128,7 @@ namespace ds2xdriver
     public static bool Start = false , End = false;
     public static int max_customer , max_review;
     public static string virt_dir = "ds3" , page_type = "php";
-    public static int[] max_product = new int[GlobalConstants.MAX_STORES];
+    public static int[] max_product = new int[GlobalConstants.MAX_STORES+1]; // there is no store 0. We use store number as the index.
 
     //Added new parameter database_custom_size and new variables by GSK
     //Note that order_rows are per month
@@ -1996,30 +1996,21 @@ namespace ds2xdriver
       Console.WriteLine("Total Orders:           {0,7}", n_overall);
       Console.WriteLine("Orders Per Minute:      {0,7} OPM", opm);
       Console.WriteLine();
-      Console.WriteLine("Operation Counts:");
-      Console.WriteLine("  Login:                {0,7}", n_login_overall);
-      Console.WriteLine("  New Customer:         {0,7}", n_newcust_overall);
-      Console.WriteLine("  New Member:           {0,7}", n_newmember_overall);
-      Console.WriteLine("  Browse:               {0,7}", n_browse_overall);
+      Console.WriteLine("Customer Operations:");
+      Console.WriteLine("  Login:                {0,7} operations, avg RT: {1:F3} sec", n_login_overall, rt_login_avg_msec / 1000.0);
+      Console.WriteLine("  New Customer:         {0,7} operations, avg RT: {1:F3} sec", n_newcust_overall, rt_newcust_avg_msec / 1000.0);
+      Console.WriteLine("  New Member:           {0,7} operations, avg RT: {1:F3} sec", n_newmember_overall, rt_newmember_avg_msec / 1000.0);
+      Console.WriteLine("  Browse:               {0,7} operations, avg RT: {1:F3} sec", n_browse_overall, rt_browse_avg_msec / 1000.0);
       if (n_vectors == 1)
       {
-        Console.WriteLine("  Browse (vector):      {0,7}", n_browse_vector);
+        Console.WriteLine("  Browse (vector):      {0,7} operations", n_browse_vector);
       }
-      Console.WriteLine("  Review Browse:        {0,7}", n_reviewbrowse_overall);
-      Console.WriteLine("  New Review:           {0,7}", n_newreview_overall);
-      Console.WriteLine("  New Helpfulness:      {0,7}", n_newhelpfulness_overall);
-      Console.WriteLine("  Purchase:             {0,7}", n_purchase_overall);
+      Console.WriteLine("  Review Browse:        {0,7} operations, avg RT: {1:F3} sec", n_reviewbrowse_overall, rt_reviewbrowse_avg_msec / 1000.0);
+      Console.WriteLine("  New Review:           {0,7} operations, avg RT: {1:F3} sec", n_newreview_overall, rt_newreview_avg_msec / 1000.0);
+      Console.WriteLine("  New Helpfulness:      {0,7} operations, avg RT: {1:F3} sec", n_newhelpfulness_overall, rt_newhelpfulness_avg_msec / 1000.0);
+      Console.WriteLine("  Purchase:             {0,7} operations, avg RT: {1:F3} sec", n_purchase_overall, rt_purchase_avg_msec / 1000.0);
       Console.WriteLine("  Rollbacks:            {0,7} ({1,4:F1}%)", n_rollbacks_overall, (100.0 * n_rollbacks_overall) / n_overall);
       Console.WriteLine();
-      Console.WriteLine("Average Response Times (sec):");
-      Console.WriteLine("  Login:                {0,7:F3} sec", rt_login_avg_msec / 1000.0);
-      Console.WriteLine("  New Customer:         {0,7:F3} sec", rt_newcust_avg_msec / 1000.0);
-      Console.WriteLine("  New Member:           {0,7:F3} sec", rt_newmember_avg_msec / 1000.0);
-      Console.WriteLine("  Browse:               {0,7:F3} sec", rt_browse_avg_msec / 1000.0);
-      Console.WriteLine("  Review Browse:        {0,7:F3} sec", rt_reviewbrowse_avg_msec / 1000.0);
-      Console.WriteLine("  New Review:           {0,7:F3} sec", rt_newreview_avg_msec / 1000.0);
-      Console.WriteLine("  New Helpfulness:      {0,7:F3} sec", rt_newhelpfulness_avg_msec / 1000.0);
-      Console.WriteLine("  Purchase:             {0,7:F3} sec", rt_purchase_avg_msec / 1000.0);
       Console.WriteLine("  Total (avg):          {0,7:F3} sec", rt_tot_avg_msec / 1000.0);
       Console.WriteLine("  Total (max last {0}): {1,7:F3} sec", GlobalConstants.LAST_N, rt_tot_lastn_max_msec / 1000.0);
       Console.WriteLine("  Total (sampled):      {0,7:F3} sec", rt_tot_sampled);
@@ -2667,7 +2658,21 @@ namespace ds2xdriver
             do  // Try newmember until find a userid that doesn't exist
             {
             customerid_in = Random.Shared.Next(1,Controller.max_customer+1); // DPY: This should use returning customer id [customerid_out] from above.
-            membershiplevel_in = Random.Shared.Next(1,4);
+
+            // Pyramid distribution: 60% Bronze, 30% Silver, 10% Gold
+            membershiplevel_in = Random.Shared.Next(1,100);
+	    if (membershiplevel_in <= 60)
+	    {
+                membershiplevel_in = 1;
+	    }
+	    else if (membershiplevel_in <= 90)
+	    {
+                membershiplevel_in = 2;
+	    }
+	    else
+	    {
+                membershiplevel_in = 3;
+	    }
 
             failures = 0;
             while ( !ds2interfaces[Userid].ds2newmember ( customerid_in , membershiplevel_in , ref customerid_out , ref rt ) )
@@ -2676,13 +2681,13 @@ namespace ds2xdriver
                 {
                   Console.WriteLine ( "Thread {0}: Error in New Member for User {1}, failure {2}, retrying" ,
                     Thread.CurrentThread.Name , username_in, failures);
-              }
-          else
-            {
+                }
+              else
+                {
                   Console.WriteLine ( "Thread {0}: Error in New Member for User {1}, failure {2}, exiting" ,
                     Thread.CurrentThread.Name , username_in, failures);
                   return;
-            }
+                }
               }
 
             // if ( customerid_out == 0 ) Console.WriteLine ( "Customer {0} is already a member" , customerid_in );
