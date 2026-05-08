@@ -141,7 +141,7 @@ CREATE PROCEDURE NEW_MEMBER$k
 
   SET DATEFORMAT ymd
 
-  SET \@date_in = GETDATE()
+  SET \@date_in = DATEADD(year, 1, GETDATE())
 
   IF (SELECT COUNT(*) FROM MEMBERSHIP$k WHERE CUSTOMERID=\@customerid_in) = 0
   BEGIN
@@ -277,11 +277,12 @@ GO
 CREATE PROCEDURE BROWSE_BY_CATEGORY$k
   (
   \@batch_size_in            INT,
-  \@category_in              INT
+  \@category_in              INT,
+  \@special_in               INT
   )
 
   AS
-  SELECT TOP (\@batch_size_in) * FROM PRODUCTS$k WHERE CATEGORY=\@category_in and SPECIAL=1
+  SELECT TOP (\@batch_size_in) * FROM PRODUCTS$k WHERE CATEGORY=\@category_in and SPECIAL=\@special_in
 GO
 
 -- Browse by category for membertype
@@ -294,11 +295,27 @@ CREATE PROCEDURE BROWSE_BY_CATEGORY_FOR_MEMBERTYPE$k
   (
   \@batch_size_in            INT,
   \@category_in              INT,
-  \@membershiptype_in	    INT
+  \@membershiptype_in	     INT
   )
 
   AS
   SELECT TOP (\@batch_size_in) * FROM PRODUCTS$k WHERE CATEGORY=\@category_in and SPECIAL=1 and MEMBERSHIP_ITEM<=\@membershiptype_in
+GO
+
+-- Browse by membership
+
+IF EXISTS (SELECT name FROM sysobjects WHERE name = 'BROWSE_BY_MEMBERSHIP$k' AND type = 'P')
+  DROP PROCEDURE BROWSE_BY_MEMBERSHIP$k
+GO
+
+CREATE PROCEDURE BROWSE_BY_MEMBERSHIP$k
+  (
+  \@batch_size_in            INT,
+  \@membershiptype_in	     INT
+  )
+
+  AS
+  SELECT TOP (\@batch_size_in) * FROM PRODUCTS$k WHERE MEMBERSHIP_ITEM=\@membershiptype_in
 GO
 
 -- get prod reviews
@@ -740,7 +757,7 @@ BEGIN
         SET \@v_common_id = FLOOR(1 + (RAND() * \@v_max_id));
     END
 
-    SET \@v_membership = FLOOR(1 + (RAND() * 3));
+    SET \@v_membership = FLOOR(RAND() * 4);
 
     BEGIN TRY
         BEGIN TRANSACTION;
@@ -777,6 +794,289 @@ INNER JOIN (
     FROM REVIEWS_HELPFULNESS$k
     GROUP BY REVIEW_ID
 ) AS H ON R.REVIEW_ID = H.REVIEW_ID;
+
+-- Manager Thread Stored Procedures
+
+IF EXISTS (SELECT name FROM sysobjects WHERE name = 'RemoveReviewByProduct$k' AND type = 'P')
+  DROP PROCEDURE RemoveReviewByProduct$k
+GO
+
+CREATE PROCEDURE RemoveReviewByProduct$k
+  (
+  \@prod_id             INT
+  )
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    DECLARE \@review_id INT = 0;
+
+    -- Find one random review for this specific product
+    -- (simulates product-specific spam moderation)
+    SELECT TOP 1 \@review_id = REVIEW_ID
+    FROM REVIEWS$k WITH (READPAST)
+    WHERE PROD_ID = \@prod_id
+    ORDER BY NEWID();
+
+    -- Delete it if found
+    IF \@review_id > 0
+        DELETE FROM REVIEWS$k WHERE REVIEW_ID = \@review_id;
+
+    SELECT \@review_id AS review_id;
+END
+GO
+
+IF EXISTS (SELECT name FROM sysobjects WHERE name = 'RemoveUnhelpfulReviews$k' AND type = 'P')
+  DROP PROCEDURE RemoveUnhelpfulReviews$k
+GO
+
+CREATE PROCEDURE RemoveUnhelpfulReviews$k
+  (
+  \@batch_size_in       INT
+  )
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    -- Delete N least helpful reviews across all products
+    -- (simulates global cleanup of low-quality reviews)
+    DELETE FROM REVIEWS$k
+    WHERE REVIEW_ID IN (
+        SELECT TOP (\@batch_size_in) REVIEW_ID
+        FROM REVIEWS$k WITH (READPAST)
+        ORDER BY TOTAL_HELPFULNESS ASC, REVIEW_ID ASC
+    );
+
+    SELECT \@\@ROWCOUNT;
+END
+GO
+
+IF EXISTS (SELECT name FROM sysobjects WHERE name = 'RemoveReviewsByDate$k' AND type = 'P')
+  DROP PROCEDURE RemoveReviewsByDate$k
+GO
+
+CREATE PROCEDURE RemoveReviewsByDate$k
+  (
+  \@batch_size_in       INT
+  )
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    -- Delete N oldest reviews by REVIEW_DATE
+    DELETE FROM REVIEWS$k
+    WHERE REVIEW_ID IN (
+        SELECT TOP (\@batch_size_in) REVIEW_ID
+        FROM REVIEWS$k WITH (READPAST)
+        ORDER BY REVIEW_DATE ASC
+    );
+
+    SELECT \@\@ROWCOUNT;
+END
+GO
+
+IF EXISTS (SELECT name FROM sysobjects WHERE name = 'AdjustPrices$k' AND type = 'P')
+  DROP PROCEDURE AdjustPrices$k
+GO
+
+CREATE PROCEDURE AdjustPrices$k
+  (
+  \@prod_id             INT
+  )
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    DECLARE \@adjustment_factor DECIMAL(4,3);
+    SET \@adjustment_factor = 0.90 + (RAND() * 0.20);  -- Range: 0.90 to 1.10 (±10%)
+
+    UPDATE PRODUCTS$k WITH (READPAST)
+    SET PRICE = PRICE * \@adjustment_factor
+    WHERE PROD_ID = \@prod_id;
+
+    SELECT \@\@ROWCOUNT;
+END
+GO
+
+IF EXISTS (SELECT name FROM sysobjects WHERE name = 'BulkPriceAdjustment$k' AND type = 'P')
+  DROP PROCEDURE BulkPriceAdjustment$k
+GO
+
+CREATE PROCEDURE BulkPriceAdjustment$k
+  (
+  \@batch_size           INT,
+  \@category             INT
+  )
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    DECLARE \@adjustment_factor DECIMAL(5,4);
+
+    -- Generate random adjustment factor (0.75 to 1.25, ±25%)
+    SET \@adjustment_factor = 0.75 + (RAND() * 0.50);
+
+    -- Update batch_size random products in selected category
+    WITH RandomProducts AS (
+        SELECT TOP (\@batch_size) PROD_ID
+        FROM PRODUCTS$k WITH (READPAST)
+        WHERE CATEGORY = \@category
+        ORDER BY NEWID()
+    )
+    UPDATE PRODUCTS$k WITH (READPAST)
+    SET PRICE = FLOOR(PRICE * \@adjustment_factor) + 0.77
+    WHERE PROD_ID IN (SELECT PROD_ID FROM RandomProducts);
+
+    SELECT \@\@ROWCOUNT;
+END
+GO
+
+IF EXISTS (SELECT name FROM sysobjects WHERE name = 'MarkSpecials$k' AND type = 'P')
+  DROP PROCEDURE MarkSpecials$k
+GO
+
+CREATE PROCEDURE MarkSpecials$k
+  (
+  \@prod_id             INT
+  )
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    -- Toggle SPECIAL flag (0→1 or 1→0)
+    -- Simulates rotating promotions/featured items
+    UPDATE PRODUCTS$k WITH (READPAST)
+    SET SPECIAL = CASE WHEN SPECIAL = 1 THEN 0 ELSE 1 END
+    WHERE PROD_ID = \@prod_id;
+
+    SELECT \@\@ROWCOUNT;
+END
+GO
+
+IF EXISTS (SELECT name FROM sysobjects WHERE name = 'ExpireMemberships$k' AND type = 'P')
+  DROP PROCEDURE ExpireMemberships$k
+GO
+
+CREATE PROCEDURE ExpireMemberships$k
+  (
+  \@batch_size          INT
+  )
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    -- Delete expired memberships (oldest first)
+    -- Simulates cleanup of lapsed subscriptions
+    DELETE FROM MEMBERSHIP$k
+    WHERE CUSTOMERID IN (
+        SELECT TOP (\@batch_size) CUSTOMERID
+        FROM MEMBERSHIP$k WITH (READPAST)
+        WHERE EXPIREDATE < GETDATE()
+        ORDER BY EXPIREDATE ASC
+    );
+
+    SELECT \@\@ROWCOUNT;
+END
+GO
+
+IF EXISTS (SELECT name FROM sysobjects WHERE name = 'PurgeOldOrders$k' AND type = 'P')
+  DROP PROCEDURE PurgeOldOrders$k
+GO
+
+CREATE PROCEDURE PurgeOldOrders$k
+  (
+  \@batch_size          INT
+  )
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    -- Delete oldest orders (data retention policy, GDPR compliance)
+    -- ORDERLINES cascade delete via foreign key ON DELETE CASCADE
+    DELETE FROM ORDERS$k
+    WHERE ORDERID IN (
+        SELECT TOP (\@batch_size) ORDERID
+        FROM ORDERS$k WITH (READPAST)
+        ORDER BY ORDERDATE ASC
+    );
+
+    SELECT \@\@ROWCOUNT;
+END
+GO
+
+IF EXISTS (SELECT name FROM sysobjects WHERE name = 'UpgradeMembership$k' AND type = 'P')
+  DROP PROCEDURE UpgradeMembership$k
+GO
+CREATE PROCEDURE UpgradeMembership$k
+    (
+    \@batch_size          INT
+    )
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    -- Time-based slicing: process 1% of customer base per minute
+    -- Full coverage every 100 minutes, then repeats (stateless partitioning)
+    DECLARE \@current_slice INT = DATEPART(MINUTE, GETDATE()) % 100;
+
+    -- Calculate percentile thresholds for purchase counts in current slice
+    DECLARE \@gold_threshold DECIMAL(10,2);
+    DECLARE \@silver_threshold DECIMAL(10,2);
+
+    WITH SlicePurchaseCounts AS (
+        SELECT COUNT(*) AS purchase_count
+        FROM MEMBERSHIP$k m
+        INNER JOIN CUST_HIST$k ch ON m.CUSTOMERID = ch.CUSTOMERID
+        WHERE m.CUSTOMERID % 100 = \@current_slice
+        GROUP BY m.CUSTOMERID
+    )
+    SELECT TOP 1
+        \@gold_threshold = PERCENTILE_CONT(0.90) WITHIN GROUP (ORDER BY purchase_count) OVER(),
+        \@silver_threshold = PERCENTILE_CONT(0.75) WITHIN GROUP (ORDER BY purchase_count) OVER()
+    FROM SlicePurchaseCounts;
+
+    -- Fallback to hardcoded thresholds if no data in slice
+    IF \@gold_threshold IS NULL
+    BEGIN
+        SET \@gold_threshold = 20;
+        SET \@silver_threshold = 10;
+    END;
+
+    -- Count total purchases per customer, upgrade membership if thresholds met
+    -- Gold (3): >= 90th percentile, Silver (2): >= 75th percentile
+    -- UPGRADE ONLY - never downgrade
+    -- Reward: extend expiration by 180 days when upgrading
+    WITH CustomerPurchases AS (
+        SELECT TOP (\@batch_size)
+            m.CUSTOMERID,
+            m.MEMBERSHIPTYPE,
+            m.EXPIREDATE,
+            COUNT(*) AS products_purchased,
+            CASE
+                WHEN COUNT(*) >= \@gold_threshold THEN 3  -- Gold (90th percentile)
+                WHEN COUNT(*) >= \@silver_threshold THEN 2  -- Silver (75th percentile)
+                ELSE m.MEMBERSHIPTYPE
+            END AS new_level
+        FROM MEMBERSHIP$k m WITH (READPAST)
+        INNER JOIN CUST_HIST$k ch ON m.CUSTOMERID = ch.CUSTOMERID
+        WHERE m.CUSTOMERID % 100 = \@current_slice
+        GROUP BY m.CUSTOMERID, m.MEMBERSHIPTYPE, m.EXPIREDATE
+        HAVING CASE
+            WHEN COUNT(*) >= \@gold_threshold THEN 3  -- Gold (90th percentile)
+            WHEN COUNT(*) >= \@silver_threshold THEN 2  -- Silver (75th percentile)
+            ELSE m.MEMBERSHIPTYPE
+        END > m.MEMBERSHIPTYPE
+    )
+    UPDATE m
+    SET
+        MEMBERSHIPTYPE = cp.new_level,
+        EXPIREDATE = DATEADD(DAY, 180, m.EXPIREDATE)
+    FROM MEMBERSHIP$k m
+    INNER JOIN CustomerPurchases cp ON m.CUSTOMERID = cp.CUSTOMERID;
+
+    SELECT \@\@ROWCOUNT AS rows_updated, \@gold_threshold AS gold_threshold, \@silver_threshold AS silver_threshold;
+END
+GO
 
 \n";
   close $OUT;

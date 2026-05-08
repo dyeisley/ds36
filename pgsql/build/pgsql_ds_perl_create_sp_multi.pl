@@ -177,13 +177,14 @@ END;
 
 CREATE OR REPLACE FUNCTION BROWSE_BY_CATEGORY$k (
     IN batch_size_in INTEGER,
-    IN category_in INTEGER
+    IN category_in INTEGER,
+    IN special_in INTEGER
 )
 RETURNS SETOF PRODUCTS$k
 LANGUAGE plpgsql
 AS \$\$
 BEGIN
-    RETURN QUERY SELECT * FROM PRODUCTS$k WHERE CATEGORY=category_in AND SPECIAL=1 LIMIT batch_size_in;
+    RETURN QUERY SELECT * FROM PRODUCTS$k WHERE CATEGORY=category_in AND SPECIAL=special_in LIMIT batch_size_in;
     RETURN;
 END;
 \$\$;
@@ -218,6 +219,20 @@ DECLARE
 BEGIN
     vector_in := replace(trim(both from title_in), ' ','&');
     RETURN QUERY SELECT * FROM PRODUCTS$k WHERE to_tsvector('simple',TITLE) \@\@ to_tsquery(vector_in) LIMIT batch_size_in;
+    RETURN;
+END;
+\$\$;
+
+
+CREATE OR REPLACE FUNCTION BROWSE_BY_MEMBERSHIP$k (
+    IN batch_size_in INTEGER,
+    IN membershiptype_in INTEGER
+)
+RETURNS SETOF PRODUCTS$k
+LANGUAGE plpgsql
+AS \$\$
+BEGIN
+    RETURN QUERY SELECT * FROM PRODUCTS$k WHERE MEMBERSHIP_ITEM=membershiptype_in LIMIT batch_size_in;
     RETURN;
 END;
 \$\$;
@@ -355,7 +370,7 @@ CREATE OR REPLACE FUNCTION new_member$k (
          (
          customerid_in,
          membershiplevel_in,
-         current_date
+         current_date + INTERVAL '1 year'
          )
        RETURNING customerid INTO customerid_out;
            RETURN customerid_out;
@@ -659,7 +674,7 @@ BEGIN
         v_common_id := floor(1 + (random() * v_max_id))::int;
     END IF;
 
-    v_membership := floor(1 + (random() * 3))::int;
+    v_membership := floor(random() * 4)::int;
 
     INSERT INTO products$k (category, title, actor, price, special, common_prod_id, membership_item)
     VALUES (p_cat, p_title, p_actor, p_price, 0, v_common_id, v_membership)
@@ -668,6 +683,256 @@ BEGIN
     INSERT INTO inventory$k (prod_id, quan_in_stock, sales)
     VALUES (v_new_id, p_stock, 0);
 
+END;
+\$\$;
+
+CREATE OR REPLACE FUNCTION removereviewbyproduct$k(
+    p_prod_id int,
+    OUT deleted_review_id int
+)
+LANGUAGE plpgsql
+AS \$\$
+BEGIN
+    deleted_review_id := 0;
+
+    -- Find one random review for this specific product
+    -- (simulates product-specific spam moderation)
+    SELECT review_id INTO deleted_review_id
+    FROM reviews$k
+    WHERE prod_id = p_prod_id
+    ORDER BY random()
+    LIMIT 1
+    FOR UPDATE SKIP LOCKED;
+
+    -- Delete it if found
+    IF deleted_review_id > 0 THEN
+        DELETE FROM reviews$k WHERE review_id = deleted_review_id;
+    END IF;
+
+EXCEPTION
+    WHEN NO_DATA_FOUND THEN
+        deleted_review_id := 0;
+END;
+\$\$;
+
+CREATE OR REPLACE FUNCTION removeunhelpfulreviews$k(
+    p_batch_size int,
+    OUT rows_deleted int
+)
+LANGUAGE plpgsql
+AS \$\$
+BEGIN
+    -- Delete N least helpful reviews across all products
+    -- (simulates global cleanup of low-quality reviews)
+    DELETE FROM reviews$k
+    WHERE review_id IN (
+        SELECT review_id
+        FROM reviews$k
+        ORDER BY total_helpfulness ASC, review_id ASC
+        LIMIT p_batch_size
+        FOR UPDATE SKIP LOCKED
+    );
+
+    GET DIAGNOSTICS rows_deleted = ROW_COUNT;
+END;
+\$\$;
+
+CREATE OR REPLACE FUNCTION removereviewsbydate$k(
+    p_batch_size int,
+    OUT rows_deleted int
+)
+LANGUAGE plpgsql
+AS \$\$
+BEGIN
+    -- Delete N oldest reviews by REVIEW_DATE
+    DELETE FROM reviews$k
+    WHERE review_id IN (
+        SELECT review_id
+        FROM reviews$k
+        ORDER BY review_date ASC
+        LIMIT p_batch_size
+        FOR UPDATE SKIP LOCKED
+    );
+
+    GET DIAGNOSTICS rows_deleted = ROW_COUNT;
+END;
+\$\$;
+
+CREATE OR REPLACE FUNCTION adjustprices$k(
+    p_prod_id int,
+    OUT rows_updated int
+)
+LANGUAGE plpgsql
+AS \$\$
+DECLARE
+    v_adjustment_factor numeric(4,3);
+BEGIN
+    -- Randomly adjust price by -10% to +10%
+    v_adjustment_factor := 0.90 + (random() * 0.20);
+
+    UPDATE products$k
+    SET price = price * v_adjustment_factor
+    WHERE prod_id = p_prod_id;
+
+    GET DIAGNOSTICS rows_updated = ROW_COUNT;
+END;
+\$\$;
+
+CREATE OR REPLACE FUNCTION bulkpriceadjustment$k(
+    p_batch_size int,
+    p_category int,
+    OUT rows_updated int
+)
+LANGUAGE plpgsql
+AS \$\$
+DECLARE
+    v_adjustment_factor numeric(5,4);
+BEGIN
+    -- Category-wide price adjustment (±25%)
+    -- Simulates market events like 'Holiday DVDs 15% off'
+    v_adjustment_factor := 0.75 + (random() * 0.50);
+
+    WITH random_products AS (
+        SELECT prod_id
+        FROM products$k
+        WHERE category = p_category
+        ORDER BY random()
+        LIMIT p_batch_size
+    )
+    UPDATE products$k
+    SET price = FLOOR(price * v_adjustment_factor) + 0.77
+    WHERE prod_id IN (SELECT prod_id FROM random_products);
+
+    GET DIAGNOSTICS rows_updated = ROW_COUNT;
+END;
+\$\$;
+
+CREATE OR REPLACE FUNCTION markspecials$k(
+    p_prod_id int,
+    OUT rows_updated int
+)
+LANGUAGE plpgsql
+AS \$\$
+BEGIN
+    -- Toggle SPECIAL flag (0→1 or 1→0)
+    -- Simulates rotating promotions/featured items
+    UPDATE products$k
+    SET special = CASE WHEN special = 1 THEN 0 ELSE 1 END
+    WHERE prod_id = p_prod_id;
+
+    GET DIAGNOSTICS rows_updated = ROW_COUNT;
+END;
+\$\$;
+
+CREATE OR REPLACE FUNCTION expirememberships$k(
+    p_batch_size int,
+    OUT rows_deleted int
+)
+LANGUAGE plpgsql
+AS \$\$
+BEGIN
+    -- Delete expired memberships (oldest first)
+    -- Simulates cleanup of lapsed subscriptions
+    DELETE FROM membership$k
+    WHERE customerid IN (
+        SELECT customerid
+        FROM membership$k
+        WHERE expiredate < CURRENT_TIMESTAMP
+        ORDER BY expiredate ASC
+        LIMIT p_batch_size
+    );
+
+    GET DIAGNOSTICS rows_deleted = ROW_COUNT;
+END;
+\$\$;
+
+CREATE OR REPLACE FUNCTION purge_old_orders$k (
+    IN p_batch_size int,
+    OUT rows_deleted int
+)
+LANGUAGE plpgsql
+AS \$\$
+BEGIN
+    -- Delete oldest orders (data retention policy, GDPR compliance)
+    -- ORDERLINES cascade delete via foreign key ON DELETE CASCADE
+    DELETE FROM orders$k
+    WHERE orderid IN (
+        SELECT orderid
+        FROM orders$k
+        ORDER BY orderdate ASC
+        LIMIT p_batch_size
+    );
+
+    GET DIAGNOSTICS rows_deleted = ROW_COUNT;
+END;
+\$\$;
+
+CREATE OR REPLACE FUNCTION upgrade_membership$k (
+    IN p_batch_size int,
+    OUT rows_upgraded int,
+    OUT gold_threshold numeric,
+    OUT silver_threshold numeric
+)
+LANGUAGE plpgsql
+AS \$\$
+DECLARE
+    v_current_slice int;
+BEGIN
+    -- Time-based slicing: process 1% of customer base per minute
+    -- Full coverage every 100 minutes, then repeats (stateless partitioning)
+    v_current_slice := EXTRACT(MINUTE FROM CURRENT_TIMESTAMP)::int % 100;
+
+    -- Calculate percentile thresholds for purchase counts in current slice
+    -- Gold (3): >= 90th percentile, Silver (2): >= 75th percentile
+    WITH slice_purchase_counts AS (
+        SELECT COUNT(*) AS purchase_count
+        FROM membership$k m
+        INNER JOIN cust_hist$k ch ON m.customerid = ch.customerid
+        WHERE m.customerid % 100 = v_current_slice
+        GROUP BY m.customerid
+    )
+    SELECT
+        PERCENTILE_CONT(0.90) WITHIN GROUP (ORDER BY purchase_count),
+        PERCENTILE_CONT(0.75) WITHIN GROUP (ORDER BY purchase_count)
+    INTO gold_threshold, silver_threshold
+    FROM slice_purchase_counts;
+
+    -- Fallback to hardcoded thresholds if no data in slice
+    IF gold_threshold IS NULL THEN
+        gold_threshold := 20;
+        silver_threshold := 10;
+    END IF;
+
+    -- Count total purchases per customer, upgrade membership if thresholds met
+    -- UPGRADE ONLY - never downgrade
+    -- Reward: extend expiration by 180 days when upgrading
+    WITH customer_purchases AS (
+        SELECT
+            ch.customerid,
+            CASE
+                WHEN COUNT(*) >= gold_threshold THEN 3  -- Gold (90th percentile)
+                WHEN COUNT(*) >= silver_threshold THEN 2  -- Silver (75th percentile)
+                ELSE m.membershiptype
+            END AS new_level
+        FROM cust_hist$k ch
+        INNER JOIN membership$k m ON ch.customerid = m.customerid
+        WHERE ch.customerid % 100 = v_current_slice
+        GROUP BY ch.customerid, m.membershiptype
+        HAVING CASE
+            WHEN COUNT(*) >= gold_threshold THEN 3  -- Gold (90th percentile)
+            WHEN COUNT(*) >= silver_threshold THEN 2  -- Silver (75th percentile)
+            ELSE m.membershiptype
+        END > m.membershiptype
+        LIMIT p_batch_size
+    )
+    UPDATE membership$k m
+    SET
+        membershiptype = cp.new_level,
+        expiredate = m.expiredate + INTERVAL '180 days'
+    FROM customer_purchases cp
+    WHERE m.customerid = cp.customerid;
+
+    GET DIAGNOSTICS rows_upgraded = ROW_COUNT;
 END;
 \$\$;
 

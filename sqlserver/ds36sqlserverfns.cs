@@ -46,9 +46,10 @@ namespace ds2xdriver
     string target_server;       //Added by GSK
     int target_store_number = 1; //Added to support Multiple stores - default is 1
     SqlConnection objConn;
-    SqlCommand Login, New_Customer, Browse_By_Category, Browse_By_Actor, Browse_By_Vector, Browse_By_Title, Purchase, New_Product;
+    SqlCommand Login, New_Customer, Browse_By_Category, Browse_By_Actor, Browse_By_Vector, Browse_By_Title, Browse_By_Membership, Purchase, New_Product;
     SqlCommand Get_Prod_Reviews, Get_Prod_Reviews_By_Actor, Get_Prod_Reviews_By_Title, Get_Prod_Reviews_By_Date, Get_Prod_Reviews_By_Stars;
     SqlCommand New_Member, New_Prod_Review, New_Review_Helpfulness;
+    SqlCommand Remove_Review_By_Product, Remove_Unhelpful_Reviews, Remove_Reviews_By_Date, Adjust_Prices, Bulk_Price_Adjustment, Mark_Specials, Expire_Memberships, Purge_Old_Orders, Upgrade_Membership;
     SqlCommand[] CostQuery = new SqlCommand[11];
 
 //
@@ -118,6 +119,7 @@ namespace ds2xdriver
       Browse_By_Category.CommandType = CommandType.StoredProcedure;
       Browse_By_Category.Parameters.Add("@batch_size_in", SqlDbType.Int);
       Browse_By_Category.Parameters.Add("@category_in", SqlDbType.Int);
+      Browse_By_Category.Parameters.Add("@special_in", SqlDbType.Int);
 
       Browse_By_Actor = new SqlCommand("BROWSE_BY_ACTOR" + target_store_number, objConn);
       Browse_By_Actor.CommandType = CommandType.StoredProcedure;
@@ -133,6 +135,11 @@ namespace ds2xdriver
       Browse_By_Title.CommandType = CommandType.StoredProcedure;
       Browse_By_Title.Parameters.Add("@batch_size_in", SqlDbType.Int);
       Browse_By_Title.Parameters.Add("@title_in", SqlDbType.VarChar, 50);
+
+      Browse_By_Membership = new SqlCommand("BROWSE_BY_MEMBERSHIP" + target_store_number, objConn);
+      Browse_By_Membership.CommandType = CommandType.StoredProcedure;
+      Browse_By_Membership.Parameters.Add("@batch_size_in", SqlDbType.Int);
+      Browse_By_Membership.Parameters.Add("@membershiptype_in", SqlDbType.Int);
 
       Get_Prod_Reviews = new SqlCommand("GET_PROD_REVIEWS" + target_store_number, objConn);
       Get_Prod_Reviews.CommandType = CommandType.StoredProcedure;
@@ -204,6 +211,44 @@ namespace ds2xdriver
           CostQuery[items].Parameters.Add("@ARG" + i, SqlDbType.Int);
         }
       }
+
+      // Manager thread stored procedures
+      Remove_Review_By_Product = new SqlCommand("RemoveReviewByProduct" + target_store_number, objConn);
+      Remove_Review_By_Product.CommandType = CommandType.StoredProcedure;
+      Remove_Review_By_Product.Parameters.Add("@prod_id", SqlDbType.Int);
+
+      Remove_Unhelpful_Reviews = new SqlCommand("RemoveUnhelpfulReviews" + target_store_number, objConn);
+      Remove_Unhelpful_Reviews.CommandType = CommandType.StoredProcedure;
+      Remove_Unhelpful_Reviews.Parameters.Add("@batch_size_in", SqlDbType.Int);
+
+      Remove_Reviews_By_Date = new SqlCommand("RemoveReviewsByDate" + target_store_number, objConn);
+      Remove_Reviews_By_Date.CommandType = CommandType.StoredProcedure;
+      Remove_Reviews_By_Date.Parameters.Add("@batch_size_in", SqlDbType.Int);
+
+      Adjust_Prices = new SqlCommand("AdjustPrices" + target_store_number, objConn);
+      Adjust_Prices.CommandType = CommandType.StoredProcedure;
+      Adjust_Prices.Parameters.Add("@prod_id", SqlDbType.Int);
+
+      Mark_Specials = new SqlCommand("MarkSpecials" + target_store_number, objConn);
+      Mark_Specials.CommandType = CommandType.StoredProcedure;
+      Mark_Specials.Parameters.Add("@prod_id", SqlDbType.Int);
+
+      Expire_Memberships = new SqlCommand("ExpireMemberships" + target_store_number, objConn);
+      Expire_Memberships.CommandType = CommandType.StoredProcedure;
+      Expire_Memberships.Parameters.Add("@batch_size", SqlDbType.Int);
+
+      Purge_Old_Orders = new SqlCommand("PurgeOldOrders" + target_store_number, objConn);
+      Purge_Old_Orders.CommandType = CommandType.StoredProcedure;
+      Purge_Old_Orders.Parameters.Add("@batch_size", SqlDbType.Int);
+
+      Upgrade_Membership = new SqlCommand("UpgradeMembership" + target_store_number, objConn);
+      Upgrade_Membership.CommandType = CommandType.StoredProcedure;
+      Upgrade_Membership.Parameters.Add("@batch_size", SqlDbType.Int);
+
+      Bulk_Price_Adjustment = new SqlCommand("BulkPriceAdjustment" + target_store_number, objConn);
+      Bulk_Price_Adjustment.CommandType = CommandType.StoredProcedure;
+      Bulk_Price_Adjustment.Parameters.Add("@batch_size", SqlDbType.Int);
+      Bulk_Price_Adjustment.Parameters.Add("@category", SqlDbType.Int);
 
       //Console.WriteLine("ds2Interface {0} created", ds2Interfaceid);
     }
@@ -385,18 +430,24 @@ namespace ds2xdriver
       {
       // Products table: PROD_ID INT, CATEGORY TINYINT, TITLE VARCHAR(50), ACTOR VARCHAR(50),
       //   PRICE DECIMAL(12,2), SPECIAL TINYINT, COMMON_PROD_ID INT
-      int i_row;
+      int i_row, special = 0, membership_item = 0;
       string data_in = string.Empty;
       int[] category_out = new int[GlobalConstants.MAX_ROWS];
 
       int dim = 384;
       float[] vector = new float[dim];
 
+      // Search for special half the time
+      if (Random.Shared.Next(100) < 50) {
+        special = 1;
+      }
+
       switch(browse_type_in)
         {
         case "category":
           Browse_By_Category.Parameters["@batch_size_in"].Value = batch_size_in;
           Browse_By_Category.Parameters["@category_in"].Value = Convert.ToInt32(browse_category_in);
+          Browse_By_Category.Parameters["@special_in"].Value = special;
           data_in = browse_category_in;
           break;
         case "actor":
@@ -419,6 +470,11 @@ namespace ds2xdriver
           Browse_By_Vector.Parameters["@batch_size_in"].Value = batch_size_in;
           Browse_By_Vector.Parameters["@vector_in"].Value = sqlVector;
 	  data_in = JsonSerializer.Serialize(sqlVector);
+          break;
+        case "membership":
+          Browse_By_Membership.Parameters["@batch_size_in"].Value = batch_size_in;
+          Browse_By_Membership.Parameters["@membershiptype_in"].Value = Random.Shared.Next(1, 4);
+          data_in = "membership level: " + Browse_By_Membership.Parameters["@membershiptype_in"].Value;
           break;
         }
 
@@ -445,6 +501,9 @@ namespace ds2xdriver
           case "vector":
             Rdr = Browse_By_Vector.ExecuteReader();
             break;
+          case "membership":
+            Rdr = Browse_By_Membership.ExecuteReader();
+            break;
           }
 
         using (Rdr)
@@ -459,7 +518,8 @@ namespace ds2xdriver
             price_out[i_row] = Rdr.GetDecimal(4);
             special_out[i_row] = Rdr.GetByte(5);
             common_prod_id_out[i_row] = Rdr.GetInt32(6);
-            //Console.WriteLine("\tprod_id_out: {0} category_out: {1} title_out: {2} actor_out: {3} price_out: {4} special_out: {5} common_prod_id_out: {6}",prod_id_out[i_row],category_out[i_row],title_out[i_row],actor_out[i_row],price_out[i_row], special_out[i_row],common_prod_id_out[i_row]);
+	    membership_item = Rdr.GetInt32(7); 	// We don't actually do anything with this. 
+            //Console.WriteLine("\tprod_id_out: {0} category_out: {1} title_out: {2} actor_out: {3} price_out: {4} special_out: {5} common_prod_id_out: {6} membership_item: {7}",prod_id_out[i_row],category_out[i_row],title_out[i_row],actor_out[i_row],price_out[i_row], special_out[i_row],common_prod_id_out[i_row], membership_item);
             ++i_row;
           }
           rows_returned = i_row;
@@ -827,7 +887,6 @@ namespace ds2xdriver
 //
     public bool ds2newproduct(int new_category_in, string new_title_in, string new_actor_in, decimal new_price_in, int new_stock_in, ref int newproduct_id, ref double rt)
     {
-      bool success = true;
 
       New_Product.Parameters["p_cat"].Value = new_category_in;
       New_Product.Parameters["p_title"].Value = new_title_in;
@@ -867,6 +926,227 @@ namespace ds2xdriver
       {
           rt = timer.Elapsed.TotalSeconds;
       }
+    }
+
+//
+//-------------------------------------------------------------------------------------------------
+// Manager Thread Methods
+//-------------------------------------------------------------------------------------------------
+//
+    public int ds36removereviewbyproduct(int prodId, ref double rt)
+    {
+        Remove_Review_By_Product.Parameters["@prod_id"].Value = prodId;
+
+        Stopwatch timer = Stopwatch.StartNew();
+
+        try
+        {
+            object result = Remove_Review_By_Product.ExecuteScalar();
+            return result != null ? Convert.ToInt32(result) : 0;
+        }
+        catch (Exception e)
+        {
+            Console.WriteLine($"Thread {Thread.CurrentThread.Name}: ds36removereviewbyproduct error: {e.Message}");
+            return 0;
+        }
+        finally
+        {
+            rt = timer.Elapsed.TotalSeconds;
+        }
+    }
+
+//
+//-------------------------------------------------------------------------------------------------
+//
+    public int ds36removeunhelpfulreviews(int batchSize, ref double rt)
+    {
+        Remove_Unhelpful_Reviews.Parameters["@batch_size_in"].Value = batchSize;
+
+        Stopwatch timer = Stopwatch.StartNew();
+
+        try
+        {
+            object result = Remove_Unhelpful_Reviews.ExecuteScalar();
+            return result != null ? Convert.ToInt32(result) : 0;
+        }
+        catch (Exception e)
+        {
+            Console.WriteLine($"Thread {Thread.CurrentThread.Name}: ds36removeunhelpfulreviews error: {e.Message}");
+            return 0;
+        }
+        finally
+        {
+            rt = timer.Elapsed.TotalSeconds;
+        }
+    }
+
+//
+//-------------------------------------------------------------------------------------------------
+//
+    public int ds36removereviewsbydate(int batchSize, ref double rt)
+    {
+        Remove_Reviews_By_Date.Parameters["@batch_size_in"].Value = batchSize;
+
+        Stopwatch timer = Stopwatch.StartNew();
+
+        try
+        {
+            object result = Remove_Reviews_By_Date.ExecuteScalar();
+            return result != null ? Convert.ToInt32(result) : 0;
+        }
+        catch (Exception e)
+        {
+            Console.WriteLine($"Thread {Thread.CurrentThread.Name}: ds36removereviewsbydate error: {e.Message}");
+            return 0;
+        }
+        finally
+        {
+            rt = timer.Elapsed.TotalSeconds;
+        }
+    }
+
+//
+//-------------------------------------------------------------------------------------------------
+//
+    public int ds36adjustprices(int prodId, ref double rt)
+    {
+        Adjust_Prices.Parameters["@prod_id"].Value = prodId;
+
+        Stopwatch timer = Stopwatch.StartNew();
+
+        try
+        {
+            object result = Adjust_Prices.ExecuteScalar();
+            return result != null ? Convert.ToInt32(result) : 0;
+        }
+        catch (Exception e)
+        {
+            Console.WriteLine($"Thread {Thread.CurrentThread.Name}: ds36adjustprices error: {e.Message}");
+            return 0;
+        }
+        finally
+        {
+            rt = timer.Elapsed.TotalSeconds;
+        }
+    }
+
+//
+//-------------------------------------------------------------------------------------------------
+//
+    public int ds36markspecials(int prodId, ref double rt)
+    {
+        Mark_Specials.Parameters["@prod_id"].Value = prodId;
+
+        Stopwatch timer = Stopwatch.StartNew();
+
+        try
+        {
+            object result = Mark_Specials.ExecuteScalar();
+            return result != null ? Convert.ToInt32(result) : 0;
+        }
+        catch (Exception e)
+        {
+            Console.WriteLine($"Thread {Thread.CurrentThread.Name}: ds36markspecials error: {e.Message}");
+            return 0;
+        }
+        finally
+        {
+            rt = timer.Elapsed.TotalSeconds;
+        }
+    }
+
+//
+//-------------------------------------------------------------------------------------------------
+//
+    public int ds36expirememberships(int batchSize, ref double rt)
+    {
+        Expire_Memberships.Parameters["@batch_size"].Value = batchSize;
+
+        Stopwatch timer = Stopwatch.StartNew();
+
+        try
+        {
+            object result = Expire_Memberships.ExecuteScalar();
+            return result != null ? Convert.ToInt32(result) : 0;
+        }
+        catch (Exception e)
+        {
+            Console.WriteLine($"Thread {Thread.CurrentThread.Name}: ds36expirememberships error: {e.Message}");
+            return 0;
+        }
+        finally
+        {
+            rt = timer.Elapsed.TotalSeconds;
+        }
+    }
+
+//
+//-------------------------------------------------------------------------------------------------
+//
+    public int ds36purgeoldorders(int batchSize, ref double rt)
+    {
+        Purge_Old_Orders.Parameters["@batch_size"].Value = batchSize;
+
+        Stopwatch timer = Stopwatch.StartNew();
+
+        try
+        {
+            object result = Purge_Old_Orders.ExecuteScalar();
+            return result != null ? Convert.ToInt32(result) : 0;
+        }
+        catch (Exception e)
+        {
+            Console.WriteLine($"Thread {Thread.CurrentThread.Name}: ds36purgeoldorders error: {e.Message}");
+            return 0;
+        }
+        finally
+        {
+            rt = timer.Elapsed.TotalSeconds;
+        }
+    }
+
+    public int ds36upgrademembership(int batchSize, ref double rt)
+    {
+        Upgrade_Membership.Parameters["@batch_size"].Value = batchSize;
+
+        Stopwatch timer = Stopwatch.StartNew();
+        try
+        {
+            object result = Upgrade_Membership.ExecuteScalar();
+            return result != null ? Convert.ToInt32(result) : 0;
+        }
+        catch (Exception e)
+        {
+            Console.WriteLine($"Thread {Thread.CurrentThread.Name}: ds36upgrademembership error: {e.Message}");
+            return 0;
+        }
+        finally
+        {
+            rt = timer.Elapsed.TotalSeconds;
+        }
+    }
+
+    public int ds36bulkpriceadjustment(int batchSize, int category, ref double rt)
+    {
+        Bulk_Price_Adjustment.Parameters["@batch_size"].Value = batchSize;
+        Bulk_Price_Adjustment.Parameters["@category"].Value = category;
+
+        Stopwatch timer = Stopwatch.StartNew();
+
+        try
+        {
+            object result = Bulk_Price_Adjustment.ExecuteScalar();
+            return result != null ? Convert.ToInt32(result) : 0;
+        }
+        catch (Exception e)
+        {
+            Console.WriteLine($"Thread {Thread.CurrentThread.Name}: ds36bulkpriceadjustment error: {e.Message}");
+            return 0;
+        }
+        finally
+        {
+            rt = timer.Elapsed.TotalSeconds;
+        }
     }
 
 //

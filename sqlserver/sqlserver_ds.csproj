@@ -11,6 +11,7 @@
   <ItemGroup>
    <Compile Include="ds36sqlserverfns.cs" />
    <Compile Include="../drivers/ds36xdriver.cs" />
+   <Compile Include="../drivers/ds36xmanager.cs" />
   </ItemGroup>
 
   <ItemGroup>

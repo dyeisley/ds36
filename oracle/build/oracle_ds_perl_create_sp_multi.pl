@@ -146,7 +146,7 @@ CREATE OR REPLACE  PROCEDURE \"DS3\".\"NEW_MEMBER$k\"
         (
         customerid_in,
         membershiplevel_in,
-        SYSDATE
+        ADD_MONTHS(SYSDATE, 12)
         );
       customerid_out := customerid_in;
     ELSE
@@ -262,7 +262,8 @@ BEGIN
 CREATE OR REPLACE PROCEDURE \"DS3\".\"BROWSE_BY_CATEGORY$k\"
   (
   p_category_in  IN  INTEGER,
-  p_batch_size   IN  INTEGER
+  p_batch_size   IN  INTEGER,
+  p_special_in   IN  INTEGER
   )
 AS
   v_cursor SYS_REFCURSOR;
@@ -279,8 +280,7 @@ BEGIN
         MEMBERSHIP_ITEM
     FROM PRODUCTS$k
     WHERE CATEGORY = p_category_in
-      AND SPECIAL = 1
-    ORDER BY TITLE
+      AND SPECIAL = p_special_in
     FETCH NEXT p_batch_size ROWS ONLY;
 
   DBMS_SQL.RETURN_RESULT(v_cursor);
@@ -324,6 +324,32 @@ CREATE OR REPLACE PROCEDURE \"DS3\".\"BROWSE_BY_CAT_FOR_MEMBERTY$k\"
       END IF;
     END LOOP;
   END BROWSE_BY_CAT_FOR_MEMBERTY$k;
+/
+
+CREATE OR REPLACE PROCEDURE \"DS3\".\"BROWSE_BY_MEMBERSHIP$k\"
+  (
+  p_batch_size        IN  INTEGER,
+  p_membershiptype_in IN  INTEGER
+  )
+AS
+  v_cursor SYS_REFCURSOR;
+BEGIN
+  OPEN v_cursor FOR
+    SELECT
+        PROD_ID,
+        CATEGORY,
+        TITLE,
+        ACTOR,
+        PRICE,
+        SPECIAL,
+        COMMON_PROD_ID,
+        MEMBERSHIP_ITEM
+    FROM PRODUCTS$k
+    WHERE MEMBERSHIP_ITEM = p_membershiptype_in
+    FETCH NEXT p_batch_size ROWS ONLY;
+
+  DBMS_SQL.RETURN_RESULT(v_cursor);
+END;
 /
 
 
@@ -742,7 +768,7 @@ BEGIN
         v_common_id := TRUNC(DBMS_RANDOM.VALUE(1, v_max_id + 1));
     END IF;
 
-    v_membership := TRUNC(DBMS_RANDOM.VALUE(1, 4));
+    v_membership := TRUNC(DBMS_RANDOM.VALUE(0, 4));
 
     INSERT INTO PRODUCTS$k (
         PROD_ID, CATEGORY, TITLE, ACTOR, PRICE, SPECIAL, COMMON_PROD_ID, MEMBERSHIP_ITEM
@@ -788,6 +814,388 @@ BEGIN
 
     :NEW.QUAN_IN_STOCK := :NEW.QUAN_IN_STOCK + quan_reordered;
 END RESTOCK$k;
+/
+
+CREATE OR REPLACE PROCEDURE DS3.RemoveReviewByProduct$k (
+    p_prod_id    IN  NUMBER,
+    p_review_id  OUT NUMBER
+) AS
+    -- Cursor to select one random review with locking
+    CURSOR c_review IS
+        SELECT REVIEW_ID
+        FROM DS3.REVIEWS$k
+        WHERE PROD_ID = p_prod_id
+        ORDER BY DBMS_RANDOM.VALUE
+        FOR UPDATE SKIP LOCKED;
+BEGIN
+    p_review_id := 0;
+
+    -- Find one random review for this specific product
+    -- (simulates product-specific spam moderation)
+    BEGIN
+        OPEN c_review;
+        FETCH c_review INTO p_review_id;
+        CLOSE c_review;
+    EXCEPTION
+        WHEN NO_DATA_FOUND THEN
+            p_review_id := 0;
+    END;
+
+    -- Delete it if found
+    IF p_review_id > 0 THEN
+        -- Disable trigger to avoid mutating table error
+        EXECUTE IMMEDIATE 'ALTER TRIGGER DS3.TRG_HELPFULNESS_SYNC$k DISABLE';
+
+        DELETE FROM DS3.REVIEWS$k WHERE REVIEW_ID = p_review_id;
+
+        -- Re-enable trigger
+        EXECUTE IMMEDIATE 'ALTER TRIGGER DS3.TRG_HELPFULNESS_SYNC$k ENABLE';
+    END IF;
+
+    COMMIT;
+
+EXCEPTION
+    WHEN OTHERS THEN
+        -- Re-enable trigger even on error
+        BEGIN
+            EXECUTE IMMEDIATE 'ALTER TRIGGER DS3.TRG_HELPFULNESS_SYNC$k ENABLE';
+        EXCEPTION
+            WHEN OTHERS THEN NULL;
+        END;
+        ROLLBACK;
+        RAISE;
+END;
+/
+
+CREATE OR REPLACE PROCEDURE DS3.RemoveUnhelpfulReviews$k (
+    p_batch_size     IN  NUMBER,
+    p_rows_affected  OUT NUMBER
+) AS
+    TYPE reviewid_array IS TABLE OF NUMBER INDEX BY PLS_INTEGER;
+    v_review_ids reviewid_array;
+
+    -- Cursor to select reviews with locking
+    CURSOR c_reviews IS
+        SELECT REVIEW_ID
+        FROM DS3.REVIEWS$k
+        ORDER BY TOTAL_HELPFULNESS ASC, REVIEW_ID ASC
+        FOR UPDATE SKIP LOCKED;
+BEGIN
+    -- Delete N least helpful reviews across all products
+    -- (simulates global cleanup of low-quality reviews)
+
+    -- Open cursor and fetch up to batch_size rows
+    OPEN c_reviews;
+    FETCH c_reviews BULK COLLECT INTO v_review_ids LIMIT p_batch_size;
+    CLOSE c_reviews;
+
+    -- Then delete them
+    IF v_review_ids.COUNT > 0 THEN
+        -- Disable trigger to avoid mutating table error
+        EXECUTE IMMEDIATE 'ALTER TRIGGER DS3.TRG_HELPFULNESS_SYNC$k DISABLE';
+
+        FORALL i IN 1..v_review_ids.COUNT
+            DELETE FROM DS3.REVIEWS$k
+            WHERE REVIEW_ID = v_review_ids(i);
+
+        -- Re-enable trigger
+        EXECUTE IMMEDIATE 'ALTER TRIGGER DS3.TRG_HELPFULNESS_SYNC$k ENABLE';
+
+        p_rows_affected := v_review_ids.COUNT;
+    ELSE
+        p_rows_affected := 0;
+    END IF;
+
+    COMMIT;
+
+EXCEPTION
+    WHEN OTHERS THEN
+        -- Re-enable trigger even on error
+        BEGIN
+            EXECUTE IMMEDIATE 'ALTER TRIGGER DS3.TRG_HELPFULNESS_SYNC$k ENABLE';
+        EXCEPTION
+            WHEN OTHERS THEN NULL;
+        END;
+        ROLLBACK;
+        RAISE;
+END;
+/
+
+CREATE OR REPLACE PROCEDURE DS3.RemoveReviewsByDate$k (
+    p_batch_size     IN  NUMBER,
+    p_rows_affected  OUT NUMBER
+) AS
+    TYPE reviewid_array IS TABLE OF NUMBER INDEX BY PLS_INTEGER;
+    v_review_ids reviewid_array;
+
+    -- Cursor to select oldest reviews with locking
+    CURSOR c_reviews IS
+        SELECT REVIEW_ID
+        FROM DS3.REVIEWS$k
+        ORDER BY REVIEW_DATE ASC
+        FOR UPDATE SKIP LOCKED;
+BEGIN
+    -- Delete N oldest reviews by REVIEW_DATE
+
+    -- Open cursor and fetch up to batch_size rows
+    OPEN c_reviews;
+    FETCH c_reviews BULK COLLECT INTO v_review_ids LIMIT p_batch_size;
+    CLOSE c_reviews;
+
+    -- Then delete them
+    IF v_review_ids.COUNT > 0 THEN
+        -- Disable trigger to avoid mutating table error
+        EXECUTE IMMEDIATE 'ALTER TRIGGER DS3.TRG_HELPFULNESS_SYNC$k DISABLE';
+
+        FORALL i IN 1..v_review_ids.COUNT
+            DELETE FROM DS3.REVIEWS$k
+            WHERE REVIEW_ID = v_review_ids(i);
+
+        -- Re-enable trigger
+        EXECUTE IMMEDIATE 'ALTER TRIGGER DS3.TRG_HELPFULNESS_SYNC$k ENABLE';
+
+        p_rows_affected := v_review_ids.COUNT;
+    ELSE
+        p_rows_affected := 0;
+    END IF;
+
+    COMMIT;
+
+EXCEPTION
+    WHEN OTHERS THEN
+        -- Re-enable trigger even on error
+        BEGIN
+            EXECUTE IMMEDIATE 'ALTER TRIGGER DS3.TRG_HELPFULNESS_SYNC$k ENABLE';
+        EXCEPTION
+            WHEN OTHERS THEN NULL;
+        END;
+        ROLLBACK;
+        RAISE;
+END;
+/
+
+CREATE OR REPLACE PROCEDURE DS3.AdjustPrices$k (
+    p_prod_id        IN  NUMBER,
+    p_rows_affected  OUT NUMBER
+) AS
+    v_adjustment_factor NUMBER;
+BEGIN
+    -- Randomly adjust price by -10% to +10%
+    v_adjustment_factor := 0.90 + (DBMS_RANDOM.VALUE * 0.20);
+
+    UPDATE DS3.PRODUCTS$k
+    SET PRICE = PRICE * v_adjustment_factor
+    WHERE PROD_ID = p_prod_id;
+
+    p_rows_affected := SQL%ROWCOUNT;
+
+    COMMIT;
+
+EXCEPTION
+    WHEN OTHERS THEN
+        ROLLBACK;
+        RAISE;
+END;
+/
+
+CREATE OR REPLACE PROCEDURE DS3.BulkPriceAdjustment$k (
+    p_batch_size     IN  NUMBER,
+    p_category       IN  NUMBER,
+    p_rows_affected  OUT NUMBER
+) AS
+    v_adjustment_factor NUMBER;
+BEGIN
+    -- Category-wide price adjustment (±25%)
+    -- Simulates market events like 'Holiday DVDs 15% off'
+    v_adjustment_factor := 0.75 + (DBMS_RANDOM.VALUE * 0.50);
+
+    UPDATE DS3.PRODUCTS$k
+    SET PRICE = FLOOR(PRICE * v_adjustment_factor) + 0.77
+    WHERE PROD_ID IN (
+        SELECT PROD_ID
+        FROM (
+            SELECT PROD_ID
+            FROM DS3.PRODUCTS$k
+            WHERE CATEGORY = p_category
+            ORDER BY DBMS_RANDOM.VALUE
+        )
+        WHERE ROWNUM <= p_batch_size
+    );
+
+    p_rows_affected := SQL%ROWCOUNT;
+
+    COMMIT;
+
+EXCEPTION
+    WHEN OTHERS THEN
+        ROLLBACK;
+        RAISE;
+END;
+/
+
+CREATE OR REPLACE PROCEDURE DS3.MarkSpecials$k (
+    p_prod_id        IN  NUMBER,
+    p_rows_affected  OUT NUMBER
+) AS
+BEGIN
+    -- Toggle SPECIAL flag (0→1 or 1→0)
+    -- Simulates rotating promotions/featured items
+    UPDATE DS3.PRODUCTS$k
+    SET SPECIAL = CASE WHEN SPECIAL = 1 THEN 0 ELSE 1 END
+    WHERE PROD_ID = p_prod_id;
+
+    p_rows_affected := SQL%ROWCOUNT;
+
+    COMMIT;
+
+EXCEPTION
+    WHEN OTHERS THEN
+        ROLLBACK;
+        RAISE;
+END;
+/
+
+CREATE OR REPLACE PROCEDURE DS3.ExpireMemberships$k (
+    p_batch_size     IN  NUMBER,
+    p_rows_affected  OUT NUMBER
+) AS
+    TYPE customer_ids IS TABLE OF NUMBER;
+    v_customer_ids customer_ids;
+BEGIN
+    -- Delete expired memberships (oldest first)
+    -- Simulates cleanup of lapsed subscriptions
+    SELECT CUSTOMERID
+    BULK COLLECT INTO v_customer_ids
+    FROM (
+        SELECT CUSTOMERID
+        FROM DS3.MEMBERSHIP$k
+        WHERE EXPIREDATE < SYSDATE
+        ORDER BY EXPIREDATE ASC
+    )
+    WHERE ROWNUM <= p_batch_size;
+
+    FORALL i IN 1 .. v_customer_ids.COUNT
+        DELETE FROM DS3.MEMBERSHIP$k
+        WHERE CUSTOMERID = v_customer_ids(i);
+
+    p_rows_affected := SQL%ROWCOUNT;
+
+    COMMIT;
+
+EXCEPTION
+    WHEN OTHERS THEN
+        ROLLBACK;
+        RAISE;
+END;
+/
+
+CREATE OR REPLACE PROCEDURE DS3.PurgeOldOrders$k (
+    p_batch_size     IN  NUMBER,
+    p_rows_affected  OUT NUMBER
+) AS
+    TYPE order_ids IS TABLE OF NUMBER;
+    v_order_ids order_ids;
+BEGIN
+    -- Delete oldest orders (data retention policy, GDPR compliance)
+    -- ORDERLINES cascade delete via foreign key ON DELETE CASCADE
+    SELECT ORDERID
+    BULK COLLECT INTO v_order_ids
+    FROM (
+        SELECT ORDERID
+        FROM DS3.ORDERS$k
+        ORDER BY ORDERDATE ASC
+    )
+    WHERE ROWNUM <= p_batch_size;
+
+    FORALL i IN 1 .. v_order_ids.COUNT
+        DELETE FROM DS3.ORDERS$k
+        WHERE ORDERID = v_order_ids(i);
+
+    p_rows_affected := SQL%ROWCOUNT;
+
+    COMMIT;
+
+EXCEPTION
+    WHEN OTHERS THEN
+        ROLLBACK;
+        RAISE;
+END;
+/
+
+CREATE OR REPLACE PROCEDURE DS3.UpgradeMembership$k (
+    p_batch_size       IN  NUMBER,
+    p_rows_upgraded    OUT NUMBER,
+    p_gold_threshold   OUT NUMBER,
+    p_silver_threshold OUT NUMBER
+) AS
+    v_current_slice NUMBER;
+BEGIN
+    -- Time-based slicing: process 1% of customer base per minute
+    -- Full coverage every 100 minutes, then repeats (stateless partitioning)
+    v_current_slice := MOD(EXTRACT(MINUTE FROM SYSTIMESTAMP), 100);
+
+    -- Calculate percentile thresholds for purchase counts in current slice
+    -- Gold (3): >= 90th percentile, Silver (2): >= 75th percentile
+    SELECT
+        PERCENTILE_CONT(0.90) WITHIN GROUP (ORDER BY purchase_count),
+        PERCENTILE_CONT(0.75) WITHIN GROUP (ORDER BY purchase_count)
+    INTO p_gold_threshold, p_silver_threshold
+    FROM (
+        SELECT COUNT(*) AS purchase_count
+        FROM DS3.MEMBERSHIP$k m
+        INNER JOIN DS3.CUST_HIST$k ch ON m.CUSTOMERID = ch.CUSTOMERID
+        WHERE MOD(m.CUSTOMERID, 100) = v_current_slice
+        GROUP BY m.CUSTOMERID
+    );
+
+    -- Fallback to hardcoded thresholds if no data in slice
+    IF p_gold_threshold IS NULL THEN
+        p_gold_threshold := 20;
+        p_silver_threshold := 10;
+    END IF;
+
+    -- Count total purchases per customer, upgrade membership if thresholds met
+    -- UPGRADE ONLY - never downgrade
+    -- Reward: extend expiration by 180 days when upgrading
+    MERGE INTO DS3.MEMBERSHIP$k m
+    USING (
+        SELECT CUSTOMERID, new_level FROM (
+            SELECT
+                ch.CUSTOMERID,
+                CASE
+                    WHEN COUNT(*) >= p_gold_threshold THEN 3  -- Gold (90th percentile)
+                    WHEN COUNT(*) >= p_silver_threshold THEN 2  -- Silver (75th percentile)
+                END AS new_level,
+                m2.MEMBERSHIPTYPE AS current_level
+            FROM DS3.CUST_HIST$k ch
+            INNER JOIN DS3.MEMBERSHIP$k m2 ON ch.CUSTOMERID = m2.CUSTOMERID
+            WHERE MOD(ch.CUSTOMERID, 100) = v_current_slice
+            GROUP BY ch.CUSTOMERID, m2.MEMBERSHIPTYPE
+            HAVING COUNT(*) >= p_silver_threshold
+                AND (
+                    CASE
+                        WHEN COUNT(*) >= p_gold_threshold THEN 3  -- Gold (90th percentile)
+                        WHEN COUNT(*) >= p_silver_threshold THEN 2  -- Silver (75th percentile)
+                    END
+                ) > m2.MEMBERSHIPTYPE
+        )
+        WHERE ROWNUM <= p_batch_size
+    ) upgrades
+    ON (m.CUSTOMERID = upgrades.CUSTOMERID)
+    WHEN MATCHED THEN
+        UPDATE SET
+            m.MEMBERSHIPTYPE = upgrades.new_level,
+            m.EXPIREDATE = m.EXPIREDATE + 180;
+
+    p_rows_upgraded := SQL%ROWCOUNT;
+
+    COMMIT;
+
+EXCEPTION
+    WHEN OTHERS THEN
+        ROLLBACK;
+        RAISE;
+END;
 /
 
 CREATE OR REPLACE TRIGGER \"DS3\".\"TRG_HELPFULNESS_SYNC$k\"

@@ -21,20 +21,17 @@ system ("mkdir -p $sqlservertargetdir");
 
 my $pathsep;
 my $startcmd;
-my $background;
 
 # This section enables support for Linux and Windows - detecting the type of OS, and then using the proper commands
 if ("$^O" eq "linux")
         {
         $pathsep = "/";
         $startcmd = "";
-        $background = "&";
         }
 else
         {
         $pathsep = "\\\\";
 	$startcmd = "start";
-        $background = "";
         };
 
 foreach my $k (1 .. $numberofstores){
@@ -137,6 +134,13 @@ CREATE INDEX IX_PROD_SPECIAL_CATEGORY_MEMBERSHIP$k ON PRODUCTS$k
   PROD_ID ASC
   )
   INCLUDE (TITLE, ACTOR, PRICE, COMMON_PROD_ID)
+  ON DS_IND_FG
+GO
+
+CREATE INDEX IX_PROD_MEMBERSHIP_ITEM$k ON PRODUCTS$k
+  (
+  MEMBERSHIP_ITEM ASC
+  )
   ON DS_IND_FG
 GO
 
@@ -287,7 +291,7 @@ GO
 sleep(1);
   
 foreach my $k (1 .. ($numberofstores-1)){
-  system ("$startcmd sqlcmd -C -S $sqlservertarget -U sa -P $password -i $sqlservertargetdir${pathsep}sqlserver_ds_createindexes$k.sql $background");
+  system ("$startcmd sqlcmd -C -S $sqlservertarget -U sa -P $password -i $sqlservertargetdir${pathsep}sqlserver_ds_createindexes$k.sql");
   }
   system ("sqlcmd -C -S $sqlservertarget -U sa -P $password -i $sqlservertargetdir${pathsep}sqlserver_ds_createindexes$numberofstores.sql");
   #sleep(180);    # Make sure that all indexes are created before finishing

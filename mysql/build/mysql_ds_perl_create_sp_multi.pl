@@ -32,7 +32,9 @@ else
 
 foreach my $k (1 .. $numberofstores){
 	open (my $OUT, ">$mysql_targetdir${pathsep}mysql_ds_createsp$k.sql") || die("Can't open $mysql_targetdir${pathsep}mysql_ds_createsp$k.sql");
-	print $OUT  "Delimiter $$
+	print $OUT  "USE DS3;
+
+Delimiter $$
 DROP PROCEDURE IF EXISTS DS3.NEW_CUSTOMER$k $$
 CREATE PROCEDURE DS3.NEW_CUSTOMER$k ( IN firstname_in varchar(50), IN lastname_in varchar(50), IN address1_in varchar(50), IN address2_in varchar(50), IN city_in varchar(50), IN state_in varchar(50), IN zip_in int, IN country_in varchar(50), IN region_in int, IN email_in varchar(50), IN phone_in varchar(50), IN creditcardtype_in int, IN creditcard_in varchar(50), IN creditcardexpiration_in varchar(50), IN username_in varchar(50), IN password_in varchar(50), IN age_in int, IN income_in int, IN gender_in varchar(1), OUT customerid_out INT)
   BEGIN
@@ -108,7 +110,7 @@ BEGIN
       (
       customerid_in,
       membershiplevel_in,
-      SYSDATE()
+      DATE_ADD(NOW(), INTERVAL 1 YEAR)
       )
       ;
     SET customerid_out = customerid_in;
@@ -374,6 +376,16 @@ BEGIN
         select * from PRODUCTS$k WHERE CATEGORY=category_in and SPECIAL=special_in limit batch_size_in;
 END; $$
 
+DROP PROCEDURE IF EXISTS DS3.BROWSE_BY_MEMBERSHIP$k $$
+CREATE PROCEDURE DS3.BROWSE_BY_MEMBERSHIP$k
+  (
+  IN batch_size_in            INT,
+  IN membershiptype_in        INT
+  )
+BEGIN
+        select * from PRODUCTS$k WHERE MEMBERSHIP_ITEM=membershiptype_in limit batch_size_in;
+END; $$
+
 CREATE OR REPLACE PROCEDURE DS3.BROWSE_BY_VECTOR$k (
     IN p_batch_size_in INT,
     IN p_vector_text TEXT -- Pass the vector as a JSON string
@@ -540,7 +552,7 @@ BEGIN
         SET v_common_id = FLOOR(1 + (RAND() * v_max_id));
     END IF;
 
-    SET v_membership = FLOOR(1 + (RAND() * 3));
+    SET v_membership = FLOOR(RAND() * 4);
 
     START TRANSACTION;
 
@@ -555,6 +567,236 @@ BEGIN
     COMMIT;
 
     SELECT v_new_id AS generated_id;
+END $$
+
+DROP PROCEDURE IF EXISTS DS3.RemoveReviewByProduct$k $$
+CREATE PROCEDURE DS3.RemoveReviewByProduct$k
+(
+    IN p_prod_id INT
+)
+BEGIN
+    DECLARE v_review_id INT DEFAULT 0;
+
+    -- Find one random review for this specific product
+    -- (simulates product-specific spam moderation)
+    SELECT REVIEW_ID INTO v_review_id
+    FROM REVIEWS$k
+    WHERE PROD_ID = p_prod_id
+    ORDER BY RAND()
+    LIMIT 1
+    FOR UPDATE SKIP LOCKED;
+
+    -- Delete it if found
+    IF v_review_id > 0 THEN
+        DELETE FROM REVIEWS$k WHERE REVIEW_ID = v_review_id;
+    END IF;
+
+    SELECT v_review_id AS deleted_review_id;
+END $$
+
+DROP PROCEDURE IF EXISTS DS3.RemoveUnhelpfulReviews$k $$
+CREATE PROCEDURE DS3.RemoveUnhelpfulReviews$k
+(
+    IN p_batch_size INT
+)
+BEGIN
+    -- Delete N least helpful reviews across all products
+    -- (simulates global cleanup of low-quality reviews)
+    DELETE r FROM REVIEWS$k r
+    INNER JOIN (
+        SELECT REVIEW_ID
+        FROM REVIEWS$k
+        ORDER BY TOTAL_HELPFULNESS ASC, REVIEW_ID ASC
+        LIMIT p_batch_size
+        FOR UPDATE SKIP LOCKED
+    ) AS to_delete ON r.REVIEW_ID = to_delete.REVIEW_ID;
+    SELECT ROW_COUNT() AS rows_affected;
+END $$
+
+DROP PROCEDURE IF EXISTS DS3.RemoveReviewsByDate$k $$
+CREATE PROCEDURE DS3.RemoveReviewsByDate$k
+(
+    IN p_batch_size INT
+)
+BEGIN
+    -- Delete N oldest reviews by REVIEW_DATE
+    DELETE r FROM REVIEWS$k r
+    INNER JOIN (
+        SELECT REVIEW_ID
+        FROM REVIEWS$k
+        ORDER BY REVIEW_DATE ASC
+        LIMIT p_batch_size
+        FOR UPDATE SKIP LOCKED
+    ) AS to_delete ON r.REVIEW_ID = to_delete.REVIEW_ID;
+    SELECT ROW_COUNT() AS rows_affected;
+END $$
+
+DROP PROCEDURE IF EXISTS DS3.AdjustPrices$k $$
+CREATE PROCEDURE DS3.AdjustPrices$k
+(
+    IN p_prod_id INT
+)
+BEGIN
+    DECLARE v_adjustment_factor DECIMAL(4,3);
+
+    -- Randomly adjust price by -10% to +10%
+    SET v_adjustment_factor = 0.90 + (RAND() * 0.20);
+
+    UPDATE PRODUCTS$k
+    SET PRICE = PRICE * v_adjustment_factor
+    WHERE PROD_ID = p_prod_id;
+    SELECT ROW_COUNT() AS rows_affected;
+END $$
+
+DROP PROCEDURE IF EXISTS DS3.BulkPriceAdjustment$k $$
+CREATE PROCEDURE DS3.BulkPriceAdjustment$k
+(
+    IN p_batch_size INT,
+    IN p_category INT
+)
+BEGIN
+    DECLARE v_adjustment_factor DECIMAL(5,4);
+
+    -- Generate random adjustment factor (0.75 to 1.25, ±25%)
+    SET v_adjustment_factor = 0.75 + (RAND() * 0.50);
+
+    -- Update batch_size random products in selected category
+    -- Use JOIN instead of IN to avoid MariaDB LIMIT restriction
+    UPDATE PRODUCTS$k p
+    INNER JOIN (
+        SELECT PROD_ID
+        FROM PRODUCTS$k
+        WHERE CATEGORY = p_category
+        ORDER BY RAND()
+        LIMIT p_batch_size
+    ) random_products ON p.PROD_ID = random_products.PROD_ID
+    SET p.PRICE = FLOOR(p.PRICE * v_adjustment_factor) + 0.77;
+
+    SELECT ROW_COUNT() AS rows_affected;
+END $$
+
+DROP PROCEDURE IF EXISTS DS3.MarkSpecials$k $$
+CREATE PROCEDURE DS3.MarkSpecials$k
+(
+    IN p_prod_id INT
+)
+BEGIN
+    -- Toggle SPECIAL flag (0→1 or 1→0)
+    -- Simulates rotating promotions/featured items
+    UPDATE PRODUCTS$k
+    SET SPECIAL = CASE WHEN SPECIAL = 1 THEN 0 ELSE 1 END
+    WHERE PROD_ID = p_prod_id;
+    SELECT ROW_COUNT() AS rows_affected;
+END $$
+
+DROP PROCEDURE IF EXISTS DS3.ExpireMemberships$k $$
+CREATE PROCEDURE DS3.ExpireMemberships$k
+(
+    IN p_batch_size INT
+)
+BEGIN
+    -- Delete expired memberships (oldest first)
+    -- Simulates cleanup of lapsed subscriptions
+    -- Uses JOIN pattern for MariaDB LIMIT compatibility
+    DELETE m FROM MEMBERSHIP$k m
+    INNER JOIN (
+        SELECT CUSTOMERID
+        FROM MEMBERSHIP$k
+        WHERE EXPIREDATE < NOW()
+        ORDER BY EXPIREDATE ASC
+        LIMIT p_batch_size
+        FOR UPDATE SKIP LOCKED
+    ) AS to_delete ON m.CUSTOMERID = to_delete.CUSTOMERID;
+    SELECT ROW_COUNT() AS rows_affected;
+END $$
+
+DROP PROCEDURE IF EXISTS DS3.PurgeOldOrders$k $$
+CREATE PROCEDURE DS3.PurgeOldOrders$k
+(
+    IN p_batch_size INT
+)
+BEGIN
+    -- Delete oldest orders (data retention policy, GDPR compliance)
+    -- ORDERLINES cascade delete via foreign key ON DELETE CASCADE
+    -- Uses JOIN pattern for MariaDB LIMIT compatibility
+    DELETE o FROM ORDERS$k o
+    INNER JOIN (
+        SELECT ORDERID
+        FROM ORDERS$k
+        ORDER BY ORDERDATE ASC
+        LIMIT p_batch_size
+        FOR UPDATE SKIP LOCKED
+    ) AS to_delete ON o.ORDERID = to_delete.ORDERID;
+    SELECT ROW_COUNT() AS rows_affected;
+END $$
+
+DROP PROCEDURE IF EXISTS DS3.UpgradeMembership$k $$
+CREATE PROCEDURE DS3.UpgradeMembership$k
+(
+    IN p_batch_size INT
+)
+BEGIN
+    -- Time-based slicing: process 1% of customer base per minute
+    -- Full coverage every 100 minutes, then repeats (stateless partitioning)
+    DECLARE v_current_slice INT DEFAULT MOD(MINUTE(NOW()), 100);
+    DECLARE v_gold_threshold DECIMAL(10,2);
+    DECLARE v_silver_threshold DECIMAL(10,2);
+
+    -- Calculate percentile thresholds for purchase counts in current slice
+    -- Gold (3): >= 90th percentile, Silver (2): >= 75th percentile
+    WITH SlicePurchaseCounts AS (
+        SELECT COUNT(*) AS purchase_count
+        FROM MEMBERSHIP$k m
+        INNER JOIN CUST_HIST$k ch ON m.CUSTOMERID = ch.CUSTOMERID
+        WHERE MOD(m.CUSTOMERID, 100) = v_current_slice
+        GROUP BY m.CUSTOMERID
+    ),
+    PercentileCalc AS (
+        SELECT
+            purchase_count,
+            PERCENT_RANK() OVER (ORDER BY purchase_count) AS percentile
+        FROM SlicePurchaseCounts
+    )
+    SELECT
+        MIN(CASE WHEN percentile >= 0.90 THEN purchase_count END),
+        MIN(CASE WHEN percentile >= 0.75 THEN purchase_count END)
+    INTO v_gold_threshold, v_silver_threshold
+    FROM PercentileCalc;
+
+    -- Fallback to hardcoded thresholds if no data in slice
+    IF v_gold_threshold IS NULL THEN
+        SET v_gold_threshold = 20;
+        SET v_silver_threshold = 10;
+    END IF;
+
+    -- Count total purchases per customer, upgrade membership if thresholds met
+    -- UPGRADE ONLY - never downgrade
+    -- Reward: extend expiration by 180 days when upgrading
+    UPDATE MEMBERSHIP$k m
+    INNER JOIN (
+        SELECT
+            ch.CUSTOMERID,
+            CASE
+                WHEN COUNT(*) >= v_gold_threshold THEN 3  -- Gold (90th percentile)
+                WHEN COUNT(*) >= v_silver_threshold THEN 2  -- Silver (75th percentile)
+                ELSE 1
+            END AS new_level
+        FROM CUST_HIST$k ch
+        INNER JOIN MEMBERSHIP$k m2 ON ch.CUSTOMERID = m2.CUSTOMERID
+        WHERE MOD(ch.CUSTOMERID, 100) = v_current_slice
+        GROUP BY ch.CUSTOMERID, m2.MEMBERSHIPTYPE
+        HAVING CASE
+            WHEN COUNT(*) >= v_gold_threshold THEN 3  -- Gold (90th percentile)
+            WHEN COUNT(*) >= v_silver_threshold THEN 2  -- Silver (75th percentile)
+            ELSE 1
+        END > m2.MEMBERSHIPTYPE
+        LIMIT p_batch_size
+    ) AS upgrades ON m.CUSTOMERID = upgrades.CUSTOMERID
+    SET
+        m.MEMBERSHIPTYPE = upgrades.new_level,
+        m.EXPIREDATE = DATE_ADD(m.EXPIREDATE, INTERVAL 180 DAY);
+
+    SELECT ROW_COUNT() AS rows_affected, v_gold_threshold AS gold_threshold, v_silver_threshold AS silver_threshold;
 END $$
 
 \n";

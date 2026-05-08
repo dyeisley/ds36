@@ -22,5 +22,7 @@ perl oracle_ds_perl_create_indexes_multi.pl $TARGET $STORES
 perl oracle_ds_perl_create_fulltextindex_multi.pl $TARGET $STORES
 perl oracle_ds_perl_create_sp_multi.pl $TARGET $STORES
 perl oracle_ds_perl_analyze_all_multi.pl $TARGET $STORES
+cd ../validate
+sqlplus "sys/oracle@$TARGET as sysdba" @validate_before.sql  > validate_before.txt
 cd ..
 
