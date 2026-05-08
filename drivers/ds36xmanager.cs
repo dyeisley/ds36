@@ -23,10 +23,6 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA  */
 
-using System;
-using System.Threading;
-using System.Diagnostics;
-
 namespace ds2xdriver
 {
   /// <summary>
@@ -148,7 +144,8 @@ namespace ds2xdriver
       Console.WriteLine("Thread {0}: connected to {1}", Thread.CurrentThread.Name, Controller.target_servers[target_server_id]);
 
       // Wait for Controller to signal start
-      while (!Controller.Start) Thread.Sleep(100);
+      while (!Controller.Start)
+        Thread.Sleep(100);
 
       Console.WriteLine("Thread {0}: Manager thread started", Thread.CurrentThread.Name);
 
@@ -158,7 +155,8 @@ namespace ds2xdriver
         // Sleep for the manager interval
         Thread.Sleep(Controller.manager_interval * 1000);
 
-        if (Controller.End) break;
+        if (Controller.End)
+          break;
 
         // Randomly select operation based on percentages
         int total_pct = Controller.manager_add_product_pct + Controller.manager_delete_review_pct +

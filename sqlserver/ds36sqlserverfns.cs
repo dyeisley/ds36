@@ -27,21 +27,19 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA  */
 
-using System;
 using System.Data;
+using System.Diagnostics;
+using System.Text.Json;
 using Microsoft.Data.SqlClient;
 using Microsoft.Data.SqlTypes;
-using System.Threading;
-using System.Text.Json;
-using System.Diagnostics;
 
 namespace ds2xdriver
-  {
+{
   /// <summary>
   /// ds3sqlserverfns.cs: DVD Store 3 SQL Server Functions
   /// </summary>
   public class ds2Interface
-    {
+  {
     int ds2Interfaceid;
     string target_server;       //Added by GSK
     int target_store_number = 1; //Added to support Multiple stores - default is 1
@@ -52,9 +50,9 @@ namespace ds2xdriver
     SqlCommand Remove_Review_By_Product, Remove_Unhelpful_Reviews, Remove_Reviews_By_Date, Adjust_Prices, Bulk_Price_Adjustment, Mark_Specials, Expire_Memberships, Purge_Old_Orders, Upgrade_Membership;
     SqlCommand[] CostQuery = new SqlCommand[11];
 
-//
-//-------------------------------------------------------------------------------------------------
-//
+    //
+    //-------------------------------------------------------------------------------------------------
+    //
     // (Overloaded constructor to support multiple stores within single DS3 instance)
     public ds2Interface(int ds2interfaceid, string target_name, int target_store)
     {
@@ -176,16 +174,26 @@ namespace ds2xdriver
       Purchase.Parameters.Add("@netamount_in", SqlDbType.Money);
       Purchase.Parameters.Add("@taxamount_in", SqlDbType.Money);
       Purchase.Parameters.Add("@totalamount_in", SqlDbType.Money);
-      Purchase.Parameters.Add("@prod_id_in0", SqlDbType.Int); Purchase.Parameters.Add("@qty_in0", SqlDbType.Int);
-      Purchase.Parameters.Add("@prod_id_in1", SqlDbType.Int); Purchase.Parameters.Add("@qty_in1", SqlDbType.Int);
-      Purchase.Parameters.Add("@prod_id_in2", SqlDbType.Int); Purchase.Parameters.Add("@qty_in2", SqlDbType.Int);
-      Purchase.Parameters.Add("@prod_id_in3", SqlDbType.Int); Purchase.Parameters.Add("@qty_in3", SqlDbType.Int);
-      Purchase.Parameters.Add("@prod_id_in4", SqlDbType.Int); Purchase.Parameters.Add("@qty_in4", SqlDbType.Int);
-      Purchase.Parameters.Add("@prod_id_in5", SqlDbType.Int); Purchase.Parameters.Add("@qty_in5", SqlDbType.Int);
-      Purchase.Parameters.Add("@prod_id_in6", SqlDbType.Int); Purchase.Parameters.Add("@qty_in6", SqlDbType.Int);
-      Purchase.Parameters.Add("@prod_id_in7", SqlDbType.Int); Purchase.Parameters.Add("@qty_in7", SqlDbType.Int);
-      Purchase.Parameters.Add("@prod_id_in8", SqlDbType.Int); Purchase.Parameters.Add("@qty_in8", SqlDbType.Int);
-      Purchase.Parameters.Add("@prod_id_in9", SqlDbType.Int); Purchase.Parameters.Add("@qty_in9", SqlDbType.Int);
+      Purchase.Parameters.Add("@prod_id_in0", SqlDbType.Int);
+      Purchase.Parameters.Add("@qty_in0", SqlDbType.Int);
+      Purchase.Parameters.Add("@prod_id_in1", SqlDbType.Int);
+      Purchase.Parameters.Add("@qty_in1", SqlDbType.Int);
+      Purchase.Parameters.Add("@prod_id_in2", SqlDbType.Int);
+      Purchase.Parameters.Add("@qty_in2", SqlDbType.Int);
+      Purchase.Parameters.Add("@prod_id_in3", SqlDbType.Int);
+      Purchase.Parameters.Add("@qty_in3", SqlDbType.Int);
+      Purchase.Parameters.Add("@prod_id_in4", SqlDbType.Int);
+      Purchase.Parameters.Add("@qty_in4", SqlDbType.Int);
+      Purchase.Parameters.Add("@prod_id_in5", SqlDbType.Int);
+      Purchase.Parameters.Add("@qty_in5", SqlDbType.Int);
+      Purchase.Parameters.Add("@prod_id_in6", SqlDbType.Int);
+      Purchase.Parameters.Add("@qty_in6", SqlDbType.Int);
+      Purchase.Parameters.Add("@prod_id_in7", SqlDbType.Int);
+      Purchase.Parameters.Add("@qty_in7", SqlDbType.Int);
+      Purchase.Parameters.Add("@prod_id_in8", SqlDbType.Int);
+      Purchase.Parameters.Add("@qty_in8", SqlDbType.Int);
+      Purchase.Parameters.Add("@prod_id_in9", SqlDbType.Int);
+      Purchase.Parameters.Add("@qty_in9", SqlDbType.Int);
 
       New_Product = new SqlCommand("AddNewInventoryProduct" + target_store_number, objConn);
       New_Product.CommandType = CommandType.StoredProcedure;
@@ -201,7 +209,8 @@ namespace ds2xdriver
         string query = "SELECT PROD_ID, PRICE FROM PRODUCTS" + target_store_number + " WHERE PROD_ID IN (";
         for (int i = 0; i < items; i++)
         {
-          if (i > 0) query += ",";
+          if (i > 0)
+            query += ",";
           query += "@ARG" + i;
         }
         query += ")";
@@ -253,41 +262,41 @@ namespace ds2xdriver
       //Console.WriteLine("ds2Interface {0} created", ds2Interfaceid);
     }
 
-//
-//-------------------------------------------------------------------------------------------------
-//
+    //
+    //-------------------------------------------------------------------------------------------------
+    //
     public bool ds2connect()
-      {
+    {
       try
-        {
+      {
         objConn.Open();
-        }
+      }
       catch (SqlException e)
-        {
+      {
         //Console.WriteLine("Thread {0}: error in connecting to database {1}: {2}",  Thread.CurrentThread.Name,
         //  Controller.target, e.Message);
         //Changed by GSK
-        Console.WriteLine ( "Thread {0}: error in connecting to database {1}: {2}" , Thread.CurrentThread.Name ,
-        target_server , e.Message );
-        return(false);
-        }
+        Console.WriteLine("Thread {0}: error in connecting to database {1}: {2}", Thread.CurrentThread.Name,
+        target_server, e.Message);
+        return (false);
+      }
 
-      return(true);
-      } // end ds2connect()
+      return (true);
+    } // end ds2connect()
 
-//
-//-------------------------------------------------------------------------------------------------
-//
+    //
+    //-------------------------------------------------------------------------------------------------
+    //
     public bool ds2login(string username_in, string password_in, ref int customerid_out, ref int rows_returned,
       ref string[] title_out, ref string[] actor_out, ref string[] related_title_out, ref double rt)
-      {
+    {
       Login.Parameters["@username_in"].Value = username_in;
       Login.Parameters["@password_in"].Value = password_in;
 
       Stopwatch timer = Stopwatch.StartNew();
 
       try
-        {
+      {
         using (SqlDataReader Rdr = Login.ExecuteReader())
         {
           Rdr.Read();
@@ -306,35 +315,35 @@ namespace ds2xdriver
           }
           rows_returned = i_row;
         }
-        return(true);
-        }
+        return (true);
+      }
       catch (SqlException e)
-        {
+      {
         Console.WriteLine("Thread {0}: SQL Error {1} in Login: {2}",
           Thread.CurrentThread.Name, e.Number, e.Message);
-        return(false);
-        }
+        return (false);
+      }
       catch (System.Exception e)
-        {
+      {
         Console.WriteLine("Thread {0}: System Error in Login: {1}",
           Thread.CurrentThread.Name, e.Message);
-        return(false);
-        }
+        return (false);
+      }
       finally
-        {
+      {
         rt = timer.Elapsed.TotalSeconds;
-        }
-      }  // end ds2login
-//
-//-------------------------------------------------------------------------------------------------
-//
+      }
+    }  // end ds2login
+       //
+       //-------------------------------------------------------------------------------------------------
+       //
     public bool ds2newcustomer(string username_in, string password_in, string firstname_in,
       string lastname_in, string address1_in, string address2_in, string city_in, string state_in,
       string zip_in, string country_in, string email_in, string phone_in, int creditcardtype_in,
       string creditcard_in, int ccexpmon_in, int ccexpyr_in, int age_in, int income_in,
       string gender_in, ref int customerid_out, ref double rt)
-      {
-      int region_in = (country_in == "US") ? 1:2;
+    {
+      int region_in = (country_in == "US") ? 1 : 2;
       string creditcardexpiration_in = String.Format("{0:D4}/{1:D2}", ccexpyr_in, ccexpmon_in);
 
       New_Customer.Parameters["@username_in"].Value = username_in;
@@ -345,7 +354,7 @@ namespace ds2xdriver
       New_Customer.Parameters["@address2_in"].Value = address2_in;
       New_Customer.Parameters["@city_in"].Value = city_in;
       New_Customer.Parameters["@state_in"].Value = state_in;
-      New_Customer.Parameters["@zip_in"].Value = (zip_in=="") ? 0 : Convert.ToInt32(zip_in);
+      New_Customer.Parameters["@zip_in"].Value = (zip_in == "") ? 0 : Convert.ToInt32(zip_in);
       New_Customer.Parameters["@country_in"].Value = country_in;
       New_Customer.Parameters["@region_in"].Value = region_in;
       New_Customer.Parameters["@email_in"].Value = email_in;
@@ -357,77 +366,77 @@ namespace ds2xdriver
       New_Customer.Parameters["@income_in"].Value = income_in;
       New_Customer.Parameters["@gender_in"].Value = gender_in;
 
-//    Console.WriteLine("Thread {0}: Calling New_Customer w/username_in= {1}  region={2}  ccexp={3}",
-//      Thread.CurrentThread.Name, username_in, region_in, creditcardexpiration_in);
+      //    Console.WriteLine("Thread {0}: Calling New_Customer w/username_in= {1}  region={2}  ccexp={3}",
+      //      Thread.CurrentThread.Name, username_in, region_in, creditcardexpiration_in);
 
       Stopwatch timer = Stopwatch.StartNew();
 
       try
-        {
+      {
         customerid_out = Convert.ToInt32(New_Customer.ExecuteScalar().ToString(), 10);
-        return(true);
-        }
+        return (true);
+      }
       catch (SqlException e)
-        {
+      {
         Console.WriteLine("Thread {0}: SQL Error {1} in New_Customer: {2}",
           Thread.CurrentThread.Name, e.Number, e.Message);
-        return(false);
-        }
+        return (false);
+      }
       catch (System.Exception e)
-        {
+      {
         Console.WriteLine("Thread {0}: System Error in New_Customer: {1}",
           Thread.CurrentThread.Name, e.Message);
-        return(false);
-        }
+        return (false);
+      }
       finally
-        {
-        rt = timer.Elapsed.TotalSeconds;
-        }
-      } // end ds2newcustomer()
-
-//
-//-------------------------------------------------------------------------------------------------
-//
-      public bool ds2newmember(int customerid_in, int membershiplevel_in, ref int customerid_out, ref double rt)
       {
+        rt = timer.Elapsed.TotalSeconds;
+      }
+    } // end ds2newcustomer()
+
+    //
+    //-------------------------------------------------------------------------------------------------
+    //
+    public bool ds2newmember(int customerid_in, int membershiplevel_in, ref int customerid_out, ref double rt)
+    {
       New_Member.Parameters["@customerid_in"].Value = customerid_in;
       New_Member.Parameters["@membershiplevel_in"].Value = membershiplevel_in;
 
       Stopwatch timer = Stopwatch.StartNew();
 
       try
-        {
+      {
         customerid_out = Convert.ToInt32(New_Member.ExecuteScalar().ToString());
-//    Console.WriteLine("Thread {0}: New_Customer created w/username_in= {1}  region={2}  customerid={3}",
-//      Thread.CurrentThread.Name, username_in, region_in, customerid_out);
-        return(true);
-        }
+        //    Console.WriteLine("Thread {0}: New_Customer created w/username_in= {1}  region={2}  customerid={3}",
+        //      Thread.CurrentThread.Name, username_in, region_in, customerid_out);
+        return (true);
+      }
       catch (SqlException e)
-        {
+      {
         Console.WriteLine("Thread {0}: SQL Error {1} in New_Member: {2}",
           Thread.CurrentThread.Name, e.Number, e.Message);
-        return(false);
-        }
+        return (false);
+      }
       catch (System.Exception e)
-        {
+      {
         Console.WriteLine("Thread {0}: System Error in New_Member: {1}",
           Thread.CurrentThread.Name, e.Message);
-        return(false);
-        }
+        return (false);
+      }
       finally
-        {
+      {
         rt = timer.Elapsed.TotalSeconds;
-        }
-      } // end ds2newmember()
+      }
+    } // end ds2newmember()
 
-//
-//-------------------------------------------------------------------------------------------------
-//
+    //
+    //-------------------------------------------------------------------------------------------------
+    //
     public bool ds2browse(string browse_type_in, string browse_category_in, string browse_actor_in,
       string browse_title_in, int batch_size_in, int search_depth_in, int customerid_out, ref int rows_returned,
       ref int[] prod_id_out, ref string[] title_out, ref string[] actor_out, ref decimal[] price_out,
       ref int[] special_out, ref int[] common_prod_id_out, ref double rt)
-      {
+    {
       // Products table: PROD_ID INT, CATEGORY TINYINT, TITLE VARCHAR(50), ACTOR VARCHAR(50),
       //   PRICE DECIMAL(12,2), SPECIAL TINYINT, COMMON_PROD_ID INT
       int i_row, special = 0, membership_item = 0;
@@ -438,12 +447,13 @@ namespace ds2xdriver
       float[] vector = new float[dim];
 
       // Search for special half the time
-      if (Random.Shared.Next(100) < 50) {
+      if (Random.Shared.Next(100) < 50)
+      {
         special = 1;
       }
 
-      switch(browse_type_in)
-        {
+      switch (browse_type_in)
+      {
         case "category":
           Browse_By_Category.Parameters["@batch_size_in"].Value = batch_size_in;
           Browse_By_Category.Parameters["@category_in"].Value = Convert.ToInt32(browse_category_in);
@@ -463,32 +473,32 @@ namespace ds2xdriver
         case "vector":
           for (int i = 0; i < dim; i++)
           {
-             vector[i] = (float)(Random.Shared.NextDouble() * 2.0 - 1.0);
+            vector[i] = (float)(Random.Shared.NextDouble() * 2.0 - 1.0);
           }
           var sqlVector = new SqlVector<float>(vector);
 
           Browse_By_Vector.Parameters["@batch_size_in"].Value = batch_size_in;
           Browse_By_Vector.Parameters["@vector_in"].Value = sqlVector;
-	  data_in = JsonSerializer.Serialize(sqlVector);
+          data_in = JsonSerializer.Serialize(sqlVector);
           break;
         case "membership":
           Browse_By_Membership.Parameters["@batch_size_in"].Value = batch_size_in;
           Browse_By_Membership.Parameters["@membershiptype_in"].Value = Random.Shared.Next(1, 4);
           data_in = "membership level: " + Browse_By_Membership.Parameters["@membershiptype_in"].Value;
           break;
-        }
+      }
 
-//    Console.WriteLine("Thread {0}: Calling Browse w/ browse_type= {1} batch_size_in= {2}  data_in= {3}",
-//      Thread.CurrentThread.Name, browse_type_in, batch_size_in, data_in);
+      //    Console.WriteLine("Thread {0}: Calling Browse w/ browse_type= {1} batch_size_in= {2}  data_in= {3}",
+      //      Thread.CurrentThread.Name, browse_type_in, batch_size_in, data_in);
 
       Stopwatch timer = Stopwatch.StartNew();
 
       try
-        {
+      {
         SqlDataReader Rdr;
-        switch(browse_type_in)
-          {
-	  default:
+        switch (browse_type_in)
+        {
+          default:
           case "category":
             Rdr = Browse_By_Category.ExecuteReader();
             break;
@@ -504,7 +514,7 @@ namespace ds2xdriver
           case "membership":
             Rdr = Browse_By_Membership.ExecuteReader();
             break;
-          }
+        }
 
         using (Rdr)
         {
@@ -518,38 +528,38 @@ namespace ds2xdriver
             price_out[i_row] = Rdr.GetDecimal(4);
             special_out[i_row] = Rdr.GetByte(5);
             common_prod_id_out[i_row] = Rdr.GetInt32(6);
-	    membership_item = Rdr.GetInt32(7); 	// We don't actually do anything with this. 
+            membership_item = Rdr.GetInt32(7); 	// We don't actually do anything with this. 
             //Console.WriteLine("\tprod_id_out: {0} category_out: {1} title_out: {2} actor_out: {3} price_out: {4} special_out: {5} common_prod_id_out: {6} membership_item: {7}",prod_id_out[i_row],category_out[i_row],title_out[i_row],actor_out[i_row],price_out[i_row], special_out[i_row],common_prod_id_out[i_row], membership_item);
             ++i_row;
           }
           rows_returned = i_row;
         }
-        return(true);
-        }
+        return (true);
+      }
       catch (SqlException e)
-        {
+      {
         Console.WriteLine("Thread {0}: SQL Error {1} in Browse: {2}",
           Thread.CurrentThread.Name, e.Number, e.Message);
 
         if (e.Number == 2812)
-          {
+        {
           Console.WriteLine("  Problem with vector search. Please try with --use_vectors=n");
           rows_returned = -1;
-          }
-
-        return(false);
         }
+
+        return (false);
+      }
       catch (System.Exception e)
-        {
+      {
         Console.WriteLine("Thread {0}: System Error in Browse: {1}",
           Thread.CurrentThread.Name, e.Message);
-        return(false);
-        }
+        return (false);
+      }
       finally
-        {
+      {
         rt = timer.Elapsed.TotalSeconds;
-        }
-      } // end ds2browse()
+      }
+    } // end ds2browse()
 
     //
     //-------------------------------------------------------------------------------------------------
@@ -560,75 +570,75 @@ namespace ds2xdriver
       ref string[] review_date_out, ref int[] review_stars_out, ref int[] review_customerid_out,
       ref string[] review_summary_out, ref string[] review_text_out, ref int[] review_helpfulness_sum_out, ref double rt)
     {
-        // Reviews Table: "REVIEW_ID" NUMBER,  "PROD_ID" NUMBER,  "REVIEW_DATE" DATE, "STARS" NUMBER,
-        // "CUSTOMERID" NUMBER,  "REVIEW_SUMMARY" VARCHAR2(50 byte), "REVIEW_TEXT" VARCHAR2(1000 byte)
-        string data_in = string.Empty;
-        int i_row;
-        SqlDataReader Rdr;
+      // Reviews Table: "REVIEW_ID" NUMBER,  "PROD_ID" NUMBER,  "REVIEW_DATE" DATE, "STARS" NUMBER,
+      // "CUSTOMERID" NUMBER,  "REVIEW_SUMMARY" VARCHAR2(50 byte), "REVIEW_TEXT" VARCHAR2(1000 byte)
+      string data_in = string.Empty;
+      int i_row;
+      SqlDataReader Rdr;
 
-        switch (browse_review_type_in)
-        {
-            case "actor":
-                Get_Prod_Reviews_By_Actor.Parameters["@batch_size_in"].Value = batch_size_in;
-                Get_Prod_Reviews_By_Actor.Parameters["@search_depth_in"].Value = search_depth_in;
-                Get_Prod_Reviews_By_Actor.Parameters["@actor_in"].Value = "\"" + get_review_actor_in + "\"";
-                data_in = "\"" + get_review_actor_in + "\"";
-                break;
-            case "title":
-                Get_Prod_Reviews_By_Title.Parameters["@batch_size_in"].Value = batch_size_in;
-                Get_Prod_Reviews_By_Title.Parameters["@search_depth_in"].Value = search_depth_in;
-                Get_Prod_Reviews_By_Title.Parameters["@title_in"].Value = "\"" + get_review_title_in + "\"";
-                data_in = "\"" + get_review_title_in + "\"";
-                break;
-        }
+      switch (browse_review_type_in)
+      {
+        case "actor":
+          Get_Prod_Reviews_By_Actor.Parameters["@batch_size_in"].Value = batch_size_in;
+          Get_Prod_Reviews_By_Actor.Parameters["@search_depth_in"].Value = search_depth_in;
+          Get_Prod_Reviews_By_Actor.Parameters["@actor_in"].Value = "\"" + get_review_actor_in + "\"";
+          data_in = "\"" + get_review_actor_in + "\"";
+          break;
+        case "title":
+          Get_Prod_Reviews_By_Title.Parameters["@batch_size_in"].Value = batch_size_in;
+          Get_Prod_Reviews_By_Title.Parameters["@search_depth_in"].Value = search_depth_in;
+          Get_Prod_Reviews_By_Title.Parameters["@title_in"].Value = "\"" + get_review_title_in + "\"";
+          data_in = "\"" + get_review_title_in + "\"";
+          break;
+      }
 
-        //    Console.WriteLine("Thread {0}: Calling Browse Review w/ browse_type= {1}  search_depth_in= {2}",
-        //      Thread.CurrentThread.Name, browse_review_type_in, search_depth_in);
+      //    Console.WriteLine("Thread {0}: Calling Browse Review w/ browse_type= {1}  search_depth_in= {2}",
+      //      Thread.CurrentThread.Name, browse_review_type_in, search_depth_in);
 
-        Stopwatch timer = Stopwatch.StartNew();
+      Stopwatch timer = Stopwatch.StartNew();
 
-        try
-        {
-            Rdr = (browse_review_type_in == "title") ? Get_Prod_Reviews_By_Title.ExecuteReader() : Get_Prod_Reviews_By_Actor.ExecuteReader();
+      try
+      {
+        Rdr = (browse_review_type_in == "title") ? Get_Prod_Reviews_By_Title.ExecuteReader() : Get_Prod_Reviews_By_Actor.ExecuteReader();
 
-            using (Rdr)
-            {
-               i_row = 0;
-               while (Rdr.Read())
-                 {
-                     prod_id_out[i_row] = Rdr.GetInt32(0);
-                     title_out[i_row] = Rdr.GetString(1);
-                     actor_out[i_row] = Rdr.GetString(2);
-                     review_id_out[i_row] = Rdr.GetInt32(3);
-                     review_date_out[i_row] = Convert.ToString(Rdr.GetSqlDateTime(4)) ?? string.Empty;
-                     review_stars_out[i_row] = Rdr.GetInt32(5);
-                     review_customerid_out[i_row] = Rdr.GetInt32(6);
-                     review_summary_out[i_row] = Rdr.GetString(7);
-                     review_text_out[i_row] = Rdr.GetString(8);
-                     review_helpfulness_sum_out[i_row] = Rdr.GetInt32(9);
-                     //Console.WriteLine("\tprod_id_out: {0} title_out: {1} actor_out: {2} review_id_out: {3} review_date_out: {4} review_stars_out: {5} review_customerid_out: {6} review_summary_out: {7}\n\treview_text_out: {8} review_helpfulness_sum_out: {9}\n", prod_id_out[i_row], title_out[i_row], actor_out[i_row], review_id_out[i_row], review_date_out[i_row], review_stars_out[i_row], review_customerid_out[i_row], review_summary_out[i_row], review_text_out[i_row], review_helpfulness_sum_out[i_row] );
-                     ++i_row;
-                 }
-	    }
-            rows_returned = i_row;
-            return(true);
-        }
-        catch (SqlException e)
+        using (Rdr)
         {
-            Console.WriteLine("Thread {0}: SQL Error {1} in Browse Product Reviews: {2}",
-              Thread.CurrentThread.Name, e.Number, e.Message);
-            return(false);
+          i_row = 0;
+          while (Rdr.Read())
+          {
+            prod_id_out[i_row] = Rdr.GetInt32(0);
+            title_out[i_row] = Rdr.GetString(1);
+            actor_out[i_row] = Rdr.GetString(2);
+            review_id_out[i_row] = Rdr.GetInt32(3);
+            review_date_out[i_row] = Convert.ToString(Rdr.GetSqlDateTime(4)) ?? string.Empty;
+            review_stars_out[i_row] = Rdr.GetInt32(5);
+            review_customerid_out[i_row] = Rdr.GetInt32(6);
+            review_summary_out[i_row] = Rdr.GetString(7);
+            review_text_out[i_row] = Rdr.GetString(8);
+            review_helpfulness_sum_out[i_row] = Rdr.GetInt32(9);
+            //Console.WriteLine("\tprod_id_out: {0} title_out: {1} actor_out: {2} review_id_out: {3} review_date_out: {4} review_stars_out: {5} review_customerid_out: {6} review_summary_out: {7}\n\treview_text_out: {8} review_helpfulness_sum_out: {9}\n", prod_id_out[i_row], title_out[i_row], actor_out[i_row], review_id_out[i_row], review_date_out[i_row], review_stars_out[i_row], review_customerid_out[i_row], review_summary_out[i_row], review_text_out[i_row], review_helpfulness_sum_out[i_row] );
+            ++i_row;
+          }
         }
-        catch (System.Exception e)
-        {
-            Console.WriteLine("Thread {0}: System Error in Browse Product Reviews: {1}",
-              Thread.CurrentThread.Name, e.Message);
-            return(false);
-        }
-        finally
-        {
-            rt = timer.Elapsed.TotalSeconds;
-        }
+        rows_returned = i_row;
+        return (true);
+      }
+      catch (SqlException e)
+      {
+        Console.WriteLine("Thread {0}: SQL Error {1} in Browse Product Reviews: {2}",
+          Thread.CurrentThread.Name, e.Number, e.Message);
+        return (false);
+      }
+      catch (System.Exception e)
+      {
+        Console.WriteLine("Thread {0}: System Error in Browse Product Reviews: {1}",
+          Thread.CurrentThread.Name, e.Message);
+        return (false);
+      }
+      finally
+      {
+        rt = timer.Elapsed.TotalSeconds;
+      }
     } // end ds2browsereview()
 
     //
@@ -638,87 +648,87 @@ namespace ds2xdriver
       ref int[] prod_id_out, ref int[] review_id_out, ref string[] review_date_out, ref int[] review_stars_out, ref int[] review_customerid_out,
       ref string[] review_summary_out, ref string[] review_text_out, ref int[] review_helpfulness_sum_out, ref double rt)
     {
-        // Reviews Table: "REVIEW_ID" NUMBER,  "PROD_ID" NUMBER,  "REVIEW_DATE" DATE, "STARS" NUMBER,
-        // "CUSTOMERID" NUMBER,  "REVIEW_SUMMARY" VARCHAR2(50 byte), "REVIEW_TEXT" VARCHAR2(1000 byte)
-        // string data_in = null;
-        int i_row;
+      // Reviews Table: "REVIEW_ID" NUMBER,  "PROD_ID" NUMBER,  "REVIEW_DATE" DATE, "STARS" NUMBER,
+      // "CUSTOMERID" NUMBER,  "REVIEW_SUMMARY" VARCHAR2(50 byte), "REVIEW_TEXT" VARCHAR2(1000 byte)
+      // string data_in = null;
+      int i_row;
 
+      switch (get_review_type_in)
+      {
+        case "noorder":
+          Get_Prod_Reviews.Parameters["@batch_size_in"].Value = batch_size_in;
+          Get_Prod_Reviews.Parameters["@prod_in"].Value = get_review_prod_in;
+          break;
+        case "star":
+          Get_Prod_Reviews_By_Stars.Parameters["@batch_size_in"].Value = batch_size_in;
+          Get_Prod_Reviews_By_Stars.Parameters["@prod_in"].Value = get_review_prod_in;
+          Get_Prod_Reviews_By_Stars.Parameters["@stars_in"].Value = get_review_stars_in;
+          break;
+        case "date":
+          Get_Prod_Reviews_By_Date.Parameters["@batch_size_in"].Value = batch_size_in;
+          Get_Prod_Reviews_By_Date.Parameters["@prod_in"].Value = get_review_prod_in;
+          break;
+      }
+
+      //    Console.WriteLine("Thread {0}: Calling ds2getreview w/ browse_type= {1}  batch_size_in= {2} prod_in= {3}",
+      //      Thread.CurrentThread.Name, get_review_type_in, batch_size_in, get_review_prod_in);
+
+      Stopwatch timer = Stopwatch.StartNew();
+
+      try
+      {
+        SqlDataReader Rdr;
         switch (get_review_type_in)
         {
-            case "noorder":
-                Get_Prod_Reviews.Parameters["@batch_size_in"].Value = batch_size_in;
-                Get_Prod_Reviews.Parameters["@prod_in"].Value = get_review_prod_in;
-                break;
-            case "star":
-                Get_Prod_Reviews_By_Stars.Parameters["@batch_size_in"].Value = batch_size_in;
-                Get_Prod_Reviews_By_Stars.Parameters["@prod_in"].Value = get_review_prod_in;
-                Get_Prod_Reviews_By_Stars.Parameters["@stars_in"].Value = get_review_stars_in;
-                break;
-            case "date":
-                Get_Prod_Reviews_By_Date.Parameters["@batch_size_in"].Value = batch_size_in;
-                Get_Prod_Reviews_By_Date.Parameters["@prod_in"].Value = get_review_prod_in;
-                break;
+          default:
+          case "noorder":
+            Rdr = Get_Prod_Reviews.ExecuteReader();
+            break;
+          case "star":
+            Rdr = Get_Prod_Reviews_By_Stars.ExecuteReader();
+            break;
+          case "date":
+            Rdr = Get_Prod_Reviews_By_Date.ExecuteReader();
+            break;
         }
 
-        //    Console.WriteLine("Thread {0}: Calling ds2getreview w/ browse_type= {1}  batch_size_in= {2} prod_in= {3}",
-        //      Thread.CurrentThread.Name, get_review_type_in, batch_size_in, get_review_prod_in);
-
-        Stopwatch timer = Stopwatch.StartNew();
-
-        try
+        using (Rdr)
         {
-            SqlDataReader Rdr;
-            switch (get_review_type_in)
-            {
-	      default:
-              case "noorder":
-                 Rdr = Get_Prod_Reviews.ExecuteReader();
-                 break;
-              case "star":
-                 Rdr = Get_Prod_Reviews_By_Stars.ExecuteReader();
-                 break;
-              case "date":
-                 Rdr = Get_Prod_Reviews_By_Date.ExecuteReader();
-                 break;
-            }
-
-            using (Rdr)
-            {
-              i_row = 0;
-              while (Rdr.Read())
-              {
-                  review_id_out[i_row] = Rdr.GetInt32(0);
-                  prod_id_out[i_row] = Rdr.GetInt32(1);
-                  review_date_out[i_row] = Convert.ToString(Rdr.GetSqlDateTime(2)) ?? string.Empty;
-                  review_stars_out[i_row] = Rdr.GetInt32(3);
-                  review_customerid_out[i_row] = Rdr.GetInt32(4);
-                  review_summary_out[i_row] = Rdr.GetString(5);
-                  review_text_out[i_row] = Rdr.GetString(6);
-                  review_helpfulness_sum_out[i_row] = Rdr.GetInt32(7);
-                  //Console.WriteLine("\treview_id_out: {0} prod_id_out: {1} review_date_out: {2} review_stars_out: {3} review_customerid_out: {4} review_summary_out: {5} review_text_out: {6} review_helpfulness_sum_out: {7}",
-                  //  review_id_out[i_row], prod_id_out[i_row], review_date_out[i_row], review_stars_out[i_row], review_customerid_out[i_row], review_summary_out[i_row], review_text_out[i_row], review_helpfulness_sum_out[i_row]);
-                  ++i_row;
-              }
-              rows_returned = i_row;
-            }
-            return(true);
+          i_row = 0;
+          while (Rdr.Read())
+          {
+            review_id_out[i_row] = Rdr.GetInt32(0);
+            prod_id_out[i_row] = Rdr.GetInt32(1);
+            review_date_out[i_row] = Convert.ToString(Rdr.GetSqlDateTime(2)) ?? string.Empty;
+            review_stars_out[i_row] = Rdr.GetInt32(3);
+            review_customerid_out[i_row] = Rdr.GetInt32(4);
+            review_summary_out[i_row] = Rdr.GetString(5);
+            review_text_out[i_row] = Rdr.GetString(6);
+            review_helpfulness_sum_out[i_row] = Rdr.GetInt32(7);
+            //Console.WriteLine("\treview_id_out: {0} prod_id_out: {1} review_date_out: {2} review_stars_out: {3} review_customerid_out: {4} review_summary_out: {5} review_text_out: {6} review_helpfulness_sum_out: {7}",
+            //  review_id_out[i_row], prod_id_out[i_row], review_date_out[i_row], review_stars_out[i_row], review_customerid_out[i_row], review_summary_out[i_row], review_text_out[i_row], review_helpfulness_sum_out[i_row]);
+            ++i_row;
+          }
+          rows_returned = i_row;
         }
-        catch (SqlException e)
-        {
-            Console.WriteLine("Thread {0}: SQL Error {1} in Get Product Reviews: {2}",
-              Thread.CurrentThread.Name, e.Number, e.Message);
-            return(false);
-        }
-        catch (System.Exception e)
-        {
-            Console.WriteLine("Thread {0}: System Error in Get Product Reviews: {1}",
-              Thread.CurrentThread.Name, e.Message);
-            return(false);
-        }
-        finally
-        {
-            rt = timer.Elapsed.TotalSeconds;
-        }
+        return (true);
+      }
+      catch (SqlException e)
+      {
+        Console.WriteLine("Thread {0}: SQL Error {1} in Get Product Reviews: {2}",
+          Thread.CurrentThread.Name, e.Number, e.Message);
+        return (false);
+      }
+      catch (System.Exception e)
+      {
+        Console.WriteLine("Thread {0}: System Error in Get Product Reviews: {1}",
+          Thread.CurrentThread.Name, e.Message);
+        return (false);
+      }
+      finally
+      {
+        rt = timer.Elapsed.TotalSeconds;
+      }
     } // end ds2getreview()
 
     //
@@ -727,35 +737,35 @@ namespace ds2xdriver
     public bool ds2newreview(int new_review_prod_id_in, int new_review_stars_in, int new_review_customerid_in,
             string new_review_summary_in, string new_review_text_in, ref int newreviewid_out, ref double rt)
     {
-        New_Prod_Review.Parameters["@prod_id_in"].Value = new_review_prod_id_in;
-        New_Prod_Review.Parameters["@stars_in"].Value = new_review_stars_in;
-        New_Prod_Review.Parameters["@customerid_in"].Value = new_review_customerid_in;
-        New_Prod_Review.Parameters["@review_summary_in"].Value = new_review_summary_in;
-        New_Prod_Review.Parameters["@review_text_in"].Value = new_review_text_in;
+      New_Prod_Review.Parameters["@prod_id_in"].Value = new_review_prod_id_in;
+      New_Prod_Review.Parameters["@stars_in"].Value = new_review_stars_in;
+      New_Prod_Review.Parameters["@customerid_in"].Value = new_review_customerid_in;
+      New_Prod_Review.Parameters["@review_summary_in"].Value = new_review_summary_in;
+      New_Prod_Review.Parameters["@review_text_in"].Value = new_review_text_in;
 
-        Stopwatch timer = Stopwatch.StartNew();
+      Stopwatch timer = Stopwatch.StartNew();
 
-        try
-        {
-            newreviewid_out = Convert.ToInt32(New_Prod_Review.ExecuteScalar().ToString(), 10);
-            return(true);
-        }
-        catch (SqlException e)
-        {
-            Console.WriteLine("Thread {0}: SQL Error {1} in New_Prod_Review: {2}",
-              Thread.CurrentThread.Name, e.Number, e.Message);
-            return(false);
-        }
-        catch (System.Exception e)
-        {
-            Console.WriteLine("Thread {0}: System Error in New_Prod_Review: {1}",
-              Thread.CurrentThread.Name, e.Message);
-            return(false);
-        }
-        finally
-        {
-            rt = timer.Elapsed.TotalSeconds;
-        }
+      try
+      {
+        newreviewid_out = Convert.ToInt32(New_Prod_Review.ExecuteScalar().ToString(), 10);
+        return (true);
+      }
+      catch (SqlException e)
+      {
+        Console.WriteLine("Thread {0}: SQL Error {1} in New_Prod_Review: {2}",
+          Thread.CurrentThread.Name, e.Number, e.Message);
+        return (false);
+      }
+      catch (System.Exception e)
+      {
+        Console.WriteLine("Thread {0}: System Error in New_Prod_Review: {1}",
+          Thread.CurrentThread.Name, e.Message);
+        return (false);
+      }
+      finally
+      {
+        rt = timer.Elapsed.TotalSeconds;
+      }
     } // end ds2newreview()
 
     //
@@ -763,41 +773,41 @@ namespace ds2xdriver
     //
     public bool ds2newreviewhelpfulness(int reviewid_in, int customerid_in, int reviewhelpfulness_in, ref int reviewhelpfulnessid_out, ref double rt)
     {
-        New_Review_Helpfulness.Parameters["@review_id_in"].Value = reviewid_in;
-        New_Review_Helpfulness.Parameters["@customerid_in"].Value = customerid_in;
-        New_Review_Helpfulness.Parameters["@review_helpfulness_in"].Value = reviewhelpfulness_in;
+      New_Review_Helpfulness.Parameters["@review_id_in"].Value = reviewid_in;
+      New_Review_Helpfulness.Parameters["@customerid_in"].Value = customerid_in;
+      New_Review_Helpfulness.Parameters["@review_helpfulness_in"].Value = reviewhelpfulness_in;
 
-        Stopwatch timer = Stopwatch.StartNew();
+      Stopwatch timer = Stopwatch.StartNew();
 
-        try
-          {
-          reviewhelpfulnessid_out = Convert.ToInt32(New_Review_Helpfulness.ExecuteScalar().ToString(), 10);
-          return(true);
-          }
-        catch (SqlException e)
-          {
-          Console.WriteLine("Thread {0}: SQL Error {1} in New_Review_Helpfulness: {2}",
-            Thread.CurrentThread.Name, e.Number, e.Message);
-          return(false);
-          }
-        catch (System.Exception e)
-          {
-          Console.WriteLine("Thread {0}: System Error in New_Review_Helpfulness: {1}",
-            Thread.CurrentThread.Name, e.Message);
-          return(false);
-          }
-        finally
-          {
-          rt = timer.Elapsed.TotalSeconds;
-          }
+      try
+      {
+        reviewhelpfulnessid_out = Convert.ToInt32(New_Review_Helpfulness.ExecuteScalar().ToString(), 10);
+        return (true);
+      }
+      catch (SqlException e)
+      {
+        Console.WriteLine("Thread {0}: SQL Error {1} in New_Review_Helpfulness: {2}",
+          Thread.CurrentThread.Name, e.Number, e.Message);
+        return (false);
+      }
+      catch (System.Exception e)
+      {
+        Console.WriteLine("Thread {0}: System Error in New_Review_Helpfulness: {1}",
+          Thread.CurrentThread.Name, e.Message);
+        return (false);
+      }
+      finally
+      {
+        rt = timer.Elapsed.TotalSeconds;
+      }
     } // end ds2newreviewhelpfulness()
 
-//
-//-------------------------------------------------------------------------------------------------
-//
+    //
+    //-------------------------------------------------------------------------------------------------
+    //
     public bool ds2purchase(int cart_items, int[] prod_id_in, int[] qty_in, int customerid_out,
       ref int neworderid_out, ref bool IsRollback, ref double rt)
-      {
+    {
       int i, j;
 
       //Cap cart_items at 10 for this implementation of stored procedure
@@ -825,7 +835,8 @@ namespace ds2xdriver
         {
           j = 0;
           int prod_id = Rdr.GetInt32(0);
-          while (prod_id_in[j] != prod_id) ++j; // Find which product was returned
+          while (prod_id_in[j] != prod_id)
+            ++j; // Find which product was returned
           netamount_in = netamount_in + qty_in[j] * Rdr.GetDecimal(1);
         }
       }
@@ -833,7 +844,7 @@ namespace ds2xdriver
       // Can use following code instead if you don't want extra roundtrip to database:
       // Random rr = new Random(DateTime.Now.Millisecond);
       // Decimal netamount_in = (Decimal) (0.01 * (1 + rr.Next(40000)));
-      Decimal taxamount_in =  (Decimal) 0.0825 * netamount_in;
+      Decimal taxamount_in = (Decimal)0.0825 * netamount_in;
       Decimal totalamount_in = netamount_in + taxamount_in;
       //Console.WriteLine(netamount_in);
 
@@ -842,49 +853,60 @@ namespace ds2xdriver
       Purchase.Parameters["@netamount_in"].Value = netamount_in;
       Purchase.Parameters["@taxamount_in"].Value = taxamount_in;
       Purchase.Parameters["@totalamount_in"].Value = totalamount_in;
-      Purchase.Parameters["@prod_id_in0"].Value = prod_id_in[0]; Purchase.Parameters["@qty_in0"].Value = qty_in[0];
-      Purchase.Parameters["@prod_id_in1"].Value = prod_id_in[1]; Purchase.Parameters["@qty_in1"].Value = qty_in[1];
-      Purchase.Parameters["@prod_id_in2"].Value = prod_id_in[2]; Purchase.Parameters["@qty_in2"].Value = qty_in[2];
-      Purchase.Parameters["@prod_id_in3"].Value = prod_id_in[3]; Purchase.Parameters["@qty_in3"].Value = qty_in[3];
-      Purchase.Parameters["@prod_id_in4"].Value = prod_id_in[4]; Purchase.Parameters["@qty_in4"].Value = qty_in[4];
-      Purchase.Parameters["@prod_id_in5"].Value = prod_id_in[5]; Purchase.Parameters["@qty_in5"].Value = qty_in[5];
-      Purchase.Parameters["@prod_id_in6"].Value = prod_id_in[6]; Purchase.Parameters["@qty_in6"].Value = qty_in[6];
-      Purchase.Parameters["@prod_id_in7"].Value = prod_id_in[7]; Purchase.Parameters["@qty_in7"].Value = qty_in[7];
-      Purchase.Parameters["@prod_id_in8"].Value = prod_id_in[8]; Purchase.Parameters["@qty_in8"].Value = qty_in[8];
-      Purchase.Parameters["@prod_id_in9"].Value = prod_id_in[9]; Purchase.Parameters["@qty_in9"].Value = qty_in[9];
+      Purchase.Parameters["@prod_id_in0"].Value = prod_id_in[0];
+      Purchase.Parameters["@qty_in0"].Value = qty_in[0];
+      Purchase.Parameters["@prod_id_in1"].Value = prod_id_in[1];
+      Purchase.Parameters["@qty_in1"].Value = qty_in[1];
+      Purchase.Parameters["@prod_id_in2"].Value = prod_id_in[2];
+      Purchase.Parameters["@qty_in2"].Value = qty_in[2];
+      Purchase.Parameters["@prod_id_in3"].Value = prod_id_in[3];
+      Purchase.Parameters["@qty_in3"].Value = qty_in[3];
+      Purchase.Parameters["@prod_id_in4"].Value = prod_id_in[4];
+      Purchase.Parameters["@qty_in4"].Value = qty_in[4];
+      Purchase.Parameters["@prod_id_in5"].Value = prod_id_in[5];
+      Purchase.Parameters["@qty_in5"].Value = qty_in[5];
+      Purchase.Parameters["@prod_id_in6"].Value = prod_id_in[6];
+      Purchase.Parameters["@qty_in6"].Value = qty_in[6];
+      Purchase.Parameters["@prod_id_in7"].Value = prod_id_in[7];
+      Purchase.Parameters["@qty_in7"].Value = qty_in[7];
+      Purchase.Parameters["@prod_id_in8"].Value = prod_id_in[8];
+      Purchase.Parameters["@qty_in8"].Value = qty_in[8];
+      Purchase.Parameters["@prod_id_in9"].Value = prod_id_in[9];
+      Purchase.Parameters["@qty_in9"].Value = qty_in[9];
 
-//    Console.WriteLine("Thread {0}: Calling Purchase w/ customerid = {1}  number_items= {2}",
-//      Thread.CurrentThread.Name, customerid_out, cart_items);
+      //    Console.WriteLine("Thread {0}: Calling Purchase w/ customerid = {1}  number_items= {2}",
+      //      Thread.CurrentThread.Name, customerid_out, cart_items);
 
       Stopwatch timer = Stopwatch.StartNew();
 
       try
-        {
-        neworderid_out = (int) Purchase.ExecuteScalar();
-        if (neworderid_out == 0) IsRollback = true;
-        return(true);
-        }
+      {
+        neworderid_out = (int)Purchase.ExecuteScalar();
+        if (neworderid_out == 0)
+          IsRollback = true;
+        return (true);
+      }
       catch (SqlException e)
-        {
+      {
         Console.WriteLine("Thread {0}: SQL Error {1} in Purchase: {2}",
           Thread.CurrentThread.Name, e.Number, e.Message);
-        return(false);
-        }
+        return (false);
+      }
       catch (System.Exception e)
-        {
+      {
         Console.WriteLine("Thread {0}: System Error in Purchase: {1}",
           Thread.CurrentThread.Name, e.Message);
-        return(false);
-        }
+        return (false);
+      }
       finally
-        {
+      {
         rt = timer.Elapsed.TotalSeconds;
-        }
-      } // end ds2purchase()
+      }
+    } // end ds2purchase()
 
-//
-//-------------------------------------------------------------------------------------------------
-//
+    //
+    //-------------------------------------------------------------------------------------------------
+    //
     public bool ds2newproduct(int new_category_in, string new_title_in, string new_actor_in, decimal new_price_in, int new_stock_in, ref int newproduct_id, ref double rt)
     {
 
@@ -898,264 +920,264 @@ namespace ds2xdriver
 
       try
       {
-          object result = New_Product.ExecuteScalar();
+        object result = New_Product.ExecuteScalar();
 
-          if (result != null)
-          {
-             newproduct_id = Convert.ToInt32(result);
-          }
-          else
-          {
-             newproduct_id = 0;
-          }
-          return(true);
+        if (result != null)
+        {
+          newproduct_id = Convert.ToInt32(result);
+        }
+        else
+        {
+          newproduct_id = 0;
+        }
+        return (true);
       }
       catch (SqlException e)
       {
-          Console.WriteLine("Thread {0}: SQL Error {1} in New_Product: {2}",
-            Thread.CurrentThread.Name, e.Number, e.Message);
-          return(false);
+        Console.WriteLine("Thread {0}: SQL Error {1} in New_Product: {2}",
+          Thread.CurrentThread.Name, e.Number, e.Message);
+        return (false);
       }
       catch (System.Exception e)
       {
-          Console.WriteLine("Thread {0}: System Error in New_Product: {1}",
-            Thread.CurrentThread.Name, e.Message);
-          return(false);
+        Console.WriteLine("Thread {0}: System Error in New_Product: {1}",
+          Thread.CurrentThread.Name, e.Message);
+        return (false);
       }
       finally
       {
-          rt = timer.Elapsed.TotalSeconds;
+        rt = timer.Elapsed.TotalSeconds;
       }
     }
 
-//
-//-------------------------------------------------------------------------------------------------
-// Manager Thread Methods
-//-------------------------------------------------------------------------------------------------
-//
+    //
+    //-------------------------------------------------------------------------------------------------
+    // Manager Thread Methods
+    //-------------------------------------------------------------------------------------------------
+    //
     public int ds36removereviewbyproduct(int prodId, ref double rt)
     {
-        Remove_Review_By_Product.Parameters["@prod_id"].Value = prodId;
+      Remove_Review_By_Product.Parameters["@prod_id"].Value = prodId;
 
-        Stopwatch timer = Stopwatch.StartNew();
+      Stopwatch timer = Stopwatch.StartNew();
 
-        try
-        {
-            object result = Remove_Review_By_Product.ExecuteScalar();
-            return result != null ? Convert.ToInt32(result) : 0;
-        }
-        catch (Exception e)
-        {
-            Console.WriteLine($"Thread {Thread.CurrentThread.Name}: ds36removereviewbyproduct error: {e.Message}");
-            return 0;
-        }
-        finally
-        {
-            rt = timer.Elapsed.TotalSeconds;
-        }
+      try
+      {
+        object result = Remove_Review_By_Product.ExecuteScalar();
+        return result != null ? Convert.ToInt32(result) : 0;
+      }
+      catch (Exception e)
+      {
+        Console.WriteLine($"Thread {Thread.CurrentThread.Name}: ds36removereviewbyproduct error: {e.Message}");
+        return 0;
+      }
+      finally
+      {
+        rt = timer.Elapsed.TotalSeconds;
+      }
     }
 
-//
-//-------------------------------------------------------------------------------------------------
-//
+    //
+    //-------------------------------------------------------------------------------------------------
+    //
     public int ds36removeunhelpfulreviews(int batchSize, ref double rt)
     {
-        Remove_Unhelpful_Reviews.Parameters["@batch_size_in"].Value = batchSize;
+      Remove_Unhelpful_Reviews.Parameters["@batch_size_in"].Value = batchSize;
 
-        Stopwatch timer = Stopwatch.StartNew();
+      Stopwatch timer = Stopwatch.StartNew();
 
-        try
-        {
-            object result = Remove_Unhelpful_Reviews.ExecuteScalar();
-            return result != null ? Convert.ToInt32(result) : 0;
-        }
-        catch (Exception e)
-        {
-            Console.WriteLine($"Thread {Thread.CurrentThread.Name}: ds36removeunhelpfulreviews error: {e.Message}");
-            return 0;
-        }
-        finally
-        {
-            rt = timer.Elapsed.TotalSeconds;
-        }
+      try
+      {
+        object result = Remove_Unhelpful_Reviews.ExecuteScalar();
+        return result != null ? Convert.ToInt32(result) : 0;
+      }
+      catch (Exception e)
+      {
+        Console.WriteLine($"Thread {Thread.CurrentThread.Name}: ds36removeunhelpfulreviews error: {e.Message}");
+        return 0;
+      }
+      finally
+      {
+        rt = timer.Elapsed.TotalSeconds;
+      }
     }
 
-//
-//-------------------------------------------------------------------------------------------------
-//
+    //
+    //-------------------------------------------------------------------------------------------------
+    //
     public int ds36removereviewsbydate(int batchSize, ref double rt)
     {
-        Remove_Reviews_By_Date.Parameters["@batch_size_in"].Value = batchSize;
+      Remove_Reviews_By_Date.Parameters["@batch_size_in"].Value = batchSize;
 
-        Stopwatch timer = Stopwatch.StartNew();
+      Stopwatch timer = Stopwatch.StartNew();
 
-        try
-        {
-            object result = Remove_Reviews_By_Date.ExecuteScalar();
-            return result != null ? Convert.ToInt32(result) : 0;
-        }
-        catch (Exception e)
-        {
-            Console.WriteLine($"Thread {Thread.CurrentThread.Name}: ds36removereviewsbydate error: {e.Message}");
-            return 0;
-        }
-        finally
-        {
-            rt = timer.Elapsed.TotalSeconds;
-        }
+      try
+      {
+        object result = Remove_Reviews_By_Date.ExecuteScalar();
+        return result != null ? Convert.ToInt32(result) : 0;
+      }
+      catch (Exception e)
+      {
+        Console.WriteLine($"Thread {Thread.CurrentThread.Name}: ds36removereviewsbydate error: {e.Message}");
+        return 0;
+      }
+      finally
+      {
+        rt = timer.Elapsed.TotalSeconds;
+      }
     }
 
-//
-//-------------------------------------------------------------------------------------------------
-//
+    //
+    //-------------------------------------------------------------------------------------------------
+    //
     public int ds36adjustprices(int prodId, ref double rt)
     {
-        Adjust_Prices.Parameters["@prod_id"].Value = prodId;
+      Adjust_Prices.Parameters["@prod_id"].Value = prodId;
 
-        Stopwatch timer = Stopwatch.StartNew();
+      Stopwatch timer = Stopwatch.StartNew();
 
-        try
-        {
-            object result = Adjust_Prices.ExecuteScalar();
-            return result != null ? Convert.ToInt32(result) : 0;
-        }
-        catch (Exception e)
-        {
-            Console.WriteLine($"Thread {Thread.CurrentThread.Name}: ds36adjustprices error: {e.Message}");
-            return 0;
-        }
-        finally
-        {
-            rt = timer.Elapsed.TotalSeconds;
-        }
+      try
+      {
+        object result = Adjust_Prices.ExecuteScalar();
+        return result != null ? Convert.ToInt32(result) : 0;
+      }
+      catch (Exception e)
+      {
+        Console.WriteLine($"Thread {Thread.CurrentThread.Name}: ds36adjustprices error: {e.Message}");
+        return 0;
+      }
+      finally
+      {
+        rt = timer.Elapsed.TotalSeconds;
+      }
     }
 
-//
-//-------------------------------------------------------------------------------------------------
-//
+    //
+    //-------------------------------------------------------------------------------------------------
+    //
     public int ds36markspecials(int prodId, ref double rt)
     {
-        Mark_Specials.Parameters["@prod_id"].Value = prodId;
+      Mark_Specials.Parameters["@prod_id"].Value = prodId;
 
-        Stopwatch timer = Stopwatch.StartNew();
+      Stopwatch timer = Stopwatch.StartNew();
 
-        try
-        {
-            object result = Mark_Specials.ExecuteScalar();
-            return result != null ? Convert.ToInt32(result) : 0;
-        }
-        catch (Exception e)
-        {
-            Console.WriteLine($"Thread {Thread.CurrentThread.Name}: ds36markspecials error: {e.Message}");
-            return 0;
-        }
-        finally
-        {
-            rt = timer.Elapsed.TotalSeconds;
-        }
+      try
+      {
+        object result = Mark_Specials.ExecuteScalar();
+        return result != null ? Convert.ToInt32(result) : 0;
+      }
+      catch (Exception e)
+      {
+        Console.WriteLine($"Thread {Thread.CurrentThread.Name}: ds36markspecials error: {e.Message}");
+        return 0;
+      }
+      finally
+      {
+        rt = timer.Elapsed.TotalSeconds;
+      }
     }
 
-//
-//-------------------------------------------------------------------------------------------------
-//
+    //
+    //-------------------------------------------------------------------------------------------------
+    //
     public int ds36expirememberships(int batchSize, ref double rt)
     {
-        Expire_Memberships.Parameters["@batch_size"].Value = batchSize;
+      Expire_Memberships.Parameters["@batch_size"].Value = batchSize;
 
-        Stopwatch timer = Stopwatch.StartNew();
+      Stopwatch timer = Stopwatch.StartNew();
 
-        try
-        {
-            object result = Expire_Memberships.ExecuteScalar();
-            return result != null ? Convert.ToInt32(result) : 0;
-        }
-        catch (Exception e)
-        {
-            Console.WriteLine($"Thread {Thread.CurrentThread.Name}: ds36expirememberships error: {e.Message}");
-            return 0;
-        }
-        finally
-        {
-            rt = timer.Elapsed.TotalSeconds;
-        }
+      try
+      {
+        object result = Expire_Memberships.ExecuteScalar();
+        return result != null ? Convert.ToInt32(result) : 0;
+      }
+      catch (Exception e)
+      {
+        Console.WriteLine($"Thread {Thread.CurrentThread.Name}: ds36expirememberships error: {e.Message}");
+        return 0;
+      }
+      finally
+      {
+        rt = timer.Elapsed.TotalSeconds;
+      }
     }
 
-//
-//-------------------------------------------------------------------------------------------------
-//
+    //
+    //-------------------------------------------------------------------------------------------------
+    //
     public int ds36purgeoldorders(int batchSize, ref double rt)
     {
-        Purge_Old_Orders.Parameters["@batch_size"].Value = batchSize;
+      Purge_Old_Orders.Parameters["@batch_size"].Value = batchSize;
 
-        Stopwatch timer = Stopwatch.StartNew();
+      Stopwatch timer = Stopwatch.StartNew();
 
-        try
-        {
-            object result = Purge_Old_Orders.ExecuteScalar();
-            return result != null ? Convert.ToInt32(result) : 0;
-        }
-        catch (Exception e)
-        {
-            Console.WriteLine($"Thread {Thread.CurrentThread.Name}: ds36purgeoldorders error: {e.Message}");
-            return 0;
-        }
-        finally
-        {
-            rt = timer.Elapsed.TotalSeconds;
-        }
+      try
+      {
+        object result = Purge_Old_Orders.ExecuteScalar();
+        return result != null ? Convert.ToInt32(result) : 0;
+      }
+      catch (Exception e)
+      {
+        Console.WriteLine($"Thread {Thread.CurrentThread.Name}: ds36purgeoldorders error: {e.Message}");
+        return 0;
+      }
+      finally
+      {
+        rt = timer.Elapsed.TotalSeconds;
+      }
     }
 
     public int ds36upgrademembership(int batchSize, ref double rt)
     {
-        Upgrade_Membership.Parameters["@batch_size"].Value = batchSize;
+      Upgrade_Membership.Parameters["@batch_size"].Value = batchSize;
 
-        Stopwatch timer = Stopwatch.StartNew();
-        try
-        {
-            object result = Upgrade_Membership.ExecuteScalar();
-            return result != null ? Convert.ToInt32(result) : 0;
-        }
-        catch (Exception e)
-        {
-            Console.WriteLine($"Thread {Thread.CurrentThread.Name}: ds36upgrademembership error: {e.Message}");
-            return 0;
-        }
-        finally
-        {
-            rt = timer.Elapsed.TotalSeconds;
-        }
+      Stopwatch timer = Stopwatch.StartNew();
+      try
+      {
+        object result = Upgrade_Membership.ExecuteScalar();
+        return result != null ? Convert.ToInt32(result) : 0;
+      }
+      catch (Exception e)
+      {
+        Console.WriteLine($"Thread {Thread.CurrentThread.Name}: ds36upgrademembership error: {e.Message}");
+        return 0;
+      }
+      finally
+      {
+        rt = timer.Elapsed.TotalSeconds;
+      }
     }
 
     public int ds36bulkpriceadjustment(int batchSize, int category, ref double rt)
     {
-        Bulk_Price_Adjustment.Parameters["@batch_size"].Value = batchSize;
-        Bulk_Price_Adjustment.Parameters["@category"].Value = category;
+      Bulk_Price_Adjustment.Parameters["@batch_size"].Value = batchSize;
+      Bulk_Price_Adjustment.Parameters["@category"].Value = category;
 
-        Stopwatch timer = Stopwatch.StartNew();
+      Stopwatch timer = Stopwatch.StartNew();
 
-        try
-        {
-            object result = Bulk_Price_Adjustment.ExecuteScalar();
-            return result != null ? Convert.ToInt32(result) : 0;
-        }
-        catch (Exception e)
-        {
-            Console.WriteLine($"Thread {Thread.CurrentThread.Name}: ds36bulkpriceadjustment error: {e.Message}");
-            return 0;
-        }
-        finally
-        {
-            rt = timer.Elapsed.TotalSeconds;
-        }
+      try
+      {
+        object result = Bulk_Price_Adjustment.ExecuteScalar();
+        return result != null ? Convert.ToInt32(result) : 0;
+      }
+      catch (Exception e)
+      {
+        Console.WriteLine($"Thread {Thread.CurrentThread.Name}: ds36bulkpriceadjustment error: {e.Message}");
+        return 0;
+      }
+      finally
+      {
+        rt = timer.Elapsed.TotalSeconds;
+      }
     }
 
-//
-//-------------------------------------------------------------------------------------------------
-//
+    //
+    //-------------------------------------------------------------------------------------------------
+    //
     public bool ds2close()
-      {
+    {
       objConn.Close();
-      return(true);
-      } // end ds2close()
-    } // end Class ds2Interface
-  } // end namespace ds2xdriver
+      return (true);
+    } // end ds2close()
+  } // end Class ds2Interface
+} // end namespace ds2xdriver

@@ -41,37 +41,32 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA  */
 
-using System;
-using System.IO;
-using System.Threading;
 using System.Diagnostics;
-using System.Runtime.InteropServices;
-using System.Net;
 using System.Text;   //Added by GSK
 
 namespace ds2xdriver
-  {
+{
   /// <summary>
   /// ds2xdriver: drives DVD Store 2 Database through web interface or directly against database
   /// </summary>
 
   public class GlobalConstants
-    {
+  {
     public const int MAX_USERS = 1000;
     public const int MAX_CATEGORY = 16;
     public const int MAX_STORES = 16;
     public const int MAX_ROWS = 1000;
     public const int LAST_N = 100;
     public const int MAX_FAILURES = 10;
-    }
+  }
 
   //
   //-------------------------------------------------------------------------------------------------
   //
   public class Controller
-    {
+  {
     // Variables needed by User objects
-    public static string target = string.Empty , windows_perf_host = string.Empty;
+    public static string target = string.Empty, windows_perf_host = string.Empty;
     public static string outfilename = string.Empty;
     public static string ds2_mode_string = string.Empty;
     public static string use_vectors_string = string.Empty;
@@ -81,12 +76,12 @@ namespace ds2xdriver
     public static string[] windows_perf_host_servers = null!;       //Added by GSK
     public static int n_target_servers = 1;                         //Added by GSK to keep track of number of Servers/DB instances on which threads spawned
     public static object UpdateLock = 1;
-    public static int n_threads , n_threads_running = 0 , n_threads_connected = 0;
-    public static int n_overall = 0 , n_login_overall = 0 , n_newcust_overall = 0 , n_browse_overall = 0 ,
-      n_purchase_overall = 0 , n_rollbacks_overall = 0 , n_rollbacks_from_start = 0 , n_purchase_from_start = 0 , n_cpu_pct_samples = 0;
+    public static int n_threads, n_threads_running = 0, n_threads_connected = 0;
+    public static int n_overall = 0, n_login_overall = 0, n_newcust_overall = 0, n_browse_overall = 0,
+      n_purchase_overall = 0, n_rollbacks_overall = 0, n_rollbacks_from_start = 0, n_purchase_from_start = 0, n_cpu_pct_samples = 0;
     public static int n_reviewbrowse_overall = 0, n_newreview_overall = 0, n_newhelpfulness_overall = 0, n_newmember_overall = 0, n_browse_vector = 0;
     public static double pct_rollbacks;
-    public static int run_time = 0 , warmup_time = 1, log_freq = 1;
+    public static int run_time = 0, warmup_time = 1, log_freq = 1;
 
     //Added by GSK
     public static int[] arr_n_login_overall = new int[n_target_servers];
@@ -102,7 +97,7 @@ namespace ds2xdriver
     public static double[] arr_rt_tot_overall = new double[n_target_servers];
     public static int[] arr_n_purchase_from_start = new int[n_target_servers];
     public static int[] arr_n_rollbacks_from_start = new int[n_target_servers];
-    public static double[,] arr_rt_tot_lastn = new double[n_target_servers,GlobalConstants.LAST_N];
+    public static double[,] arr_rt_tot_lastn = new double[n_target_servers, GlobalConstants.LAST_N];
     public static double[] arr_cpu_pct_tot = new double[n_target_servers];
     public static int[] arr_n_cpu_pct_samples = new int[n_target_servers];
     // Added by TM 3/17/2015
@@ -115,24 +110,24 @@ namespace ds2xdriver
     public static int[] arr_n_newmember_overall = new int[n_target_servers];
     public static double[] arr_rt_newmember_overall = new double[n_target_servers];
 
-    public static int pct_newcustomers = 0 , n_searches , search_batch_size, search_depth , n_line_items , ramp_rate;
+    public static int pct_newcustomers = 0, n_searches, search_batch_size, search_depth, n_line_items, ramp_rate;
     public static int pct_newreviews = 0, n_reviews;
     public static int pct_newhelpfulness = 0;
     public static int pct_newmember = 0;
     public static int pct_renewmember = 50;
-    public static double think_time , rt_tot_overall = 0.0 , rt_login_overall = 0.0 , rt_newcust_overall = 0.0 ,
-        rt_browse_overall = 0.0 , rt_purchase_overall = 0.0 , cpu_pct_tot = 0.0;
+    public static double think_time, rt_tot_overall = 0.0, rt_login_overall = 0.0, rt_newcust_overall = 0.0,
+        rt_browse_overall = 0.0, rt_purchase_overall = 0.0, cpu_pct_tot = 0.0;
     public static double rt_reviewbrowse_overall = 0.0, rt_newreview_overall = 0.0, rt_newhelpfulness_overall = 0.0,
         rt_newmember_overall = 0.0;
     public static double[] rt_tot_lastn = new double[GlobalConstants.LAST_N];
-    public static bool Start = false , End = false;
-    public static int max_customer , max_review;
-    public static string virt_dir = "ds3" , page_type = "php";
-    public static int[] max_product = new int[GlobalConstants.MAX_STORES+1]; // there is no store 0. We use store number as the index.
+    public static bool Start = false, End = false;
+    public static int max_customer, max_review;
+    public static string virt_dir = "ds3", page_type = "php";
+    public static int[] max_product = new int[GlobalConstants.MAX_STORES + 1]; // there is no store 0. We use store number as the index.
 
     //Added new parameter database_custom_size and new variables by GSK
     //Note that order_rows are per month
-    public static int customer_rows , order_rows , product_rows;
+    public static int customer_rows, order_rows, product_rows;
     public static string db_size = "10MB";
 
     //Added by GSK (New parameter to Print detailed or aggregate output  Values = "Y" or "N" Default value = "N"
@@ -271,9 +266,12 @@ namespace ds2xdriver
     {
       // Handle legacy S/M/L format
       var upper = value.ToUpperInvariant();
-      if (upper == "S") return (true, null, "10MB");
-      if (upper == "M") return (true, null, "1GB");
-      if (upper == "L") return (true, null, "100GB");
+      if (upper == "S")
+        return (true, null, "10MB");
+      if (upper == "M")
+        return (true, null, "1GB");
+      if (upper == "L")
+        return (true, null, "100GB");
 
       // Parse custom size (e.g., "30MB", "5GB")
       var lower = value.ToLowerInvariant();
@@ -911,21 +909,21 @@ namespace ds2xdriver
     //-------------------------------------------------------------------------------------------------
     //
     [STAThread]
-    static void Main ( string[] args )
-      {
-      Controller c = new Controller ( args );
+    static void Main(string[] args)
+    {
+      Controller c = new Controller(args);
       c.do_work();
-      }
+    }
 
     //
     //-------------------------------------------------------------------------------------------------
     //
     //Added by GSK to register RSA fingerprint / host key in registry before using plink to get CPU data
-    bool RegisterRSAHostKey ( string machine_name , string user , string passwd )
-      {
+    bool RegisterRSAHostKey(string machine_name, string user, string passwd)
+    {
       try
-        {
-        Process p = new Process ( );
+      {
+        Process p = new Process();
         //These arguments will ensure than yes = y will automatically be answered
         // -l root -pw password 11.22.33.44 exit
         string p_args = " -l " + user + " -pw " + passwd + " " + machine_name + " exit";
@@ -933,35 +931,35 @@ namespace ds2xdriver
         p.StartInfo.RedirectStandardInput = true;
         p.StartInfo.RedirectStandardOutput = false;
         //We need to set environment variable PLINK_PATH to give full path of plink.exe on machine on which driver program is executing
-        p.StartInfo.FileName = System.Environment.GetEnvironmentVariable ( "PLINK_PATH");
+        p.StartInfo.FileName = System.Environment.GetEnvironmentVariable("PLINK_PATH");
         p.StartInfo.Arguments = p_args;
         //Run plink to register Host key in registry
-        p.Start ( );
+        p.Start();
         StreamWriter strm_Writer = p.StandardInput;
         strm_Writer.AutoFlush = true;
-        strm_Writer.Write ( "y" );      //This will automatically give answer as y when yes/no question is asked to add host key
-        strm_Writer.Write ( "\n" );     //Simulate pressing enter key
-        p.WaitForExit ( );              //Wait till process finishes
-        }
-      catch(System.Exception e)
-        {
-            Console.Error.WriteLine("Error: {0}", e.Message);
-      return false;
-        }
-      return true;
+        strm_Writer.Write("y");      //This will automatically give answer as y when yes/no question is asked to add host key
+        strm_Writer.Write("\n");     //Simulate pressing enter key
+        p.WaitForExit();              //Wait till process finishes
       }
+      catch (System.Exception e)
+      {
+        Console.Error.WriteLine("Error: {0}", e.Message);
+        return false;
+      }
+      return true;
+    }
 
     //
     //-------------------------------------------------------------------------------------------------
     //
 
     //Run BackGround Mpstat to target machine
-    void RunBackGroundmpStat ( string machine_name , string user , string passwd )
-      {
+    void RunBackGroundmpStat(string machine_name, string user, string passwd)
+    {
       try
-        {
+      {
         String s_retValue = "";
-        Process p = new Process ( );
+        Process p = new Process();
         //These arguments will ensure than yes = y will automatically be answered
         // -l root -pw password 11.22.33.44 exit
         //Submit background task to write mpstat output for 10 seconds to a file
@@ -970,28 +968,28 @@ namespace ds2xdriver
         p.StartInfo.RedirectStandardInput = false;
         p.StartInfo.RedirectStandardOutput = true;
         //We need to set environment variable PLINK_PATH to give full path of plink.exe on machine on which driver program is executing
-        p.StartInfo.FileName = System.Environment.GetEnvironmentVariable ( "PLINK_PATH");
+        p.StartInfo.FileName = System.Environment.GetEnvironmentVariable("PLINK_PATH");
         p.StartInfo.Arguments = p_args;
         //Run plink to get CPU utilization by running bash script on remote shell
-        p.Start ( );
+        p.Start();
         StreamReader strm_Reader = p.StandardOutput;
-        s_retValue = strm_Reader.ReadToEnd ( );
-        p.WaitForExit ( );              //Wait till process finishes
-        }
-      catch ( System.Exception e )
-        {
-            Console.Error.WriteLine("Error: {0}", e.Message);
-        }
+        s_retValue = strm_Reader.ReadToEnd();
+        p.WaitForExit();              //Wait till process finishes
       }
+      catch (System.Exception e)
+      {
+        Console.Error.WriteLine("Error: {0}", e.Message);
+      }
+    }
 
     //Read remove text file to get CPUutilization
-    double ReadRemoteTextFile ( string machine_name , string user , string passwd )
-      {
+    double ReadRemoteTextFile(string machine_name, string user, string passwd)
+    {
       double cpuutilizn = 0.0;
       try
-        {
+      {
         String s_retValue;
-        Process p = new Process ( );
+        Process p = new Process();
         //These arguments will ensure than yes = y will automatically be answered
         // -l root -pw password 11.22.33.44 exit
         //Submit background task to write mpstat output for 10 seconds to a file
@@ -1000,40 +998,40 @@ namespace ds2xdriver
         p.StartInfo.RedirectStandardInput = false;
         p.StartInfo.RedirectStandardOutput = true;
         //We need to set environment variable PLINK_PATH to give full path of plink.exe on machine on which driver program is executing
-        p.StartInfo.FileName = System.Environment.GetEnvironmentVariable ( "PLINK_PATH");
+        p.StartInfo.FileName = System.Environment.GetEnvironmentVariable("PLINK_PATH");
         p.StartInfo.Arguments = p_args;
         //Run plink to get CPU utilization by running bash script on remote shell
-        p.Start ( );
+        p.Start();
         StreamReader strm_Reader = p.StandardOutput;
-        s_retValue = strm_Reader.ReadToEnd ( );
-        p.WaitForExit ( );              //Wait till process finishes
+        s_retValue = strm_Reader.ReadToEnd();
+        p.WaitForExit();              //Wait till process finishes
 
-        if(s_retValue == "")
-          {
+        if (s_retValue == "")
+        {
           throw new System.Exception("No value returned after reading file!! Check whether file created on target system or not!!");
-          }
+        }
 
         //Remove all extra white spaces and have only one whitespace
         //String before:Average:     all   13.56    0.00    1.16    4.50    0.06    0.16    0.00    0.00   80.55
         //String after: Average: all 13.56 0.00 1.16 4.50 0.06 0.16 0.00 0.00 80.55
-        s_retValue = System.Text.RegularExpressions.Regex.Replace(s_retValue,@"\s{2,}", " ");
+        s_retValue = System.Text.RegularExpressions.Regex.Replace(s_retValue, @"\s{2,}", " ");
         String[] arr_strSplit = s_retValue.Split(' ');
 
         //Get User, Nice, System values from string and add to get CPU utilization
         cpuutilizn = Convert.ToDouble(arr_strSplit[2]) + Convert.ToDouble(arr_strSplit[3]) + Convert.ToDouble(arr_strSplit[4]);
-        }
-      catch ( System.Exception e )
-        {
-            Console.Error.WriteLine("Error: {0}", e.Message);
-        }
-      return cpuutilizn;
       }
+      catch (System.Exception e)
+      {
+        Console.Error.WriteLine("Error: {0}", e.Message);
+      }
+      return cpuutilizn;
+    }
 
     //-------------------------------------------------------------------------------------------------
     //
     //Function written by GSK to calculate number of Rows in tables of database according to database size
-    void CalculateNumberOfRows ( string str_db_size )
-      {
+    void CalculateNumberOfRows(string str_db_size)
+    {
       // Parse database size - validation already done by ValidateDatabaseSize
       var lower = str_db_size.ToLowerInvariant();
 
@@ -1052,29 +1050,29 @@ namespace ds2xdriver
       double ratio;
 
       if (isMB)
-        {
+      {
         // Small instance (1MB - 1024MB)
         ratio = size / 10.0;
         mult_cust_rows = 20000;
         mult_ord_rows = 1000;
         mult_prod_rows = 10000;
-        }
+      }
       else if (size == 1)
-        {
+      {
         // Medium instance (1GB)
         ratio = 1.0;
         mult_cust_rows = 2000000;
         mult_ord_rows = 100000;
         mult_prod_rows = 100000;
-        }
+      }
       else
-        {
+      {
         // Large instance (>1GB)
         ratio = size / 100.0;
         mult_cust_rows = 200000000;
         mult_ord_rows = 10000000;
         mult_prod_rows = 1000000;
-        }
+      }
 
       // Initialize number of rows (order_rows are per month)
       customer_rows = (int)(ratio * mult_cust_rows);
@@ -1085,21 +1083,21 @@ namespace ds2xdriver
       Console.WriteLine($"Database size {str_db_size}: {customer_rows:N0} customers, " +
                        $"{order_rows:N0} orders/month, {product_rows:N0} products");
 
-      }
+    }
 
     //
     //-------------------------------------------------------------------------------------------------
     //
-    public Controller ( string[] argarray )
-      {
+    public Controller(string[] argarray)
+    {
       int i;
       string errmsg = string.Empty;
 
-      if ( argarray.Length == 0 )
-        {
+      if (argarray.Length == 0)
+      {
         ShowUsage();
         Environment.Exit(1);
-        }
+      }
 
       // Initialize parameter parser with all parameter definitions
       var parser = new ParameterParser(CreateParameterDefinitions());
@@ -1107,56 +1105,56 @@ namespace ds2xdriver
       // Parse command line arguments and config files
       int parsedCount = ParseArgsNew(argarray, parser, ref errmsg);
       if (parsedCount == 0)
-        {
+      {
         Console.WriteLine($"Error: {errmsg}");
         Environment.Exit(1);
-        }
+      }
 
       // Validate cross-parameter dependencies
       if (!ValidateParameterDependencies(parser, out var errors))
-        {
+      {
         Console.WriteLine("Parameter validation errors:");
         foreach (var error in errors)
           Console.WriteLine($"  - {error}");
         Environment.Exit(1);
-        }
+      }
 
       // Extract target and setup server arrays (type-safe, no try-catch needed)
       target = parser.GetValue<string>("target");
-      target_servers = target.Split ( ';' );
+      target_servers = target.Split(';');
       n_target_servers = target_servers.Length;
 
-        //Added by GSK
-        //Dynamically allocate memory Initialize arrays for book keeping for individual Servers on which test runs
-        arr_n_login_overall = new int[n_target_servers];
-        arr_rt_login_overall = new double[n_target_servers];
-        arr_n_newcust_overall = new int[n_target_servers];
-        arr_rt_newcust_overall = new double[n_target_servers];
-        arr_n_browse_overall = new int[n_target_servers];
-        arr_rt_browse_overall = new double[n_target_servers];
-        arr_n_reviewbrowse_overall = new int[n_target_servers];
-        arr_rt_reviewbrowse_overall = new double[n_target_servers];
-        arr_n_newreview_overall = new int[n_target_servers];
-        arr_rt_newreview_overall = new double[n_target_servers];
-        arr_n_newhelpfulness_overall = new int[n_target_servers];
-        arr_rt_newhelpfulness_overall = new double[n_target_servers];
-        arr_n_newmember_overall = new int[n_target_servers];
-        arr_rt_newmember_overall = new double[n_target_servers];
-        arr_n_purchase_overall = new int[n_target_servers];
-        arr_rt_purchase_overall = new double[n_target_servers];
-        arr_n_rollbacks_overall = new int[n_target_servers];
-        arr_n_overall = new int[n_target_servers];
-        arr_rt_tot_overall = new double[n_target_servers];
-        arr_n_purchase_from_start = new int[n_target_servers];
-        arr_n_rollbacks_from_start = new int[n_target_servers];
-        arr_rt_tot_lastn = new double[n_target_servers,GlobalConstants.LAST_N];
+      //Added by GSK
+      //Dynamically allocate memory Initialize arrays for book keeping for individual Servers on which test runs
+      arr_n_login_overall = new int[n_target_servers];
+      arr_rt_login_overall = new double[n_target_servers];
+      arr_n_newcust_overall = new int[n_target_servers];
+      arr_rt_newcust_overall = new double[n_target_servers];
+      arr_n_browse_overall = new int[n_target_servers];
+      arr_rt_browse_overall = new double[n_target_servers];
+      arr_n_reviewbrowse_overall = new int[n_target_servers];
+      arr_rt_reviewbrowse_overall = new double[n_target_servers];
+      arr_n_newreview_overall = new int[n_target_servers];
+      arr_rt_newreview_overall = new double[n_target_servers];
+      arr_n_newhelpfulness_overall = new int[n_target_servers];
+      arr_rt_newhelpfulness_overall = new double[n_target_servers];
+      arr_n_newmember_overall = new int[n_target_servers];
+      arr_rt_newmember_overall = new double[n_target_servers];
+      arr_n_purchase_overall = new int[n_target_servers];
+      arr_rt_purchase_overall = new double[n_target_servers];
+      arr_n_rollbacks_overall = new int[n_target_servers];
+      arr_n_overall = new int[n_target_servers];
+      arr_rt_tot_overall = new double[n_target_servers];
+      arr_n_purchase_from_start = new int[n_target_servers];
+      arr_n_rollbacks_from_start = new int[n_target_servers];
+      arr_rt_tot_lastn = new double[n_target_servers, GlobalConstants.LAST_N];
 
       // Extract parameters (type-safe, validation already done by ParameterParser)
       n_threads = parser.GetValue<int>("n_threads");
       //Changed by GSK -- n_threads represents threads spawned per DB/Web Server
       //Hence total number of threads spawned by Controller Driver Program = no of threads per Server * number of servers to Drive Workload on
       n_threads = n_threads * n_target_servers;
-      Console.WriteLine ( "Total number of Threads to be Spawned across multiple servers are n_threads: {0}" , n_threads );
+      Console.WriteLine("Total number of Threads to be Spawned across multiple servers are n_threads: {0}", n_threads);
 
       ramp_rate = parser.GetValue<int>("ramp_rate");
       run_time = parser.GetValue<int>("run_time");
@@ -1164,7 +1162,7 @@ namespace ds2xdriver
 
       // Database size (already converted from S/M/L by validator)
       db_size = parser.GetValue<string>("db_size");
-      CalculateNumberOfRows ( db_size );
+      CalculateNumberOfRows(db_size);
 
       warmup_time = parser.GetValue<int>("warmup_time");
       think_time = parser.GetValue<double>("think_time");
@@ -1179,37 +1177,37 @@ namespace ds2xdriver
 
       // Windows performance monitoring setup
       windows_perf_host = parser.GetValue<string>("windows_perf_host");
-      if ( windows_perf_host == "" )
-        {
+      if (windows_perf_host == "")
+      {
         windows_perf_host = string.Empty;
         n_windows_servers = 0;
-        }
+      }
       else
-        {
-        windows_perf_host_servers = windows_perf_host.Split ( ';' );
+      {
+        windows_perf_host_servers = windows_perf_host.Split(';');
         n_windows_servers = windows_perf_host_servers.Length;
         is_Win_VM = true;
 
         //Allocate memory and initialize
         arr_cpu_pct_tot = new double[n_windows_servers];
         arr_n_cpu_pct_samples = new int[n_windows_servers];
-        for ( i = 0 ; i < n_windows_servers ; i++ )
-          {
+        for (i = 0; i < n_windows_servers; i++)
+        {
           arr_cpu_pct_tot[i] = 0.0;
           arr_n_cpu_pct_samples[i] = 0;
-          }
         }
+      }
 
       // Linux performance monitoring setup
       linux_perf_host = parser.GetValue<string>("linux_perf_host");
-      if ( linux_perf_host == "" )
-        {
+      if (linux_perf_host == "")
+      {
         linux_perf_host = string.Empty;
         n_linux_servers = 0;
-        }
+      }
       else
-        {
-        string []str_SplitSemiColons = linux_perf_host.Split ( ';' );
+      {
+        string[] str_SplitSemiColons = linux_perf_host.Split(';');
         n_linux_servers = str_SplitSemiColons.Length;
 
         linux_unames = new String[n_linux_servers];
@@ -1218,22 +1216,22 @@ namespace ds2xdriver
 
         i = 0;
         foreach (string splitline in str_SplitSemiColons)
-          {
-          string []str_SplitColon = splitline.Split ( ':' );
+        {
+          string[] str_SplitColon = splitline.Split(':');
           linux_unames[i] = str_SplitColon[0];
           linux_passwd[i] = str_SplitColon[1];
           linux_perf_host_servers[i] = str_SplitColon[2];
           i++;
-          }
+        }
 
         is_Lin_VM = true;
         arr_linux_cpu_utilization = new double[n_linux_servers];
 
-        for ( i = 0 ; i < n_linux_servers ; i++ )
-          {
+        for (i = 0; i < n_linux_servers; i++)
+        {
           arr_linux_cpu_utilization[i] = 0.0;
-          }
         }
+      }
 
       // Detailed view setting (validator returns bool)
       is_detailed_view = parser.GetValue<bool>("detailed_view");
@@ -1254,23 +1252,23 @@ namespace ds2xdriver
       // Output file setup
       outfilename = parser.GetValue<string>("out_filename");
       if (outfilename == "")
-        {
+      {
         outfilename = string.Empty;
-        }
+      }
       else
-        {
+      {
         outfile = new System.IO.StreamWriter(outfilename);
         outfile?.WriteLine("datetime et, n_overall, opm, rt_tot_lastn_max_msec, rt_tot_avg_msec, rt_tot_sampled," +
-          " n_rollbacks_overall, rollback_pct" );
-        }
+          " n_rollbacks_overall, rollback_pct");
+      }
 
       // DS2 mode (validator returns bool)
       ds2_mode = parser.GetValue<bool>("ds2_mode");
       ds2_mode_string = ds2_mode ? "Y" : "N";
       if (ds2_mode)
-        {
+      {
         Console.WriteLine("Running in DS2 mode.");
-        }
+      }
 
       // Number of stores
       n_stores = parser.GetValue<int>("n_stores");
@@ -1279,10 +1277,10 @@ namespace ds2xdriver
       bool use_vectors = parser.GetValue<bool>("use_vectors");
       use_vectors_string = use_vectors ? "Y" : "N";
       if (use_vectors)
-        {
+      {
         Console.WriteLine("Browse by vectors enabled.");
         n_vectors = 1;
-        }
+      }
 
       // Manager thread parameters
       enable_managers = parser.GetValue<bool>("enable_managers");
@@ -1307,8 +1305,8 @@ namespace ds2xdriver
       max_customer = customer_rows;
       max_review = product_rows * 20;
 
-      for ( i = 0 ; i < GlobalConstants.MAX_STORES ; i++ )
-         max_product[i] = product_rows;
+      for (i = 0; i < GlobalConstants.MAX_STORES; i++)
+        max_product[i] = product_rows;
 
       //Changed by GSK (size of array prod_array = number of rows in product table + (10000 * 10)
       //Reason : Every 10000th product will be popular and will have 10 entries in list
@@ -1327,19 +1325,19 @@ namespace ds2xdriver
       */
       //Console.WriteLine("{0} products in array", prod_array_size);
 
-      } // end of Controller constructor
+    } // end of Controller constructor
 
 
     //
     //-------------------------------------------------------------------------------------------------
     //
-    public void do_work ()
+    public void do_work()
     {
       int i = 0, z = 0;
       int i_sec;
       double et;
-      int opm , rt_login_avg_msec , rt_newcust_avg_msec , rt_browse_avg_msec , rt_purchase_avg_msec ,
-        rt_tot_lastn_max_msec , rt_tot_avg_msec;
+      int opm, rt_login_avg_msec, rt_newcust_avg_msec, rt_browse_avg_msec, rt_purchase_avg_msec,
+        rt_tot_lastn_max_msec, rt_tot_avg_msec;
       int rt_reviewbrowse_avg_msec, rt_newreview_avg_msec, rt_newhelpfulness_avg_msec, rt_newmember_avg_msec;
       double rt_tot_lastn_max;
 
@@ -1405,7 +1403,7 @@ namespace ds2xdriver
       Stopwatch mainTimer = new Stopwatch();
       Console.WriteLine($"Using {(Stopwatch.IsHighResolution ? "high-resolution" : "standard")} Stopwatch timer (Frequency: {Stopwatch.Frequency:N0} Hz)\n");
 
-      for ( i = 0 ; i < GlobalConstants.LAST_N ; i++ )
+      for (i = 0; i < GlobalConstants.LAST_N; i++)
       {
         rt_tot_lastn[i] = 0.0;
       }
@@ -1473,26 +1471,26 @@ namespace ds2xdriver
           }
         }
 #else
-            Console.WriteLine ( "Not generating Windows Performance Monitor Counters" );
+      Console.WriteLine("Not generating Windows Performance Monitor Counters");
 #endif
 
-      for ( i = 0 , server_id = 0 ; i < n_threads ; i++ ) // Create User objects; associate each with new Thread running Emulate method
-        {
+      for (i = 0, server_id = 0; i < n_threads; i++) // Create User objects; associate each with new Thread running Emulate method
+      {
 
-        if ( server_id < n_target_servers )
-          {
-          users[i] = new User ( i , server_id, ((i % n_stores)+1 ));
-          threads[i] = new Thread ( new ThreadStart ( users[i].Emulate ) );
+        if (server_id < n_target_servers)
+        {
+          users[i] = new User(i, server_id, ((i % n_stores) + 1));
+          threads[i] = new Thread(new ThreadStart(users[i].Emulate));
           server_id++;
-          }
-        else if ( server_id == n_target_servers )
-          {
-          server_id = 0;
-          users[i] = new User ( i , server_id, ((i % n_stores)+1 ) );
-          threads[i] = new Thread ( new ThreadStart ( users[i].Emulate ) );
-          server_id++;
-          }
         }
+        else if (server_id == n_target_servers)
+        {
+          server_id = 0;
+          users[i] = new User(i, server_id, ((i % n_stores) + 1));
+          threads[i] = new Thread(new ThreadStart(users[i].Emulate));
+          server_id++;
+        }
+      }
 
       //Added by GSK
       //Before each thread will try to connect to remote systems and then running the loop to start the warmup and then actual run
@@ -1501,66 +1499,67 @@ namespace ds2xdriver
       //This will avoid giving any add RSA fingerprint message when actual run stats are getting printed out
       //
       if (linux_perf_host != string.Empty)     //Added by GSK for getting Linux CPU Utilization
-        {
+      {
         for (i = 0; i < n_linux_servers; i++)
-          {
+        {
           try
-            {
+          {
             RegisterRSAHostKey(linux_perf_host_servers[i].ToString(), linux_unames[i].ToString(), linux_passwd[i].ToString());
-            }
+          }
           catch (System.Exception e)
-            {
+          {
             Console.WriteLine("Error in adding RSA fingerprint for target linux host: {0}: {1}", linux_perf_host_servers[i].ToString(), e.Message);
             return;
-            }
           }
+        }
         Console.WriteLine(" ");
-        }
+      }
 
-      for ( i = 0 ; i < n_threads ; i++ ) // Start threads
-        {
-        threads[i].Start ( );
-        }
+      for (i = 0; i < n_threads; i++) // Start threads
+      {
+        threads[i].Start();
+      }
 
-      while ( n_threads_running < n_threads ) // Wait for all threads to start
-        {
+      while (n_threads_running < n_threads) // Wait for all threads to start
+      {
         //Console.WriteLine("Controller: n_threads_running = {0}", n_threads_running);
         //Console.WriteLine("Controller: Thread status:");
         //for (i=0; i<n_threads; i++) Console.WriteLine("  Thread {0}: {1}", i, threads[i].ThreadState);
-        Thread.Sleep ( 1000 );
-        }
-      Console.WriteLine ( "Controller ({0}): all threads running" , DateTime.Now );
+        Thread.Sleep(1000);
+      }
+      Console.WriteLine("Controller ({0}): all threads running", DateTime.Now);
       //for (i=0; i<n_threads; i++) Console.WriteLine("  Thread {0}: {1}", i, threads[i].ThreadState);
 
       int ConnectTimeout = 60;  // Used to limit the amount of time that driver program will try to get all threads conencted
-      while ( (n_threads_connected < n_threads) && (ConnectTimeout > 0) )
-        {
-        for ( int j = 0 ; j < n_threads ; j++ )  // If one of the threads has stopped quit
-          if ( threads[j].ThreadState == System.Threading.ThreadState.Stopped ) return;
-        Console.WriteLine ( "Controller: n_threads_connected = {0} : ConnectionTimeOut remaining {1}" , n_threads_connected,ConnectTimeout );
-        Thread.Sleep ( 1000 );
+      while ((n_threads_connected < n_threads) && (ConnectTimeout > 0))
+      {
+        for (int j = 0; j < n_threads; j++)  // If one of the threads has stopped quit
+          if (threads[j].ThreadState == System.Threading.ThreadState.Stopped)
+            return;
+        Console.WriteLine("Controller: n_threads_connected = {0} : ConnectionTimeOut remaining {1}", n_threads_connected, ConnectTimeout);
+        Thread.Sleep(1000);
         --ConnectTimeout;
-        }
+      }
 
       if (n_threads_connected < n_threads)   // If all threads are not connected, then timeout was exceeded
-        {
-        Console.WriteLine ( "Controller: ConnectTimeout reached : could not connect all threads, Aborting...");
-        Thread.Sleep ( 500 );
+      {
+        Console.WriteLine("Controller: ConnectTimeout reached : could not connect all threads, Aborting...");
+        Thread.Sleep(500);
         return;
-        }
+      }
 
-      Console.WriteLine ( "Controller ({0}): all User threads connected" , DateTime.Now );
+      Console.WriteLine("Controller ({0}): all User threads connected", DateTime.Now);
 
       // Create and start manager threads if enabled (one per store)
       Manager[] managers = new Manager[GlobalConstants.MAX_STORES];
       Thread[] manager_threads = new Thread[GlobalConstants.MAX_STORES];
       if (enable_managers)
       {
-        Console.WriteLine ( "Controller ({0}): creating manager threads" , DateTime.Now );
-        for ( i = 0, server_id = 0 ; i < n_stores ; i++ )
+        Console.WriteLine("Controller ({0}): creating manager threads", DateTime.Now);
+        for (i = 0, server_id = 0; i < n_stores; i++)
         {
-          managers[i] = new Manager ( i , server_id, i + 1 );
-          manager_threads[i] = new Thread ( new ThreadStart ( managers[i].RunManager ) );
+          managers[i] = new Manager(i, server_id, i + 1);
+          manager_threads[i] = new Thread(new ThreadStart(managers[i].RunManager));
           manager_threads[i].Start();
 
           // Round-robin across servers
@@ -1568,62 +1567,63 @@ namespace ds2xdriver
           if (server_id >= n_target_servers)
             server_id = 0;
         }
-        Console.WriteLine ( "Controller ({0}): {1} manager thread(s) started" , DateTime.Now, n_stores );
+        Console.WriteLine("Controller ({0}): {1} manager thread(s) started", DateTime.Now, n_stores);
       }
 
-      Console.WriteLine ( "Controller ({0}): all threads connected - issuing Start" , DateTime.Now );
+      Console.WriteLine("Controller ({0}): all threads connected - issuing Start", DateTime.Now);
       Start = true;
 
       mainTimer.Start(); // Start response time clock
 
-      if ( run_time == 0 ) run_time = 1000000;  // test run time in minutes, 0 => forever
+      if (run_time == 0)
+        run_time = 1000000;  // test run time in minutes, 0 => forever
       run_time += warmup_time;  // Add warmup time for total run time
 
-      for ( i_sec = 1 ; i_sec <= run_time * 60 ; i_sec++ ) // run for run_time*60 seconds
-        {
+      for (i_sec = 1; i_sec <= run_time * 60; i_sec++) // run for run_time*60 seconds
+      {
         //Call plink to execute mpstat on remote linux machine to store CPU data in File on remote system
         if (i_sec % log_freq == 1)  //At start as per log_freq interval, start background process for mpstat CPU monitoring on each linux machine
-          {
+        {
           if (linux_perf_host != string.Empty)     //Added by GSK for getting Linux CPU Utilization
-            {
+          {
             for (i = 0; i < n_linux_servers; i++)
-              {
+            {
               try
-                {
+              {
                 RunBackGroundmpStat(linux_perf_host_servers[i].ToString(), linux_unames[i].ToString(), linux_passwd[i].ToString());
-                }
+              }
               catch (System.Exception e)
-                {
+              {
                 Console.WriteLine("Error in getting CPU Utilization for host: {0}: {1}", linux_perf_host_servers[i].ToString(), e.Message);
                 return;
-                }
               }
             }
           }
+        }
 
-        Thread.Sleep ( 1000 );     // Update perfmon stats about every second
-        Monitor.Enter ( UpdateLock );  // Block User threads from accessing code to update these values (below)
+        Thread.Sleep(1000);     // Update perfmon stats about every second
+        Monitor.Enter(UpdateLock);  // Block User threads from accessing code to update these values (below)
 
         et = mainTimer.Elapsed.TotalSeconds;
 
         //opm, rt_tot_lastn_max_msec will maintain overall runtime stats for all threads that connect to DB Servers on multiple VM's
-        opm = ( int ) Math.Floor ( 60.0 * n_overall / et );
+        opm = (int)Math.Floor(60.0 * n_overall / et);
         rt_tot_lastn_max = 0.0;
-        for ( int j = 0 ; j < GlobalConstants.LAST_N ; j++ )
-            rt_tot_lastn_max = ( rt_tot_lastn[j] > rt_tot_lastn_max ) ? rt_tot_lastn[j] : rt_tot_lastn_max;
-        rt_tot_lastn_max_msec = ( int ) Math.Floor ( 1000 * rt_tot_lastn_max );
+        for (int j = 0; j < GlobalConstants.LAST_N; j++)
+          rt_tot_lastn_max = (rt_tot_lastn[j] > rt_tot_lastn_max) ? rt_tot_lastn[j] : rt_tot_lastn_max;
+        rt_tot_lastn_max_msec = (int)Math.Floor(1000 * rt_tot_lastn_max);
 
         //Following code will maintain runtime stats for threads that connect to DB Servers on individual VM's
-        for ( i = 0 ; i < n_target_servers ; i++ )
-          {
-          arr_opm[i] = ( int ) Math.Floor ( 60.0 * arr_n_overall[i] / et );
+        for (i = 0; i < n_target_servers; i++)
+        {
+          arr_opm[i] = (int)Math.Floor(60.0 * arr_n_overall[i] / et);
           arr_rt_tot_lastn_max = 0.0;
-          for ( int m = 0 ; m < GlobalConstants.LAST_N ; m++ )
-            {
-            arr_rt_tot_lastn_max = ( arr_rt_tot_lastn[i , m] > arr_rt_tot_lastn_max ) ? arr_rt_tot_lastn[i , m] : arr_rt_tot_lastn_max;
-            }
-          arr_rt_tot_lastn_max_msec[i] = ( int ) Math.Floor ( 1000 * arr_rt_tot_lastn_max );
+          for (int m = 0; m < GlobalConstants.LAST_N; m++)
+          {
+            arr_rt_tot_lastn_max = (arr_rt_tot_lastn[i, m] > arr_rt_tot_lastn_max) ? arr_rt_tot_lastn[i, m] : arr_rt_tot_lastn_max;
           }
+          arr_rt_tot_lastn_max_msec[i] = (int)Math.Floor(1000 * arr_rt_tot_lastn_max);
+        }
 
 #if (GEN_PERF_CTRS)
           MaxRTC.RawValue = rt_tot_lastn_max_msec;
@@ -1642,8 +1642,8 @@ namespace ds2xdriver
             }
 #endif
 
-        if ( i_sec % log_freq == 0 ) // print out stats as per log_freq seconds
-          {
+        if (i_sec % log_freq == 0) // print out stats as per log_freq seconds
+        {
           //rt_login_avg_msec = (int) Math.Floor(1000*rt_login_overall/n_login_overall);
           //rt_newcust_avg_msec = (int) Math.Floor(1000*rt_newcust_overall/n_newcust_overall);
           //rt_browse_avg_msec = (int) Math.Floor(1000*rt_browse_overall/n_browse_overall);
@@ -1651,14 +1651,14 @@ namespace ds2xdriver
           // rt_tot_avg_msec = ( int ) Math.Floor ( 1000 * rt_tot_overall / n_overall );
 
           // Modified by DJ 11/28/2016 to handle n_overall = 0
-        if (n_overall > 0)
-            {
-            rt_tot_avg_msec = ( int ) Math.Floor ( 1000 * rt_tot_overall / n_overall );
-      }
+          if (n_overall > 0)
+          {
+            rt_tot_avg_msec = (int)Math.Floor(1000 * rt_tot_overall / n_overall);
+          }
           else
-            {
+          {
             rt_tot_avg_msec = 0;
-      }
+          }
 
           //Added on 8/8/2010
           diff_n_overall = Math.Abs(n_overall - old_n_overall);
@@ -1667,35 +1667,35 @@ namespace ds2xdriver
           old_rt_tot_overall = rt_tot_overall;
 
           if (diff_n_overall > 0)
-            {
-            rt_tot_sampled = (int) Math.Floor(1000 * diff_rt_tot_overall / diff_n_overall);
+          {
+            rt_tot_sampled = (int)Math.Floor(1000 * diff_rt_tot_overall / diff_n_overall);
           }
           else
-            {
+          {
             rt_tot_sampled = 0;
-            }
+          }
 
-      if (n_overall > 0)
-            {
+          if (n_overall > 0)
+          {
             pct_rollbacks = (100.0 * n_rollbacks_overall) / n_overall;
-      }
+          }
           else
-            {
+          {
             pct_rollbacks = 0.0;
-      }
+          }
 
-      switch (log_timestamp)  // Switch to determine the type of time stamps to put on each log line
-                {
-                    case "UTC":   // Call UtcNow.ToString to get UTC based time
-                        cur_datetime = DateTime.UtcNow.ToString("yyyy-MM-ddTHH\\:mm\\:ss.fff'Z' ");
-                        break;
-                    case "LOCAL":  // Call Now.ToString to get time zone based time
-                        cur_datetime = DateTime.Now.ToString("MM/dd/yyyy h:mm:ss tt ");
-                        break;
-                    case "NONE":  // Set string to nothing so that no date time is printed
-                        cur_datetime = "";
-                        break;
-                }
+          switch (log_timestamp)  // Switch to determine the type of time stamps to put on each log line
+          {
+            case "UTC":   // Call UtcNow.ToString to get UTC based time
+              cur_datetime = DateTime.UtcNow.ToString("yyyy-MM-ddTHH\\:mm\\:ss.fff'Z' ");
+              break;
+            case "LOCAL":  // Call Now.ToString to get time zone based time
+              cur_datetime = DateTime.Now.ToString("MM/dd/yyyy h:mm:ss tt ");
+              break;
+            case "NONE":  // Set string to nothing so that no date time is printed
+              cur_datetime = "";
+              break;
+          }
 
           //Console.Error.Write ( "\n" );
           //Console.WriteLine("et={0,7:F1} n_overall={1} opm={2} rt_tot_lastn_max_msec={3} rt_tot_avg_msec={4} " +
@@ -1705,105 +1705,105 @@ namespace ds2xdriver
           //Changed on 1/16/2019 - By Performance Team - Ruban
           Console.Write("{8}et={0,7:F1} n_overall={1} opm={2} rt_tot_lastn_max_msec={3,-3} rt_tot_avg_msec={4} " +
               "rt_tot_sampled={5} " + "rollbacks: n={6} %={7,5:F1} ", et, n_overall, opm, rt_tot_lastn_max_msec, rt_tot_avg_msec,
-              rt_tot_sampled,n_rollbacks_overall, pct_rollbacks, cur_datetime);
+              rt_tot_sampled, n_rollbacks_overall, pct_rollbacks, cur_datetime);
 
           if (outfilename != string.Empty)
           {
-             outfile?.Write("{8} {0,7:F1},{1},{2},{3},{4},{5},{6},{7,5:F1}", et, n_overall, opm, rt_tot_lastn_max_msec, rt_tot_avg_msec,
-             rt_tot_sampled, n_rollbacks_overall, pct_rollbacks, cur_datetime);
+            outfile?.Write("{8} {0,7:F1},{1},{2},{3},{4},{5},{6},{7,5:F1}", et, n_overall, opm, rt_tot_lastn_max_msec, rt_tot_avg_msec,
+            rt_tot_sampled, n_rollbacks_overall, pct_rollbacks, cur_datetime);
           }
 
           total_cpu_utilzn = 0.0;
           total_lin_cpu_utilzn = 0.0;
           total_win_cpu_utilzn = 0.0;
 
-          if ( windows_perf_host != string.Empty)
+          if (windows_perf_host != string.Empty)
           {
             //Changed by GSK to get total average cpu utilization
-            for ( i = 0 ; i < n_windows_servers ; i++ )
-              {
-              total_win_cpu_utilzn += ( arr_cpu_pct_tot[i] / arr_n_cpu_pct_samples[i] );
-              }
+            for (i = 0; i < n_windows_servers; i++)
+            {
+              total_win_cpu_utilzn += (arr_cpu_pct_tot[i] / arr_n_cpu_pct_samples[i]);
+            }
           }
-          if ( linux_perf_host != string.Empty)     //Added by GSK for getting Linux CPU Utilization
+          if (linux_perf_host != string.Empty)     //Added by GSK for getting Linux CPU Utilization
           {
-            for ( i = 0 ; i < n_linux_servers ; i++ )
-              {
+            for (i = 0; i < n_linux_servers; i++)
+            {
               try
-                {
+              {
                 //Call plink to Read mpstat data in a text file on remote linux machine to give CPU data
                 //Store CPU utilization for each linux target for bookkeeping
                 arr_linux_cpu_utilization[i] = ReadRemoteTextFile(linux_perf_host_servers[i].ToString(), linux_unames[i].ToString(), linux_passwd[i].ToString());
                 total_lin_cpu_utilzn += arr_linux_cpu_utilization[i];
-                }
-              catch(System.Exception e)
-                {
-                Console.WriteLine ( "Error in getting CPU Utilization for host: {0}: {1}" , linux_perf_host_servers[i].ToString ( ) , e.Message);
-                return;
-                }
               }
+              catch (System.Exception e)
+              {
+                Console.WriteLine("Error in getting CPU Utilization for host: {0}: {1}", linux_perf_host_servers[i].ToString(), e.Message);
+                return;
+              }
+            }
           }
 
-          if ( is_Win_VM == true && is_Lin_VM == true )       //Get perf stats from both linux and windows machines
-            {
+          if (is_Win_VM == true && is_Lin_VM == true)       //Get perf stats from both linux and windows machines
+          {
             total_cpu_utilzn = total_win_cpu_utilzn + total_lin_cpu_utilzn;
             //Instead of getting Sum of cpu utilization of all machines, we take average of total since it is good indication of utilization of Physical Processor
             total_cpu_utilzn = total_cpu_utilzn / n_target_servers;
             StringBuilder sb_linux = new StringBuilder();
-            for ( z= 0 ; z < n_linux_servers ; z++ )
-              {
-              sb_linux.Append ( linux_perf_host_servers[z] ).Append ( ";" );
-              }
-            Console.WriteLine ( "host {0} CPU%= {1,5:F1}" , windows_perf_host + ";" + sb_linux.ToString() , total_cpu_utilzn );
-      if (outfilename != string.Empty)
-        {
-        outfile?.WriteLine(",{0,5:F1}" , total_cpu_utilzn );
-        }
-            }
-          else if ( is_Win_VM == true && is_Lin_VM == false )  //Get perf stats from windows machines
+            for (z = 0; z < n_linux_servers; z++)
             {
+              sb_linux.Append(linux_perf_host_servers[z]).Append(";");
+            }
+            Console.WriteLine("host {0} CPU%= {1,5:F1}", windows_perf_host + ";" + sb_linux.ToString(), total_cpu_utilzn);
+            if (outfilename != string.Empty)
+            {
+              outfile?.WriteLine(",{0,5:F1}", total_cpu_utilzn);
+            }
+          }
+          else if (is_Win_VM == true && is_Lin_VM == false)  //Get perf stats from windows machines
+          {
             total_cpu_utilzn = total_win_cpu_utilzn;
 
             total_cpu_utilzn = total_cpu_utilzn / n_target_servers;
-            Console.WriteLine ( "host {0} CPU%= {1,5:F1}" , windows_perf_host  , total_cpu_utilzn );
-    if (outfilename != string.Empty)
-      {
-         outfile?.WriteLine(",{0,5:F1}" , total_cpu_utilzn );
-                  }
-            }
-          else if ( is_Lin_VM == true && is_Win_VM == false )  //Get perf stats from linux machines
+            Console.WriteLine("host {0} CPU%= {1,5:F1}", windows_perf_host, total_cpu_utilzn);
+            if (outfilename != string.Empty)
             {
+              outfile?.WriteLine(",{0,5:F1}", total_cpu_utilzn);
+            }
+          }
+          else if (is_Lin_VM == true && is_Win_VM == false)  //Get perf stats from linux machines
+          {
             total_cpu_utilzn = total_lin_cpu_utilzn;
 
             total_cpu_utilzn = total_cpu_utilzn / n_target_servers;
-            StringBuilder sb_linux = new StringBuilder ( );
-            for ( z = 0 ; z < n_linux_servers ; z++ )
-              {
-              sb_linux.Append ( linux_perf_host_servers[z] ).Append ( ";" );
-              }
-              Console.WriteLine ( "host {0} CPU%= {1,5:F1}" , sb_linux.ToString() , total_cpu_utilzn );
-              if (outfilename != string.Empty)
-                {
-                    outfile?.WriteLine(",{0,5:F1}" , total_cpu_utilzn );
-                }
-            }
-          else
+            StringBuilder sb_linux = new StringBuilder();
+            for (z = 0; z < n_linux_servers; z++)
             {
-                Console.Write ( "\n" );
-    if (outfilename != string.Empty)
-    {
-       outfile?.WriteLine ( "\n" );
-    }
+              sb_linux.Append(linux_perf_host_servers[z]).Append(";");
             }
+            Console.WriteLine("host {0} CPU%= {1,5:F1}", sb_linux.ToString(), total_cpu_utilzn);
+            if (outfilename != string.Empty)
+            {
+              outfile?.WriteLine(",{0,5:F1}", total_cpu_utilzn);
+            }
+          }
+          else
+          {
+            Console.Write("\n");
+            if (outfilename != string.Empty)
+            {
+              outfile?.WriteLine("\n");
+            }
+          }
 
           //Added by GSK
           //Call Write individual stats only when detailed_view parameter is YES and more than one target servers
-          if ( is_detailed_view == true && n_target_servers > 1)
+          if (is_detailed_view == true && n_target_servers > 1)
+          {
+            Console.WriteLine("\nIndividual Stats for each DB / Web Server: ");
+            for (i = 0; i < n_target_servers; i++)
             {
-            Console.WriteLine ( "\nIndividual Stats for each DB / Web Server: " );
-            for ( i = 0 ; i < n_target_servers ; i++ )
-              {
-              arr_rt_tot_avg_msec[i] = ( int ) Math.Floor ( 1000 * arr_rt_tot_overall[i] / arr_n_overall[i] );
+              arr_rt_tot_avg_msec[i] = (int)Math.Floor(1000 * arr_rt_tot_overall[i] / arr_n_overall[i]);
 
               //Added on 8/8/2010
               arr_diff_n_overall[i] = Math.Abs(arr_n_overall[i] - arr_old_n_overall[i]);
@@ -1821,71 +1821,79 @@ namespace ds2xdriver
                 "rt_tot_sampled={5} " +
                 "rollbacks: n={6} %={7,5:F1} ",
                 et, arr_n_overall[i], arr_opm[i], arr_rt_tot_lastn_max_msec[i], arr_rt_tot_avg_msec[i], arr_rt_tot_sampled[i],
-                arr_n_rollbacks_overall[i],(100.0 * arr_n_rollbacks_overall[i]) / arr_n_overall[i]
+                arr_n_rollbacks_overall[i], (100.0 * arr_n_rollbacks_overall[i]) / arr_n_overall[i]
                 );
 
 
               //Added by GSK
               //Following condition i < n_windows_servers ensure that stats for windows VM's will be outputted first and then linux VM's
               //For this to work, target parameter should always specify all windows targets first followed by linux targets (all targets selerated by semi colon ;)
-              if ( windows_perf_host != string.Empty && i < n_windows_servers )
-                  {
-                  //Need individual CPU utilization of Virtual Machines on which DB / Web Servers are running
-                  Console.WriteLine ( "host {0} CPU%= {1,5:F1}" , windows_perf_host_servers[i] , arr_cpu_pct_tot[i] / arr_n_cpu_pct_samples[i] );
-                  }
-              if(linux_perf_host != string.Empty && i >= n_windows_servers)
-                {
-                try
-                  {
-                  //We only get CPU Utilization data which is book keeped in array arr_linux_cpu_utilization above
-                  Console.WriteLine ( "host {0} CPU%= {1,5:F1}" , linux_perf_host_servers[i - n_windows_servers] ,
-                      arr_linux_cpu_utilization[i - n_windows_servers] );
-                  }
-                catch ( System.Exception e )
-                  {
-                  Console.WriteLine ( "Error in getting CPU Utilization for host: {0}: {1}" , linux_perf_host_servers[i - n_windows_servers].ToString ( ) , e.Message );
-                  return;
-                  }
-                }
-              //else Console.Error.Write ( "\n" );
-              }
-        Console.Error.Write ( "\n" );
-            }
-      //Till this point Added by GSK
-
-          for ( int j = 0 ; j < n_threads ; j++ )
-            {
-            if ( threads[j].ThreadState == System.Threading.ThreadState.Stopped )
+              if (windows_perf_host != string.Empty && i < n_windows_servers)
               {
-              Console.WriteLine ( "threads[{0}].ThreadState= {1}" , j , threads[j].ThreadState );
+                //Need individual CPU utilization of Virtual Machines on which DB / Web Servers are running
+                Console.WriteLine("host {0} CPU%= {1,5:F1}", windows_perf_host_servers[i], arr_cpu_pct_tot[i] / arr_n_cpu_pct_samples[i]);
               }
+              if (linux_perf_host != string.Empty && i >= n_windows_servers)
+              {
+                try
+                {
+                  //We only get CPU Utilization data which is book keeped in array arr_linux_cpu_utilization above
+                  Console.WriteLine("host {0} CPU%= {1,5:F1}", linux_perf_host_servers[i - n_windows_servers],
+                      arr_linux_cpu_utilization[i - n_windows_servers]);
+                }
+                catch (System.Exception e)
+                {
+                  Console.WriteLine("Error in getting CPU Utilization for host: {0}: {1}", linux_perf_host_servers[i - n_windows_servers].ToString(), e.Message);
+                  return;
+                }
+              }
+              //else Console.Error.Write ( "\n" );
             }
+            Console.Error.Write("\n");
+          }
+          //Till this point Added by GSK
 
+          for (int j = 0; j < n_threads; j++)
+          {
+            if (threads[j].ThreadState == System.Threading.ThreadState.Stopped)
+            {
+              Console.WriteLine("threads[{0}].ThreadState= {1}", j, threads[j].ThreadState);
+            }
           }
 
-        Monitor.Exit ( UpdateLock );
+        }
 
-        if ( i_sec == 60 * warmup_time ) // reset params after specified warmump
-          {
-          n_overall = 0; n_login_overall = 0; n_newcust_overall = 0; n_browse_overall = 0; n_purchase_overall = 0;
+        Monitor.Exit(UpdateLock);
+
+        if (i_sec == 60 * warmup_time) // reset params after specified warmump
+        {
+          n_overall = 0;
+          n_login_overall = 0;
+          n_newcust_overall = 0;
+          n_browse_overall = 0;
+          n_purchase_overall = 0;
           n_rollbacks_overall = 0;
           n_browse_vector = 0;
-          rt_tot_overall = 0.0; rt_login_overall = 0.0; rt_newcust_overall = 0.0; rt_browse_overall = 0.0;
+          rt_tot_overall = 0.0;
+          rt_login_overall = 0.0;
+          rt_newcust_overall = 0.0;
+          rt_browse_overall = 0.0;
           rt_purchase_overall = 0.0;
-          for ( int j = 0 ; j < GlobalConstants.LAST_N ; j++ ) rt_tot_lastn[j] = 0.0;
+          for (int j = 0; j < GlobalConstants.LAST_N; j++)
+            rt_tot_lastn[j] = 0.0;
           cpu_pct_tot = 0.0;
           n_cpu_pct_samples = 0;
 
           //Added on 8/8/2010
-          old_n_overall= 0;
-          diff_n_overall= 0;
-          old_rt_tot_overall= 0.0;
-          diff_rt_tot_overall= 0.0;
+          old_n_overall = 0;
+          diff_n_overall = 0;
+          old_rt_tot_overall = 0.0;
+          diff_rt_tot_overall = 0.0;
           rt_tot_sampled = 0;
 
           //Added by GSK
-          for ( i = 0 ; i < n_target_servers ; i++ )
-            {
+          for (i = 0; i < n_target_servers; i++)
+          {
             arr_n_overall[i] = 0;
             arr_n_login_overall[i] = 0;
             arr_n_newcust_overall[i] = 0;
@@ -1915,69 +1923,70 @@ namespace ds2xdriver
             arr_diff_rt_tot_overall[i] = 0.0;
             arr_rt_tot_sampled[i] = 0;
 
-            for ( int n = 0 ; n < GlobalConstants.LAST_N ; n++ ) arr_rt_tot_lastn[i,n] = 0.0;
+            for (int n = 0; n < GlobalConstants.LAST_N; n++)
+              arr_rt_tot_lastn[i, n] = 0.0;
 
             cpu_pct_tot = 0.0;
             n_cpu_pct_samples = 0;
-            }
+          }
 
-          for ( i = 0 ; i < n_windows_servers ; i++ )
-            {
+          for (i = 0; i < n_windows_servers; i++)
+          {
             arr_n_cpu_pct_samples[i] = 0;
             arr_cpu_pct_tot[i] = 0.0;
-            }
+          }
 
-          for ( i = 0 ; i < n_linux_servers ; i++ )
-            {
+          for (i = 0; i < n_linux_servers; i++)
+          {
             arr_linux_cpu_utilization[i] = 0.0;
-            }
+          }
           //Till this point Added by GSK
 
           mainTimer.Restart();
 
-          Console.WriteLine ( "Stats reset" );
-          }
-        } // End for i_sec<run_time
+          Console.WriteLine("Stats reset");
+        }
+      } // End for i_sec<run_time
 
-      Monitor.Enter ( UpdateLock );  // Block User threads from accessing code to update these values (below)
+      Monitor.Enter(UpdateLock);  // Block User threads from accessing code to update these values (below)
 
       et = mainTimer.Elapsed.TotalSeconds;
 
       //Variables below will maintain Aggregate Final stats data for all DB servers running on all VM's
-      opm = ( int ) Math.Floor ( 60.0 * n_overall / et );
-      rt_login_avg_msec = ( int ) Math.Floor ( 1000 * rt_login_overall / n_login_overall );
-      rt_newcust_avg_msec = ( int ) Math.Floor ( 1000 * rt_newcust_overall / n_newcust_overall );
-      rt_browse_avg_msec = ( int ) Math.Floor ( 1000 * rt_browse_overall / n_browse_overall );
-      rt_reviewbrowse_avg_msec = ( int ) Math.Floor ( 1000 * rt_reviewbrowse_overall / n_reviewbrowse_overall );
-      rt_newreview_avg_msec = ( int ) Math.Floor ( 1000 * rt_newreview_overall / n_newreview_overall );
-      rt_newhelpfulness_avg_msec = ( int ) Math.Floor ( 1000 * rt_newhelpfulness_overall / n_newhelpfulness_overall );
+      opm = (int)Math.Floor(60.0 * n_overall / et);
+      rt_login_avg_msec = (int)Math.Floor(1000 * rt_login_overall / n_login_overall);
+      rt_newcust_avg_msec = (int)Math.Floor(1000 * rt_newcust_overall / n_newcust_overall);
+      rt_browse_avg_msec = (int)Math.Floor(1000 * rt_browse_overall / n_browse_overall);
+      rt_reviewbrowse_avg_msec = (int)Math.Floor(1000 * rt_reviewbrowse_overall / n_reviewbrowse_overall);
+      rt_newreview_avg_msec = (int)Math.Floor(1000 * rt_newreview_overall / n_newreview_overall);
+      rt_newhelpfulness_avg_msec = (int)Math.Floor(1000 * rt_newhelpfulness_overall / n_newhelpfulness_overall);
       rt_newmember_avg_msec = (int)Math.Floor(1000 * rt_newmember_overall / n_newmember_overall);
-      rt_purchase_avg_msec = ( int ) Math.Floor ( 1000 * rt_purchase_overall / n_purchase_overall );
+      rt_purchase_avg_msec = (int)Math.Floor(1000 * rt_purchase_overall / n_purchase_overall);
       rt_tot_lastn_max = 0.0;
-      for ( int j = 0 ; j < GlobalConstants.LAST_N ; j++ )
-        rt_tot_lastn_max = ( rt_tot_lastn[j] > rt_tot_lastn_max ) ? rt_tot_lastn[j] : rt_tot_lastn_max;
-      rt_tot_lastn_max_msec = ( int ) Math.Floor ( 1000 * rt_tot_lastn_max );
-      rt_tot_avg_msec = ( int ) Math.Floor ( 1000 * rt_tot_overall / n_overall );
+      for (int j = 0; j < GlobalConstants.LAST_N; j++)
+        rt_tot_lastn_max = (rt_tot_lastn[j] > rt_tot_lastn_max) ? rt_tot_lastn[j] : rt_tot_lastn_max;
+      rt_tot_lastn_max_msec = (int)Math.Floor(1000 * rt_tot_lastn_max);
+      rt_tot_avg_msec = (int)Math.Floor(1000 * rt_tot_overall / n_overall);
 
       //Added by GSK
       //Variables/ Arrays below will maintain individual stats data for each DB Server running on each VM
-      for ( i = 0 ; i < n_target_servers ; i++ )
-        {
-        arr_opm[i] = ( int ) Math.Floor ( 60.0 * arr_n_overall[i] / et );
-        arr_rt_login_avg_msec[i] = ( int ) Math.Floor ( 1000 * arr_rt_login_overall[i] / arr_n_login_overall[i] );
-        arr_rt_newcust_avg_msec[i] = ( int ) Math.Floor ( 1000 * arr_rt_newcust_overall[i] / arr_n_newcust_overall[i] );
-        arr_rt_browse_avg_msec[i] = ( int ) Math.Floor ( 1000 * arr_rt_browse_overall[i] / arr_n_browse_overall[i] );
+      for (i = 0; i < n_target_servers; i++)
+      {
+        arr_opm[i] = (int)Math.Floor(60.0 * arr_n_overall[i] / et);
+        arr_rt_login_avg_msec[i] = (int)Math.Floor(1000 * arr_rt_login_overall[i] / arr_n_login_overall[i]);
+        arr_rt_newcust_avg_msec[i] = (int)Math.Floor(1000 * arr_rt_newcust_overall[i] / arr_n_newcust_overall[i]);
+        arr_rt_browse_avg_msec[i] = (int)Math.Floor(1000 * arr_rt_browse_overall[i] / arr_n_browse_overall[i]);
         arr_rt_reviewbrowse_avg_msec[i] = (int)Math.Floor(1000 * arr_rt_reviewbrowse_overall[i] / arr_n_reviewbrowse_overall[i]);
         arr_rt_newreview_avg_msec[i] = (int)Math.Floor(1000 * arr_rt_newreview_overall[i] / arr_n_newreview_overall[i]);
         arr_rt_newhelpfulness_avg_msec[i] = (int)Math.Floor(1000 * arr_rt_newhelpfulness_overall[i] / arr_n_newhelpfulness_overall[i]);
         arr_rt_newmember_avg_msec[i] = (int)Math.Floor(1000 * arr_rt_newmember_overall[i] / arr_n_newmember_overall[i]);
-        arr_rt_purchase_avg_msec[i] = ( int ) Math.Floor ( 1000 * arr_rt_purchase_overall[i] / arr_n_purchase_overall[i] );
+        arr_rt_purchase_avg_msec[i] = (int)Math.Floor(1000 * arr_rt_purchase_overall[i] / arr_n_purchase_overall[i]);
         arr_rt_tot_lastn_max = 0.0;
-        for ( int p = 0 ; p < GlobalConstants.LAST_N ; p++ )
-          arr_rt_tot_lastn_max = ( arr_rt_tot_lastn[i , p] > arr_rt_tot_lastn_max ) ? arr_rt_tot_lastn[i , p] : arr_rt_tot_lastn_max;
-        arr_rt_tot_lastn_max_msec[i] = ( int ) Math.Floor ( 1000 * arr_rt_tot_lastn_max );
-        arr_rt_tot_avg_msec[i] = ( int ) Math.Floor ( 1000 * arr_rt_tot_overall[i] / arr_n_overall[i] );
-        }
+        for (int p = 0; p < GlobalConstants.LAST_N; p++)
+          arr_rt_tot_lastn_max = (arr_rt_tot_lastn[i, p] > arr_rt_tot_lastn_max) ? arr_rt_tot_lastn[i, p] : arr_rt_tot_lastn_max;
+        arr_rt_tot_lastn_max_msec[i] = (int)Math.Floor(1000 * arr_rt_tot_lastn_max);
+        arr_rt_tot_avg_msec[i] = (int)Math.Floor(1000 * arr_rt_tot_overall[i] / arr_n_overall[i]);
+      }
       //Till this point Added by GSK
 
 #if (GEN_PERF_CTRS)
@@ -2025,75 +2034,75 @@ namespace ds2xdriver
       total_win_cpu_utilzn = 0.0;
       total_lin_cpu_utilzn = 0.0;
 
-      if ( windows_perf_host != string.Empty )
-        {
+      if (windows_perf_host != string.Empty)
+      {
         //Changed by GSK to get total average cpu utilization
-        for ( i = 0 ; i < n_windows_servers ; i++ )
+        for (i = 0; i < n_windows_servers; i++)
+        {
+          total_win_cpu_utilzn += (arr_cpu_pct_tot[i] / arr_n_cpu_pct_samples[i]);
+        }
+      }
+
+      if (linux_perf_host != string.Empty)     //Added by GSK for getting Linux CPU Utilization
+      {
+        for (i = 0; i < n_linux_servers; i++)
+        {
+          try
           {
-          total_win_cpu_utilzn += ( arr_cpu_pct_tot[i] / arr_n_cpu_pct_samples[i] );
+            //Use bookkeeped CPU utilization
+            total_lin_cpu_utilzn += arr_linux_cpu_utilization[i];
+          }
+          catch (System.Exception e)
+          {
+            Console.WriteLine("Error in getting CPU Utilization for host: {0}: {1}", linux_perf_host_servers[i].ToString(), e.Message);
+            return;
           }
         }
+      }
 
-      if ( linux_perf_host != string.Empty )     //Added by GSK for getting Linux CPU Utilization
-        {
-        for ( i = 0 ; i < n_linux_servers ; i++ )
-          {
-          try
-              {
-              //Use bookkeeped CPU utilization
-              total_lin_cpu_utilzn += arr_linux_cpu_utilization[i];
-              }
-          catch ( System.Exception e )
-              {
-              Console.WriteLine ( "Error in getting CPU Utilization for host: {0}: {1}" , linux_perf_host_servers[i].ToString ( ) , e.Message );
-              return;
-              }
-            }
-          }
-
-      if ( is_Win_VM == true && is_Lin_VM == true )       //Get perf stats from both linux and windows machines
-        {
+      if (is_Win_VM == true && is_Lin_VM == true)       //Get perf stats from both linux and windows machines
+      {
         total_cpu_utilzn = total_win_cpu_utilzn + total_lin_cpu_utilzn;
         //Instead of getting Sum of cpu utilization of all machines, we take average of total since it is good indication of utilization of Physical Processor
         total_cpu_utilzn = total_cpu_utilzn / n_target_servers;
-        StringBuilder sb_linux = new StringBuilder ( );
-        for ( z = 0 ; z < n_linux_servers ; z++ )
-          {
-          sb_linux.Append ( linux_perf_host_servers[z] ).Append ( ";" );
-          }
-        Console.WriteLine ( "host {0} CPU%= {1,5:F1}" , windows_perf_host + ";" + sb_linux.ToString() , total_cpu_utilzn );
-        }
-      else if ( is_Win_VM == true && is_Lin_VM == false )  //Get perf stats from windows machines
+        StringBuilder sb_linux = new StringBuilder();
+        for (z = 0; z < n_linux_servers; z++)
         {
+          sb_linux.Append(linux_perf_host_servers[z]).Append(";");
+        }
+        Console.WriteLine("host {0} CPU%= {1,5:F1}", windows_perf_host + ";" + sb_linux.ToString(), total_cpu_utilzn);
+      }
+      else if (is_Win_VM == true && is_Lin_VM == false)  //Get perf stats from windows machines
+      {
         total_cpu_utilzn = total_win_cpu_utilzn;
 
         total_cpu_utilzn = total_cpu_utilzn / n_target_servers;
-        Console.WriteLine ( "host {0} CPU%= {1,5:F1}" , windows_perf_host , total_cpu_utilzn );
-        }
-      else if ( is_Lin_VM == true && is_Win_VM == false )  //Get perf stats from linux machines
-        {
+        Console.WriteLine("host {0} CPU%= {1,5:F1}", windows_perf_host, total_cpu_utilzn);
+      }
+      else if (is_Lin_VM == true && is_Win_VM == false)  //Get perf stats from linux machines
+      {
         total_cpu_utilzn = total_lin_cpu_utilzn;
 
         total_cpu_utilzn = total_cpu_utilzn / n_target_servers;
-        StringBuilder sb_linux = new StringBuilder ( );
-        for ( z = 0 ; z < n_linux_servers ; z++ )
-          {
-          sb_linux.Append ( linux_perf_host_servers[z] ).Append ( ";" );
-          }
-        Console.WriteLine ( "host {0} CPU%= {1,5:F1}" , sb_linux.ToString() , total_cpu_utilzn );
-        }
-      else
+        StringBuilder sb_linux = new StringBuilder();
+        for (z = 0; z < n_linux_servers; z++)
         {
-        Console.Error.Write ( "\n" );
+          sb_linux.Append(linux_perf_host_servers[z]).Append(";");
         }
+        Console.WriteLine("host {0} CPU%= {1,5:F1}", sb_linux.ToString(), total_cpu_utilzn);
+      }
+      else
+      {
+        Console.Error.Write("\n");
+      }
 
       //Added by GSK
       //Call Write individual stats only when there are more than one target servers
-      if ( n_target_servers > 1 )
+      if (n_target_servers > 1)
+      {
+        Console.WriteLine("\nIndividual Stats for each DB / Web Server: ");
+        for (i = 0; i < n_target_servers; i++)
         {
-        Console.WriteLine ( "\nIndividual Stats for each DB / Web Server: " );
-        for ( i = 0 ; i < n_target_servers ; i++ )
-          {
           //Console.Error.Write ( "\nFinal: et={0,7:F1} n_overall={1} opm={2} rt_tot_lastn_max={3} rt_tot_avg={4} " +
           //  "n_login_overall={5} n_newcust_overall={6} n_browse_overall={7} n_purchase_overall={8} " +
           //  "rt_login_avg_msec={9} rt_newcust_avg_msec={10} rt_browse_avg_msec={11} rt_purchase_avg_msec={12} " +
@@ -2119,62 +2128,64 @@ namespace ds2xdriver
           //Added by GSK
           //Following condition i < n_windows_servers ensure that stats for windows VM's will be outputted first and then linux VM's
           //For this to work, target parameter should always specify all windows targets first followed by linux targets (all targets selerated by semi colon ;)
-          if ( windows_perf_host != string.Empty && i < n_windows_servers )
-            {
+          if (windows_perf_host != string.Empty && i < n_windows_servers)
+          {
             //Need individual CPU utilization for Virtual Machines on which DB/ Web Servers are running
-            Console.WriteLine ( "host {0} CPU%= {1,5:F1}" , windows_perf_host_servers[i] , arr_cpu_pct_tot[i] / arr_n_cpu_pct_samples[i] );
-            }
-          else if ( linux_perf_host != string.Empty && i >= n_windows_servers )     //Added by GSK for getting CPU Utilization of Linux Systems
-            {
-            try
-              {
-              //We only get CPU Utilization data which is book keeped in array arr_linux_cpu_utilization above
-              Console.WriteLine ( "host {0} CPU%= {1,5:F1}" , linux_perf_host_servers[i - n_windows_servers] ,
-                  arr_linux_cpu_utilization[i - n_windows_servers]);
-              }
-            catch ( System.Exception e )
-              {
-              Console.WriteLine ( "Error in getting CPU Utilization for host: {0}: {1}" , linux_perf_host_servers[i - n_windows_servers].ToString ( ) , e.Message );
-              return;
-              }
-            }
-          else Console.Error.Write ( "\n" );
+            Console.WriteLine("host {0} CPU%= {1,5:F1}", windows_perf_host_servers[i], arr_cpu_pct_tot[i] / arr_n_cpu_pct_samples[i]);
           }
+          else if (linux_perf_host != string.Empty && i >= n_windows_servers)     //Added by GSK for getting CPU Utilization of Linux Systems
+          {
+            try
+            {
+              //We only get CPU Utilization data which is book keeped in array arr_linux_cpu_utilization above
+              Console.WriteLine("host {0} CPU%= {1,5:F1}", linux_perf_host_servers[i - n_windows_servers],
+                  arr_linux_cpu_utilization[i - n_windows_servers]);
+            }
+            catch (System.Exception e)
+            {
+              Console.WriteLine("Error in getting CPU Utilization for host: {0}: {1}", linux_perf_host_servers[i - n_windows_servers].ToString(), e.Message);
+              return;
+            }
+          }
+          else
+            Console.Error.Write("\n");
         }
+      }
       //Till this point Added by GSK
 
-      Monitor.Exit ( UpdateLock );
+      Monitor.Exit(UpdateLock);
 
       // Signal threads to end, wait for 'em to stop
       End = true;
       bool all_stopped;
       do
-        {
-        Thread.Sleep ( 500 );
+      {
+        Thread.Sleep(500);
         all_stopped = true;
-        for ( i = 0 ; i < n_threads ; i++ ) all_stopped &= ( threads[i].ThreadState == System.Threading.ThreadState.Stopped );
-        }
-      while ( !all_stopped );
-      Console.WriteLine ( "Controller ({0}): all threads stopped, exiting", DateTime.Now);
-      Console.WriteLine ( "n_purchase_from_start= {0} n_rollbacks_from_start= {1}" , n_purchase_from_start , n_rollbacks_from_start );
+        for (i = 0; i < n_threads; i++)
+          all_stopped &= (threads[i].ThreadState == System.Threading.ThreadState.Stopped);
+      }
+      while (!all_stopped);
+      Console.WriteLine("Controller ({0}): all threads stopped, exiting", DateTime.Now);
+      Console.WriteLine("n_purchase_from_start= {0} n_rollbacks_from_start= {1}", n_purchase_from_start, n_rollbacks_from_start);
 
       //Added by GSK
       //Call Write individual stats only when there are more than one target servers
-      if ( n_target_servers > 1 )
-        {
-        Console.WriteLine ( "\nIndividual Stats for each DB / Web Server: " );
-        for ( i = 0 ; i < n_target_servers ; i++ )
-          Console.WriteLine ( "n_purchase_from_start= {0} n_rollbacks_from_start= {1}",
-            arr_n_purchase_from_start[i] , arr_n_rollbacks_from_start[i] );
-        }
+      if (n_target_servers > 1)
+      {
+        Console.WriteLine("\nIndividual Stats for each DB / Web Server: ");
+        for (i = 0; i < n_target_servers; i++)
+          Console.WriteLine("n_purchase_from_start= {0} n_rollbacks_from_start= {1}",
+            arr_n_purchase_from_start[i], arr_n_rollbacks_from_start[i]);
+      }
       //Till this point Added by GSK
 
-  Console.WriteLine ( "Run over" );
+      Console.WriteLine("Run over");
 #if (GEN_PERF_CTRS)
       MaxRTC.RawValue = 0;
       OPMC.RawValue = 0;
 #endif
-      } // End of Controller() do_work()
+    } // End of Controller() do_work()
 
     //
     //-------------------------------------------------------------------------------------------------
@@ -2230,7 +2241,7 @@ namespace ds2xdriver
     {
       Console.WriteLine("\n=== Configuration Summary ===");
       Console.WriteLine($"Target servers: {string.Join(", ", target_servers)}");
-      Console.WriteLine($"Total threads: {n_threads} ({n_threads/n_target_servers} per server)");
+      Console.WriteLine($"Total threads: {n_threads} ({n_threads / n_target_servers} per server)");
       Console.WriteLine($"Number of stores: {n_stores}");
       Console.WriteLine($"Ramp rate: {ramp_rate} users/sec");
       Console.WriteLine($"Run time: {(run_time == 0 ? "infinite" : $"{run_time} minutes")}");
@@ -2396,18 +2407,18 @@ namespace ds2xdriver
       }
     }
 
-    } // End of class Controller
+  } // End of class Controller
 
   //
   //-------------------------------------------------------------------------------------------------
   //
   class User
-    {
+  {
     int Userid;
     ds2Interface[] ds2interfaces = new ds2Interface[GlobalConstants.MAX_USERS];
-    string username_in , password_in , firstname_in , lastname_in , address1_in , address2_in , city_in , state_in;
-    string zip_in , country_in , email_in , phone_in , creditcard_in , gender_in;
-    int creditcardtype_in , ccexpmon_in , ccexpyr_in , income_in , age_in;
+    string username_in, password_in, firstname_in, lastname_in, address1_in, address2_in, city_in, state_in;
+    string zip_in, country_in, email_in, phone_in, creditcard_in, gender_in;
+    int creditcardtype_in, ccexpmon_in, ccexpyr_in, income_in, age_in;
     int customerid_in, membershiplevel_in, reviewid_in, reviewhelpfulness_in;
     string new_review_summary_in, new_review_text_in;
     int new_review_stars_in, new_review_prod_id_in;
@@ -2419,15 +2430,15 @@ namespace ds2xdriver
     //Overloaded constructor to support multiple stores in single DS3 instance
     public User(int userid, int server_id, int target_store_num)
     {
-        Userid = userid;
-        target_server_id = server_id;
-        target_store = target_store_num;
+      Userid = userid;
+      target_server_id = server_id;
+      target_store = target_store_num;
 
-  username_in = password_in = firstname_in = lastname_in = address1_in = address2_in = city_in = state_in = string.Empty;
-  zip_in = country_in = email_in = phone_in = creditcard_in = gender_in = string.Empty;
-  new_review_summary_in = new_review_text_in = string.Empty;
+      username_in = password_in = firstname_in = lastname_in = address1_in = address2_in = city_in = state_in = string.Empty;
+      zip_in = country_in = email_in = phone_in = creditcard_in = gender_in = string.Empty;
+      new_review_summary_in = new_review_text_in = string.Empty;
 
-        //Console.WriteLine("user {0} created, target_store: {1}", userid, target_store);
+      //Console.WriteLine("user {0} created, target_store: {1}", userid, target_store);
     }
 
     //
@@ -2435,38 +2446,38 @@ namespace ds2xdriver
     //
     public int GetSkewedProductId(int maxProduct)
     {
-        int popularInterval = 10000;
-        int weightBoost = 9;
+      int popularInterval = 10000;
+      int weightBoost = 9;
 
-        int popularCount = maxProduct / popularInterval;
+      int popularCount = maxProduct / popularInterval;
 
-        long totalWeight = (long)maxProduct + ((long)popularCount * weightBoost);
+      long totalWeight = (long)maxProduct + ((long)popularCount * weightBoost);
 
-        long roll = (long)(Random.Shared.NextDouble() * totalWeight);
+      long roll = (long)(Random.Shared.NextDouble() * totalWeight);
 
-        long blockSize = popularInterval + weightBoost; // 10,009
-        long blockCount = roll / blockSize;
-        long offsetInBlock = roll % blockSize;
+      long blockSize = popularInterval + weightBoost; // 10,009
+      long blockCount = roll / blockSize;
+      long offsetInBlock = roll % blockSize;
 
-        if (offsetInBlock >= popularInterval)
-        {
-           return (int)(blockCount + 1) * popularInterval;
-        }
-        else
-        {
-           int rawId = (int)(blockCount * popularInterval + offsetInBlock) + 1;
-           return rawId > maxProduct ? maxProduct : rawId;
-        }
+      if (offsetInBlock >= popularInterval)
+      {
+        return (int)(blockCount + 1) * popularInterval;
+      }
+      else
+      {
+        int rawId = (int)(blockCount * popularInterval + offsetInBlock) + 1;
+        return rawId > maxProduct ? maxProduct : rawId;
+      }
     }
 
     //
     //-------------------------------------------------------------------------------------------------
     //
-    public void Emulate ( )
-      {
-      int i , customerid_out = 0 , neworderid_out = 0 , rows_returned = 0, reviewhelpfulnessid_out = 0, newreviewid_out = 0, failures;
-      bool IsLogin , IsRollback, IsNewMember, IsNewReview, IsNewHelpfulness;
-      double rt = 0 , rt_tot , rt_login , rt_newcust , rt_browse , rt_purchase;
+    public void Emulate()
+    {
+      int i, customerid_out = 0, neworderid_out = 0, rows_returned = 0, reviewhelpfulnessid_out = 0, newreviewid_out = 0, failures;
+      bool IsLogin, IsRollback, IsNewMember, IsNewReview, IsNewHelpfulness;
+      double rt = 0, rt_tot, rt_login, rt_newcust, rt_browse, rt_purchase;
       double rt_newmember, rt_reviewbrowse, rt_newreview, rt_newhelpfulness;
 
       string[] title_out = new string[GlobalConstants.MAX_ROWS];         // Login, Browse
@@ -2489,44 +2500,45 @@ namespace ds2xdriver
       int n_reviewbrowse = 0;
       int n_getreviewbrowse = 0;
 
-      Thread.CurrentThread.Name = Userid.ToString ( );
-      Console.WriteLine ( "Thread {0}: created for User {1}" , Thread.CurrentThread.Name , Userid );
+      Thread.CurrentThread.Name = Userid.ToString();
+      Console.WriteLine("Thread {0}: created for User {1}", Thread.CurrentThread.Name, Userid);
 
-      lock ( typeof ( User ) )  // Only allow one instance of User to access this code at a time
-        {
+      lock (typeof(User))  // Only allow one instance of User to access this code at a time
+      {
         ++Controller.n_threads_running;
-        }
+      }
 
-      ds2interfaces[Userid] = new ds2Interface(Userid, Controller.target_servers[target_server_id].ToString(), ((Userid % Controller.n_stores)+1));
+      ds2interfaces[Userid] = new ds2Interface(Userid, Controller.target_servers[target_server_id].ToString(), ((Userid % Controller.n_stores) + 1));
 
       // Users randomly start connecting over a (#users/ramp_rate) sec period
-      Thread.Sleep ( Random.Shared.Next( ( int ) Math.Floor ( 1000.0 * Controller.n_threads / ( double ) Controller.ramp_rate ) ) );
+      Thread.Sleep(Random.Shared.Next((int)Math.Floor(1000.0 * Controller.n_threads / (double)Controller.ramp_rate)));
 
-      if ( !ds2interfaces[Userid].ds2connect ( ) )
-        {
+      if (!ds2interfaces[Userid].ds2connect())
+      {
         //Console.WriteLine ( "Thread {0}: can't connect to {1}; exiting" , Thread.CurrentThread.Name ,
         //  Controller.target );
         //Changed by GSK
-        Console.WriteLine ( "Thread {0}: can't connect to {1}; exiting" , Thread.CurrentThread.Name ,
-          Controller.target_servers[target_server_id].ToString ( ) );
+        Console.WriteLine("Thread {0}: can't connect to {1}; exiting", Thread.CurrentThread.Name,
+          Controller.target_servers[target_server_id].ToString());
         return;
-        }
+      }
 
       //Console.WriteLine ( "Thread {0}: connected to {1}" , Thread.CurrentThread.Name , Controller.target );
       //Changed by GSK
-      Console.WriteLine ( "Thread {0}: connected to {1}" , Thread.CurrentThread.Name , Controller.target_servers[target_server_id].ToString ( ) );
+      Console.WriteLine("Thread {0}: connected to {1}", Thread.CurrentThread.Name, Controller.target_servers[target_server_id].ToString());
 
-      lock ( typeof ( User ) )  // Only allow one instance of User to access this code at a time
-        {
+      lock (typeof(User))  // Only allow one instance of User to access this code at a time
+      {
         ++Controller.n_threads_connected;
-        }
+      }
 
       // Wait for all threads to connect
-      while ( !Controller.Start ) Thread.Sleep ( 100 );
+      while (!Controller.Start)
+        Thread.Sleep(100);
 
       // Thread emulation loop - execute until Controller signals END
       do
-        {
+      {
         //Console.WriteLine ( "Thread {0}: Running for User {1}" , Thread.CurrentThread.Name , Userid );
         // Initialize response time accumulators and other variables
         rt_tot = 0.0;  //  total response time for all phases of this emulation loop order
@@ -2549,39 +2561,39 @@ namespace ds2xdriver
 
         double user_type = Random.Shared.NextDouble();
 
-        if ( user_type >= Controller.pct_newcustomers / 100.0 ) // If this is true we have a returning customer
-          {
+        if (user_type >= Controller.pct_newcustomers / 100.0) // If this is true we have a returning customer
+        {
           IsLogin = true;
           //Returning user with randomized username
-          int i_user = Random.Shared.Next(1,Controller.max_customer+1);
+          int i_user = Random.Shared.Next(1, Controller.max_customer + 1);
           username_in = "user" + i_user;
           password_in = "password";
           rows_returned = 0;
 
           // Modified by DJ 11/20/2016 to allow failures before dropping thread
           failures = 0;
-          while ( !ds2interfaces[Userid].ds2login ( username_in , password_in , ref customerid_out , ref rows_returned ,
-            ref title_out , ref actor_out , ref related_title_out , ref rt ) )
-            {
+          while (!ds2interfaces[Userid].ds2login(username_in, password_in, ref customerid_out, ref rows_returned,
+            ref title_out, ref actor_out, ref related_title_out, ref rt))
+          {
             if (++failures < GlobalConstants.MAX_FAILURES)
-              {
-              Console.WriteLine ( "Thread {0}: Error in Login for User {1}, failure {2}, retrying" ,
-                Thread.CurrentThread.Name , username_in, failures);
-            }
-          else
             {
-              Console.WriteLine ( "Thread {0}: Error in Login for User {1}, failure {2}, exiting" ,
-                Thread.CurrentThread.Name , username_in, failures);
+              Console.WriteLine("Thread {0}: Error in Login for User {1}, failure {2}, retrying",
+                Thread.CurrentThread.Name, username_in, failures);
+            }
+            else
+            {
+              Console.WriteLine("Thread {0}: Error in Login for User {1}, failure {2}, exiting",
+                Thread.CurrentThread.Name, username_in, failures);
               return;
             }
-            }
+          }
 
-          if ( customerid_out == 0 )
-            {
-            Console.WriteLine ( "Thread {0}: User {1} not found, thread exiting" ,
-              Thread.CurrentThread.Name , username_in );
+          if (customerid_out == 0)
+          {
+            Console.WriteLine("Thread {0}: User {1} not found, thread exiting",
+              Thread.CurrentThread.Name, username_in);
             return;
-            }
+          }
 
           //        Console.WriteLine("Thread {0}: User {1} logged in, customerid= {2}, previous DVDs ordered= {3}, " +
           //          "RT= {4,10:F3}", Thread.CurrentThread.Name, username_in, customerid_out, rows_returned, rt);
@@ -2592,42 +2604,42 @@ namespace ds2xdriver
           rt_login = rt;
           rt_tot += rt;
 
-    // DPY Placeholder for checking membership status and renewing membership using customerid_out as input.
-       if (!Controller.ds2_mode)
-      {
+          // DPY Placeholder for checking membership status and renewing membership using customerid_out as input.
+          if (!Controller.ds2_mode)
+          {
 
-      }
-          }  // end returning customer
+          }
+        }  // end returning customer
 
         // New Customer with randomized username
 
         else   // New user
-          {
-          CreateUserData ( );
+        {
+          CreateUserData();
           do  // Try newcustomer until find a userid that doesn't exist
           {
-            int i_user = Random.Shared.Next(1,Controller.max_customer+1);
+            int i_user = Random.Shared.Next(1, Controller.max_customer + 1);
             username_in = "newuser" + i_user;
             password_in = "password";
 
             failures = 0;
-            while ( !ds2interfaces[Userid].ds2newcustomer ( username_in , password_in , firstname_in , lastname_in ,
-              address1_in , address2_in , city_in , state_in , zip_in , country_in , email_in , phone_in ,
-              creditcardtype_in , creditcard_in , ccexpmon_in , ccexpyr_in , age_in , income_in , gender_in ,
-              ref customerid_out , ref rt ) )
-              {
+            while (!ds2interfaces[Userid].ds2newcustomer(username_in, password_in, firstname_in, lastname_in,
+              address1_in, address2_in, city_in, state_in, zip_in, country_in, email_in, phone_in,
+              creditcardtype_in, creditcard_in, ccexpmon_in, ccexpyr_in, age_in, income_in, gender_in,
+              ref customerid_out, ref rt))
+            {
               if (++failures < GlobalConstants.MAX_FAILURES)
-                {
-                  Console.WriteLine ( "Thread {0}: Error in New Customer for User {1}, failure {2}, retrying" ,
-                  Thread.CurrentThread.Name , username_in, failures);
-          }
-        else
-          {
-                  Console.WriteLine ( "Thread {0}: Error in New Customer for User {1}, failure {2}, exiting" ,
-                  Thread.CurrentThread.Name , username_in, failures);
-                  return;
-          }
+              {
+                Console.WriteLine("Thread {0}: Error in New Customer for User {1}, failure {2}, retrying",
+                Thread.CurrentThread.Name, username_in, failures);
               }
+              else
+              {
+                Console.WriteLine("Thread {0}: Error in New Customer for User {1}, failure {2}, exiting",
+                Thread.CurrentThread.Name, username_in, failures);
+                return;
+              }
+            }
 
             //if (customerid_out == 0)
             //{
@@ -2635,73 +2647,73 @@ namespace ds2xdriver
             //}
             if (customerid_out == -1)
             {
-                Console.WriteLine("New Customer - DB didn't return value for new customerid, retrying... ");
+              Console.WriteLine("New Customer - DB didn't return value for new customerid, retrying... ");
             }
-          } while ( customerid_out < 1 ); // end of do/while try newcustomer
+          } while (customerid_out < 1); // end of do/while try newcustomer
 
-//        Console.WriteLine("Thread {0}: New user {1} logged in, customerid = {2}, RT= {3,10:F3}",
-//           Thread.CurrentThread.Name, username_in, customerid_out, rt);
+          //        Console.WriteLine("Thread {0}: New user {1} logged in, customerid = {2}, RT= {3,10:F3}",
+          //           Thread.CurrentThread.Name, username_in, customerid_out, rt);
 
           rt_newcust = rt;  // Just count last iteration if had to retry username
           rt_tot += rt;
 
-          } //End of Else (new user)
+        } //End of Else (new user)
 
         // End of Login/New Customer Phase
 
         // Begin New Member Phase
 
-  // DPY: use result from checking membership and only do this if customer isn't a current member.
-        if ( ( user_type <= Controller.pct_newmember / 100.0 ) && (!Controller.ds2_mode)) // If this is true we have a customer that wants to join membership program
+        // DPY: use result from checking membership and only do this if customer isn't a current member.
+        if ((user_type <= Controller.pct_newmember / 100.0) && (!Controller.ds2_mode)) // If this is true we have a customer that wants to join membership program
         {
-            IsNewMember = true;
-            do  // Try newmember until find a userid that doesn't exist
-            {
-            customerid_in = Random.Shared.Next(1,Controller.max_customer+1); // DPY: This should use returning customer id [customerid_out] from above.
+          IsNewMember = true;
+          do  // Try newmember until find a userid that doesn't exist
+          {
+            customerid_in = Random.Shared.Next(1, Controller.max_customer + 1); // DPY: This should use returning customer id [customerid_out] from above.
 
             // Pyramid distribution: 60% Bronze, 30% Silver, 10% Gold
-            membershiplevel_in = Random.Shared.Next(1,100);
-	    if (membershiplevel_in <= 60)
-	    {
-                membershiplevel_in = 1;
-	    }
-	    else if (membershiplevel_in <= 90)
-	    {
-                membershiplevel_in = 2;
-	    }
-	    else
-	    {
-                membershiplevel_in = 3;
-	    }
+            membershiplevel_in = Random.Shared.Next(1, 100);
+            if (membershiplevel_in <= 60)
+            {
+              membershiplevel_in = 1;
+            }
+            else if (membershiplevel_in <= 90)
+            {
+              membershiplevel_in = 2;
+            }
+            else
+            {
+              membershiplevel_in = 3;
+            }
 
             failures = 0;
-            while ( !ds2interfaces[Userid].ds2newmember ( customerid_in , membershiplevel_in , ref customerid_out , ref rt ) )
-              {
+            while (!ds2interfaces[Userid].ds2newmember(customerid_in, membershiplevel_in, ref customerid_out, ref rt))
+            {
               if (++failures < GlobalConstants.MAX_FAILURES)
-                {
-                  Console.WriteLine ( "Thread {0}: Error in New Member for User {1}, failure {2}, retrying" ,
-                    Thread.CurrentThread.Name , username_in, failures);
-                }
-              else
-                {
-                  Console.WriteLine ( "Thread {0}: Error in New Member for User {1}, failure {2}, exiting" ,
-                    Thread.CurrentThread.Name , username_in, failures);
-                  return;
-                }
+              {
+                Console.WriteLine("Thread {0}: Error in New Member for User {1}, failure {2}, retrying",
+                  Thread.CurrentThread.Name, username_in, failures);
               }
+              else
+              {
+                Console.WriteLine("Thread {0}: Error in New Member for User {1}, failure {2}, exiting",
+                  Thread.CurrentThread.Name, username_in, failures);
+                return;
+              }
+            }
 
             // if ( customerid_out == 0 ) Console.WriteLine ( "Customer {0} is already a member" , customerid_in );
-            } while ( customerid_out == 0 ); // end of do/while try newcustomer
+          } while (customerid_out == 0); // end of do/while try newcustomer
 
-//        Console.WriteLine("Thread {0}: New user {1} logged in, customerid = {2}, RT= {3,10:F3}",
-//           Thread.CurrentThread.Name, username_in, customerid_out, rt);
+          //        Console.WriteLine("Thread {0}: New user {1} logged in, customerid = {2}, RT= {3,10:F3}",
+          //           Thread.CurrentThread.Name, username_in, customerid_out, rt);
 
           rt_newmember = rt;  // Just count last iteration if had to retry username
           rt_tot += rt;
 
-          } //End of IF
+        } //End of IF
 
-          // End of New Member Phase
+        // End of New Member Phase
 
         // Browse Phase
 
@@ -2714,24 +2726,24 @@ namespace ds2xdriver
         // Browse by vector: Experimental. Doesn't make sense in the context of a dvd store, but you can do it anyway.
         // DPY: Only search by Category, Actor, Title if --ds2_mode=y
 
-        string browse_type_in = "" , browse_category_in = "" , browse_actor_in = "" , browse_title_in = "";
+        string browse_type_in = "", browse_category_in = "", browse_actor_in = "", browse_title_in = "";
         string browse_criteria = "";
         int batch_size_in;
 
         int n_browse = Random.Shared.Next(1, 2 * Controller.n_searches);   // Perform average of n_searches searches
-        for ( int ib = 0 ; ib < n_browse ; ib++ )
-          {
+        for (int ib = 0; ib < n_browse; ib++)
+        {
           batch_size_in = Random.Shared.Next(1, 2 * Controller.search_batch_size); // request avg of search_batch_size lines
           int search_type = Random.Shared.Next(4 + Controller.n_vectors); // randomly select search type
 
           browse_actor_in = "";
           browse_title_in = "";
 
-          switch ( search_type )
-            {
+          switch (search_type)
+          {
             case 0:  // Search by Category
               browse_type_in = "category";
-              browse_category_in = (Random.Shared.Next(1, GlobalConstants.MAX_CATEGORY+1)).ToString();
+              browse_category_in = (Random.Shared.Next(1, GlobalConstants.MAX_CATEGORY + 1)).ToString();
               browse_criteria = browse_category_in;
               break;
             case 1:  // Search by Actor
@@ -2753,54 +2765,54 @@ namespace ds2xdriver
               browse_criteria = browse_type_in;
               Controller.n_browse_vector++;
               break;
-            }
+          }
 
           failures = 0;
-      //DPY: need to pass membership level or 0 parameter.
-            while ( !ds2interfaces[Userid].ds2browse ( browse_type_in , browse_category_in , browse_actor_in ,
-            browse_title_in , batch_size_in , Controller.search_depth , customerid_out , ref rows_returned , ref prod_id_out , ref title_out ,
-            ref actor_out , ref price_out , ref special_out , ref common_prod_id_out , ref rt ) )
-            {
+          //DPY: need to pass membership level or 0 parameter.
+          while (!ds2interfaces[Userid].ds2browse(browse_type_in, browse_category_in, browse_actor_in,
+          browse_title_in, batch_size_in, Controller.search_depth, customerid_out, ref rows_returned, ref prod_id_out, ref title_out,
+          ref actor_out, ref price_out, ref special_out, ref common_prod_id_out, ref rt))
+          {
             if (++failures < GlobalConstants.MAX_FAILURES)
+            {
+              Console.WriteLine("Thread {0}: Error in simple product Browse for User {1}, failure {2}, retrying",
+               Thread.CurrentThread.Name, username_in, failures);
+
+              // Assume there's a problem with vector search and disable.
+              // The ds2browse implimentation must set rows_returned = -1
+              if (rows_returned == -1 && Controller.n_vectors == 1)
               {
-               Console.WriteLine ( "Thread {0}: Error in simple product Browse for User {1}, failure {2}, retrying" ,
-                Thread.CurrentThread.Name , username_in, failures);
+                Console.WriteLine("  Disabling Browse by vector.");
+                Controller.n_vectors = 0;
+              }
 
-                // Assume there's a problem with vector search and disable.
-                // The ds2browse implimentation must set rows_returned = -1
-                if (rows_returned == -1 && Controller.n_vectors == 1)
-                {
-                  Console.WriteLine("  Disabling Browse by vector.");
-                  Controller.n_vectors = 0;
-                }
-
-                // Browse by category instead of continuing to browse by vector.
-                // This allows the test to continue with threads exiting.
-                if (rows_returned == -1)
-                {
-                  browse_type_in = "category";
-                  browse_category_in = (Random.Shared.Next(1, GlobalConstants.MAX_CATEGORY+1)).ToString();
-                  browse_criteria = browse_category_in;
-                }
-             }
-             else
-             {
-               Console.WriteLine ( "Thread {0}: Error in simple product Browse for User {1}, failure {2}, exiting" ,
-                Thread.CurrentThread.Name , username_in, failures);
-               return;
-             }
+              // Browse by category instead of continuing to browse by vector.
+              // This allows the test to continue with threads exiting.
+              if (rows_returned == -1)
+              {
+                browse_type_in = "category";
+                browse_category_in = (Random.Shared.Next(1, GlobalConstants.MAX_CATEGORY + 1)).ToString();
+                browse_criteria = browse_category_in;
+              }
             }
+            else
+            {
+              Console.WriteLine("Thread {0}: Error in simple product Browse for User {1}, failure {2}, exiting",
+               Thread.CurrentThread.Name, username_in, failures);
+              return;
+            }
+          }
 
-//        Console.WriteLine("Thread {0}: Search by {1}={2} returned {3} DVDs ({4} requested), RT= {5,10:F3}",
-//        Thread.CurrentThread.Name, browse_type_in, browse_criteria, rows_returned, batch_size_in,rt);
-//        for (i=0; i<rows_returned; i++)
-//          Console.WriteLine("  Thread {0}: prod_id= {1} title= {2} actor= {3} price= {4} special= {5}" +
-//            " common_prod_id= {6}",
-//            Thread.CurrentThread.Name, prod_id_out[i], title_out[i], actor_out[i],
-//            price_out[i], special_out[i], common_prod_id_out[i]);
+          //        Console.WriteLine("Thread {0}: Search by {1}={2} returned {3} DVDs ({4} requested), RT= {5,10:F3}",
+          //        Thread.CurrentThread.Name, browse_type_in, browse_criteria, rows_returned, batch_size_in,rt);
+          //        for (i=0; i<rows_returned; i++)
+          //          Console.WriteLine("  Thread {0}: prod_id= {1} title= {2} actor= {3} price= {4} special= {5}" +
+          //            " common_prod_id= {6}",
+          //            Thread.CurrentThread.Name, prod_id_out[i], title_out[i], actor_out[i],
+          //            price_out[i], special_out[i], common_prod_id_out[i]);
 
           rt_browse += rt;
-          }  // End of for ib=0 to n_browse
+        }  // End of for ib=0 to n_browse
 
         rt_tot += rt_browse;
 
@@ -2815,173 +2827,173 @@ namespace ds2xdriver
 
         if (!Controller.ds2_mode)    // if ds2_mode is set to true, then don't do get reviews or helpfulness
         {
-            string get_review_type_in = "", get_review_category_in = "", get_review_actor_in = "", get_review_title_in = "";
-            int get_review_prod_in;
-            string get_review_criteria = "";
-            string[] actornames_in, titlenames_in;
-            // int batch_size_in;
+          string get_review_type_in = "", get_review_category_in = "", get_review_actor_in = "", get_review_title_in = "";
+          int get_review_prod_in;
+          string get_review_criteria = "";
+          string[] actornames_in, titlenames_in;
+          // int batch_size_in;
 
-            n_reviewbrowse = Random.Shared.Next(1,2 * Controller.n_reviews);   // Perform average of n_reviews searches
-            for (int ib = 0; ib < n_reviewbrowse; ib++)
+          n_reviewbrowse = Random.Shared.Next(1, 2 * Controller.n_reviews);   // Perform average of n_reviews searches
+          for (int ib = 0; ib < n_reviewbrowse; ib++)
+          {
+            batch_size_in = Random.Shared.Next(1, 2 * Controller.search_batch_size); // request avg of search_batch_size lines
+            int search_type = Random.Shared.Next(2); // randomly select search type
+            switch (search_type)
             {
-                batch_size_in = Random.Shared.Next(1,2 * Controller.search_batch_size); // request avg of search_batch_size lines
-                int search_type = Random.Shared.Next(2); // randomly select search type
-                switch (search_type)
-                {
-                    case 0:  // Get Reviews by Actor
-                        get_review_type_in = "actor";
-                        get_review_prod_in = 0;
-                        actornames_in = CreateActor().Split(' ');     // Get just one name for searching
-                        get_review_actor_in = actornames_in[1];
-                        get_review_title_in = "";
-                        get_review_criteria = get_review_actor_in;
-                        break;
-                    case 1:  // Get Reviews by Title
-                        get_review_type_in = "title";
-                        get_review_category_in = "";
-                        get_review_actor_in = "";
-                        titlenames_in = CreateTitle().Split(' ');       // Get just one word for title search
-                        get_review_title_in = titlenames_in[1];
-                        get_review_criteria = get_review_title_in;
-                        break;
-                }
-                failures = 0;
-                while (!ds2interfaces[Userid].ds2browsereview(get_review_type_in, get_review_category_in, get_review_actor_in,
-                  get_review_title_in, batch_size_in, Controller.search_depth, customerid_out, ref rows_returned, ref prod_id_out, ref title_out,
-                  ref actor_out, ref review_id_out, ref review_date_out, ref review_stars_out, ref review_customerid_out,
-                  ref review_summary_out, ref review_text_out, ref review_helpfulness_sum_out, ref rt))
-                  {
-                   if (++failures < GlobalConstants.MAX_FAILURES)
-                    {
-                      Console.WriteLine ( "Thread {0}: Error in browse reviews for User {1}, failure {2}, retrying" ,
-                        Thread.CurrentThread.Name , username_in, failures);
-                    }
-                   else
-                    {
-                      Console.WriteLine ( "Thread {0}: Error in browse reviews for User {1}, failure {2}, exiting" ,
-                        Thread.CurrentThread.Name , username_in, failures);
-                      return;
-                    }
-                  }
-                rt_reviewbrowse += rt;
-            }  // End of for ib=0 to n_browse
-
-            rt_tot += rt_reviewbrowse;
-
-            // End of Browse Reviews Phase
-
-            // Get Reviews Phase
-
-            // GET_PROD_REVIEWS - Get product reviews for a specific product
-            // GET_PROD_REVIEWS_BY_DATE - Get product reviews for a specific product sorted by date
-            // GET_PROD_REVIEWS_BY_STARS - Get product reviews for a specific product at a specific "stars" level
-
-            get_review_type_in = "";
-            get_review_stars_in = Random.Shared.Next(1,5);    //Randomly select the star level to search for
-            get_review_prod_in = 0;
-            //string get_review_criteria = "";
-            // int batch_size_in;
-
-            n_getreviewbrowse = Random.Shared.Next(1,2 * Controller.n_reviews);   // Perform average of n_searches searches
-            for (int ib = 0; ib < n_getreviewbrowse; ib++)
-            {
-                batch_size_in = Random.Shared.Next(1,2 * Controller.search_batch_size); // request avg of search_batch_size lines
-                int search_type = Random.Shared.Next(3); // randomly select search type
-                switch (search_type)
-                {
-                    case 0:  // Get Reviews with no order
-                        get_review_type_in = "noorder";
-                        // assign get_review_prod_in to be a random product id number
-                        get_review_prod_in = GetSkewedProductId(Controller.max_product[target_store]);
-                        break;
-                    case 1:  // Get Reviews by Star ranking
-                        get_review_type_in = "star";
-                        get_review_prod_in = GetSkewedProductId(Controller.max_product[target_store]);
-                        break;
-                    case 2:  // Get Reviews by date
-                        get_review_type_in = "date";
-                        get_review_prod_in = GetSkewedProductId(Controller.max_product[target_store]);
-                        break;
-                }
-                failures = 0;
-                while (!ds2interfaces[Userid].ds2getreview(get_review_type_in, get_review_prod_in, get_review_stars_in, customerid_out, batch_size_in, ref rows_returned, ref prod_id_out,
-                   ref review_id_out, ref review_date_out, ref review_stars_out, ref review_customerid_out,
-                   ref review_summary_out, ref review_text_out, ref review_helpfulness_sum_out, ref rt))
-                  {
-                   if (++failures < GlobalConstants.MAX_FAILURES)
-                    {
-                       Console.WriteLine ( "Thread {0}: Error in get review for User {1}, failure {2}, retrying",Thread.CurrentThread.Name , username_in, failures);
-                    }
-                   else
-                    {
-                       Console.WriteLine ( "Thread {0}: Error in get review for User {1}, failure {2}, exiting",Thread.CurrentThread.Name , username_in, failures);
-                       return;
-                    }
-                  }
-                rt_reviewbrowse += rt;
-            }  // End of for ib=0 to n_browse
-
-            rt_tot += rt_reviewbrowse;
-
-            // End of Get Reviews Phase
-
-            // Begin New Review Phase
-            if ((user_type <= Controller.pct_newreviews / 100.0) && (rows_returned > 0)) // If this is true we have a customer that wants to submit a new review
-            {
-                IsNewReview = true;
-
-                new_review_summary_in = CreateReviewData(3);
-                new_review_text_in = CreateReviewData(25);
-                new_review_stars_in = Random.Shared.Next(1,6);
-                new_review_prod_id_in = prod_id_out[Random.Shared.Next(0,rows_returned)];
-
-                failures = 0;
-                while (!ds2interfaces[Userid].ds2newreview(new_review_prod_id_in, new_review_stars_in, customerid_out, new_review_summary_in, new_review_text_in, ref newreviewid_out, ref rt))
-                {
-                  if (++failures < GlobalConstants.MAX_FAILURES)
-                  {
-                      Console.WriteLine ( "Thread {0}: Error in new review for User {1}, failure {2}, retrying" ,
-                        Thread.CurrentThread.Name , username_in, failures);
-                  }
-                  else
-                  {
-                      Console.WriteLine ( "Thread {0}: Error in new review for User {1}, failure {2}, exiting" ,
-                        Thread.CurrentThread.Name , username_in, failures);
-                      return;
-                  }
-                }
-
-                rt_newreview = rt;
-                rt_tot += rt;
+              case 0:  // Get Reviews by Actor
+                get_review_type_in = "actor";
+                get_review_prod_in = 0;
+                actornames_in = CreateActor().Split(' ');     // Get just one name for searching
+                get_review_actor_in = actornames_in[1];
+                get_review_title_in = "";
+                get_review_criteria = get_review_actor_in;
+                break;
+              case 1:  // Get Reviews by Title
+                get_review_type_in = "title";
+                get_review_category_in = "";
+                get_review_actor_in = "";
+                titlenames_in = CreateTitle().Split(' ');       // Get just one word for title search
+                get_review_title_in = titlenames_in[1];
+                get_review_criteria = get_review_title_in;
+                break;
             }
-            //End New Review Phase
-
-            // Begin New Review Helpfulness Phase
-            if ((user_type <= Controller.pct_newhelpfulness / 100.0) && (rows_returned > 0))// If this is true we have a customer that wants to rate a reviews helpfulness
+            failures = 0;
+            while (!ds2interfaces[Userid].ds2browsereview(get_review_type_in, get_review_category_in, get_review_actor_in,
+              get_review_title_in, batch_size_in, Controller.search_depth, customerid_out, ref rows_returned, ref prod_id_out, ref title_out,
+              ref actor_out, ref review_id_out, ref review_date_out, ref review_stars_out, ref review_customerid_out,
+              ref review_summary_out, ref review_text_out, ref review_helpfulness_sum_out, ref rt))
             {
-                IsNewHelpfulness = true;
-                reviewid_in = review_id_out[Random.Shared.Next(0,rows_returned)];
-                reviewhelpfulness_in = Random.Shared.Next(1,11);
+              if (++failures < GlobalConstants.MAX_FAILURES)
+              {
+                Console.WriteLine("Thread {0}: Error in browse reviews for User {1}, failure {2}, retrying",
+                  Thread.CurrentThread.Name, username_in, failures);
+              }
+              else
+              {
+                Console.WriteLine("Thread {0}: Error in browse reviews for User {1}, failure {2}, exiting",
+                  Thread.CurrentThread.Name, username_in, failures);
+                return;
+              }
+            }
+            rt_reviewbrowse += rt;
+          }  // End of for ib=0 to n_browse
 
-                failures = 0;
-                while (!ds2interfaces[Userid].ds2newreviewhelpfulness(reviewid_in, customerid_out, reviewhelpfulness_in, ref reviewhelpfulnessid_out, ref rt))
-                {
-                   if (++failures < GlobalConstants.MAX_FAILURES)
-                   {
-                       Console.WriteLine ( "Thread {0}: Error in new review helpfulness for User {1}, failure {2}, retrying" ,
-                         Thread.CurrentThread.Name , username_in, failures);
-                   }
-                   else
-                   {
-                       Console.WriteLine ( "Thread {0}: Error in new review helpfulness for User {1}, failure {2}, exiting" ,
-                         Thread.CurrentThread.Name , username_in, failures);
-                       return;
-                   }
-                }
+          rt_tot += rt_reviewbrowse;
 
-                rt_newhelpfulness = rt;  // Just count last iteration if had to retry username
-                rt_tot += rt;
-            } //End of IF
+          // End of Browse Reviews Phase
+
+          // Get Reviews Phase
+
+          // GET_PROD_REVIEWS - Get product reviews for a specific product
+          // GET_PROD_REVIEWS_BY_DATE - Get product reviews for a specific product sorted by date
+          // GET_PROD_REVIEWS_BY_STARS - Get product reviews for a specific product at a specific "stars" level
+
+          get_review_type_in = "";
+          get_review_stars_in = Random.Shared.Next(1, 5);    //Randomly select the star level to search for
+          get_review_prod_in = 0;
+          //string get_review_criteria = "";
+          // int batch_size_in;
+
+          n_getreviewbrowse = Random.Shared.Next(1, 2 * Controller.n_reviews);   // Perform average of n_searches searches
+          for (int ib = 0; ib < n_getreviewbrowse; ib++)
+          {
+            batch_size_in = Random.Shared.Next(1, 2 * Controller.search_batch_size); // request avg of search_batch_size lines
+            int search_type = Random.Shared.Next(3); // randomly select search type
+            switch (search_type)
+            {
+              case 0:  // Get Reviews with no order
+                get_review_type_in = "noorder";
+                // assign get_review_prod_in to be a random product id number
+                get_review_prod_in = GetSkewedProductId(Controller.max_product[target_store]);
+                break;
+              case 1:  // Get Reviews by Star ranking
+                get_review_type_in = "star";
+                get_review_prod_in = GetSkewedProductId(Controller.max_product[target_store]);
+                break;
+              case 2:  // Get Reviews by date
+                get_review_type_in = "date";
+                get_review_prod_in = GetSkewedProductId(Controller.max_product[target_store]);
+                break;
+            }
+            failures = 0;
+            while (!ds2interfaces[Userid].ds2getreview(get_review_type_in, get_review_prod_in, get_review_stars_in, customerid_out, batch_size_in, ref rows_returned, ref prod_id_out,
+               ref review_id_out, ref review_date_out, ref review_stars_out, ref review_customerid_out,
+               ref review_summary_out, ref review_text_out, ref review_helpfulness_sum_out, ref rt))
+            {
+              if (++failures < GlobalConstants.MAX_FAILURES)
+              {
+                Console.WriteLine("Thread {0}: Error in get review for User {1}, failure {2}, retrying", Thread.CurrentThread.Name, username_in, failures);
+              }
+              else
+              {
+                Console.WriteLine("Thread {0}: Error in get review for User {1}, failure {2}, exiting", Thread.CurrentThread.Name, username_in, failures);
+                return;
+              }
+            }
+            rt_reviewbrowse += rt;
+          }  // End of for ib=0 to n_browse
+
+          rt_tot += rt_reviewbrowse;
+
+          // End of Get Reviews Phase
+
+          // Begin New Review Phase
+          if ((user_type <= Controller.pct_newreviews / 100.0) && (rows_returned > 0)) // If this is true we have a customer that wants to submit a new review
+          {
+            IsNewReview = true;
+
+            new_review_summary_in = CreateReviewData(3);
+            new_review_text_in = CreateReviewData(25);
+            new_review_stars_in = Random.Shared.Next(1, 6);
+            new_review_prod_id_in = prod_id_out[Random.Shared.Next(0, rows_returned)];
+
+            failures = 0;
+            while (!ds2interfaces[Userid].ds2newreview(new_review_prod_id_in, new_review_stars_in, customerid_out, new_review_summary_in, new_review_text_in, ref newreviewid_out, ref rt))
+            {
+              if (++failures < GlobalConstants.MAX_FAILURES)
+              {
+                Console.WriteLine("Thread {0}: Error in new review for User {1}, failure {2}, retrying",
+                  Thread.CurrentThread.Name, username_in, failures);
+              }
+              else
+              {
+                Console.WriteLine("Thread {0}: Error in new review for User {1}, failure {2}, exiting",
+                  Thread.CurrentThread.Name, username_in, failures);
+                return;
+              }
+            }
+
+            rt_newreview = rt;
+            rt_tot += rt;
+          }
+          //End New Review Phase
+
+          // Begin New Review Helpfulness Phase
+          if ((user_type <= Controller.pct_newhelpfulness / 100.0) && (rows_returned > 0))// If this is true we have a customer that wants to rate a reviews helpfulness
+          {
+            IsNewHelpfulness = true;
+            reviewid_in = review_id_out[Random.Shared.Next(0, rows_returned)];
+            reviewhelpfulness_in = Random.Shared.Next(1, 11);
+
+            failures = 0;
+            while (!ds2interfaces[Userid].ds2newreviewhelpfulness(reviewid_in, customerid_out, reviewhelpfulness_in, ref reviewhelpfulnessid_out, ref rt))
+            {
+              if (++failures < GlobalConstants.MAX_FAILURES)
+              {
+                Console.WriteLine("Thread {0}: Error in new review helpfulness for User {1}, failure {2}, retrying",
+                  Thread.CurrentThread.Name, username_in, failures);
+              }
+              else
+              {
+                Console.WriteLine("Thread {0}: Error in new review helpfulness for User {1}, failure {2}, exiting",
+                  Thread.CurrentThread.Name, username_in, failures);
+                return;
+              }
+            }
+
+            rt_newhelpfulness = rt;  // Just count last iteration if had to retry username
+            rt_tot += rt;
+          } //End of IF
             // End of New Helpfulness Phase
 
         } // end of if for ds2_mode to exclude reviews and helpfulness opreations
@@ -2989,11 +3001,11 @@ namespace ds2xdriver
 
         // Purchase Phase
 
-        for ( i = 0 ; i < GlobalConstants.MAX_ROWS ; i++ )
-          {
+        for (i = 0; i < GlobalConstants.MAX_ROWS; i++)
+        {
           prod_id_in[i] = 0;
           qty_in[i] = 0;
-          }
+        }
 
         // Randomize number of cart items with average n_line_items
         int cart_items = Random.Shared.Next(1, 2 * Controller.n_line_items);
@@ -3006,30 +3018,30 @@ namespace ds2xdriver
         //  }
 
         // For each cart item randomly select product_id using weighted random Id
-        for ( i = 0 ; i < cart_items ; i++ )
-          {
+        for (i = 0; i < cart_items; i++)
+        {
           prod_id_in[i] = GetSkewedProductId(Controller.max_product[target_store]);
-          qty_in[i] = Random.Shared.Next(1,4);  // qty (1, 2 or 3)
-          //        Console.WriteLine("Thread {0}: Purchase prod_id_in[{1}] = {2}  qty_in[{1}]= {3}",
-          //          Thread.CurrentThread.Name, i, prod_id_in[i], qty_in[i]);
-          }
+          qty_in[i] = Random.Shared.Next(1, 4);  // qty (1, 2 or 3)
+                                                 //        Console.WriteLine("Thread {0}: Purchase prod_id_in[{1}] = {2}  qty_in[{1}]= {3}",
+                                                 //          Thread.CurrentThread.Name, i, prod_id_in[i], qty_in[i]);
+        }
 
         failures = 0;
-        while ( !ds2interfaces[Userid].ds2purchase ( cart_items , prod_id_in , qty_in , customerid_out , ref neworderid_out ,
-          ref IsRollback , ref rt ) )
-          {
+        while (!ds2interfaces[Userid].ds2purchase(cart_items, prod_id_in, qty_in, customerid_out, ref neworderid_out,
+          ref IsRollback, ref rt))
+        {
           if (++failures < GlobalConstants.MAX_FAILURES)
           {
-            Console.WriteLine ( "Thread {0}: Error in Purchase for User {1}, failure {2}, retrying" ,
-              Thread.CurrentThread.Name , username_in, failures);
+            Console.WriteLine("Thread {0}: Error in Purchase for User {1}, failure {2}, retrying",
+              Thread.CurrentThread.Name, username_in, failures);
           }
           else
           {
-            Console.WriteLine ( "Thread {0}: Error in Purchase for User {1}, failure {2}, exiting" ,
-              Thread.CurrentThread.Name , username_in, failures);
+            Console.WriteLine("Thread {0}: Error in Purchase for User {1}, failure {2}, exiting",
+              Thread.CurrentThread.Name, username_in, failures);
             return;
           }
-          }
+        }
 
         //      Console.WriteLine("Thread {0}: Purchase completed successfully, neworderid = {1}, rollback= {2}, " +
         //        "RT= {3,10:F3}", Thread.CurrentThread.Name, neworderid_out, IsRollback, rt);
@@ -3041,28 +3053,28 @@ namespace ds2xdriver
         // End of Order sequence
 
         // Block other User threads or Controller from accessing this code while we update these values
-        Monitor.Enter ( Controller.UpdateLock );
-        if ( IsLogin )
-          {
+        Monitor.Enter(Controller.UpdateLock);
+        if (IsLogin)
+        {
           ++Controller.n_login_overall;
           ++Controller.arr_n_login_overall[target_server_id];                 //Added by GSK (all Controller class members starting with arr_%)
           Controller.rt_login_overall += rt_login;
           Controller.arr_rt_login_overall[target_server_id] += rt_login;
-          }
+        }
         else
-          {
+        {
           ++Controller.n_newcust_overall;
           ++Controller.arr_n_newcust_overall[target_server_id];
           Controller.rt_newcust_overall += rt_newcust;
           Controller.arr_rt_newcust_overall[target_server_id] += rt_newcust;
-          }
-        if ( IsNewMember )
-          {
+        }
+        if (IsNewMember)
+        {
           ++Controller.n_newmember_overall;
           ++Controller.arr_n_newmember_overall[target_server_id];
           Controller.rt_newmember_overall += rt_newmember;
           Controller.arr_rt_newmember_overall[target_server_id] += rt_newmember;
-          }
+        }
         Controller.n_browse_overall += n_browse;
         Controller.arr_n_browse_overall[target_server_id] += n_browse;
         Controller.rt_browse_overall += rt_browse;
@@ -3073,17 +3085,17 @@ namespace ds2xdriver
         Controller.arr_rt_reviewbrowse_overall[target_server_id] += rt_reviewbrowse;
         if (IsNewReview)
         {
-            ++Controller.n_newreview_overall;
-            ++Controller.arr_n_newreview_overall[target_server_id];
-            Controller.rt_newreview_overall += rt_newreview;
-            Controller.arr_rt_newreview_overall[target_server_id] += rt_newreview;
+          ++Controller.n_newreview_overall;
+          ++Controller.arr_n_newreview_overall[target_server_id];
+          Controller.rt_newreview_overall += rt_newreview;
+          Controller.arr_rt_newreview_overall[target_server_id] += rt_newreview;
         }
         if (IsNewHelpfulness)
         {
-            ++Controller.n_newhelpfulness_overall;
-            ++Controller.arr_n_newhelpfulness_overall[target_server_id];
-            Controller.rt_newhelpfulness_overall += rt_newhelpfulness;
-            Controller.arr_rt_newhelpfulness_overall[target_server_id] += rt_newhelpfulness;
+          ++Controller.n_newhelpfulness_overall;
+          ++Controller.arr_n_newhelpfulness_overall[target_server_id];
+          Controller.rt_newhelpfulness_overall += rt_newhelpfulness;
+          Controller.arr_rt_newhelpfulness_overall[target_server_id] += rt_newhelpfulness;
         }
         ++Controller.n_purchase_overall;
         ++Controller.arr_n_purchase_overall[target_server_id];
@@ -3092,7 +3104,7 @@ namespace ds2xdriver
         Controller.rt_purchase_overall += rt_purchase;
         Controller.arr_rt_purchase_overall[target_server_id] += rt_purchase;
 
-        if ( IsRollback )
+        if (IsRollback)
         {
           ++Controller.n_rollbacks_overall;
           ++Controller.arr_n_rollbacks_overall[target_server_id];
@@ -3107,100 +3119,106 @@ namespace ds2xdriver
         Controller.rt_tot_lastn[Controller.n_overall % GlobalConstants.LAST_N] = rt_tot;
 
         int arrIndex = Controller.arr_n_overall[target_server_id] % GlobalConstants.LAST_N;
-        Controller.arr_rt_tot_lastn[target_server_id,arrIndex] = rt_tot;
+        Controller.arr_rt_tot_lastn[target_server_id, arrIndex] = rt_tot;
 
-        Monitor.Exit ( Controller.UpdateLock );
+        Monitor.Exit(Controller.UpdateLock);
 
-        Thread.Sleep ( Random.Shared.Next ( 2 * ( int ) Math.Floor ( 1000 * Controller.think_time ) ) ); // Delay think time seconds
+        Thread.Sleep(Random.Shared.Next(2 * (int)Math.Floor(1000 * Controller.think_time))); // Delay think time seconds
 
-        } while ( !Controller.End ); // End of Thread Emulation loop
+      } while (!Controller.End); // End of Thread Emulation loop
 
-      ds2interfaces[Userid].ds2close ( );
+      ds2interfaces[Userid].ds2close();
 
-      Console.WriteLine ( "Thread {0}: exiting" , Thread.CurrentThread.Name ); Console.Out.Flush ( );
-      }  // End of Emulate()
+      Console.WriteLine("Thread {0}: exiting", Thread.CurrentThread.Name);
+      Console.Out.Flush();
+    }  // End of Emulate()
     //
     //-------------------------------------------------------------------------------------------------
     //
-    void CreateUserData ( )
-      {
+    void CreateUserData()
+    {
       City[] us_cities = CityData.GetUSCities();
       City[] row_cities = CityData.GetROWCities();
 
-      if (Random.Shared.Next(2) == 1) {
-          firstname_in = fake_user_data.male_first_names[Random.Shared.Next(fake_user_data.firstname_pool_size)];
-          gender_in = "M";
+      if (Random.Shared.Next(2) == 1)
+      {
+        firstname_in = fake_user_data.male_first_names[Random.Shared.Next(fake_user_data.firstname_pool_size)];
+        gender_in = "M";
       }
-      else {
-          firstname_in = fake_user_data.female_first_names[Random.Shared.Next(fake_user_data.firstname_pool_size)];
-          gender_in = "F";
+      else
+      {
+        firstname_in = fake_user_data.female_first_names[Random.Shared.Next(fake_user_data.firstname_pool_size)];
+        gender_in = "F";
       }
 
       lastname_in = fake_user_data.last_names[Random.Shared.Next(fake_user_data.lastname_pool_size)];
 
       // Select region (US or ROW)
-      if ( Random.Shared.Next ( 100 ) < 40 ) {
-          int index = Random.Shared.Next(City.row_city_pool_size);
-          city_in = row_cities[index].Name;
-          zip_in = "";
-          state_in = "";
-          country_in = row_cities[index].State;
+      if (Random.Shared.Next(100) < 40)
+      {
+        int index = Random.Shared.Next(City.row_city_pool_size);
+        city_in = row_cities[index].Name;
+        zip_in = "";
+        state_in = "";
+        country_in = row_cities[index].State;
       }
-      else {
-          int index = Random.Shared.Next(City.us_city_pool_size);
-          city_in = us_cities[index].Name;
-          state_in = us_cities[index].State;
-          zip_in = (Random.Shared.Next(10000,99999)).ToString();
-          country_in = "US";
+      else
+      {
+        int index = Random.Shared.Next(City.us_city_pool_size);
+        city_in = us_cities[index].Name;
+        state_in = us_cities[index].State;
+        zip_in = (Random.Shared.Next(10000, 99999)).ToString();
+        country_in = "US";
       } //End Else
 
-      phone_in = Random.Shared.Next(100,999) + "-" + Random.Shared.Next(100,999) + "-" + Random.Shared.Next(1000,9999);
-      creditcardtype_in = Random.Shared.Next (1,5);
-      creditcard_in = Random.Shared.Next(1000,9999) + " " + Random.Shared.Next(1000,9999) + " " + Random.Shared.Next(1000,9999) + " " + Random.Shared.Next(1000,9999);
-      ccexpmon_in = Random.Shared.Next (1,12);
+      phone_in = Random.Shared.Next(100, 999) + "-" + Random.Shared.Next(100, 999) + "-" + Random.Shared.Next(1000, 9999);
+      creditcardtype_in = Random.Shared.Next(1, 5);
+      creditcard_in = Random.Shared.Next(1000, 9999) + " " + Random.Shared.Next(1000, 9999) + " " + Random.Shared.Next(1000, 9999) + " " + Random.Shared.Next(1000, 9999);
+      ccexpmon_in = Random.Shared.Next(1, 12);
       ccexpyr_in = DateTime.Now.Year + Random.Shared.Next(5);
-      address1_in = Random.Shared.Next(1,1000) + " Dell Way";
+      address1_in = Random.Shared.Next(1, 1000) + " Dell Way";
       address2_in = "";
 
       // 25% of new customers are apartment dwellers.
-      if (Random.Shared.Next(100) < 25) {
-          address2_in = "Apartment " + Random.Shared.Next(1,500);
+      if (Random.Shared.Next(100) < 25)
+      {
+        address2_in = "Apartment " + Random.Shared.Next(1, 500);
       }
 
       email_in = lastname_in.ToLower() + "@dell.com";
-      age_in = Random.Shared.Next ( 18 , 100 );
-      income_in = 20000 * Random.Shared.Next ( 1 , 6 ); // >$20,000, >$40,000, >$60,000, >$80,000, >$100,000
+      age_in = Random.Shared.Next(18, 100);
+      income_in = 20000 * Random.Shared.Next(1, 6); // >$20,000, >$40,000, >$60,000, >$80,000, >$100,000
 
-      }  // End of CreateUserData
+    }  // End of CreateUserData
 
     //
     //-------------------------------------------------------------------------------------------------
     //
-    String CreateActor ( )
+    String CreateActor()
     {
-      return (fake_actor_data.actor_firstnames[Random.Shared.Next( fake_actor_data.firstname_pool_size )] + " " + fake_actor_data.actor_lastnames[Random.Shared.Next( fake_actor_data.lastname_pool_size )]);
+      return (fake_actor_data.actor_firstnames[Random.Shared.Next(fake_actor_data.firstname_pool_size)] + " " + fake_actor_data.actor_lastnames[Random.Shared.Next(fake_actor_data.lastname_pool_size)]);
     }
 
-    String CreateTitle ( )
+    String CreateTitle()
     {
-      return (fake_title_data.movie_titles[Random.Shared.Next( fake_title_data.title_pool_size )] + " " + fake_title_data.movie_titles[Random.Shared.Next( fake_title_data.title_pool_size )]);
+      return (fake_title_data.movie_titles[Random.Shared.Next(fake_title_data.title_pool_size)] + " " + fake_title_data.movie_titles[Random.Shared.Next(fake_title_data.title_pool_size)]);
     }
 
     string CreateReviewData(int num_terms)
     {
-        StringBuilder sb = new StringBuilder();
+      StringBuilder sb = new StringBuilder();
 
-        for (int i=0; i < num_terms; i++)
-        {
-            sb.Append(" ").Append(fake_review_data.review_terms[Random.Shared.Next(fake_review_data.review_term_pool_size)]);
-        }
-        return sb.ToString().TrimStart();
+      for (int i = 0; i < num_terms; i++)
+      {
+        sb.Append(" ").Append(fake_review_data.review_terms[Random.Shared.Next(fake_review_data.review_term_pool_size)]);
+      }
+      return sb.ToString().TrimStart();
     }  // End of CreateReviewData
 
-    } // End of Class User
+  } // End of Class User
 
-public class City
-{
+  public class City
+  {
     public string Name { get; set; }
     public string State { get; set; }
 
@@ -3209,17 +3227,17 @@ public class City
 
     public City(string name, string state)
     {
-        Name = name;
-        State = state;
+      Name = name;
+      State = state;
     }
-}
+  }
 
-public static class CityData
-{
+  public static class CityData
+  {
     public static City[] GetROWCities()
     {
-    return new City[]
-    {
+      return new City[]
+      {
             new City("Barcelona", "Spain"),
             new City("Rome", "Italy"),
             new City("Seoul", "South Korea"),
@@ -3235,13 +3253,13 @@ public static class CityData
             new City("Helsinki", "Finland"),
             new City("Reykjavik", "Iceland"),
             new City("Lisbon","Portugal")
-    };
+      };
     }
 
     public static City[] GetUSCities()
     {
-        return new City[]
-        {
+      return new City[]
+      {
             new City("New York", "New York"),
             new City("Los Angeles", "California"),
             new City("Chicago", "Illinois"),
@@ -3342,16 +3360,17 @@ public static class CityData
             new City("Boise", "Idaho"),
             new City("Spokane", "Washington"),
             new City("Garner", "North Carolina")
-        };
+      };
     }
-}
+  }
 
-public static class fake_user_data {
+  public static class fake_user_data
+  {
 
-  public const int lastname_pool_size = 1000;
-  public const int firstname_pool_size = 200;
+    public const int lastname_pool_size = 1000;
+    public const int firstname_pool_size = 200;
 
-  public static readonly string[] last_names = new string[lastname_pool_size] {
+    public static readonly string[] last_names = new string[lastname_pool_size] {
     "Ashbell","Ashberg","Ashborn","Ashbrook","Ashburn","Ashdale","Ashfield","Ashford","Ashglass","Ashgreen",
     "Ashhall","Ashhart","Ashhouse","Ashland","Ashlow","Ashman","Ashmore","Ashport","Ashridge","Ashrose","Ashsmith","Ashson","Ashstone","Ashtree","Ashwall",
     "Ashway","Ashwell","Ashworth","Brightbell","Brightborn","Brightbrook","Brightburn","Brightdale","Brightfield","Brightford","Brightglass","Brightgreen",
@@ -3425,7 +3444,7 @@ public static class fake_user_data {
     "Zenwall","Zenway","Zenworth"
   };
 
-  public static readonly string[] male_first_names = new string[firstname_pool_size] {
+    public static readonly string[] male_first_names = new string[firstname_pool_size] {
     "Aaron", "Adam", "Adrian", "Alan", "Albert", "Alec", "Alex", "Alexander", "Alfred", "Andrew",
     "Anthony", "Arthur", "Austin", "Barry", "Ben", "Benjamin", "Bernard", "Bill", "Billy", "Blake",
     "Bob", "Bobby", "Brad", "Bradley", "Brandon", "Brent", "Brett", "Brian", "Bruce", "Bryan",
@@ -3448,7 +3467,7 @@ public static class fake_user_data {
     "Nicholas", "Nick", "Noah", "Norman", "Oliver", "Oscar", "Owen", "Patrick", "Paul", "Pedro"
   };
 
-  public static readonly string[] female_first_names = new string[firstname_pool_size] {
+    public static readonly string[] female_first_names = new string[firstname_pool_size] {
     "Abigail", "Ada", "Adelaide", "Adele", "Alexa", "Alexandra", "Alice", "Alicia", "Alison", "Amanda",
     "Amber", "Amy", "Ana", "Andrea", "Angela", "Angelica", "Anita", "Ann", "Anna", "Anne",
     "Annette", "Annie", "April", "Ariana", "Ashley", "Audrey", "Autumn", "Ava", "Barbara", "Beatrice",
@@ -3470,20 +3489,21 @@ public static class fake_user_data {
     "Lauren", "Laurie", "Leah", "Leslie", "Lillian", "Lily", "Linda", "Lindsay", "Lisa", "Lois",
     "Loretta", "Lori", "Lorraine", "Louise", "Lucia", "Lucille", "Lucy", "Lydia", "Lynn", "Madeline"
   };
-}
+  }
 
 }
 
-public static class fake_title_data {
+public static class fake_title_data
+{
 
-      // Names compiled by Dara Jaffe
+  // Names compiled by Dara Jaffe
 
-      // 1000 movie title words
+  // 1000 movie title words
 
-      public const int title_pool_size = 1000;
+  public const int title_pool_size = 1000;
 
-      public static readonly string[] movie_titles = new string[]
-        {
+  public static readonly string[] movie_titles = new string[]
+    {
         "ACADEMY", "ACE", "ADAPTATION", "AFFAIR", "AFRICAN", "AGENT", "AIRPLANE", "AIRPORT", "ALABAMA", "ALADDIN",
         "ALAMO", "ALASKA", "ALI", "ALICE", "ALIEN", "ALLEY", "ALONE", "ALTER", "AMADEUS", "AMELIE",
         "AMERICAN", "AMISTAD", "ANACONDA", "ANALYZE", "ANGELS", "ANNIE", "ANONYMOUS", "ANTHEM", "ANTITRUST", "ANYTHING",
@@ -3584,16 +3604,17 @@ public static class fake_title_data {
         "WHALE", "WHISPERER", "WIFE", "WILD", "WILLOW", "WIND", "WINDOW", "WISDOM", "WITCHES", "WIZARD",
         "WOLVES", "WOMEN", "WON", "WONDERFUL", "WONDERLAND", "WONKA", "WORDS", "WORKER", "WORKING", "WORLD",
         "WORST", "WRATH", "WRONG", "WYOMING", "YENTL", "YOUNG", "YOUTH", "ZHIVAGO", "ZOOLANDER", "ZORRO"
-        };
+    };
 }
 
-public static class fake_actor_data {
+public static class fake_actor_data
+{
 
-        public const int lastname_pool_size = 500;
-        public const int firstname_pool_size = 500;
+  public const int lastname_pool_size = 500;
+  public const int firstname_pool_size = 500;
 
-        public static readonly string[] actor_firstnames = new string[]
-        {
+  public static readonly string[] actor_firstnames = new string[]
+  {
           "Aaron", "Adam", "Adrien", "Aidan", "Al", "Alan", "Albert", "Alden", "Aldis", "Alec", "Alexander", "Alexandra",
           "Alfred", "Alicia", "Alison", "Allison", "Amanda", "Amandla", "Amber", "Amy", "Ana", "Andre", "Andrea", "Andrew",
           "Andy", "Angela", "Angelina", "Anjelica", "Ann", "Anna", "Anne", "Annette", "Anson", "Anthony", "Anton", "Antonio",
@@ -3636,10 +3657,10 @@ public static class fake_actor_data {
           "Tobey", "Toby", "Tom", "Tommy", "Toni", "Tony", "Topher", "Trevante", "Tuppence", "Uma", "Uzo", "Valerie",
           "Vanessa", "Vera", "Vicky", "Viggo", "Vin", "Vince", "Viola", "Walton", "Warwick", "Wesley", "Whoopi", "Will",
           "Willem", "William", "Woody", "Wunmi", "Yahya", "Yvonne", "Zac", "Zach", "Zachary", "Zazie", "Zoe"
-        };
+  };
 
-        public static readonly string[] actor_lastnames = new string[]
-        {
+  public static readonly string[] actor_lastnames = new string[]
+  {
           "Abdi", "Abdul-Mateen II", "Ackles", "Adams", "Aduba", "Affleck", "Ahmed", "Alexander", "Ali", "Allen", "Anderson",
           "Aniston", "Applegate", "Aranas", "Arquette", "Atwell", "Aykroyd", "Bacall", "Baldwin", "Bale", "Banderas", "Bang",
           "Banks", "Bardem", "Baron Cohen", "Barrymore", "Bassett", "Bates", "Bautista", "Bean", "Beetz", "Bell", "Bello",
@@ -3688,18 +3709,19 @@ public static class fake_actor_data {
           "Washington", "Weathers", "Weaver", "Weaving", "Whigham", "Whitaker", "Whitehead", "Wiig", "Williams", "Willis",
           "Wilson", "Winston", "Witherspoon", "Wolfhard", "Wong", "Wood", "Wright", "Yelchin", "Yeoh", "Yeun", "Zellweger",
           "Zeta-Jones"
-        };
+  };
 }
 
-public static class fake_review_data {
+public static class fake_review_data
+{
 
-      // Review data terms compiled from common movie review words
-      // Approximately 4950 terms used to generate synthetic review summaries and text
+  // Review data terms compiled from common movie review words
+  // Approximately 4950 terms used to generate synthetic review summaries and text
 
-      public const int review_term_pool_size = 4950;
+  public const int review_term_pool_size = 4950;
 
-      public static readonly string[] review_terms = new string[]
-          {"the","and","a","of","to","is","in","I","that","this","it","for","was","with","as","The","movie","on",
+  public static readonly string[] review_terms = new string[]
+      {"the","and","a","of","to","is","in","I","that","this","it","for","was","with","as","The","movie","on",
             "but","you","are","have","his","not","film","be","one","by","an","he","from","50","at","all","who",
             "has","like","they","This","so","about","just","or","my","more","out","very","her","some","good",
             "great","It","what","will","when","would","their","can","if","up","really","than","see","had",
@@ -4093,5 +4115,5 @@ public static class fake_review_data {
       "Eastwoods","fan","strong","4","Sally","price","Bottom","Vince","Uncle","insult","dragged","Angeles","betterbr",
       "Raymond","outrageous","best","Marvel","whereas","reviewing","involved","performers","rely","English","porn",
       "Beatles","horror","glass","alive","closed","card","27","form","Keep"
-          };
+      };
 }
