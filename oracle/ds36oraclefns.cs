@@ -46,7 +46,7 @@ namespace ds2xdriver
     OracleCommand Login, New_Customer, Browse_By_Category, Browse_By_Actor, Browse_By_Title, Browse_By_Membership, New_Product, Purchase;
     OracleCommand Get_Prod_Reviews, Get_Prod_Reviews_By_Actor, Get_Prod_Reviews_By_Title, Get_Prod_Reviews_By_Date, Get_Prod_Reviews_By_Stars;
     OracleCommand New_Member, New_Prod_Review, New_Review_Helpfulness;
-    OracleCommand Remove_Review_By_Product, Remove_Unhelpful_Reviews, Remove_Reviews_By_Date, Adjust_Prices, Mark_Specials, Expire_Memberships, Purge_Old_Orders, Upgrade_Membership;
+    OracleCommand Remove_Review_By_Product, Remove_Unhelpful_Reviews, Remove_Reviews_By_Date, Adjust_Prices, Bulk_Price_Adjustment, Mark_Specials, Expire_Memberships, Purge_Old_Orders, Upgrade_Membership;
 
     OracleParameter[] New_Customer_prm = new OracleParameter[20];
     OracleParameter[] Purchase_prm = new OracleParameter[6];
@@ -266,6 +266,12 @@ namespace ds2xdriver
       Adjust_Prices.CommandType = CommandType.StoredProcedure;
       Adjust_Prices.Parameters.Add("p_prod_id", OracleDbType.Int32);
       Adjust_Prices.Parameters.Add("p_rows_affected", OracleDbType.Int32, ParameterDirection.Output);
+
+      Bulk_Price_Adjustment = new OracleCommand("DS3.BulkPriceAdjustment" + target_store_number, objConn);
+      Bulk_Price_Adjustment.CommandType = CommandType.StoredProcedure;
+      Bulk_Price_Adjustment.Parameters.Add("p_batch_size", OracleDbType.Int32);
+      Bulk_Price_Adjustment.Parameters.Add("p_category", OracleDbType.Int32);
+      Bulk_Price_Adjustment.Parameters.Add("p_rows_affected", OracleDbType.Int32, ParameterDirection.Output);
 
       Mark_Specials = new OracleCommand("DS3.MarkSpecials" + target_store_number, objConn);
       Mark_Specials.CommandType = CommandType.StoredProcedure;
@@ -1049,6 +1055,33 @@ namespace ds2xdriver
         catch (Exception e)
         {
             Console.WriteLine($"Thread {Thread.CurrentThread.Name}: ds36adjustprices error: {e.Message}");
+            return 0;
+        }
+        finally
+        {
+            rt = timer.Elapsed.TotalSeconds;
+        }
+    }
+
+//
+//-------------------------------------------------------------------------------------------------
+//
+    public int ds36bulkpriceadjustment(int batchSize, int category, ref double rt)
+    {
+        Bulk_Price_Adjustment.Parameters["p_batch_size"].Value = batchSize;
+        Bulk_Price_Adjustment.Parameters["p_category"].Value = category;
+
+        Stopwatch timer = Stopwatch.StartNew();
+
+        try
+        {
+            Bulk_Price_Adjustment.ExecuteNonQuery();
+            object result = Bulk_Price_Adjustment.Parameters["p_rows_affected"].Value;
+            return result != null && result != DBNull.Value ? Convert.ToInt32(result.ToString()) : 0;
+        }
+        catch (Exception e)
+        {
+            Console.WriteLine($"Thread {Thread.CurrentThread.Name}: ds36bulkpriceadjustment error: {e.Message}");
             return 0;
         }
         finally

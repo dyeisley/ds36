@@ -405,29 +405,56 @@ END $$;
 DO $$
 DECLARE
     v_adjusted_prices INT;
+    v_bulk_adjusted_prices INT;
 BEGIN
     SELECT COUNT(*) INTO v_adjusted_prices
     FROM PRODUCTS1
     WHERE (PRICE - FLOOR(PRICE)) != 0.99 AND (PRICE - FLOOR(PRICE)) != 0.01;
 
+    SELECT COUNT(*) INTO v_bulk_adjusted_prices
+    FROM PRODUCTS1
+    WHERE (PRICE - FLOOR(PRICE)) = 0.77;
+
     RAISE NOTICE 'Products with Adjusted Prices (not ending in .99 or .01): %', v_adjusted_prices;
-    RAISE NOTICE '  (Indicates AdjustPrices manager operations changed product pricing)';
+    RAISE NOTICE '  - Prices ending in .77: % (BulkPriceAdjustment: category-wide ±25%%)', v_bulk_adjusted_prices;
+    RAISE NOTICE '  - Other endings: % (AdjustPrices: individual ±10%%)', v_adjusted_prices - v_bulk_adjusted_prices;
     RAISE NOTICE '';
 
-    RAISE NOTICE 'Sample Price-Adjusted Products (not .99 or .01):';
+    RAISE NOTICE 'Sample Price-Adjusted Products (10 bulk .77 + 10 individual):';
 END $$;
 
-SELECT
-    PROD_ID,
-    TITLE,
-    ACTOR,
-    PRICE,
-    SPECIAL,
-    COMMON_PROD_ID
-FROM PRODUCTS1
-WHERE (PRICE - FLOOR(PRICE)) != 0.99 AND (PRICE - FLOOR(PRICE)) != 0.01
-ORDER BY PROD_ID
-LIMIT 10;
+(
+    SELECT
+        PROD_ID,
+        TITLE,
+        ACTOR,
+        PRICE,
+        SPECIAL,
+        COMMON_PROD_ID,
+        'Bulk (.77)' AS adjustment_type
+    FROM PRODUCTS1
+    WHERE (PRICE - FLOOR(PRICE)) = 0.77
+    ORDER BY PROD_ID
+    LIMIT 10
+)
+UNION ALL
+(
+    SELECT
+        PROD_ID,
+        TITLE,
+        ACTOR,
+        PRICE,
+        SPECIAL,
+        COMMON_PROD_ID,
+        'Individual' AS adjustment_type
+    FROM PRODUCTS1
+    WHERE (PRICE - FLOOR(PRICE)) != 0.99
+      AND (PRICE - FLOOR(PRICE)) != 0.01
+      AND (PRICE - FLOOR(PRICE)) != 0.77
+    ORDER BY PROD_ID
+    LIMIT 10
+)
+ORDER BY adjustment_type DESC, PROD_ID;
 
 -- Membership Expiration Verification
 DO $$

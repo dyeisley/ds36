@@ -648,6 +648,33 @@ BEGIN
     SELECT ROW_COUNT() AS rows_affected;
 END $$
 
+DROP PROCEDURE IF EXISTS DS3.BulkPriceAdjustment$k $$
+CREATE PROCEDURE DS3.BulkPriceAdjustment$k
+(
+    IN p_batch_size INT,
+    IN p_category INT
+)
+BEGIN
+    DECLARE v_adjustment_factor DECIMAL(5,4);
+
+    -- Generate random adjustment factor (0.75 to 1.25, ±25%)
+    SET v_adjustment_factor = 0.75 + (RAND() * 0.50);
+
+    -- Update batch_size random products in selected category
+    -- Use JOIN instead of IN to avoid MariaDB LIMIT restriction
+    UPDATE PRODUCTS$k p
+    INNER JOIN (
+        SELECT PROD_ID
+        FROM PRODUCTS$k
+        WHERE CATEGORY = p_category
+        ORDER BY RAND()
+        LIMIT p_batch_size
+    ) random_products ON p.PROD_ID = random_products.PROD_ID
+    SET p.PRICE = FLOOR(p.PRICE * v_adjustment_factor) + 0.77;
+
+    SELECT ROW_COUNT() AS rows_affected;
+END $$
+
 DROP PROCEDURE IF EXISTS DS3.MarkSpecials$k $$
 CREATE PROCEDURE DS3.MarkSpecials$k
 (

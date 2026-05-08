@@ -998,6 +998,41 @@ EXCEPTION
 END;
 /
 
+CREATE OR REPLACE PROCEDURE DS3.BulkPriceAdjustment$k (
+    p_batch_size     IN  NUMBER,
+    p_category       IN  NUMBER,
+    p_rows_affected  OUT NUMBER
+) AS
+    v_adjustment_factor NUMBER;
+BEGIN
+    -- Category-wide price adjustment (±25%)
+    -- Simulates market events like 'Holiday DVDs 15% off'
+    v_adjustment_factor := 0.75 + (DBMS_RANDOM.VALUE * 0.50);
+
+    UPDATE DS3.PRODUCTS$k
+    SET PRICE = FLOOR(PRICE * v_adjustment_factor) + 0.77
+    WHERE PROD_ID IN (
+        SELECT PROD_ID
+        FROM (
+            SELECT PROD_ID
+            FROM DS3.PRODUCTS$k
+            WHERE CATEGORY = p_category
+            ORDER BY DBMS_RANDOM.VALUE
+        )
+        WHERE ROWNUM <= p_batch_size
+    );
+
+    p_rows_affected := SQL%ROWCOUNT;
+
+    COMMIT;
+
+EXCEPTION
+    WHEN OTHERS THEN
+        ROLLBACK;
+        RAISE;
+END;
+/
+
 CREATE OR REPLACE PROCEDURE DS3.MarkSpecials$k (
     p_prod_id        IN  NUMBER,
     p_rows_affected  OUT NUMBER

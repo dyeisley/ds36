@@ -898,6 +898,39 @@ BEGIN
 END
 GO
 
+IF EXISTS (SELECT name FROM sysobjects WHERE name = 'BulkPriceAdjustment$k' AND type = 'P')
+  DROP PROCEDURE BulkPriceAdjustment$k
+GO
+
+CREATE PROCEDURE BulkPriceAdjustment$k
+  (
+  \@batch_size           INT,
+  \@category             INT
+  )
+AS
+BEGIN
+    SET NOCOUNT ON;
+
+    DECLARE \@adjustment_factor DECIMAL(5,4);
+
+    -- Generate random adjustment factor (0.75 to 1.25, ±25%)
+    SET \@adjustment_factor = 0.75 + (RAND() * 0.50);
+
+    -- Update batch_size random products in selected category
+    WITH RandomProducts AS (
+        SELECT TOP (\@batch_size) PROD_ID
+        FROM PRODUCTS$k WITH (READPAST)
+        WHERE CATEGORY = \@category
+        ORDER BY NEWID()
+    )
+    UPDATE PRODUCTS$k WITH (READPAST)
+    SET PRICE = FLOOR(PRICE * \@adjustment_factor) + 0.77
+    WHERE PROD_ID IN (SELECT PROD_ID FROM RandomProducts);
+
+    SELECT \@\@ROWCOUNT;
+END
+GO
+
 IF EXISTS (SELECT name FROM sysobjects WHERE name = 'MarkSpecials$k' AND type = 'P')
   DROP PROCEDURE MarkSpecials$k
 GO

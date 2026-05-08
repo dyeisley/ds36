@@ -49,7 +49,7 @@ namespace ds2xdriver
     SqlCommand Login, New_Customer, Browse_By_Category, Browse_By_Actor, Browse_By_Vector, Browse_By_Title, Browse_By_Membership, Purchase, New_Product;
     SqlCommand Get_Prod_Reviews, Get_Prod_Reviews_By_Actor, Get_Prod_Reviews_By_Title, Get_Prod_Reviews_By_Date, Get_Prod_Reviews_By_Stars;
     SqlCommand New_Member, New_Prod_Review, New_Review_Helpfulness;
-    SqlCommand Remove_Review_By_Product, Remove_Unhelpful_Reviews, Remove_Reviews_By_Date, Adjust_Prices, Mark_Specials, Expire_Memberships, Purge_Old_Orders, Upgrade_Membership;
+    SqlCommand Remove_Review_By_Product, Remove_Unhelpful_Reviews, Remove_Reviews_By_Date, Adjust_Prices, Bulk_Price_Adjustment, Mark_Specials, Expire_Memberships, Purge_Old_Orders, Upgrade_Membership;
     SqlCommand[] CostQuery = new SqlCommand[11];
 
 //
@@ -244,6 +244,11 @@ namespace ds2xdriver
       Upgrade_Membership = new SqlCommand("UpgradeMembership" + target_store_number, objConn);
       Upgrade_Membership.CommandType = CommandType.StoredProcedure;
       Upgrade_Membership.Parameters.Add("@batch_size", SqlDbType.Int);
+
+      Bulk_Price_Adjustment = new SqlCommand("BulkPriceAdjustment" + target_store_number, objConn);
+      Bulk_Price_Adjustment.CommandType = CommandType.StoredProcedure;
+      Bulk_Price_Adjustment.Parameters.Add("@batch_size", SqlDbType.Int);
+      Bulk_Price_Adjustment.Parameters.Add("@category", SqlDbType.Int);
 
       //Console.WriteLine("ds2Interface {0} created", ds2Interfaceid);
     }
@@ -1113,6 +1118,29 @@ namespace ds2xdriver
         catch (Exception e)
         {
             Console.WriteLine($"Thread {Thread.CurrentThread.Name}: ds36upgrademembership error: {e.Message}");
+            return 0;
+        }
+        finally
+        {
+            rt = timer.Elapsed.TotalSeconds;
+        }
+    }
+
+    public int ds36bulkpriceadjustment(int batchSize, int category, ref double rt)
+    {
+        Bulk_Price_Adjustment.Parameters["@batch_size"].Value = batchSize;
+        Bulk_Price_Adjustment.Parameters["@category"].Value = category;
+
+        Stopwatch timer = Stopwatch.StartNew();
+
+        try
+        {
+            object result = Bulk_Price_Adjustment.ExecuteScalar();
+            return result != null ? Convert.ToInt32(result) : 0;
+        }
+        catch (Exception e)
+        {
+            Console.WriteLine($"Thread {Thread.CurrentThread.Name}: ds36bulkpriceadjustment error: {e.Message}");
             return 0;
         }
         finally

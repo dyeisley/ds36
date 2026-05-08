@@ -348,25 +348,49 @@ PRINT '  Delta: ' + CAST(@SpecialProducts - @SpecialProductsPre AS VARCHAR);
 PRINT '  (MarkSpecials toggles SPECIAL flag)';
 
 -- Price changes (detect products with non-standard pricing)
-DECLARE @AdjustedPrices INT;
+DECLARE @AdjustedPrices INT, @BulkAdjustedPrices INT;
 SELECT @AdjustedPrices = COUNT(*)
 FROM PRODUCTS1
 WHERE PRICE - FLOOR(PRICE) != 0.99 AND PRICE - FLOOR(PRICE) != 0.01;
+SELECT @BulkAdjustedPrices = COUNT(*)
+FROM PRODUCTS1
+WHERE PRICE - FLOOR(PRICE) = 0.77;
 PRINT 'Products with Adjusted Prices (not ending in .99 or .01): ' + CAST(@AdjustedPrices AS VARCHAR);
-PRINT '  (Indicates AdjustPrices manager operations changed product pricing)';
+PRINT '  - Prices ending in .77: ' + CAST(@BulkAdjustedPrices AS VARCHAR) + ' (BulkPriceAdjustment: category-wide ±25%)';
+PRINT '  - Other endings: ' + CAST(@AdjustedPrices - @BulkAdjustedPrices AS VARCHAR) + ' (AdjustPrices: individual ±10%)';
 PRINT '';
 
-PRINT 'Sample Price-Adjusted Products (not .99 or .01):';
-SELECT TOP 10
-    PROD_ID,
-    TITLE,
-    ACTOR,
-    PRICE,
-    SPECIAL,
-    COMMON_PROD_ID
-FROM PRODUCTS1
-WHERE PRICE - FLOOR(PRICE) != 0.99 AND PRICE - FLOOR(PRICE) != 0.01
-ORDER BY PROD_ID;
+PRINT 'Sample Price-Adjusted Products (10 bulk .77 + 10 individual):';
+SELECT * FROM (
+    SELECT TOP 10
+        PROD_ID,
+        TITLE,
+        ACTOR,
+        PRICE,
+        SPECIAL,
+        COMMON_PROD_ID,
+        'Bulk (.77)' AS adjustment_type
+    FROM PRODUCTS1
+    WHERE PRICE - FLOOR(PRICE) = 0.77
+    ORDER BY PROD_ID
+) AS bulk_adjustments
+UNION ALL
+SELECT * FROM (
+    SELECT TOP 10
+        PROD_ID,
+        TITLE,
+        ACTOR,
+        PRICE,
+        SPECIAL,
+        COMMON_PROD_ID,
+        'Individual' AS adjustment_type
+    FROM PRODUCTS1
+    WHERE PRICE - FLOOR(PRICE) != 0.99
+      AND PRICE - FLOOR(PRICE) != 0.01
+      AND PRICE - FLOOR(PRICE) != 0.77
+    ORDER BY PROD_ID
+) AS individual_adjustments
+ORDER BY adjustment_type DESC, PROD_ID;
 
 -- Membership expirations
 DECLARE @TotalMemberships INT, @TotalMembershipsPre INT;

@@ -41,7 +41,7 @@ namespace ds2xdriver
     MySqlCommand Login, New_Customer, New_Member, New_Review, New_Helpfulness, New_Product, Purchase;
     MySqlCommand BrowseReviews_by_title, BrowseReviews_by_actor, Get_Prod_Reviews, Get_Reviews_by_stars;
     MySqlCommand Get_Reviews_by_date, Browse_by_title, Browse_by_actor, Browse_by_category, Browse_by_membership, Browse_by_vector;
-    MySqlCommand Remove_Review_By_Product, Remove_Unhelpful_Reviews, Remove_Reviews_By_Date, Adjust_Prices, Mark_Specials, Expire_Memberships, Purge_Old_Orders, Upgrade_Membership;
+    MySqlCommand Remove_Review_By_Product, Remove_Unhelpful_Reviews, Remove_Reviews_By_Date, Adjust_Prices, Bulk_Price_Adjustment, Mark_Specials, Expire_Memberships, Purge_Old_Orders, Upgrade_Membership;
     MySqlParameter cust_out_param, member_out_param, reviewid_out_param, helpfulnessid_out_param, neworder_out_param;
     MySqlCommand[] CostQuery = new MySqlCommand[11];
 
@@ -242,6 +242,11 @@ namespace ds2xdriver
       Adjust_Prices = new MySqlCommand("DS3.AdjustPrices" + target_store_number, objConn);
       Adjust_Prices.CommandType = CommandType.StoredProcedure;
       Adjust_Prices.Parameters.Add("p_prod_id", MySqlDbType.Int32);
+
+      Bulk_Price_Adjustment = new MySqlCommand("DS3.BulkPriceAdjustment" + target_store_number, objConn);
+      Bulk_Price_Adjustment.CommandType = CommandType.StoredProcedure;
+      Bulk_Price_Adjustment.Parameters.Add("p_batch_size", MySqlDbType.Int32);
+      Bulk_Price_Adjustment.Parameters.Add("p_category", MySqlDbType.Int32);
 
       Mark_Specials = new MySqlCommand("DS3.MarkSpecials" + target_store_number, objConn);
       Mark_Specials.CommandType = CommandType.StoredProcedure;
@@ -1061,6 +1066,36 @@ namespace ds2xdriver
         catch (Exception e)
         {
             Console.WriteLine($"Thread {Thread.CurrentThread.Name}: ds36upgrademembership error: {e.Message}");
+            return 0;
+        }
+        finally
+        {
+            rt = timer.Elapsed.TotalSeconds;
+        }
+    }
+
+//
+//-------------------------------------------------------------------------------------------------
+//
+    public int ds36bulkpriceadjustment(int batchSize, int category, ref double rt)
+    {
+        Bulk_Price_Adjustment.Parameters["p_batch_size"].Value = batchSize;
+        Bulk_Price_Adjustment.Parameters["p_category"].Value = category;
+        Stopwatch timer = Stopwatch.StartNew();
+        try
+        {
+            using (MySqlDataReader reader = Bulk_Price_Adjustment.ExecuteReader())
+            {
+                if (reader.Read())
+                {
+                    return reader.GetInt32(0);
+                }
+                return 0;
+            }
+        }
+        catch (Exception e)
+        {
+            Console.WriteLine($"Thread {Thread.CurrentThread.Name}: ds36bulkpriceadjustment error: {e.Message}");
             return 0;
         }
         finally

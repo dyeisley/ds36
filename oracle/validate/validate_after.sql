@@ -431,32 +431,59 @@ END;
 -- Price changes (detect products with non-standard pricing)
 DECLARE
     v_adjusted_prices NUMBER;
+    v_bulk_adjusted_prices NUMBER;
 BEGIN
     SELECT COUNT(*) INTO v_adjusted_prices
     FROM DS3.PRODUCTS1
     WHERE (PRICE - FLOOR(PRICE)) != 0.99 AND (PRICE - FLOOR(PRICE)) != 0.01;
 
+    SELECT COUNT(*) INTO v_bulk_adjusted_prices
+    FROM DS3.PRODUCTS1
+    WHERE (PRICE - FLOOR(PRICE)) = 0.77;
+
     DBMS_OUTPUT.PUT_LINE('Products with Adjusted Prices (not ending in .99 or .01): ' || v_adjusted_prices);
-    DBMS_OUTPUT.PUT_LINE('  (Indicates AdjustPrices manager operations changed product pricing)');
+    DBMS_OUTPUT.PUT_LINE('  - Prices ending in .77: ' || v_bulk_adjusted_prices || ' (BulkPriceAdjustment: category-wide ±25%)');
+    DBMS_OUTPUT.PUT_LINE('  - Other endings: ' || (v_adjusted_prices - v_bulk_adjusted_prices) || ' (AdjustPrices: individual ±10%)');
     DBMS_OUTPUT.PUT_LINE('');
 
-    DBMS_OUTPUT.PUT_LINE('Sample Price-Adjusted Products (not .99 or .01):');
+    DBMS_OUTPUT.PUT_LINE('Sample Price-Adjusted Products (10 bulk .77 + 10 individual):');
 END;
 /
 
 SELECT * FROM (
-    SELECT
-        PROD_ID,
-        TITLE,
-        ACTOR,
-        PRICE,
-        SPECIAL,
-        COMMON_PROD_ID
-    FROM DS3.PRODUCTS1
-    WHERE (PRICE - FLOOR(PRICE)) != 0.99 AND (PRICE - FLOOR(PRICE)) != 0.01
-    ORDER BY PROD_ID
+    SELECT * FROM (
+        SELECT
+            PROD_ID,
+            TITLE,
+            ACTOR,
+            PRICE,
+            SPECIAL,
+            COMMON_PROD_ID,
+            'Bulk (.77)' AS adjustment_type
+        FROM DS3.PRODUCTS1
+        WHERE (PRICE - FLOOR(PRICE)) = 0.77
+        ORDER BY PROD_ID
+    )
+    WHERE ROWNUM <= 10
+    UNION ALL
+    SELECT * FROM (
+        SELECT
+            PROD_ID,
+            TITLE,
+            ACTOR,
+            PRICE,
+            SPECIAL,
+            COMMON_PROD_ID,
+            'Individual' AS adjustment_type
+        FROM DS3.PRODUCTS1
+        WHERE (PRICE - FLOOR(PRICE)) != 0.99
+          AND (PRICE - FLOOR(PRICE)) != 0.01
+          AND (PRICE - FLOOR(PRICE)) != 0.77
+        ORDER BY PROD_ID
+    )
+    WHERE ROWNUM <= 10
 )
-WHERE ROWNUM <= 10;
+ORDER BY adjustment_type DESC, PROD_ID;
 
 -- Membership Expiration Verification
 DECLARE

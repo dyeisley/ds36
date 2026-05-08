@@ -50,7 +50,7 @@ namespace ds2xdriver
     NpgsqlCommand Login, New_Customer, Browse_By_Category, Browse_By_Actor, Browse_By_Title, Browse_By_Membership, Purchase;
     NpgsqlCommand New_Member, New_Prod_Review, New_Review_Helpfulness, New_Product;
     NpgsqlCommand Get_Prod_Reviews, Get_Prod_Reviews_By_Date, Get_Prod_Reviews_By_Stars, Get_Prod_Reviews_By_Actor, Get_Prod_Reviews_By_Title;
-    NpgsqlCommand Remove_Review_By_Product, Remove_Unhelpful_Reviews, Remove_Reviews_By_Date, Adjust_Prices, Mark_Specials, Expire_Memberships, Purge_Old_Orders, Upgrade_Membership;
+    NpgsqlCommand Remove_Review_By_Product, Remove_Unhelpful_Reviews, Remove_Reviews_By_Date, Adjust_Prices, Bulk_Price_Adjustment, Mark_Specials, Expire_Memberships, Purge_Old_Orders, Upgrade_Membership;
     NpgsqlCommand[] CostQuery = new NpgsqlCommand[11];
     
 //
@@ -226,6 +226,10 @@ namespace ds2xdriver
 
         Adjust_Prices = new NpgsqlCommand("SELECT rows_updated FROM adjustprices" + target_store_number + "(@p_prod_id)", objConn);
         Adjust_Prices.Parameters.Add("p_prod_id", NpgsqlDbType.Integer);
+
+        Bulk_Price_Adjustment = new NpgsqlCommand("SELECT rows_updated FROM bulkpriceadjustment" + target_store_number + "(@p_batch_size, @p_category)", objConn);
+        Bulk_Price_Adjustment.Parameters.Add("p_batch_size", NpgsqlDbType.Integer);
+        Bulk_Price_Adjustment.Parameters.Add("p_category", NpgsqlDbType.Integer);
 
         Mark_Specials = new NpgsqlCommand("SELECT rows_updated FROM markspecials" + target_store_number + "(@p_prod_id)", objConn);
         Mark_Specials.Parameters.Add("p_prod_id", NpgsqlDbType.Integer);
@@ -958,6 +962,32 @@ namespace ds2xdriver
         catch (Exception e)
         {
             Console.WriteLine($"Thread {Thread.CurrentThread.Name}: ds36adjustprices error: {e.Message}");
+            return 0;
+        }
+        finally
+        {
+            rt = timer.Elapsed.TotalSeconds;
+        }
+    }
+
+//
+//-------------------------------------------------------------------------------------------------
+//
+    public int ds36bulkpriceadjustment(int batchSize, int category, ref double rt)
+    {
+        Bulk_Price_Adjustment.Parameters["p_batch_size"].Value = batchSize;
+        Bulk_Price_Adjustment.Parameters["p_category"].Value = category;
+
+        Stopwatch timer = Stopwatch.StartNew();
+
+        try
+        {
+            object result = Bulk_Price_Adjustment.ExecuteScalar();
+            return result != null && result != DBNull.Value ? Convert.ToInt32(result) : 0;
+        }
+        catch (Exception e)
+        {
+            Console.WriteLine($"Thread {Thread.CurrentThread.Name}: ds36bulkpriceadjustment error: {e.Message}");
             return 0;
         }
         finally

@@ -337,22 +337,45 @@ SELECT '  (MarkSpecials toggles SPECIAL flag)';
 
 -- Price changes (detect products with non-standard pricing)
 SET @adjusted_prices = (SELECT COUNT(*) FROM PRODUCTS1 WHERE (PRICE - FLOOR(PRICE)) != 0.99 AND (PRICE - FLOOR(PRICE)) != 0.01);
+SET @bulk_adjusted_prices = (SELECT COUNT(*) FROM PRODUCTS1 WHERE (PRICE - FLOOR(PRICE)) = 0.77);
 
 SELECT CONCAT('Products with Adjusted Prices (not ending in .99 or .01): ', @adjusted_prices);
-SELECT '  (Indicates AdjustPrices manager operations changed product pricing)';
+SELECT CONCAT('  - Prices ending in .77: ', @bulk_adjusted_prices, ' (BulkPriceAdjustment: category-wide ±25%)');
+SELECT CONCAT('  - Other endings: ', @adjusted_prices - @bulk_adjusted_prices, ' (AdjustPrices: individual ±10%)');
 
-SELECT 'Sample Price-Adjusted Products (not .99 or .01):';
-SELECT
-    LPAD(PROD_ID, 8) AS PROD_ID,
-    RPAD(TITLE, 40) AS TITLE,
-    RPAD(ACTOR, 30) AS ACTOR,
-    LPAD(FORMAT(PRICE, 2), 10) AS PRICE,
-    LPAD(SPECIAL, 7) AS SPECIAL,
-    LPAD(COMMON_PROD_ID, 13) AS COMMON_PROD_ID
-FROM PRODUCTS1
-WHERE (PRICE - FLOOR(PRICE)) != 0.99 AND (PRICE - FLOOR(PRICE)) != 0.01
-ORDER BY PROD_ID
-LIMIT 10;
+SELECT 'Sample Price-Adjusted Products (10 bulk .77 + 10 individual):';
+(
+    SELECT
+        LPAD(PROD_ID, 8) AS PROD_ID,
+        RPAD(TITLE, 40) AS TITLE,
+        RPAD(ACTOR, 30) AS ACTOR,
+        LPAD(FORMAT(PRICE, 2), 10) AS PRICE,
+        LPAD(SPECIAL, 7) AS SPECIAL,
+        LPAD(COMMON_PROD_ID, 13) AS COMMON_PROD_ID,
+        'Bulk (.77)' AS adjustment_type
+    FROM PRODUCTS1
+    WHERE (PRICE - FLOOR(PRICE)) = 0.77
+    ORDER BY PROD_ID
+    LIMIT 10
+)
+UNION ALL
+(
+    SELECT
+        LPAD(PROD_ID, 8) AS PROD_ID,
+        RPAD(TITLE, 40) AS TITLE,
+        RPAD(ACTOR, 30) AS ACTOR,
+        LPAD(FORMAT(PRICE, 2), 10) AS PRICE,
+        LPAD(SPECIAL, 7) AS SPECIAL,
+        LPAD(COMMON_PROD_ID, 13) AS COMMON_PROD_ID,
+        'Individual' AS adjustment_type
+    FROM PRODUCTS1
+    WHERE (PRICE - FLOOR(PRICE)) != 0.99
+      AND (PRICE - FLOOR(PRICE)) != 0.01
+      AND (PRICE - FLOOR(PRICE)) != 0.77
+    ORDER BY PROD_ID
+    LIMIT 10
+)
+ORDER BY adjustment_type DESC, PROD_ID;
 
 -- Membership expirations
 SET @total_memberships = (SELECT COUNT(*) FROM MEMBERSHIP1);

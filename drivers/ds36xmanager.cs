@@ -49,6 +49,9 @@ namespace ds2xdriver
     public int n_expire_memberships = 0;
     public int n_purge_old_orders = 0;
     public int n_upgrade_membership = 0;
+    private bool use_bulk_price_adjustment = false;  // Toggle for alternation
+    public int n_bulk_price_adjustments = 0;
+    public int n_bulk_products_price_changed = 0;
     public int n_products_added = 0;
     public int n_reviews_removed_by_product = 0;
     public int n_reviews_removed_unhelpful = 0;
@@ -63,6 +66,7 @@ namespace ds2xdriver
     public double rt_remove_unhelpful_reviews = 0.0;
     public double rt_remove_reviews_by_date = 0.0;
     public double rt_adjust_prices = 0.0;
+    public double rt_bulk_price_adjustments = 0.0;
     public double rt_mark_specials = 0.0;
     public double rt_upgrade_membership = 0.0;
     public double rt_expire_memberships = 0.0;
@@ -250,18 +254,34 @@ namespace ds2xdriver
           }
           else if (roll < Controller.manager_add_product_pct + Controller.manager_delete_review_pct + Controller.manager_update_price_pct)
           {
-            // AdjustPrices - adjust batch of product prices
+            // Price adjustment - alternate between individual and bulk
             int batch_size = Random.Shared.Next(Controller.manager_batch_size_min, Controller.manager_batch_size_max + 1);
-            n_adjust_prices++;  // OUTSIDE loop - operation selected once per interval
 
-            for (int i = 0; i < batch_size; i++)
+            if (use_bulk_price_adjustment)
             {
-              int prod_id = GetSkewedProductId(Controller.max_product[target_store]);
-              rows_affected = ds2interface.ds36adjustprices(prod_id, ref rt);
-              rt_adjust_prices += rt;  // INSIDE loop - accumulate response times
-              n_products_price_changed += rows_affected;  // INSIDE loop - count products actually changed
-              //Console.WriteLine("Thread {0}: Adjusted price for product {1}, rows affected: {2}", Thread.CurrentThread.Name, prod_id, rows_affected);
+              // Bulk: category-wide adjustment, minimum 500 products, same ±25%, .77 endings
+              int bulk_batch_size = Math.Max(batch_size * 10, 500);
+              int category = Random.Shared.Next(1, GlobalConstants.MAX_CATEGORY + 1);  // Random category 1-16
+              rows_affected = ds2interface.ds36bulkpriceadjustment(bulk_batch_size, category, ref rt);
+              n_bulk_price_adjustments++;
+              n_bulk_products_price_changed += rows_affected;
+              rt_bulk_price_adjustments += rt;
             }
+            else
+            {
+              // Single: individual products, each gets different ±10%, keeps .99 endings
+              n_adjust_prices++;
+              for (int i = 0; i < batch_size; i++)
+              {
+                int prod_id = GetSkewedProductId(Controller.max_product[target_store]);
+                rows_affected = ds2interface.ds36adjustprices(prod_id, ref rt);
+                rt_adjust_prices += rt;
+                n_products_price_changed += rows_affected;
+              }
+            }
+
+            // Toggle for next time
+            use_bulk_price_adjustment = !use_bulk_price_adjustment;
           }
           else if (roll < Controller.manager_add_product_pct + Controller.manager_delete_review_pct + Controller.manager_update_price_pct + Controller.manager_update_special_pct)
           {
@@ -323,8 +343,8 @@ namespace ds2xdriver
 
       // Print statistics
       int total_operations = n_add_product + n_remove_review_by_product + n_remove_unhelpful_reviews +
-                             n_adjust_prices + n_mark_specials + n_expire_memberships + n_purge_old_orders +
-                             n_upgrade_membership;
+                             n_adjust_prices + n_bulk_price_adjustments + n_mark_specials + n_expire_memberships +
+                             n_purge_old_orders + n_upgrade_membership;
       int total_review_ops = n_remove_review_by_product + n_remove_unhelpful_reviews;
       double total_review_rt = rt_remove_review_by_product + rt_remove_unhelpful_reviews;
       Console.WriteLine("\n========== Manager Thread {0} Statistics (Store {1}) ==========", ManagerId, target_store);
@@ -348,6 +368,9 @@ namespace ds2xdriver
       Console.WriteLine("  AdjustPrices:            {0,6} operations, {1,6} products changed{2}",
                         n_adjust_prices, n_products_price_changed,
                         n_adjust_prices > 0 ? string.Format(", avg RT: {0:F3} sec", rt_adjust_prices / n_adjust_prices) : "");
+      Console.WriteLine("  BulkPriceAdjustment:     {0,6} operations, {1,6} products changed{2}",
+                        n_bulk_price_adjustments, n_bulk_products_price_changed,
+                        n_bulk_price_adjustments > 0 ? string.Format(", avg RT: {0:F3} sec", rt_bulk_price_adjustments / n_bulk_price_adjustments) : "");
       Console.WriteLine("  MarkSpecials:            {0,6} operations, {1,6} products changed{2}",
                         n_mark_specials, n_products_special_changed,
                         n_mark_specials > 0 ? string.Format(", avg RT: {0:F3} sec", rt_mark_specials / n_mark_specials) : "");

@@ -778,6 +778,35 @@ BEGIN
 END;
 \$\$;
 
+CREATE OR REPLACE FUNCTION bulkpriceadjustment$k(
+    p_batch_size int,
+    p_category int,
+    OUT rows_updated int
+)
+LANGUAGE plpgsql
+AS \$\$
+DECLARE
+    v_adjustment_factor numeric(5,4);
+BEGIN
+    -- Category-wide price adjustment (±25%)
+    -- Simulates market events like 'Holiday DVDs 15% off'
+    v_adjustment_factor := 0.75 + (random() * 0.50);
+
+    WITH random_products AS (
+        SELECT prod_id
+        FROM products$k
+        WHERE category = p_category
+        ORDER BY random()
+        LIMIT p_batch_size
+    )
+    UPDATE products$k
+    SET price = FLOOR(price * v_adjustment_factor) + 0.77
+    WHERE prod_id IN (SELECT prod_id FROM random_products);
+
+    GET DIAGNOSTICS rows_updated = ROW_COUNT;
+END;
+\$\$;
+
 CREATE OR REPLACE FUNCTION markspecials$k(
     p_prod_id int,
     OUT rows_updated int
