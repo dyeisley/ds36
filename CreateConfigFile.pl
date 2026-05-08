@@ -108,12 +108,12 @@ $manager_update_special_pct ||= 0;
 print "Manager ExpireMemberships percentage (0-100) [0] : ";
 chomp($manager_expire_memberships_pct = <STDIN>);
 $manager_expire_memberships_pct ||= 0;
-print "Manager PurgeOldOrders percentage (0-100) [0] : ";
-chomp($manager_purge_old_orders_pct = <STDIN>);
-$manager_purge_old_orders_pct ||= 0;
 print "Manager UpgradeMembership percentage (0-100) [0] : ";
 chomp($manager_upgrade_membership_pct = <STDIN>);
 $manager_upgrade_membership_pct ||= 0;
+print "Manager PurgeOldOrders percentage (0-100) [0] : ";
+chomp($manager_purge_old_orders_pct = <STDIN>);
+$manager_purge_old_orders_pct ||= 0;
 }
 
 print "***********************************\n";
