@@ -260,10 +260,11 @@ DECLARE \@customerid_out INT
     BEGIN
       SELECT \@customerid_out
       SELECT derivedtable1$k.TITLE, derivedtable1$k.ACTOR, PRODUCTS_1$k.TITLE AS RelatedPurchase
-        FROM (SELECT PRODUCTS$k.TITLE, PRODUCTS$k.ACTOR, PRODUCTS$k.PROD_ID, PRODUCTS$k.COMMON_PROD_ID
+        FROM (SELECT TOP 10 PRODUCTS$k.TITLE, PRODUCTS$k.ACTOR, PRODUCTS$k.PROD_ID, PRODUCTS$k.COMMON_PROD_ID
           FROM CUST_HIST$k INNER JOIN
              PRODUCTS$k ON CUST_HIST$k.PROD_ID = PRODUCTS$k.PROD_ID
-          WHERE (CUST_HIST$k.CUSTOMERID = \@customerid_out)) AS derivedtable1$k INNER JOIN
+          WHERE (CUST_HIST$k.CUSTOMERID = \@customerid_out)
+          ORDER BY CUST_HIST$k.ORDERID DESC) AS derivedtable1$k INNER JOIN
              PRODUCTS$k AS PRODUCTS_1$k ON derivedtable1$k.COMMON_PROD_ID = PRODUCTS_1$k.PROD_ID
     END
   ELSE 
