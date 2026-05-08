@@ -9,3 +9,4 @@
 04/09/26	Added total_helpfulness column to reviews and trigger to keep it updated. (Improves performance.)
 		Search by vector implemented for Mysql and SQL Server (experimental)
 		Add products at run time.
+05/08/26	See CHANGES.md for a full list of changes.
