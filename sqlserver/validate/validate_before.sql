@@ -6,9 +6,9 @@ USE DS3;
 GO
 
 -- Create validation metrics table if it doesn't exist
-IF NOT EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'VALIDATION_METRICS') AND type = 'U')
+IF NOT EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'VALIDATION_METRICS_{store_number}') AND type = 'U')
 BEGIN
-    CREATE TABLE VALIDATION_METRICS (
+    CREATE TABLE VALIDATION_METRICS_{store_number} (
         metric_name VARCHAR(100) NOT NULL,
         metric_value BIGINT,
         snapshot_date DATETIME DEFAULT GETDATE()
@@ -17,9 +17,9 @@ END
 GO
 
 -- Create top reviews snapshot table if it doesn't exist
-IF NOT EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'VALIDATION_TOP_REVIEWS') AND type = 'U')
+IF NOT EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'VALIDATION_TOP_REVIEWS_{store_number}') AND type = 'U')
 BEGIN
-    CREATE TABLE VALIDATION_TOP_REVIEWS (
+    CREATE TABLE VALIDATION_TOP_REVIEWS_{store_number} (
         rank_position INT NOT NULL,
         review_id INT NOT NULL,
         prod_id INT NOT NULL,
@@ -30,9 +30,9 @@ END
 GO
 
 -- Create popular products review counts snapshot table if it doesn't exist
-IF NOT EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'VALIDATION_POPULAR_REVIEWS') AND type = 'U')
+IF NOT EXISTS (SELECT * FROM sys.objects WHERE object_id = OBJECT_ID(N'VALIDATION_POPULAR_REVIEWS_{store_number}') AND type = 'U')
 BEGIN
-    CREATE TABLE VALIDATION_POPULAR_REVIEWS (
+    CREATE TABLE VALIDATION_POPULAR_REVIEWS_{store_number} (
         prod_id INT NOT NULL,
         title VARCHAR(50) NOT NULL,
         review_count INT NOT NULL,
@@ -42,9 +42,9 @@ END
 GO
 
 -- Clear previous baseline metrics
-DELETE FROM VALIDATION_METRICS;
-DELETE FROM VALIDATION_TOP_REVIEWS;
-DELETE FROM VALIDATION_POPULAR_REVIEWS;
+DELETE FROM VALIDATION_METRICS_{store_number};
+DELETE FROM VALIDATION_TOP_REVIEWS_{store_number};
+DELETE FROM VALIDATION_POPULAR_REVIEWS_{store_number};
 GO
 
 PRINT '========================================================================';
@@ -61,51 +61,51 @@ PRINT '--- TABLE ROW COUNTS (Baseline) ---';
 PRINT 'Verifying: Initial data volume before benchmark execution';
 PRINT '';
 
-SELECT 'CUSTOMERS' AS TableName, COUNT(*) AS [RowCount] FROM CUSTOMERS1
+SELECT 'CUSTOMERS' AS TableName, COUNT(*) AS [RowCount] FROM CUSTOMERS{store_number}
 UNION ALL
-SELECT 'CUST_HIST', COUNT(*) FROM CUST_HIST1
+SELECT 'CUST_HIST', COUNT(*) FROM CUST_HIST{store_number}
 UNION ALL
-SELECT 'PRODUCTS', COUNT(*) FROM PRODUCTS1
+SELECT 'PRODUCTS', COUNT(*) FROM PRODUCTS{store_number}
 UNION ALL
-SELECT 'ORDERS', COUNT(*) FROM ORDERS1
+SELECT 'ORDERS', COUNT(*) FROM ORDERS{store_number}
 UNION ALL
-SELECT 'ORDERLINES', COUNT(*) FROM ORDERLINES1
+SELECT 'ORDERLINES', COUNT(*) FROM ORDERLINES{store_number}
 UNION ALL
-SELECT 'INVENTORY', COUNT(*) FROM INVENTORY1
+SELECT 'INVENTORY', COUNT(*) FROM INVENTORY{store_number}
 UNION ALL
-SELECT 'REVIEWS', COUNT(*) FROM REVIEWS1
+SELECT 'REVIEWS', COUNT(*) FROM REVIEWS{store_number}
 UNION ALL
-SELECT 'REVIEWS_HELPFULNESS', COUNT(*) FROM REVIEWS_HELPFULNESS1
+SELECT 'REVIEWS_HELPFULNESS', COUNT(*) FROM REVIEWS_HELPFULNESS{store_number}
 UNION ALL
-SELECT 'MEMBERSHIP', COUNT(*) FROM MEMBERSHIP1
+SELECT 'MEMBERSHIP', COUNT(*) FROM MEMBERSHIP{store_number}
 UNION ALL
-SELECT 'REORDER', COUNT(*) FROM REORDER1
+SELECT 'REORDER', COUNT(*) FROM REORDER{store_number}
 ORDER BY TableName;
 
 -- Save table counts to metrics table
-INSERT INTO VALIDATION_METRICS (metric_name, metric_value)
-SELECT 'CUSTOMERS_COUNT', COUNT(*) FROM CUSTOMERS1
-UNION ALL SELECT 'CUST_HIST_COUNT', COUNT(*) FROM CUST_HIST1
-UNION ALL SELECT 'PRODUCTS_COUNT', COUNT(*) FROM PRODUCTS1
-UNION ALL SELECT 'ORDERS_COUNT', COUNT(*) FROM ORDERS1
-UNION ALL SELECT 'OLD_ORDERS_COUNT', COUNT(*) FROM ORDERS1 WHERE ORDERDATE < CAST(GETDATE() AS DATE)
-UNION ALL SELECT 'ORDERLINES_COUNT', COUNT(*) FROM ORDERLINES1
-UNION ALL SELECT 'INVENTORY_COUNT', COUNT(*) FROM INVENTORY1
-UNION ALL SELECT 'REVIEWS_COUNT', COUNT(*) FROM REVIEWS1
-UNION ALL SELECT 'REVIEWS_HELPFULNESS_COUNT', COUNT(*) FROM REVIEWS_HELPFULNESS1
-UNION ALL SELECT 'MEMBERSHIP_COUNT', COUNT(*) FROM MEMBERSHIP1
-UNION ALL SELECT 'REORDER_COUNT', COUNT(*) FROM REORDER1
-UNION ALL SELECT 'MAX_PROD_ID', ISNULL(MAX(PROD_ID), 0) FROM PRODUCTS1
-UNION ALL SELECT 'SILVER_MEMBERS_COUNT', COUNT(*) FROM MEMBERSHIP1 WHERE MEMBERSHIPTYPE = 2
-UNION ALL SELECT 'GOLD_MEMBERS_COUNT', COUNT(*) FROM MEMBERSHIP1 WHERE MEMBERSHIPTYPE = 3;
+INSERT INTO VALIDATION_METRICS_{store_number} (metric_name, metric_value)
+SELECT 'CUSTOMERS_COUNT', COUNT(*) FROM CUSTOMERS{store_number}
+UNION ALL SELECT 'CUST_HIST_COUNT', COUNT(*) FROM CUST_HIST{store_number}
+UNION ALL SELECT 'PRODUCTS_COUNT', COUNT(*) FROM PRODUCTS{store_number}
+UNION ALL SELECT 'ORDERS_COUNT', COUNT(*) FROM ORDERS{store_number}
+UNION ALL SELECT 'OLD_ORDERS_COUNT', COUNT(*) FROM ORDERS{store_number} WHERE ORDERDATE < CAST(GETDATE() AS DATE)
+UNION ALL SELECT 'ORDERLINES_COUNT', COUNT(*) FROM ORDERLINES{store_number}
+UNION ALL SELECT 'INVENTORY_COUNT', COUNT(*) FROM INVENTORY{store_number}
+UNION ALL SELECT 'REVIEWS_COUNT', COUNT(*) FROM REVIEWS{store_number}
+UNION ALL SELECT 'REVIEWS_HELPFULNESS_COUNT', COUNT(*) FROM REVIEWS_HELPFULNESS{store_number}
+UNION ALL SELECT 'MEMBERSHIP_COUNT', COUNT(*) FROM MEMBERSHIP{store_number}
+UNION ALL SELECT 'REORDER_COUNT', COUNT(*) FROM REORDER{store_number}
+UNION ALL SELECT 'MAX_PROD_ID', ISNULL(MAX(PROD_ID), 0) FROM PRODUCTS{store_number}
+UNION ALL SELECT 'SILVER_MEMBERS_COUNT', COUNT(*) FROM MEMBERSHIP{store_number} WHERE MEMBERSHIPTYPE = 2
+UNION ALL SELECT 'GOLD_MEMBERS_COUNT', COUNT(*) FROM MEMBERSHIP{store_number} WHERE MEMBERSHIPTYPE = 3;
 
 -- Create full membership snapshot to track all changes across test run
-IF OBJECT_ID('MEMBERSHIP_SNAPSHOT', 'U') IS NOT NULL
-    DROP TABLE MEMBERSHIP_SNAPSHOT;
+IF OBJECT_ID('MEMBERSHIP_SNAPSHOT_{store_number}', 'U') IS NOT NULL
+    DROP TABLE MEMBERSHIP_SNAPSHOT_{store_number};
 
 SELECT CUSTOMERID, MEMBERSHIPTYPE, EXPIREDATE
-INTO MEMBERSHIP_SNAPSHOT
-FROM MEMBERSHIP1;
+INTO MEMBERSHIP_SNAPSHOT_{store_number}
+FROM MEMBERSHIP{store_number};
 
 PRINT '';
 PRINT '';
@@ -125,8 +125,8 @@ SELECT TOP 5 WITH TIES
     LEFT(c.FIRSTNAME + REPLICATE(' ', 15), 15) AS [FirstName],
     LEFT(c.LASTNAME + REPLICATE(' ', 15), 15) AS [LastName],
     RIGHT(REPLICATE(' ', 8) + CAST(COUNT(*) AS VARCHAR), 8) AS [Products]
-FROM CUST_HIST1 ch
-JOIN CUSTOMERS1 c ON ch.CUSTOMERID = c.CUSTOMERID
+FROM CUST_HIST{store_number} ch
+JOIN CUSTOMERS{store_number} c ON ch.CUSTOMERID = c.CUSTOMERID
 GROUP BY ch.CUSTOMERID, c.FIRSTNAME, c.LASTNAME
 ORDER BY COUNT(*) DESC;
 
@@ -151,8 +151,8 @@ SELECT TOP 10
         WHEN i.PROD_ID % 10000 = 0 THEN '**POPULAR**'
         ELSE ''
     END AS IsPopularProduct
-FROM INVENTORY1 i
-JOIN PRODUCTS1 p ON i.PROD_ID = p.PROD_ID
+FROM INVENTORY{store_number} i
+JOIN PRODUCTS{store_number} p ON i.PROD_ID = p.PROD_ID
 ORDER BY i.SALES DESC;
 
 PRINT '';
@@ -174,8 +174,8 @@ SELECT TOP 20
     SUM(r.QUAN_REORDERED) AS TOTAL_REORDERED,
     COUNT(*) AS RESTOCK_COUNT,
     MAX(r.DATE_REORDERED) AS LAST_RESTOCK_DATE
-FROM REORDER1 r
-JOIN PRODUCTS1 p ON r.PROD_ID = p.PROD_ID
+FROM REORDER{store_number} r
+JOIN PRODUCTS{store_number} p ON r.PROD_ID = p.PROD_ID
 GROUP BY r.PROD_ID, p.TITLE
 ORDER BY SUM(r.QUAN_REORDERED) DESC;
 
@@ -200,17 +200,17 @@ SELECT TOP 10
     RIGHT(REPLICATE(' ', 10) + CAST(PROD_ID AS VARCHAR), 10) AS [ProdID],
     RIGHT(REPLICATE(' ', 12) + CAST(TOTAL_HELPFULNESS AS VARCHAR), 12) AS [Helpfulness],
     LEFT(CASE WHEN PROD_ID % 10000 = 0 THEN '**POPULAR**' ELSE '' END + REPLICATE(' ', 12), 12) AS [Popular]
-FROM REVIEWS1
+FROM REVIEWS{store_number}
 ORDER BY TOTAL_HELPFULNESS DESC, REVIEW_ID;
 
 -- Save top reviews to snapshot table
-INSERT INTO VALIDATION_TOP_REVIEWS (rank_position, review_id, prod_id, total_helpfulness)
+INSERT INTO VALIDATION_TOP_REVIEWS_{store_number} (rank_position, review_id, prod_id, total_helpfulness)
 SELECT TOP 10
     ROW_NUMBER() OVER (ORDER BY TOTAL_HELPFULNESS DESC, REVIEW_ID) AS rank_position,
     REVIEW_ID,
     PROD_ID,
     TOTAL_HELPFULNESS
-FROM REVIEWS1
+FROM REVIEWS{store_number}
 ORDER BY TOTAL_HELPFULNESS DESC, REVIEW_ID;
 
 PRINT '';
@@ -224,20 +224,20 @@ SELECT
     p.PROD_ID,
     p.TITLE,
     COUNT(r.REVIEW_ID) AS ReviewCount
-FROM PRODUCTS1 p
-LEFT JOIN REVIEWS1 r ON p.PROD_ID = r.PROD_ID
+FROM PRODUCTS{store_number} p
+LEFT JOIN REVIEWS{store_number} r ON p.PROD_ID = r.PROD_ID
 WHERE p.PROD_ID % 10000 = 0
 GROUP BY p.PROD_ID, p.TITLE
 ORDER BY ReviewCount DESC, p.PROD_ID;
 
 -- Save popular product review counts to snapshot table
-INSERT INTO VALIDATION_POPULAR_REVIEWS (prod_id, title, review_count)
+INSERT INTO VALIDATION_POPULAR_REVIEWS_{store_number} (prod_id, title, review_count)
 SELECT
     p.PROD_ID,
     p.TITLE,
     COUNT(r.REVIEW_ID)
-FROM PRODUCTS1 p
-LEFT JOIN REVIEWS1 r ON p.PROD_ID = r.PROD_ID
+FROM PRODUCTS{store_number} p
+LEFT JOIN REVIEWS{store_number} r ON p.PROD_ID = r.PROD_ID
 WHERE p.PROD_ID % 10000 = 0
 GROUP BY p.PROD_ID, p.TITLE;
 
@@ -253,14 +253,14 @@ PRINT '';
 -- Manager-created products (price ends in .01)
 DECLARE @ManagerProducts INT;
 SELECT @ManagerProducts = COUNT(*)
-FROM PRODUCTS1
+FROM PRODUCTS{store_number}
 WHERE PRICE - FLOOR(PRICE) = 0.01;
 PRINT 'Manager-Created Products (price .01): ' + CAST(@ManagerProducts AS VARCHAR);
 
 -- Products marked as SPECIAL
 DECLARE @SpecialProducts INT;
 SELECT @SpecialProducts = COUNT(*)
-FROM PRODUCTS1
+FROM PRODUCTS{store_number}
 WHERE SPECIAL = 1;
 PRINT 'Products Marked Special (SPECIAL=1): ' + CAST(@SpecialProducts AS VARCHAR);
 PRINT '  ** Record this count to compare with post-test results **';
@@ -268,13 +268,13 @@ PRINT '  ** Record this count to compare with post-test results **';
 -- Total helpfulness across all reviews
 DECLARE @TotalHelpfulness BIGINT;
 SELECT @TotalHelpfulness = ISNULL(SUM(TOTAL_HELPFULNESS), 0)
-FROM REVIEWS1;
+FROM REVIEWS{store_number};
 
 -- Membership counts
 DECLARE @TotalMemberships INT;
 DECLARE @ExpiredMemberships INT;
-SELECT @TotalMemberships = COUNT(*) FROM MEMBERSHIP1;
-SELECT @ExpiredMemberships = COUNT(*) FROM MEMBERSHIP1 WHERE EXPIREDATE < GETDATE();
+SELECT @TotalMemberships = COUNT(*) FROM MEMBERSHIP{store_number};
+SELECT @ExpiredMemberships = COUNT(*) FROM MEMBERSHIP{store_number} WHERE EXPIREDATE < GETDATE();
 
 PRINT '';
 PRINT 'Membership Status:';
@@ -285,7 +285,7 @@ PRINT '  Active Memberships: ' + CAST(@TotalMemberships - @ExpiredMemberships AS
 
 -- Top 10 newest customers (by CUSTOMERID)
 DECLARE @MaxCustomerID INT;
-SELECT @MaxCustomerID = MAX(CUSTOMERID) FROM CUSTOMERS1;
+SELECT @MaxCustomerID = MAX(CUSTOMERID) FROM CUSTOMERS{store_number};
 
 PRINT '';
 PRINT 'Top 10 Newest Customers (highest CUSTOMERID):';
@@ -294,11 +294,11 @@ SELECT TOP 10
     LEFT(FIRSTNAME + REPLICATE(' ', 20), 20) AS [FirstName],
     LEFT(LASTNAME + REPLICATE(' ', 20), 20) AS [LastName],
     LEFT(CITY + REPLICATE(' ', 20), 20) AS [City]
-FROM CUSTOMERS1
+FROM CUSTOMERS{store_number}
 ORDER BY CUSTOMERID DESC;
 
 -- Save additional metrics to table
-INSERT INTO VALIDATION_METRICS (metric_name, metric_value)
+INSERT INTO VALIDATION_METRICS_{store_number} (metric_name, metric_value)
 VALUES ('MANAGER_PRODUCTS_COUNT', @ManagerProducts),
        ('SPECIAL_PRODUCTS_COUNT', @SpecialProducts),
        ('TOTAL_HELPFULNESS', @TotalHelpfulness),
@@ -309,6 +309,6 @@ VALUES ('MANAGER_PRODUCTS_COUNT', @ManagerProducts),
 PRINT '';
 PRINT '========================================================================';
 PRINT 'Pre-Test Validation Complete';
-PRINT 'Baseline metrics saved to VALIDATION_METRICS table';
-PRINT 'Run validate_after.sql to compare with post-test results';
+PRINT 'Baseline metrics saved to VALIDATION_METRICS_{store_number} table';
+PRINT 'Run sqlserver_validate_after{store_number}.sql to compare with post-test results';
 PRINT '========================================================================';

@@ -59,7 +59,7 @@ foreach my $k (1 .. $numberofstores){
 chdir("$base_dir/reviews/$sqlservertargetdir");
 foreach my $k (1 .. $numberofstores){
 	print "running remote_sqlserver_ds_reviews_load$k.sh\n";
-	system ("sh remote_sqlserver_ds_reviews_load$k.sh &");
+	system ("sh remote_sqlserver_ds_reviews_load$k.sh");
 	}
 	
 chdir("$base_dir/orders/$sqlservertargetdir");
