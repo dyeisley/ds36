@@ -255,3 +255,8 @@ SET FOREIGN_KEY_CHECKS=1;
   print ("mariadb -h $mysqltarget -u web --password=web < $mysql_targetdir${pathsep}$indexfile\n");
   system ("mariadb -h $mysqltarget -u web --password=web < $mysql_targetdir${pathsep}$indexfile");
 }
+
+if ("$^O" eq "linux")
+{
+  system("wait");
+}

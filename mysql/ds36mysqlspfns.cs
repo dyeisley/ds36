@@ -52,7 +52,7 @@ namespace ds2xdriver
       ds2Interfaceid = ds2interfaceid;
       target_server_name = target_name;
       target_store_number = target_store;
-      conn_str = "Server=" + target_server_name + ";User ID=web;Password=web;Database=DS3";
+      conn_str = "Server=" + target_server_name + ";User ID=web;Password=web;Database=DS3;Default Command Timeout=300;";
       objConn = new MySqlConnection(conn_str);
 
       cust_out_param = new MySqlParameter("customerid_out", MySqlDbType.Int32);

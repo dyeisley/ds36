@@ -52,34 +52,46 @@ if ("$^O" eq "linux")
 	system ("rm -f reviews/$mysql_targetdir/finished*.txt");
 	
 	print "Load started at ".(localtime), "\n";
+	print ("Executing\n");
 
 	chdir("$base_dir/membership/$mysql_targetdir");
 	foreach my $k (1 .. $numberofstores){
+		print ("  remote_mysql_ds_membership_load$k.bat\n");
 		system ("sh remote_mysql_ds_membership_load$k.bat &");
 		}
 
 	chdir("$base_dir/prod/$mysql_targetdir");
 	foreach my $k (1 .. $numberofstores){
+		print ("  remote_mysql_ds_prod_load$k.bat\n");
 		system ("sh remote_mysql_ds_prod_load$k.bat &");
+		print ("  remote_mysql_ds_inv_load$k.bat\n");
 		system ("sh remote_mysql_ds_inv_load$k.bat &");
 		}
+	system("wait");
 	
 	chdir("$base_dir/reviews/$mysql_targetdir");
 	foreach my $k (1 .. $numberofstores){
-		system ("sh remote_mysql_ds_reviews_load$k.bat &");
-		system ("sh remote_mysql_ds_reviewshelpful_load$k.bat &");
+		  print ("  remote_mysql_ds_reviews_load$k.bat\n");
+		  system ("sh remote_mysql_ds_reviews_load$k.bat &");
+		  print ("  remote_mysql_ds_reviewshelpful_load$k.bat\n");
+		  system ("sh remote_mysql_ds_reviewshelpful_load$k.bat &");
 		}
+	system("wait");
 	
 	chdir("$base_dir/orders/$mysql_targetdir");
 	foreach my $k (1 .. $numberofstores){
+		print ("  remote_mysql_ds_orders_load$k.bat\n");
 		system ("sh remote_mysql_ds_orders_load$k.bat &");
+		print ("  remote_mysql_ds_orderlines_load$k.bat\n");
 		system ("sh remote_mysql_ds_orderlines_load$k.bat &");
-		system ("sh remote_mysql_ds_cust_hist_load$k.bat &");
+		print ("  remote_mysql_ds_cust_hist_load$k.bat\n");
+		system ("sh remote_mysql_ds_cust_hist_load$k.bat");
 		}
 	
 	chdir("$base_dir/cust/$mysql_targetdir");
 	foreach my $k (1 .. $numberofstores){
-		system ("sh remote_mysql_ds_cust_load$k.bat &");
+		print ("  remote_mysql_ds_cust_load$k.bat\n");
+		system ("sh remote_mysql_ds_cust_load$k.bat");
 		}
 	
 	# Each load file creates a finishedxx.txt file after completing it's load.  The code
@@ -118,7 +130,7 @@ if ("$^O" eq "linux")
 	system ("rm -f orders/$mysql_targetdir/finished*.txt");
 	system ("rm -f membership/$mysql_targetdir/finished*.txt");
 	system ("rm -f prod/$mysql_targetdir/finished*.txt");
-	system ("rm -f  reviews/$mysql_targetdir/finished*.txt");
+	system ("rm -f reviews/$mysql_targetdir/finished*.txt");
 
 	}  # End Linux version
 else         # Windows Version
