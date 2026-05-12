@@ -1117,6 +1117,118 @@ namespace ds2xdriver
     //
     //-------------------------------------------------------------------------------------------------
     //
+    public static string GetDatabaseType()
+    {
+      return "pgsql";
+    }
+
+    //
+    //-------------------------------------------------------------------------------------------------
+    //
+    public void ds2validate(string outputFile, string targetServer, int storeNumber)
+    {
+      string sqlFilePath = $"validate/{targetServer}/pgsql_validate_after{storeNumber}.sql";
+      if (!File.Exists(sqlFilePath))
+      {
+        Console.WriteLine($"Error: Validation SQL file not found: {sqlFilePath}");
+        return;
+      }
+
+      string sqlContent = File.ReadAllText(sqlFilePath);
+
+      // Filter out psql-specific commands (\c, \timing, etc.)
+      var filteredLines = new List<string>();
+      foreach (string line in sqlContent.Split(new[] { '\r', '\n' }, StringSplitOptions.None))
+      {
+        string trimmed = line.TrimStart();
+        // Skip psql meta-commands
+        if (trimmed.StartsWith("\\"))
+        {
+          continue;
+        }
+        filteredLines.Add(line);
+      }
+      sqlContent = string.Join("\n", filteredLines);
+
+      // Set up NOTICE event handler to capture RAISE NOTICE output
+      var noticeMessages = new List<string>();
+      objConn.Notice += (sender, e) =>
+      {
+        noticeMessages.Add(e.Notice.MessageText);
+      };
+
+      try
+      {
+        // Execute entire script (PostgreSQL handles multiple statements)
+        using (NpgsqlCommand cmd = new NpgsqlCommand(sqlContent, objConn))
+        {
+          cmd.CommandTimeout = 600; // 10 minutes for validation queries
+
+          // Execute and capture result sets
+          using (NpgsqlDataReader reader = cmd.ExecuteReader())
+          {
+            using (StreamWriter writer = new StreamWriter(outputFile, append: true))
+            {
+              do
+              {
+                // Write any NOTICE messages collected before this result set
+                foreach (string notice in noticeMessages)
+                {
+                  writer.WriteLine(notice);
+                }
+                noticeMessages.Clear();
+
+                // Check if this result set has rows
+                if (reader.HasRows)
+                {
+                  // Write column headers
+                  for (int i = 0; i < reader.FieldCount; i++)
+                  {
+                    writer.Write(reader.GetName(i).PadRight(20));
+                  }
+                  writer.WriteLine();
+
+                  // Write separator
+                  string separator = new string('-', reader.FieldCount * 20);
+                  writer.WriteLine(separator);
+
+                  // Write data rows
+                  while (reader.Read())
+                  {
+                    for (int i = 0; i < reader.FieldCount; i++)
+                    {
+                      string value = reader.IsDBNull(i) ? "" : reader.GetValue(i).ToString() ?? "";
+                      writer.Write(value.PadRight(20));
+                    }
+                    writer.WriteLine();
+                  }
+                  writer.WriteLine();
+                }
+              } while (reader.NextResult());
+
+              // Write any remaining NOTICE messages
+              foreach (string notice in noticeMessages)
+              {
+                writer.WriteLine(notice);
+              }
+            }
+          }
+        }
+      }
+      catch (Exception e)
+      {
+        Console.WriteLine($"Error executing validation SQL: {e.Message}");
+      }
+      finally
+      {
+        // Remove event handler
+        objConn.Notice -= (sender, e) => { };
+      }
+    }
+
+    //
+    //-------------------------------------------------------------------------------------------------
+    //
     public bool ds2close()
     {
       objConn.Close();

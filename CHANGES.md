@@ -100,18 +100,37 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Validates manager operations: membership changes, price adjustments, review deletions, order purging
 - Verifies data integrity: cascading deletes, trigger behavior, referential integrity
 
-**Current Limitations**:
-- Single-store only (hardcoded store numbers in SQL files)
-- Must be run manually via database CLI tools (sqlcmd, mysql, psql, sqlplus)
+**Multi-Store Support** (Added 2026-05-12):
+- Perl scripts generate and execute validation SQL for multiple stores
+- Template-based: SQL files use `{store_number}` placeholders, substituted during generation
+- Store-specific snapshot tables: `VALIDATION_METRICS_{store_number}`, `MEMBERSHIP_SNAPSHOT_{store_number}`, etc.
+- Generate/execute split: can generate SQL for review, then execute separately
+- Cross-platform compatible (Linux and Windows) [not tested on Windows]
 
-**Future Work**:
-- Convert to Perl-generated multi-store scripts (similar to stored procedure generation pattern)
+**Perl Scripts**:
+- `sqlserver/validate/sqlserver_ds_perl_validate_multi.pl <server> <num_stores> <password> <before|after> [generate|execute]`
+- `mysql/validate/mysql_ds_perl_validate_multi.pl <server> <num_stores> <before|after> [generate|execute]`
+  - Uses `-N -s` flags to suppress column headers for clean output
+- `pgsql/validate/pgsql_ds_perl_validate_multi.pl <server> <num_stores> <before|after> [generate|execute]`
+- `oracle/validate/oracle_ds_perl_validate_multi.pl <server> <num_stores> <before|after> [generate|execute]`
 
-**Files**:
+**Template Files**:
 - `sqlserver/validate/validate_before.sql`, `validate_after.sql`
 - `mysql/validate/validate_before.sql`, `validate_after.sql`
 - `pgsql/validate/validate_before.sql`, `validate_after.sql`
 - `oracle/validate/validate_before.sql`, `validate_after.sql`
+
+**Usage Examples**:
+```bash
+# Generate SQL only (for review)
+perl mysql_ds_perl_validate_multi.pl localhost 3 before generate
+
+# Execute previously generated SQL
+perl mysql_ds_perl_validate_multi.pl localhost 3 before execute
+
+# Both generate and execute (default)
+perl mysql_ds_perl_validate_multi.pl localhost 3 before
+```
 
 ### Added - Validation SQL Enhancements
 
