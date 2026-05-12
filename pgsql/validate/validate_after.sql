@@ -29,30 +29,30 @@ SELECT
     RPAD(REPLACE(m.metric_name, '_COUNT', ''), 15) AS "Table",
     LPAD(m.metric_value::TEXT, 15) AS "Pre",
     LPAD(CASE REPLACE(m.metric_name, '_COUNT', '')
-        WHEN 'CUSTOMERS' THEN (SELECT COUNT(*) FROM CUSTOMERS1)
-        WHEN 'CUST_HIST' THEN (SELECT COUNT(*) FROM CUST_HIST1)
-        WHEN 'PRODUCTS' THEN (SELECT COUNT(*) FROM PRODUCTS1)
-        WHEN 'ORDERS' THEN (SELECT COUNT(*) FROM ORDERS1)
-        WHEN 'ORDERLINES' THEN (SELECT COUNT(*) FROM ORDERLINES1)
-        WHEN 'INVENTORY' THEN (SELECT COUNT(*) FROM INVENTORY1)
-        WHEN 'REVIEWS' THEN (SELECT COUNT(*) FROM REVIEWS1)
-        WHEN 'REVIEWS_HELPFULNESS' THEN (SELECT COUNT(*) FROM REVIEWS_HELPFULNESS1)
-        WHEN 'MEMBERSHIP' THEN (SELECT COUNT(*) FROM MEMBERSHIP1)
-        WHEN 'REORDER' THEN (SELECT COUNT(*) FROM REORDER1)
+        WHEN 'CUSTOMERS' THEN (SELECT COUNT(*) FROM CUSTOMERS{store_number})
+        WHEN 'CUST_HIST' THEN (SELECT COUNT(*) FROM CUST_HIST{store_number})
+        WHEN 'PRODUCTS' THEN (SELECT COUNT(*) FROM PRODUCTS{store_number})
+        WHEN 'ORDERS' THEN (SELECT COUNT(*) FROM ORDERS{store_number})
+        WHEN 'ORDERLINES' THEN (SELECT COUNT(*) FROM ORDERLINES{store_number})
+        WHEN 'INVENTORY' THEN (SELECT COUNT(*) FROM INVENTORY{store_number})
+        WHEN 'REVIEWS' THEN (SELECT COUNT(*) FROM REVIEWS{store_number})
+        WHEN 'REVIEWS_HELPFULNESS' THEN (SELECT COUNT(*) FROM REVIEWS_HELPFULNESS{store_number})
+        WHEN 'MEMBERSHIP' THEN (SELECT COUNT(*) FROM MEMBERSHIP{store_number})
+        WHEN 'REORDER' THEN (SELECT COUNT(*) FROM REORDER{store_number})
     END::TEXT, 15) AS "Post",
     LPAD((CASE REPLACE(m.metric_name, '_COUNT', '')
-        WHEN 'CUSTOMERS' THEN (SELECT COUNT(*) FROM CUSTOMERS1)
-        WHEN 'CUST_HIST' THEN (SELECT COUNT(*) FROM CUST_HIST1)
-        WHEN 'PRODUCTS' THEN (SELECT COUNT(*) FROM PRODUCTS1)
-        WHEN 'ORDERS' THEN (SELECT COUNT(*) FROM ORDERS1)
-        WHEN 'ORDERLINES' THEN (SELECT COUNT(*) FROM ORDERLINES1)
-        WHEN 'INVENTORY' THEN (SELECT COUNT(*) FROM INVENTORY1)
-        WHEN 'REVIEWS' THEN (SELECT COUNT(*) FROM REVIEWS1)
-        WHEN 'REVIEWS_HELPFULNESS' THEN (SELECT COUNT(*) FROM REVIEWS_HELPFULNESS1)
-        WHEN 'MEMBERSHIP' THEN (SELECT COUNT(*) FROM MEMBERSHIP1)
-        WHEN 'REORDER' THEN (SELECT COUNT(*) FROM REORDER1)
+        WHEN 'CUSTOMERS' THEN (SELECT COUNT(*) FROM CUSTOMERS{store_number})
+        WHEN 'CUST_HIST' THEN (SELECT COUNT(*) FROM CUST_HIST{store_number})
+        WHEN 'PRODUCTS' THEN (SELECT COUNT(*) FROM PRODUCTS{store_number})
+        WHEN 'ORDERS' THEN (SELECT COUNT(*) FROM ORDERS{store_number})
+        WHEN 'ORDERLINES' THEN (SELECT COUNT(*) FROM ORDERLINES{store_number})
+        WHEN 'INVENTORY' THEN (SELECT COUNT(*) FROM INVENTORY{store_number})
+        WHEN 'REVIEWS' THEN (SELECT COUNT(*) FROM REVIEWS{store_number})
+        WHEN 'REVIEWS_HELPFULNESS' THEN (SELECT COUNT(*) FROM REVIEWS_HELPFULNESS{store_number})
+        WHEN 'MEMBERSHIP' THEN (SELECT COUNT(*) FROM MEMBERSHIP{store_number})
+        WHEN 'REORDER' THEN (SELECT COUNT(*) FROM REORDER{store_number})
     END - m.metric_value)::TEXT, 15) AS "Delta"
-FROM VALIDATION_METRICS m
+FROM VALIDATION_METRICS_{store_number} m
 WHERE m.metric_name LIKE '%_COUNT'
     AND m.metric_name NOT IN ('MANAGER_PRODUCTS_COUNT', 'SPECIAL_PRODUCTS_COUNT', 'OLD_ORDERS_COUNT', 'SILVER_MEMBERS_COUNT', 'GOLD_MEMBERS_COUNT')
 ORDER BY "Table";
@@ -78,8 +78,8 @@ SELECT
     RPAD(c.FIRSTNAME, 15, ' ') AS "FirstName",
     RPAD(c.LASTNAME, 15, ' ') AS "LastName",
     LPAD(COUNT(*)::TEXT, 8, ' ') AS "Products"
-FROM CUST_HIST1 ch
-JOIN CUSTOMERS1 c ON ch.CUSTOMERID = c.CUSTOMERID
+FROM CUST_HIST{store_number} ch
+JOIN CUSTOMERS{store_number} c ON ch.CUSTOMERID = c.CUSTOMERID
 GROUP BY ch.CUSTOMERID, c.FIRSTNAME, c.LASTNAME
 ORDER BY COUNT(*) DESC
 LIMIT 5;
@@ -109,8 +109,8 @@ SELECT
         WHEN i.PROD_ID % 10000 = 0 THEN '**POPULAR**'
         ELSE ''
     END AS IsPopularProduct
-FROM INVENTORY1 i
-JOIN PRODUCTS1 p ON i.PROD_ID = p.PROD_ID
+FROM INVENTORY{store_number} i
+JOIN PRODUCTS{store_number} p ON i.PROD_ID = p.PROD_ID
 ORDER BY i.SALES DESC
 LIMIT 10;
 
@@ -125,11 +125,11 @@ BEGIN
 
     -- Summary statistics on popular vs non-popular products
     SELECT SUM(SALES), COUNT(*) INTO v_popular_sales, v_popular_count
-    FROM INVENTORY1
+    FROM INVENTORY{store_number}
     WHERE PROD_ID % 10000 = 0;
 
     SELECT SUM(SALES), COUNT(*) INTO v_non_popular_sales, v_non_popular_count
-    FROM INVENTORY1
+    FROM INVENTORY{store_number}
     WHERE PROD_ID % 10000 != 0;
 
     RAISE NOTICE 'GetSkewedProductId Effectiveness:';
@@ -168,8 +168,8 @@ SELECT
         WHEN r.PROD_ID % 10000 = 0 THEN '**POPULAR**'
         ELSE ''
     END AS IsPopularProduct
-FROM REORDER1 r
-JOIN PRODUCTS1 p ON r.PROD_ID = p.PROD_ID
+FROM REORDER{store_number} r
+JOIN PRODUCTS{store_number} p ON r.PROD_ID = p.PROD_ID
 GROUP BY r.PROD_ID, p.TITLE
 ORDER BY SUM(r.QUAN_REORDERED) DESC
 LIMIT 20;
@@ -182,8 +182,8 @@ BEGIN
     RAISE NOTICE '';
 
     -- Reorder statistics
-    SELECT COUNT(*) INTO v_total_reorders FROM REORDER1;
-    SELECT COUNT(*) INTO v_popular_reorders FROM REORDER1 WHERE PROD_ID % 10000 = 0;
+    SELECT COUNT(*) INTO v_total_reorders FROM REORDER{store_number};
+    SELECT COUNT(*) INTO v_popular_reorders FROM REORDER{store_number} WHERE PROD_ID % 10000 = 0;
 
     RAISE NOTICE 'Restock Trigger Statistics:';
     RAISE NOTICE '  Total Reorder Events: %', v_total_reorders;
@@ -213,7 +213,7 @@ SELECT
     LPAD(t.review_id::TEXT, 10) AS "ReviewID",
     LPAD(t.prod_id::TEXT, 10) AS "ProdID",
     LPAD(t.total_helpfulness::TEXT, 12) AS "Helpfulness"
-FROM VALIDATION_TOP_REVIEWS t
+FROM VALIDATION_TOP_REVIEWS_{store_number} t
 ORDER BY t.rank_position;
 
 DO $$
@@ -228,7 +228,7 @@ SELECT
     LPAD(PROD_ID::TEXT, 10) AS "ProdID",
     LPAD(TOTAL_HELPFULNESS::TEXT, 12) AS "Helpfulness",
     RPAD(CASE WHEN PROD_ID % 10000 = 0 THEN '**POPULAR**' ELSE '' END, 12) AS "Popular"
-FROM REVIEWS1
+FROM REVIEWS{store_number}
 ORDER BY TOTAL_HELPFULNESS DESC, REVIEW_ID
 LIMIT 10;
 
@@ -246,10 +246,10 @@ BEGIN
     -- Review statistics
     SELECT COUNT(*), AVG(TOTAL_HELPFULNESS), MAX(TOTAL_HELPFULNESS), COALESCE(SUM(TOTAL_HELPFULNESS), 0)
     INTO v_total_reviews, v_avg_helpfulness, v_max_helpfulness, v_total_helpfulness
-    FROM REVIEWS1;
+    FROM REVIEWS{store_number};
 
     SELECT metric_value INTO v_total_helpfulness_pre
-    FROM VALIDATION_METRICS
+    FROM VALIDATION_METRICS_{store_number}
     WHERE metric_name = 'TOTAL_HELPFULNESS';
 
     RAISE NOTICE 'Review Statistics:';
@@ -273,14 +273,14 @@ SELECT
     COALESCE(pre.review_count, 0) AS "Pre",
     COALESCE(post.ReviewCount, 0) AS "Post",
     COALESCE(post.ReviewCount, 0) - COALESCE(pre.review_count, 0) AS "Delta"
-FROM VALIDATION_POPULAR_REVIEWS pre
+FROM VALIDATION_POPULAR_REVIEWS_{store_number} pre
 FULL OUTER JOIN (
     SELECT
         p.PROD_ID,
         p.TITLE,
         COUNT(r.REVIEW_ID)::INT AS ReviewCount
-    FROM PRODUCTS1 p
-    LEFT JOIN REVIEWS1 r ON p.PROD_ID = r.PROD_ID
+    FROM PRODUCTS{store_number} p
+    LEFT JOIN REVIEWS{store_number} r ON p.PROD_ID = r.PROD_ID
     WHERE p.PROD_ID % 10000 = 0
     GROUP BY p.PROD_ID, p.TITLE
 ) post ON pre.prod_id = post.PROD_ID
@@ -300,10 +300,10 @@ BEGIN
     RAISE NOTICE '';
 
     SELECT COUNT(*) INTO v_mismatch_count
-    FROM REVIEWS1 r
+    FROM REVIEWS{store_number} r
     LEFT JOIN (
         SELECT REVIEW_ID, SUM(HELPFULNESS) AS CalculatedTotal
-        FROM REVIEWS_HELPFULNESS1
+        FROM REVIEWS_HELPFULNESS{store_number}
         GROUP BY REVIEW_ID
     ) h ON r.REVIEW_ID = h.REVIEW_ID
     WHERE COALESCE(r.TOTAL_HELPFULNESS, 0) != COALESCE(h.CalculatedTotal, 0);
@@ -323,10 +323,10 @@ SELECT
     r.TOTAL_HELPFULNESS AS "Stored_Helpfulness",
     COALESCE(h.CalculatedTotal, 0) AS "Calculated_Helpfulness",
     COALESCE(h.CalculatedTotal, 0) - COALESCE(r.TOTAL_HELPFULNESS, 0) AS "Difference"
-FROM REVIEWS1 r
+FROM REVIEWS{store_number} r
 LEFT JOIN (
     SELECT REVIEW_ID, SUM(HELPFULNESS) AS CalculatedTotal
-    FROM REVIEWS_HELPFULNESS1
+    FROM REVIEWS_HELPFULNESS{store_number}
     GROUP BY REVIEW_ID
 ) h ON r.REVIEW_ID = h.REVIEW_ID
 WHERE COALESCE(r.TOTAL_HELPFULNESS, 0) != COALESCE(h.CalculatedTotal, 0)
@@ -351,11 +351,11 @@ DECLARE
     v_manager_products_pre INT;
 BEGIN
     SELECT COUNT(*) INTO v_manager_products
-    FROM PRODUCTS1
+    FROM PRODUCTS{store_number}
     WHERE (PRICE - FLOOR(PRICE)) = 0.01;
 
     SELECT metric_value INTO v_manager_products_pre
-    FROM VALIDATION_METRICS
+    FROM VALIDATION_METRICS_{store_number}
     WHERE metric_name = 'MANAGER_PRODUCTS_COUNT';
 
     RAISE NOTICE 'Manager-Created Products (price .01):';
@@ -374,7 +374,7 @@ SELECT
     PRICE,
     SPECIAL,
     COMMON_PROD_ID
-FROM PRODUCTS1
+FROM PRODUCTS{store_number}
 WHERE (PRICE - FLOOR(PRICE)) = 0.01
 ORDER BY PROD_ID DESC
 LIMIT 10;
@@ -386,11 +386,11 @@ DECLARE
     v_special_products_pre INT;
 BEGIN
     SELECT COUNT(*) INTO v_special_products
-    FROM PRODUCTS1
+    FROM PRODUCTS{store_number}
     WHERE SPECIAL = 1;
 
     SELECT metric_value INTO v_special_products_pre
-    FROM VALIDATION_METRICS
+    FROM VALIDATION_METRICS_{store_number}
     WHERE metric_name = 'SPECIAL_PRODUCTS_COUNT';
 
     RAISE NOTICE 'Products Marked Special (SPECIAL=1):';
@@ -408,11 +408,11 @@ DECLARE
     v_bulk_adjusted_prices INT;
 BEGIN
     SELECT COUNT(*) INTO v_adjusted_prices
-    FROM PRODUCTS1
+    FROM PRODUCTS{store_number}
     WHERE (PRICE - FLOOR(PRICE)) != 0.99 AND (PRICE - FLOOR(PRICE)) != 0.01;
 
     SELECT COUNT(*) INTO v_bulk_adjusted_prices
-    FROM PRODUCTS1
+    FROM PRODUCTS{store_number}
     WHERE (PRICE - FLOOR(PRICE)) = 0.77;
 
     RAISE NOTICE 'Products with Adjusted Prices (not ending in .99 or .01): %', v_adjusted_prices;
@@ -432,7 +432,7 @@ END $$;
         SPECIAL,
         COMMON_PROD_ID,
         'Bulk (.77)' AS adjustment_type
-    FROM PRODUCTS1
+    FROM PRODUCTS{store_number}
     WHERE (PRICE - FLOOR(PRICE)) = 0.77
     ORDER BY PROD_ID
     LIMIT 10
@@ -447,7 +447,7 @@ UNION ALL
         SPECIAL,
         COMMON_PROD_ID,
         'Individual' AS adjustment_type
-    FROM PRODUCTS1
+    FROM PRODUCTS{store_number}
     WHERE (PRICE - FLOOR(PRICE)) != 0.99
       AND (PRICE - FLOOR(PRICE)) != 0.01
       AND (PRICE - FLOOR(PRICE)) != 0.77
@@ -465,12 +465,12 @@ DECLARE
     v_expired_memberships_pre INT;
 BEGIN
     -- Get current membership counts
-    SELECT COUNT(*) INTO v_total_memberships FROM MEMBERSHIP1;
-    SELECT COUNT(*) INTO v_expired_memberships FROM MEMBERSHIP1 WHERE EXPIREDATE < CURRENT_TIMESTAMP;
+    SELECT COUNT(*) INTO v_total_memberships FROM MEMBERSHIP{store_number};
+    SELECT COUNT(*) INTO v_expired_memberships FROM MEMBERSHIP{store_number} WHERE EXPIREDATE < CURRENT_TIMESTAMP;
 
     -- Get pre-test membership counts
-    SELECT metric_value INTO v_total_memberships_pre FROM VALIDATION_METRICS WHERE metric_name = 'TOTAL_MEMBERSHIPS';
-    SELECT metric_value INTO v_expired_memberships_pre FROM VALIDATION_METRICS WHERE metric_name = 'EXPIRED_MEMBERSHIPS';
+    SELECT metric_value INTO v_total_memberships_pre FROM VALIDATION_METRICS_{store_number} WHERE metric_name = 'TOTAL_MEMBERSHIPS';
+    SELECT metric_value INTO v_expired_memberships_pre FROM VALIDATION_METRICS_{store_number} WHERE metric_name = 'EXPIRED_MEMBERSHIPS';
 
     RAISE NOTICE '';
     RAISE NOTICE 'Membership Status:';
@@ -512,27 +512,27 @@ BEGIN
 
     -- Get baseline max product ID
     SELECT metric_value INTO v_max_prod_id_pre
-    FROM VALIDATION_METRICS
+    FROM VALIDATION_METRICS_{store_number}
     WHERE metric_name = 'MAX_PROD_ID';
 
     -- Count new products added
     SELECT COUNT(*) INTO v_new_products_added
-    FROM PRODUCTS1
+    FROM PRODUCTS{store_number}
     WHERE PROD_ID > v_max_prod_id_pre;
 
     -- Count new products with inventory
     SELECT COUNT(DISTINCT i.PROD_ID) INTO v_new_products_with_inventory
-    FROM INVENTORY1 i
+    FROM INVENTORY{store_number} i
     WHERE i.PROD_ID > v_max_prod_id_pre;
 
     -- Count new products that were purchased
     SELECT COUNT(DISTINCT ol.PROD_ID) INTO v_new_products_purchased
-    FROM ORDERLINES1 ol
+    FROM ORDERLINES{store_number} ol
     WHERE ol.PROD_ID > v_max_prod_id_pre;
 
     -- Count new products that were reordered
     SELECT COUNT(DISTINCT r.PROD_ID) INTO v_new_products_reordered
-    FROM REORDER1 r
+    FROM REORDER{store_number} r
     WHERE r.PROD_ID > v_max_prod_id_pre;
 
     RAISE NOTICE 'New Products Added (PROD_ID > %): %', v_max_prod_id_pre, v_new_products_added;
@@ -569,21 +569,21 @@ SELECT
     COALESCE(i.QUAN_IN_STOCK, 0) AS "Inventory",
     COALESCE(ol_count.purchases, 0) AS "Purchases",
     COALESCE(r_count.reorders, 0) AS "Reorders"
-FROM PRODUCTS1 p
-LEFT JOIN INVENTORY1 i ON p.PROD_ID = i.PROD_ID
+FROM PRODUCTS{store_number} p
+LEFT JOIN INVENTORY{store_number} i ON p.PROD_ID = i.PROD_ID
 LEFT JOIN (
     SELECT PROD_ID, COUNT(*) AS purchases
-    FROM ORDERLINES1
-    WHERE PROD_ID > (SELECT metric_value FROM VALIDATION_METRICS WHERE metric_name = 'MAX_PROD_ID')
+    FROM ORDERLINES{store_number}
+    WHERE PROD_ID > (SELECT metric_value FROM VALIDATION_METRICS_{store_number} WHERE metric_name = 'MAX_PROD_ID')
     GROUP BY PROD_ID
 ) ol_count ON p.PROD_ID = ol_count.PROD_ID
 LEFT JOIN (
     SELECT PROD_ID, COUNT(*) AS reorders
-    FROM REORDER1
-    WHERE PROD_ID > (SELECT metric_value FROM VALIDATION_METRICS WHERE metric_name = 'MAX_PROD_ID')
+    FROM REORDER{store_number}
+    WHERE PROD_ID > (SELECT metric_value FROM VALIDATION_METRICS_{store_number} WHERE metric_name = 'MAX_PROD_ID')
     GROUP BY PROD_ID
 ) r_count ON p.PROD_ID = r_count.PROD_ID
-WHERE p.PROD_ID > (SELECT metric_value FROM VALIDATION_METRICS WHERE metric_name = 'MAX_PROD_ID')
+WHERE p.PROD_ID > (SELECT metric_value FROM VALIDATION_METRICS_{store_number} WHERE metric_name = 'MAX_PROD_ID')
 ORDER BY p.PROD_ID
 LIMIT 10;
 
@@ -599,9 +599,9 @@ SELECT
     SUM(r.QUAN_REORDERED) AS TOTAL_REORDERED,
     COUNT(*) AS REORDER_COUNT,
     MAX(r.DATE_REORDERED) AS LAST_REORDER
-FROM REORDER1 r
-JOIN PRODUCTS1 p ON r.PROD_ID = p.PROD_ID
-WHERE r.PROD_ID > (SELECT metric_value FROM VALIDATION_METRICS WHERE metric_name = 'MAX_PROD_ID')
+FROM REORDER{store_number} r
+JOIN PRODUCTS{store_number} p ON r.PROD_ID = p.PROD_ID
+WHERE r.PROD_ID > (SELECT metric_value FROM VALIDATION_METRICS_{store_number} WHERE metric_name = 'MAX_PROD_ID')
 GROUP BY r.PROD_ID, p.TITLE
 ORDER BY MAX(r.DATE_REORDERED) DESC, r.PROD_ID
 LIMIT 10;
@@ -655,11 +655,11 @@ BEGIN
     RAISE NOTICE 'Note: Users add reviews and managers delete reviews. Disable adding reviews with --ds2_mode=y';
     RAISE NOTICE '';
 
-    SELECT metric_value INTO v_reviews_before FROM VALIDATION_METRICS WHERE metric_name = 'REVIEWS_COUNT';
-    SELECT metric_value INTO v_reviews_helpfulness_before FROM VALIDATION_METRICS WHERE metric_name = 'REVIEWS_HELPFULNESS_COUNT';
+    SELECT metric_value INTO v_reviews_before FROM VALIDATION_METRICS_{store_number} WHERE metric_name = 'REVIEWS_COUNT';
+    SELECT metric_value INTO v_reviews_helpfulness_before FROM VALIDATION_METRICS_{store_number} WHERE metric_name = 'REVIEWS_HELPFULNESS_COUNT';
 
-    SELECT COUNT(*) INTO v_reviews_after FROM REVIEWS1;
-    SELECT COUNT(*) INTO v_reviews_helpfulness_after FROM REVIEWS_HELPFULNESS1;
+    SELECT COUNT(*) INTO v_reviews_after FROM REVIEWS{store_number};
+    SELECT COUNT(*) INTO v_reviews_helpfulness_after FROM REVIEWS_HELPFULNESS{store_number};
 
     v_reviews_delta := v_reviews_after - v_reviews_before;
     v_helpfulness_deleted := v_reviews_helpfulness_before - v_reviews_helpfulness_after;
@@ -695,13 +695,13 @@ BEGIN
     RAISE NOTICE 'Note: Users create orders and managers purge old orders.';
     RAISE NOTICE '';
 
-    SELECT metric_value INTO v_orders_before FROM VALIDATION_METRICS WHERE metric_name = 'ORDERS_COUNT';
-    SELECT metric_value INTO v_orderlines_before FROM VALIDATION_METRICS WHERE metric_name = 'ORDERLINES_COUNT';
-    SELECT metric_value INTO v_old_orders_before FROM VALIDATION_METRICS WHERE metric_name = 'OLD_ORDERS_COUNT';
+    SELECT metric_value INTO v_orders_before FROM VALIDATION_METRICS_{store_number} WHERE metric_name = 'ORDERS_COUNT';
+    SELECT metric_value INTO v_orderlines_before FROM VALIDATION_METRICS_{store_number} WHERE metric_name = 'ORDERLINES_COUNT';
+    SELECT metric_value INTO v_old_orders_before FROM VALIDATION_METRICS_{store_number} WHERE metric_name = 'OLD_ORDERS_COUNT';
 
-    SELECT COUNT(*) INTO v_orders_after FROM ORDERS1;
-    SELECT COUNT(*) INTO v_orderlines_after FROM ORDERLINES1;
-    SELECT COUNT(*) INTO v_old_orders_after FROM ORDERS1 WHERE ORDERDATE < CURRENT_DATE;
+    SELECT COUNT(*) INTO v_orders_after FROM ORDERS{store_number};
+    SELECT COUNT(*) INTO v_orderlines_after FROM ORDERLINES{store_number};
+    SELECT COUNT(*) INTO v_old_orders_after FROM ORDERS{store_number} WHERE ORDERDATE < CURRENT_DATE;
 
     v_orders_delta := v_orders_after - v_orders_before;
     v_orderlines_deleted := v_orderlines_before - v_orderlines_after;
@@ -737,11 +737,11 @@ BEGIN
     -- =======================================================================
     RAISE NOTICE '--- MEMBERSHIP TIER ---';
 
-    SELECT metric_value INTO v_silver_members_before FROM VALIDATION_METRICS WHERE metric_name = 'SILVER_MEMBERS_COUNT';
-    SELECT metric_value INTO v_gold_members_before FROM VALIDATION_METRICS WHERE metric_name = 'GOLD_MEMBERS_COUNT';
+    SELECT metric_value INTO v_silver_members_before FROM VALIDATION_METRICS_{store_number} WHERE metric_name = 'SILVER_MEMBERS_COUNT';
+    SELECT metric_value INTO v_gold_members_before FROM VALIDATION_METRICS_{store_number} WHERE metric_name = 'GOLD_MEMBERS_COUNT';
 
-    SELECT COUNT(*) INTO v_silver_members_after FROM MEMBERSHIP1 WHERE MEMBERSHIPTYPE = 2;
-    SELECT COUNT(*) INTO v_gold_members_after FROM MEMBERSHIP1 WHERE MEMBERSHIPTYPE = 3;
+    SELECT COUNT(*) INTO v_silver_members_after FROM MEMBERSHIP{store_number} WHERE MEMBERSHIPTYPE = 2;
+    SELECT COUNT(*) INTO v_gold_members_after FROM MEMBERSHIP{store_number} WHERE MEMBERSHIPTYPE = 3;
 
     v_silver_delta := v_silver_members_after - v_silver_members_before;
     v_gold_delta := v_gold_members_after - v_gold_members_before;
@@ -770,8 +770,8 @@ SELECT
     SUM(CASE WHEN s.MEMBERSHIPTYPE = 2 AND m.MEMBERSHIPTYPE = 3 THEN 1 ELSE 0 END) AS upgrades_2_to_3,
     SUM(CASE WHEN s.MEMBERSHIPTYPE = 1 AND m.MEMBERSHIPTYPE = 3 THEN 1 ELSE 0 END) AS upgrades_1_to_3,
     SUM(CASE WHEN m.MEMBERSHIPTYPE = s.MEMBERSHIPTYPE AND m.EXPIREDATE > s.EXPIREDATE THEN 1 ELSE 0 END) AS extended_only
-FROM MEMBERSHIP_SNAPSHOT s
-FULL OUTER JOIN MEMBERSHIP1 m ON s.CUSTOMERID = m.CUSTOMERID
+FROM MEMBERSHIP_SNAPSHOT_{store_number} s
+FULL OUTER JOIN MEMBERSHIP{store_number} m ON s.CUSTOMERID = m.CUSTOMERID
 WHERE s.CUSTOMERID IS NULL
    OR m.CUSTOMERID IS NULL
    OR m.MEMBERSHIPTYPE > s.MEMBERSHIPTYPE
@@ -793,8 +793,8 @@ END $$;
     TO_CHAR(s.EXPIREDATE, 'YYYY-MM-DD') AS before_expire,
     TO_CHAR(m.EXPIREDATE, 'YYYY-MM-DD') AS after_expire,
     '1->3 JUMP' AS status
-FROM MEMBERSHIP_SNAPSHOT s
-INNER JOIN MEMBERSHIP1 m ON s.CUSTOMERID = m.CUSTOMERID
+FROM MEMBERSHIP_SNAPSHOT_{store_number} s
+INNER JOIN MEMBERSHIP{store_number} m ON s.CUSTOMERID = m.CUSTOMERID
 WHERE s.MEMBERSHIPTYPE = 1 AND m.MEMBERSHIPTYPE = 3
 ORDER BY s.CUSTOMERID
 LIMIT 5)
@@ -809,8 +809,8 @@ UNION ALL
     TO_CHAR(s.EXPIREDATE, 'YYYY-MM-DD') AS before_expire,
     TO_CHAR(m.EXPIREDATE, 'YYYY-MM-DD') AS after_expire,
     '2->3 UPGRADE' AS status
-FROM MEMBERSHIP_SNAPSHOT s
-INNER JOIN MEMBERSHIP1 m ON s.CUSTOMERID = m.CUSTOMERID
+FROM MEMBERSHIP_SNAPSHOT_{store_number} s
+INNER JOIN MEMBERSHIP{store_number} m ON s.CUSTOMERID = m.CUSTOMERID
 WHERE s.MEMBERSHIPTYPE = 2 AND m.MEMBERSHIPTYPE = 3
 ORDER BY s.CUSTOMERID
 LIMIT 5)
@@ -825,8 +825,8 @@ UNION ALL
     TO_CHAR(s.EXPIREDATE, 'YYYY-MM-DD') AS before_expire,
     'N/A' AS after_expire,
     'DELETED' AS status
-FROM MEMBERSHIP_SNAPSHOT s
-LEFT JOIN MEMBERSHIP1 m ON s.CUSTOMERID = m.CUSTOMERID
+FROM MEMBERSHIP_SNAPSHOT_{store_number} s
+LEFT JOIN MEMBERSHIP{store_number} m ON s.CUSTOMERID = m.CUSTOMERID
 WHERE m.CUSTOMERID IS NULL
 ORDER BY s.CUSTOMERID
 LIMIT 5)
@@ -841,8 +841,8 @@ UNION ALL
     'N/A' AS before_expire,
     TO_CHAR(m.EXPIREDATE, 'YYYY-MM-DD') AS after_expire,
     'NEW' AS status
-FROM MEMBERSHIP_SNAPSHOT s
-RIGHT JOIN MEMBERSHIP1 m ON s.CUSTOMERID = m.CUSTOMERID
+FROM MEMBERSHIP_SNAPSHOT_{store_number} s
+RIGHT JOIN MEMBERSHIP{store_number} m ON s.CUSTOMERID = m.CUSTOMERID
 WHERE s.CUSTOMERID IS NULL
 ORDER BY m.CUSTOMERID
 LIMIT 5)
@@ -857,8 +857,8 @@ UNION ALL
     TO_CHAR(s.EXPIREDATE, 'YYYY-MM-DD') AS before_expire,
     TO_CHAR(m.EXPIREDATE, 'YYYY-MM-DD') AS after_expire,
     '1->2 UPGRADE' AS status
-FROM MEMBERSHIP_SNAPSHOT s
-INNER JOIN MEMBERSHIP1 m ON s.CUSTOMERID = m.CUSTOMERID
+FROM MEMBERSHIP_SNAPSHOT_{store_number} s
+INNER JOIN MEMBERSHIP{store_number} m ON s.CUSTOMERID = m.CUSTOMERID
 WHERE s.MEMBERSHIPTYPE = 1 AND m.MEMBERSHIPTYPE = 2
 ORDER BY s.CUSTOMERID
 LIMIT 10)
@@ -873,8 +873,8 @@ UNION ALL
     TO_CHAR(s.EXPIREDATE, 'YYYY-MM-DD') AS before_expire,
     TO_CHAR(m.EXPIREDATE, 'YYYY-MM-DD') AS after_expire,
     'EXTENDED' AS status
-FROM MEMBERSHIP_SNAPSHOT s
-INNER JOIN MEMBERSHIP1 m ON s.CUSTOMERID = m.CUSTOMERID
+FROM MEMBERSHIP_SNAPSHOT_{store_number} s
+INNER JOIN MEMBERSHIP{store_number} m ON s.CUSTOMERID = m.CUSTOMERID
 WHERE s.MEMBERSHIPTYPE = m.MEMBERSHIPTYPE AND m.EXPIREDATE > s.EXPIREDATE
 ORDER BY s.CUSTOMERID
 LIMIT 5);
@@ -903,20 +903,20 @@ BEGIN
     RAISE NOTICE '';
 
     -- Calculate deltas from baseline
-    SELECT metric_value INTO v_customers_before FROM VALIDATION_METRICS WHERE metric_name = 'CUSTOMERS_COUNT';
-    SELECT metric_value INTO v_orders_before FROM VALIDATION_METRICS WHERE metric_name = 'ORDERS_COUNT';
-    SELECT metric_value INTO v_products_before FROM VALIDATION_METRICS WHERE metric_name = 'PRODUCTS_COUNT';
-    SELECT metric_value INTO v_memberships_before FROM VALIDATION_METRICS WHERE metric_name = 'MEMBERSHIP_COUNT';
-    SELECT metric_value INTO v_reviews_before FROM VALIDATION_METRICS WHERE metric_name = 'REVIEWS_COUNT';
+    SELECT metric_value INTO v_customers_before FROM VALIDATION_METRICS_{store_number} WHERE metric_name = 'CUSTOMERS_COUNT';
+    SELECT metric_value INTO v_orders_before FROM VALIDATION_METRICS_{store_number} WHERE metric_name = 'ORDERS_COUNT';
+    SELECT metric_value INTO v_products_before FROM VALIDATION_METRICS_{store_number} WHERE metric_name = 'PRODUCTS_COUNT';
+    SELECT metric_value INTO v_memberships_before FROM VALIDATION_METRICS_{store_number} WHERE metric_name = 'MEMBERSHIP_COUNT';
+    SELECT metric_value INTO v_reviews_before FROM VALIDATION_METRICS_{store_number} WHERE metric_name = 'REVIEWS_COUNT';
 
-    SELECT COUNT(*) INTO v_customers_after FROM CUSTOMERS1;
-    SELECT COUNT(*) INTO v_orders_after FROM ORDERS1;
-    SELECT COUNT(*) INTO v_products_after FROM PRODUCTS1;
-    SELECT COUNT(*) INTO v_memberships_after FROM MEMBERSHIP1;
-    SELECT COUNT(*) INTO v_reviews_after FROM REVIEWS1;
+    SELECT COUNT(*) INTO v_customers_after FROM CUSTOMERS{store_number};
+    SELECT COUNT(*) INTO v_orders_after FROM ORDERS{store_number};
+    SELECT COUNT(*) INTO v_products_after FROM PRODUCTS{store_number};
+    SELECT COUNT(*) INTO v_memberships_after FROM MEMBERSHIP{store_number};
+    SELECT COUNT(*) INTO v_reviews_after FROM REVIEWS{store_number};
 
     SELECT COUNT(*) INTO v_adjusted_prices
-    FROM PRODUCTS1
+    FROM PRODUCTS{store_number}
     WHERE (PRICE - FLOOR(PRICE)) != 0.99 AND (PRICE - FLOOR(PRICE)) != 0.01;
 
     RAISE NOTICE 'New Records Created During Benchmark:';
@@ -940,7 +940,7 @@ BEGIN
     RAISE NOTICE '';
 
     SELECT metric_value INTO v_max_customerid_pre
-    FROM VALIDATION_METRICS
+    FROM VALIDATION_METRICS_{store_number}
     WHERE metric_name = 'MAX_CUSTOMERID';
 END $$;
 
@@ -949,8 +949,8 @@ SELECT
     FIRSTNAME,
     LASTNAME,
     CITY
-FROM CUSTOMERS1
-WHERE CUSTOMERID > (SELECT metric_value FROM VALIDATION_METRICS WHERE metric_name = 'MAX_CUSTOMERID')
+FROM CUSTOMERS{store_number}
+WHERE CUSTOMERID > (SELECT metric_value FROM VALIDATION_METRICS_{store_number} WHERE metric_name = 'MAX_CUSTOMERID')
 ORDER BY CUSTOMERID
 LIMIT 10;
 
