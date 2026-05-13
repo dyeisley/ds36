@@ -388,48 +388,44 @@ my $ratio_Ord = 0;
 my $ratio_Prod = 0;
 
 
-#For small database (Database size greater than 10MB till 1GB/ 1000 MB)
-if($bln_is_Small_DB == 1)
-{
-	#Now base DB will be 10MB database and ratio calculated wrt to that
-	print "Small size database (less than 1 GB) \n";
-	$mult_Cust_Rows = 20000;				# 2 x 10^4
-	$mult_Ord_Rows = 1000;					# 1 x 10^3
-	$mult_Prod_Rows = 10000;				# 1 x 10^4
-	$ratio_Mult = ($database_size / 10);	# 10MB database is base
+# Linear scaling formula (based on empirically validated Large tier)
+# Replaces broken Small/Medium/Large tier system
+# Target database size is approximate; actual size will be 96-102% of target
+print "Using linear scaling (monotonic growth, consistent 200:10:1 ratio)\n";
+
+# Per-GB multipliers (adjusted from Large tier baseline to hit ~100% of target)
+my $products_per_GB = 12000;      # 12K products per GB
+my $customers_per_GB = 2400000;   # 2.4M customers per GB (200:1 ratio to products)
+my $orders_per_GB = 120000;       # 120K orders per GB (10:1 ratio to products)
+
+# Convert database_size to GB based on input units
+my $size_in_GB;
+if (lc($database_size_str) eq lc($is_GB_Size_S)) {
+    # Input was in GB, use directly
+    $size_in_GB = $database_size;
+} else {
+    # Input was in MB, convert to GB
+    $size_in_GB = $database_size / 1000;
 }
 
-#For medium database with size exactly 1GB
-if($bln_is_Medium_DB == 1)
-{
-	print "Medium size database (equal to 1 GB) \n";
-	$mult_Cust_Rows = 2000000;				# 2 x 10^6
-	$mult_Ord_Rows = 100000;				# 1 x 10^5
-	$mult_Prod_Rows = 100000;				# 1 x 10^5
-	$ratio_Mult = ($database_size / 1);	 	# 1GB database is base
-}
-
-#For large database with size > 1GB
-if($bln_is_Large_DB == 1)
-{
-	print "Large size database (greater than 1 GB) \n";
-	$mult_Cust_Rows = 200000000;			# 2 x 10^8
-	$mult_Ord_Rows = 10000000;				# 1 x 10^7
-	$mult_Prod_Rows = 1000000;				# 1 x 10^6
-	$ratio_Mult = ($database_size / 100);	# 100GB database is base
-}
-
-print "Ratio calculated : $ratio_Mult \n";
-
-#Calculate number of rows in table according to ratio
-$i_Cust_Rows = ($mult_Cust_Rows * $ratio_Mult);
-$i_Ord_Rows = ($mult_Ord_Rows * $ratio_Mult);
-$i_Prod_Rows = ($mult_Prod_Rows * $ratio_Mult);
+# Calculate row counts (linear scaling)
+$i_Prod_Rows = int($products_per_GB * $size_in_GB);
+$i_Cust_Rows = int($customers_per_GB * $size_in_GB);
+$i_Ord_Rows = int($orders_per_GB * $size_in_GB);
 
 #Print number of rows for a check
 print "Customer Rows: $i_Cust_Rows \n";
 print "Order Rows / month: $i_Ord_Rows \n";
 print "Product Rows: $i_Prod_Rows \n";
+
+# Calculate and print derived table row counts
+my $i_Membership_Rows = int($i_Cust_Rows * 0.10);  # 10% of customers
+my $i_Reviews_Rows = int($i_Prod_Rows * 20);       # 20 reviews per product (average)
+my $i_Reviews_Helpfulness_Rows = int($i_Reviews_Rows * 21.5);  # ~21.5 helpfulness per review (average)
+
+print "Membership Rows: $i_Membership_Rows (10% of customers)\n";
+print "Reviews Rows: $i_Reviews_Rows (20 per product average)\n";
+print "Reviews Helpfulness Rows: $i_Reviews_Helpfulness_Rows (~21.5 per review average)\n";
 
 #***************************************************************************************
 
