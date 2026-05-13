@@ -123,7 +123,7 @@ namespace ds2xdriver
     public static bool Start = false, End = false;
     public static int max_customer, max_review;
     public static string virt_dir = "ds3", page_type = "php";
-    public static int[] max_product = new int[GlobalConstants.MAX_STORES + 1]; // there is no store 0. We use store number as the index.
+    public static int[] max_product = new int[GlobalConstants.MAX_STORES+1]; // there is no store 0. We use store number as the index.
 
     //Added new parameter database_custom_size and new variables by GSK
     //Note that order_rows are per month
@@ -1313,7 +1313,7 @@ namespace ds2xdriver
       max_customer = customer_rows;
       max_review = product_rows * 20;
 
-      for (i = 0; i < GlobalConstants.MAX_STORES; i++)
+      for (i = 0; i < GlobalConstants.MAX_STORES+1; i++) // we use the store number 1-N for the index. Element 0 not used.
         max_product[i] = product_rows;
 
       //Changed by GSK (size of array prod_array = number of rows in product table + (10000 * 10)
