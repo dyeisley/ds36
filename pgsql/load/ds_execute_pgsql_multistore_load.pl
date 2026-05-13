@@ -55,17 +55,33 @@ if ("$^O" eq "linux")
         chdir("$base_dir/membership/$psqltarget");
         foreach my $k (1 .. $numStores){
                 system ("sh remote_pgsql_ds_membership_load$k.bat &");
+                if ($k % 4 == 0) {
+                  print ("Slowing down load membership to let Postgres Checkpoint...\n");
+                  system("wait");
+                }
                 }
 
         chdir("$base_dir/prod/$psqltarget");
         foreach my $k (1 .. $numStores){
                 system ("sh remote_pgsql_ds_prod_load$k.bat &");
+
+                if ($k % 4 == 0) {
+                  print ("Slowing down to let Postgres Checkpoint...\n");
+                  system("wait");
+                }
+
                 system ("sh remote_pgsql_ds_inv_load$k.bat &");
                 }
 
         chdir("$base_dir/reviews/$psqltarget");
         foreach my $k (1 .. $numStores){
                 system ("sh remote_pgsql_ds_reviews_load$k.bat &");
+
+                if ($k % 4 == 0) {
+                  print ("Slowing down to let Postgres Checkpoint...\n");
+                  system("wait");
+                }
+
                 system ("sh remote_pgsql_ds_reviewshelpful_load$k.bat &");
                 }
 
@@ -73,12 +89,24 @@ if ("$^O" eq "linux")
 	foreach my $k (1 .. $numStores){
                 system ("sh remote_pgsql_ds_orders_load$k.bat &");
                 system ("sh remote_pgsql_ds_orderlines_load$k.bat &");
-                system ("sh remote_pgsql_ds_cust_hist_load$k.bat &");
+
+                if ($k % 3 == 0) {
+                  print ("Slowing down to let Postgres Checkpoint...\n");
+                  system("wait");
                 }
+
+                system ("sh remote_pgsql_ds_cust_hist_load$k.bat");
+                }
+
+        system("wait");
 
         chdir("$base_dir/cust/$psqltarget");
         foreach my $k (1 .. $numStores){
                 system ("sh remote_pgsql_ds_cust_load$k.bat &");
+                if ($k % 3 == 0) {
+                  print ("Slowing down to let Postgres Checkpoint...\n");
+                  system("wait");
+                }
                 }
 
         # Each load file creates a finishedxx.txt file after completing it's load.  The code

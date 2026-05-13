@@ -20,5 +20,6 @@ perl pgsql_ds_perl_create_indexes_multi.pl $TARGET $STORES
 perl pgsql_ds_perl_create_triggers.pl $TARGET $STORES
 perl pgsql_ds_perl_reset_sequences.pl $TARGET $STORES
 cd ../validate
-psql -h $TARGET -U ds3 -d ds3 < validate_before.sql > validate_before.txt 2>&1
+perl pgsql_ds_perl_validate_multi.pl $TARGET $STORES after generate > after.txt 2>&1
+perl pgsql_ds_perl_validate_multi.pl $TARGET $STORES before > before.txt 2>&1
 cd ../
