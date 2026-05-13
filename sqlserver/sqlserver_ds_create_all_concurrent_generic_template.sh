@@ -38,8 +38,8 @@ echo sqlcmd -C -S $TARGET -U sa -P $PASSWORD -i sqlserver_ds_create_user.sql
 sqlcmd -C -S $TARGET -U sa -P $PASSWORD -i sqlserver_ds_create_user.sql
 
 cd ../validate
-echo sqlcmd -C -S $TARGET -U sa -P $PASSWORD -i validate_before.sql
-sqlcmd -C -S $TARGET -U sa -P $PASSWORD -i validate_before.sql > validate_before.txt
+echo perl sqlserver_ds_perl_validate_multi.pl $TARGET $STORES $PASSWORD before
+perl sqlserver_ds_perl_validate_multi.pl $TARGET $STORES $PASSWORD before > before.txt
+perl sqlserver_ds_perl_validate_multi.pl $TARGET $STORES $PASSWORD after generate > generate_after.txt
 
-cd ..
-
+cd ../

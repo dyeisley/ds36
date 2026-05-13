@@ -37,30 +37,30 @@ SELECT
     RPAD(REPLACE(m.metric_name, '_COUNT', ''), 20) AS TABLENAME,
     LPAD(TO_CHAR(m.metric_value), 10) AS PRE,
     LPAD(TO_CHAR(CASE REPLACE(m.metric_name, '_COUNT', '')
-        WHEN 'CUSTOMERS' THEN (SELECT COUNT(*) FROM DS3.CUSTOMERS1)
-        WHEN 'CUST_HIST' THEN (SELECT COUNT(*) FROM DS3.CUST_HIST1)
-        WHEN 'PRODUCTS' THEN (SELECT COUNT(*) FROM DS3.PRODUCTS1)
-        WHEN 'ORDERS' THEN (SELECT COUNT(*) FROM DS3.ORDERS1)
-        WHEN 'ORDERLINES' THEN (SELECT COUNT(*) FROM DS3.ORDERLINES1)
-        WHEN 'INVENTORY' THEN (SELECT COUNT(*) FROM DS3.INVENTORY1)
-        WHEN 'REVIEWS' THEN (SELECT COUNT(*) FROM DS3.REVIEWS1)
-        WHEN 'REVIEWS_HELPFULNESS' THEN (SELECT COUNT(*) FROM DS3.REVIEWS_HELPFULNESS1)
-        WHEN 'MEMBERSHIP' THEN (SELECT COUNT(*) FROM DS3.MEMBERSHIP1)
-        WHEN 'REORDER' THEN (SELECT COUNT(*) FROM DS3.REORDER1)
+        WHEN 'CUSTOMERS' THEN (SELECT COUNT(*) FROM DS3.CUSTOMERS{store_number})
+        WHEN 'CUST_HIST' THEN (SELECT COUNT(*) FROM DS3.CUST_HIST{store_number})
+        WHEN 'PRODUCTS' THEN (SELECT COUNT(*) FROM DS3.PRODUCTS{store_number})
+        WHEN 'ORDERS' THEN (SELECT COUNT(*) FROM DS3.ORDERS{store_number})
+        WHEN 'ORDERLINES' THEN (SELECT COUNT(*) FROM DS3.ORDERLINES{store_number})
+        WHEN 'INVENTORY' THEN (SELECT COUNT(*) FROM DS3.INVENTORY{store_number})
+        WHEN 'REVIEWS' THEN (SELECT COUNT(*) FROM DS3.REVIEWS{store_number})
+        WHEN 'REVIEWS_HELPFULNESS' THEN (SELECT COUNT(*) FROM DS3.REVIEWS_HELPFULNESS{store_number})
+        WHEN 'MEMBERSHIP' THEN (SELECT COUNT(*) FROM DS3.MEMBERSHIP{store_number})
+        WHEN 'REORDER' THEN (SELECT COUNT(*) FROM DS3.REORDER{store_number})
     END), 10) AS POST,
     LPAD(TO_CHAR(CASE REPLACE(m.metric_name, '_COUNT', '')
-        WHEN 'CUSTOMERS' THEN (SELECT COUNT(*) FROM DS3.CUSTOMERS1) - m.metric_value
-        WHEN 'CUST_HIST' THEN (SELECT COUNT(*) FROM DS3.CUST_HIST1) - m.metric_value
-        WHEN 'PRODUCTS' THEN (SELECT COUNT(*) FROM DS3.PRODUCTS1) - m.metric_value
-        WHEN 'ORDERS' THEN (SELECT COUNT(*) FROM DS3.ORDERS1) - m.metric_value
-        WHEN 'ORDERLINES' THEN (SELECT COUNT(*) FROM DS3.ORDERLINES1) - m.metric_value
-        WHEN 'INVENTORY' THEN (SELECT COUNT(*) FROM DS3.INVENTORY1) - m.metric_value
-        WHEN 'REVIEWS' THEN (SELECT COUNT(*) FROM DS3.REVIEWS1) - m.metric_value
-        WHEN 'REVIEWS_HELPFULNESS' THEN (SELECT COUNT(*) FROM DS3.REVIEWS_HELPFULNESS1) - m.metric_value
-        WHEN 'MEMBERSHIP' THEN (SELECT COUNT(*) FROM DS3.MEMBERSHIP1) - m.metric_value
-        WHEN 'REORDER' THEN (SELECT COUNT(*) FROM DS3.REORDER1) - m.metric_value
+        WHEN 'CUSTOMERS' THEN (SELECT COUNT(*) FROM DS3.CUSTOMERS{store_number}) - m.metric_value
+        WHEN 'CUST_HIST' THEN (SELECT COUNT(*) FROM DS3.CUST_HIST{store_number}) - m.metric_value
+        WHEN 'PRODUCTS' THEN (SELECT COUNT(*) FROM DS3.PRODUCTS{store_number}) - m.metric_value
+        WHEN 'ORDERS' THEN (SELECT COUNT(*) FROM DS3.ORDERS{store_number}) - m.metric_value
+        WHEN 'ORDERLINES' THEN (SELECT COUNT(*) FROM DS3.ORDERLINES{store_number}) - m.metric_value
+        WHEN 'INVENTORY' THEN (SELECT COUNT(*) FROM DS3.INVENTORY{store_number}) - m.metric_value
+        WHEN 'REVIEWS' THEN (SELECT COUNT(*) FROM DS3.REVIEWS{store_number}) - m.metric_value
+        WHEN 'REVIEWS_HELPFULNESS' THEN (SELECT COUNT(*) FROM DS3.REVIEWS_HELPFULNESS{store_number}) - m.metric_value
+        WHEN 'MEMBERSHIP' THEN (SELECT COUNT(*) FROM DS3.MEMBERSHIP{store_number}) - m.metric_value
+        WHEN 'REORDER' THEN (SELECT COUNT(*) FROM DS3.REORDER{store_number}) - m.metric_value
     END), 10) AS DELTA
-FROM VALIDATION_METRICS m
+FROM VALIDATION_METRICS_{store_number} m
 WHERE m.metric_name LIKE '%_COUNT'
     AND m.metric_name NOT IN ('MANAGER_PRODUCTS_COUNT', 'SPECIAL_PRODUCTS_COUNT', 'OLD_ORDERS_COUNT', 'SILVER_MEMBERS_COUNT', 'GOLD_MEMBERS_COUNT')
 ORDER BY TABLENAME;
@@ -87,8 +87,8 @@ SELECT * FROM (
         RPAD(c.FIRSTNAME, 15) AS FirstName,
         RPAD(c.LASTNAME, 15) AS LastName,
         LPAD(TO_CHAR(COUNT(*)), 8) AS Products
-    FROM DS3.CUST_HIST1 ch
-    JOIN DS3.CUSTOMERS1 c ON ch.CUSTOMERID = c.CUSTOMERID
+    FROM DS3.CUST_HIST{store_number} ch
+    JOIN DS3.CUSTOMERS{store_number} c ON ch.CUSTOMERID = c.CUSTOMERID
     GROUP BY ch.CUSTOMERID, c.FIRSTNAME, c.LASTNAME
     ORDER BY COUNT(*) DESC
 )
@@ -125,8 +125,8 @@ SELECT * FROM (
             WHEN MOD(i.PROD_ID, 10000) = 0 THEN '**POPULAR**'
             ELSE ''
         END AS IsPopularProduct
-    FROM DS3.INVENTORY1 i
-    JOIN DS3.PRODUCTS1 p ON i.PROD_ID = p.PROD_ID
+    FROM DS3.INVENTORY{store_number} i
+    JOIN DS3.PRODUCTS{store_number} p ON i.PROD_ID = p.PROD_ID
     ORDER BY i.SALES DESC
 )
 WHERE ROWNUM <= 10;
@@ -141,11 +141,11 @@ BEGIN
 
     -- Summary statistics on popular vs non-popular products
     SELECT SUM(SALES), COUNT(*) INTO v_popular_sales, v_popular_count
-    FROM DS3.INVENTORY1
+    FROM DS3.INVENTORY{store_number}
     WHERE MOD(PROD_ID, 10000) = 0;
 
     SELECT SUM(SALES), COUNT(*) INTO v_non_popular_sales, v_non_popular_count
-    FROM DS3.INVENTORY1
+    FROM DS3.INVENTORY{store_number}
     WHERE MOD(PROD_ID, 10000) != 0;
 
     DBMS_OUTPUT.PUT_LINE('GetSkewedProductId Effectiveness:');
@@ -186,8 +186,8 @@ SELECT * FROM (
             WHEN MOD(r.PROD_ID, 10000) = 0 THEN '**POPULAR**'
             ELSE ''
         END AS IsPopularProduct
-    FROM DS3.REORDER1 r
-    JOIN DS3.PRODUCTS1 p ON r.PROD_ID = p.PROD_ID
+    FROM DS3.REORDER{store_number} r
+    JOIN DS3.PRODUCTS{store_number} p ON r.PROD_ID = p.PROD_ID
     GROUP BY r.PROD_ID, p.TITLE
     ORDER BY SUM(r.QUAN_REORDERED) DESC
 )
@@ -200,8 +200,8 @@ BEGIN
     DBMS_OUTPUT.PUT_LINE('');
 
     -- Reorder statistics
-    SELECT COUNT(*) INTO v_total_reorders FROM DS3.REORDER1;
-    SELECT COUNT(*) INTO v_popular_reorders FROM DS3.REORDER1 WHERE MOD(PROD_ID, 10000) = 0;
+    SELECT COUNT(*) INTO v_total_reorders FROM DS3.REORDER{store_number};
+    SELECT COUNT(*) INTO v_popular_reorders FROM DS3.REORDER{store_number} WHERE MOD(PROD_ID, 10000) = 0;
 
     DBMS_OUTPUT.PUT_LINE('Restock Trigger Statistics:');
     DBMS_OUTPUT.PUT_LINE('  Total Reorder Events: ' || v_total_reorders);
@@ -232,7 +232,7 @@ SELECT
     LPAD(TO_CHAR(t.review_id), 10) AS ReviewID,
     LPAD(TO_CHAR(t.prod_id), 10) AS ProdID,
     LPAD(TO_CHAR(t.total_helpfulness), 12) AS Helpfulness
-FROM VALIDATION_TOP_REVIEWS t
+FROM VALIDATION_TOP_REVIEWS_{store_number} t
 ORDER BY t.rank_position;
 
 BEGIN
@@ -252,7 +252,7 @@ FROM (
         REVIEW_ID,
         PROD_ID,
         TOTAL_HELPFULNESS
-    FROM DS3.REVIEWS1
+    FROM DS3.REVIEWS{store_number}
     ORDER BY TOTAL_HELPFULNESS DESC, REVIEW_ID
 )
 WHERE ROWNUM <= 10;
@@ -270,10 +270,10 @@ BEGIN
     -- Review statistics
     SELECT COUNT(*), AVG(TOTAL_HELPFULNESS), MAX(TOTAL_HELPFULNESS), NVL(SUM(TOTAL_HELPFULNESS), 0)
     INTO v_total_reviews, v_avg_helpfulness, v_max_helpfulness, v_total_helpfulness
-    FROM DS3.REVIEWS1;
+    FROM DS3.REVIEWS{store_number};
 
     SELECT metric_value INTO v_total_helpfulness_pre
-    FROM VALIDATION_METRICS
+    FROM VALIDATION_METRICS_{store_number}
     WHERE metric_name = 'TOTAL_HELPFULNESS';
 
     DBMS_OUTPUT.PUT_LINE('Review Statistics:');
@@ -296,14 +296,14 @@ SELECT
     NVL(pre.review_count, 0) AS Pre,
     NVL(post.ReviewCount, 0) AS Post,
     NVL(post.ReviewCount, 0) - NVL(pre.review_count, 0) AS Delta
-FROM VALIDATION_POPULAR_REVIEWS pre
+FROM VALIDATION_POPULAR_REVIEWS_{store_number} pre
 FULL OUTER JOIN (
     SELECT
         p.PROD_ID,
         p.TITLE,
         COUNT(r.REVIEW_ID) AS ReviewCount
-    FROM DS3.PRODUCTS1 p
-    LEFT JOIN DS3.REVIEWS1 r ON p.PROD_ID = r.PROD_ID
+    FROM DS3.PRODUCTS{store_number} p
+    LEFT JOIN DS3.REVIEWS{store_number} r ON p.PROD_ID = r.PROD_ID
     WHERE MOD(p.PROD_ID, 10000) = 0
     GROUP BY p.PROD_ID, p.TITLE
 ) post ON pre.prod_id = post.PROD_ID
@@ -322,10 +322,10 @@ BEGIN
     DBMS_OUTPUT.PUT_LINE('');
 
     SELECT COUNT(*) INTO v_mismatch_count
-    FROM DS3.REVIEWS1 r
+    FROM DS3.REVIEWS{store_number} r
     LEFT JOIN (
         SELECT REVIEW_ID, SUM(HELPFULNESS) AS CalculatedTotal
-        FROM DS3.REVIEWS_HELPFULNESS1
+        FROM DS3.REVIEWS_HELPFULNESS{store_number}
         GROUP BY REVIEW_ID
     ) h ON r.REVIEW_ID = h.REVIEW_ID
     WHERE NVL(r.TOTAL_HELPFULNESS, 0) != NVL(h.CalculatedTotal, 0);
@@ -347,10 +347,10 @@ SELECT * FROM (
         r.TOTAL_HELPFULNESS AS Stored_Helpfulness,
         NVL(h.CalculatedTotal, 0) AS Calculated_Helpfulness,
         NVL(h.CalculatedTotal, 0) - NVL(r.TOTAL_HELPFULNESS, 0) AS Difference
-    FROM DS3.REVIEWS1 r
+    FROM DS3.REVIEWS{store_number} r
     LEFT JOIN (
         SELECT REVIEW_ID, SUM(HELPFULNESS) AS CalculatedTotal
-        FROM DS3.REVIEWS_HELPFULNESS1
+        FROM DS3.REVIEWS_HELPFULNESS{store_number}
         GROUP BY REVIEW_ID
     ) h ON r.REVIEW_ID = h.REVIEW_ID
     WHERE NVL(r.TOTAL_HELPFULNESS, 0) != NVL(h.CalculatedTotal, 0)
@@ -375,11 +375,11 @@ DECLARE
     v_manager_products_pre NUMBER;
 BEGIN
     SELECT COUNT(*) INTO v_manager_products
-    FROM DS3.PRODUCTS1
+    FROM DS3.PRODUCTS{store_number}
     WHERE (PRICE - FLOOR(PRICE)) = 0.01;
 
     SELECT metric_value INTO v_manager_products_pre
-    FROM VALIDATION_METRICS
+    FROM VALIDATION_METRICS_{store_number}
     WHERE metric_name = 'MANAGER_PRODUCTS_COUNT';
 
     DBMS_OUTPUT.PUT_LINE('Manager-Created Products (price .01):');
@@ -400,7 +400,7 @@ SELECT * FROM (
         PRICE,
         SPECIAL,
         COMMON_PROD_ID
-    FROM DS3.PRODUCTS1
+    FROM DS3.PRODUCTS{store_number}
     WHERE (PRICE - FLOOR(PRICE)) = 0.01
     ORDER BY PROD_ID DESC
 )
@@ -412,11 +412,11 @@ DECLARE
     v_special_products_pre NUMBER;
 BEGIN
     SELECT COUNT(*) INTO v_special_products
-    FROM DS3.PRODUCTS1
+    FROM DS3.PRODUCTS{store_number}
     WHERE SPECIAL = 1;
 
     SELECT metric_value INTO v_special_products_pre
-    FROM VALIDATION_METRICS
+    FROM VALIDATION_METRICS_{store_number}
     WHERE metric_name = 'SPECIAL_PRODUCTS_COUNT';
 
     DBMS_OUTPUT.PUT_LINE('Products Marked Special (SPECIAL=1):');
@@ -434,11 +434,11 @@ DECLARE
     v_bulk_adjusted_prices NUMBER;
 BEGIN
     SELECT COUNT(*) INTO v_adjusted_prices
-    FROM DS3.PRODUCTS1
+    FROM DS3.PRODUCTS{store_number}
     WHERE (PRICE - FLOOR(PRICE)) != 0.99 AND (PRICE - FLOOR(PRICE)) != 0.01;
 
     SELECT COUNT(*) INTO v_bulk_adjusted_prices
-    FROM DS3.PRODUCTS1
+    FROM DS3.PRODUCTS{store_number}
     WHERE (PRICE - FLOOR(PRICE)) = 0.77;
 
     DBMS_OUTPUT.PUT_LINE('Products with Adjusted Prices (not ending in .99 or .01): ' || v_adjusted_prices);
@@ -460,7 +460,7 @@ SELECT * FROM (
             SPECIAL,
             COMMON_PROD_ID,
             'Bulk (.77)' AS adjustment_type
-        FROM DS3.PRODUCTS1
+        FROM DS3.PRODUCTS{store_number}
         WHERE (PRICE - FLOOR(PRICE)) = 0.77
         ORDER BY PROD_ID
     )
@@ -475,7 +475,7 @@ SELECT * FROM (
             SPECIAL,
             COMMON_PROD_ID,
             'Individual' AS adjustment_type
-        FROM DS3.PRODUCTS1
+        FROM DS3.PRODUCTS{store_number}
         WHERE (PRICE - FLOOR(PRICE)) != 0.99
           AND (PRICE - FLOOR(PRICE)) != 0.01
           AND (PRICE - FLOOR(PRICE)) != 0.77
@@ -493,12 +493,12 @@ DECLARE
     v_expired_memberships_pre NUMBER;
 BEGIN
     -- Get current membership counts
-    SELECT COUNT(*) INTO v_total_memberships FROM DS3.MEMBERSHIP1;
-    SELECT COUNT(*) INTO v_expired_memberships FROM DS3.MEMBERSHIP1 WHERE EXPIREDATE < SYSDATE;
+    SELECT COUNT(*) INTO v_total_memberships FROM DS3.MEMBERSHIP{store_number};
+    SELECT COUNT(*) INTO v_expired_memberships FROM DS3.MEMBERSHIP{store_number} WHERE EXPIREDATE < SYSDATE;
 
     -- Get pre-test membership counts
-    SELECT metric_value INTO v_total_memberships_pre FROM VALIDATION_METRICS WHERE metric_name = 'TOTAL_MEMBERSHIPS';
-    SELECT metric_value INTO v_expired_memberships_pre FROM VALIDATION_METRICS WHERE metric_name = 'EXPIRED_MEMBERSHIPS';
+    SELECT metric_value INTO v_total_memberships_pre FROM VALIDATION_METRICS_{store_number} WHERE metric_name = 'TOTAL_MEMBERSHIPS';
+    SELECT metric_value INTO v_expired_memberships_pre FROM VALIDATION_METRICS_{store_number} WHERE metric_name = 'EXPIRED_MEMBERSHIPS';
 
     DBMS_OUTPUT.PUT_LINE('');
     DBMS_OUTPUT.PUT_LINE('Membership Status:');
@@ -540,27 +540,27 @@ BEGIN
 
     -- Get baseline max product ID
     SELECT metric_value INTO v_max_prod_id_pre
-    FROM VALIDATION_METRICS
+    FROM VALIDATION_METRICS_{store_number}
     WHERE metric_name = 'MAX_PROD_ID';
 
     -- Count new products added
     SELECT COUNT(*) INTO v_new_products_added
-    FROM DS3.PRODUCTS1
+    FROM DS3.PRODUCTS{store_number}
     WHERE PROD_ID > v_max_prod_id_pre;
 
     -- Count new products with inventory
     SELECT COUNT(DISTINCT i.PROD_ID) INTO v_new_products_with_inventory
-    FROM DS3.INVENTORY1 i
+    FROM DS3.INVENTORY{store_number} i
     WHERE i.PROD_ID > v_max_prod_id_pre;
 
     -- Count new products that were purchased
     SELECT COUNT(DISTINCT ol.PROD_ID) INTO v_new_products_purchased
-    FROM DS3.ORDERLINES1 ol
+    FROM DS3.ORDERLINES{store_number} ol
     WHERE ol.PROD_ID > v_max_prod_id_pre;
 
     -- Count new products that were reordered
     SELECT COUNT(DISTINCT r.PROD_ID) INTO v_new_products_reordered
-    FROM DS3.REORDER1 r
+    FROM DS3.REORDER{store_number} r
     WHERE r.PROD_ID > v_max_prod_id_pre;
 
     DBMS_OUTPUT.PUT_LINE('New Products Added (PROD_ID > ' || v_max_prod_id_pre || '): ' || v_new_products_added);
@@ -593,21 +593,21 @@ SELECT * FROM (
         NVL(i.QUAN_IN_STOCK, 0) AS Inventory,
         NVL(ol_count.purchases, 0) AS Purchases,
         NVL(r_count.reorders, 0) AS Reorders
-    FROM DS3.PRODUCTS1 p
-    LEFT JOIN DS3.INVENTORY1 i ON p.PROD_ID = i.PROD_ID
+    FROM DS3.PRODUCTS{store_number} p
+    LEFT JOIN DS3.INVENTORY{store_number} i ON p.PROD_ID = i.PROD_ID
     LEFT JOIN (
         SELECT PROD_ID, COUNT(*) AS purchases
-        FROM DS3.ORDERLINES1
-        WHERE PROD_ID > (SELECT metric_value FROM VALIDATION_METRICS WHERE metric_name = 'MAX_PROD_ID')
+        FROM DS3.ORDERLINES{store_number}
+        WHERE PROD_ID > (SELECT metric_value FROM VALIDATION_METRICS_{store_number} WHERE metric_name = 'MAX_PROD_ID')
         GROUP BY PROD_ID
     ) ol_count ON p.PROD_ID = ol_count.PROD_ID
     LEFT JOIN (
         SELECT PROD_ID, COUNT(*) AS reorders
-        FROM DS3.REORDER1
-        WHERE PROD_ID > (SELECT metric_value FROM VALIDATION_METRICS WHERE metric_name = 'MAX_PROD_ID')
+        FROM DS3.REORDER{store_number}
+        WHERE PROD_ID > (SELECT metric_value FROM VALIDATION_METRICS_{store_number} WHERE metric_name = 'MAX_PROD_ID')
         GROUP BY PROD_ID
     ) r_count ON p.PROD_ID = r_count.PROD_ID
-    WHERE p.PROD_ID > (SELECT metric_value FROM VALIDATION_METRICS WHERE metric_name = 'MAX_PROD_ID')
+    WHERE p.PROD_ID > (SELECT metric_value FROM VALIDATION_METRICS_{store_number} WHERE metric_name = 'MAX_PROD_ID')
     ORDER BY p.PROD_ID
 )
 WHERE ROWNUM <= 10;
@@ -625,9 +625,9 @@ SELECT * FROM (
         SUM(r.QUAN_REORDERED) AS TOTAL_REORDERED,
         COUNT(*) AS REORDER_COUNT,
         MAX(r.DATE_REORDERED) AS LAST_REORDER
-    FROM DS3.REORDER1 r
-    JOIN DS3.PRODUCTS1 p ON r.PROD_ID = p.PROD_ID
-    WHERE r.PROD_ID > (SELECT metric_value FROM VALIDATION_METRICS WHERE metric_name = 'MAX_PROD_ID')
+    FROM DS3.REORDER{store_number} r
+    JOIN DS3.PRODUCTS{store_number} p ON r.PROD_ID = p.PROD_ID
+    WHERE r.PROD_ID > (SELECT metric_value FROM VALIDATION_METRICS_{store_number} WHERE metric_name = 'MAX_PROD_ID')
     GROUP BY r.PROD_ID, p.TITLE
     ORDER BY MAX(r.DATE_REORDERED) DESC, r.PROD_ID
 )
@@ -681,11 +681,11 @@ BEGIN
     DBMS_OUTPUT.PUT_LINE('Note: Users add reviews and managers delete reviews. Disable adding reviews with --ds2_mode=y');
     DBMS_OUTPUT.PUT_LINE('');
 
-    SELECT metric_value INTO v_reviews_before FROM VALIDATION_METRICS WHERE metric_name = 'REVIEWS_COUNT';
-    SELECT metric_value INTO v_reviews_helpfulness_before FROM VALIDATION_METRICS WHERE metric_name = 'REVIEWS_HELPFULNESS_COUNT';
+    SELECT metric_value INTO v_reviews_before FROM VALIDATION_METRICS_{store_number} WHERE metric_name = 'REVIEWS_COUNT';
+    SELECT metric_value INTO v_reviews_helpfulness_before FROM VALIDATION_METRICS_{store_number} WHERE metric_name = 'REVIEWS_HELPFULNESS_COUNT';
 
-    SELECT COUNT(*) INTO v_reviews_after FROM DS3.REVIEWS1;
-    SELECT COUNT(*) INTO v_reviews_helpfulness_after FROM DS3.REVIEWS_HELPFULNESS1;
+    SELECT COUNT(*) INTO v_reviews_after FROM DS3.REVIEWS{store_number};
+    SELECT COUNT(*) INTO v_reviews_helpfulness_after FROM DS3.REVIEWS_HELPFULNESS{store_number};
 
     v_reviews_delta := v_reviews_after - v_reviews_before;
     v_helpfulness_deleted := v_reviews_helpfulness_before - v_reviews_helpfulness_after;
@@ -721,13 +721,13 @@ BEGIN
     DBMS_OUTPUT.PUT_LINE('Note: Users create orders and managers purge old orders.');
     DBMS_OUTPUT.PUT_LINE('');
 
-    SELECT metric_value INTO v_orders_before FROM VALIDATION_METRICS WHERE metric_name = 'ORDERS_COUNT';
-    SELECT metric_value INTO v_orderlines_before FROM VALIDATION_METRICS WHERE metric_name = 'ORDERLINES_COUNT';
-    SELECT metric_value INTO v_old_orders_before FROM VALIDATION_METRICS WHERE metric_name = 'OLD_ORDERS_COUNT';
+    SELECT metric_value INTO v_orders_before FROM VALIDATION_METRICS_{store_number} WHERE metric_name = 'ORDERS_COUNT';
+    SELECT metric_value INTO v_orderlines_before FROM VALIDATION_METRICS_{store_number} WHERE metric_name = 'ORDERLINES_COUNT';
+    SELECT metric_value INTO v_old_orders_before FROM VALIDATION_METRICS_{store_number} WHERE metric_name = 'OLD_ORDERS_COUNT';
 
-    SELECT COUNT(*) INTO v_orders_after FROM DS3.ORDERS1;
-    SELECT COUNT(*) INTO v_orderlines_after FROM DS3.ORDERLINES1;
-    SELECT COUNT(*) INTO v_old_orders_after FROM DS3.ORDERS1 WHERE ORDERDATE < TRUNC(SYSDATE);
+    SELECT COUNT(*) INTO v_orders_after FROM DS3.ORDERS{store_number};
+    SELECT COUNT(*) INTO v_orderlines_after FROM DS3.ORDERLINES{store_number};
+    SELECT COUNT(*) INTO v_old_orders_after FROM DS3.ORDERS{store_number} WHERE ORDERDATE < TRUNC(SYSDATE);
 
     v_orders_delta := v_orders_after - v_orders_before;
     v_orderlines_deleted := v_orderlines_before - v_orderlines_after;
@@ -763,11 +763,11 @@ BEGIN
     -- =======================================================================
     DBMS_OUTPUT.PUT_LINE('--- MEMBERSHIP TIER ---');
 
-    SELECT metric_value INTO v_silver_members_before FROM VALIDATION_METRICS WHERE metric_name = 'SILVER_MEMBERS_COUNT';
-    SELECT metric_value INTO v_gold_members_before FROM VALIDATION_METRICS WHERE metric_name = 'GOLD_MEMBERS_COUNT';
+    SELECT metric_value INTO v_silver_members_before FROM VALIDATION_METRICS_{store_number} WHERE metric_name = 'SILVER_MEMBERS_COUNT';
+    SELECT metric_value INTO v_gold_members_before FROM VALIDATION_METRICS_{store_number} WHERE metric_name = 'GOLD_MEMBERS_COUNT';
 
-    SELECT COUNT(*) INTO v_silver_members_after FROM DS3.MEMBERSHIP1 WHERE MEMBERSHIPTYPE = 2;
-    SELECT COUNT(*) INTO v_gold_members_after FROM DS3.MEMBERSHIP1 WHERE MEMBERSHIPTYPE = 3;
+    SELECT COUNT(*) INTO v_silver_members_after FROM DS3.MEMBERSHIP{store_number} WHERE MEMBERSHIPTYPE = 2;
+    SELECT COUNT(*) INTO v_gold_members_after FROM DS3.MEMBERSHIP{store_number} WHERE MEMBERSHIPTYPE = 3;
 
     v_silver_delta := v_silver_members_after - v_silver_members_before;
     v_gold_delta := v_gold_members_after - v_gold_members_before;
@@ -799,33 +799,33 @@ DECLARE
     v_extended NUMBER;
 BEGIN
     SELECT COUNT(*) INTO v_deleted
-    FROM MEMBERSHIP_SNAPSHOT s
-    LEFT JOIN DS3.MEMBERSHIP1 m ON s.CUSTOMERID = m.CUSTOMERID
+    FROM MEMBERSHIP_SNAPSHOT_{store_number} s
+    LEFT JOIN DS3.MEMBERSHIP{store_number} m ON s.CUSTOMERID = m.CUSTOMERID
     WHERE m.CUSTOMERID IS NULL;
 
     SELECT COUNT(*) INTO v_new
-    FROM DS3.MEMBERSHIP1 m
-    LEFT JOIN MEMBERSHIP_SNAPSHOT s ON m.CUSTOMERID = s.CUSTOMERID
+    FROM DS3.MEMBERSHIP{store_number} m
+    LEFT JOIN MEMBERSHIP_SNAPSHOT_{store_number} s ON m.CUSTOMERID = s.CUSTOMERID
     WHERE s.CUSTOMERID IS NULL;
 
     SELECT COUNT(*) INTO v_up_1_2
-    FROM MEMBERSHIP_SNAPSHOT s
-    INNER JOIN DS3.MEMBERSHIP1 m ON s.CUSTOMERID = m.CUSTOMERID
+    FROM MEMBERSHIP_SNAPSHOT_{store_number} s
+    INNER JOIN DS3.MEMBERSHIP{store_number} m ON s.CUSTOMERID = m.CUSTOMERID
     WHERE s.MEMBERSHIPTYPE = 1 AND m.MEMBERSHIPTYPE = 2;
 
     SELECT COUNT(*) INTO v_up_2_3
-    FROM MEMBERSHIP_SNAPSHOT s
-    INNER JOIN DS3.MEMBERSHIP1 m ON s.CUSTOMERID = m.CUSTOMERID
+    FROM MEMBERSHIP_SNAPSHOT_{store_number} s
+    INNER JOIN DS3.MEMBERSHIP{store_number} m ON s.CUSTOMERID = m.CUSTOMERID
     WHERE s.MEMBERSHIPTYPE = 2 AND m.MEMBERSHIPTYPE = 3;
 
     SELECT COUNT(*) INTO v_up_1_3
-    FROM MEMBERSHIP_SNAPSHOT s
-    INNER JOIN DS3.MEMBERSHIP1 m ON s.CUSTOMERID = m.CUSTOMERID
+    FROM MEMBERSHIP_SNAPSHOT_{store_number} s
+    INNER JOIN DS3.MEMBERSHIP{store_number} m ON s.CUSTOMERID = m.CUSTOMERID
     WHERE s.MEMBERSHIPTYPE = 1 AND m.MEMBERSHIPTYPE = 3;
 
     SELECT COUNT(*) INTO v_extended
-    FROM MEMBERSHIP_SNAPSHOT s
-    INNER JOIN DS3.MEMBERSHIP1 m ON s.CUSTOMERID = m.CUSTOMERID
+    FROM MEMBERSHIP_SNAPSHOT_{store_number} s
+    INNER JOIN DS3.MEMBERSHIP{store_number} m ON s.CUSTOMERID = m.CUSTOMERID
     WHERE m.MEMBERSHIPTYPE = s.MEMBERSHIPTYPE AND m.EXPIREDATE > s.EXPIREDATE;
 
     v_total := v_deleted + v_new + v_up_1_2 + v_up_2_3 + v_up_1_3 + v_extended;
@@ -857,8 +857,8 @@ SELECT * FROM (
         TO_CHAR(s.EXPIREDATE, 'YYYY-MM-DD') AS before_expire,
         TO_CHAR(m.EXPIREDATE, 'YYYY-MM-DD') AS after_expire,
         '1->3 JUMP' AS status
-    FROM MEMBERSHIP_SNAPSHOT s
-    INNER JOIN DS3.MEMBERSHIP1 m ON s.CUSTOMERID = m.CUSTOMERID
+    FROM MEMBERSHIP_SNAPSHOT_{store_number} s
+    INNER JOIN DS3.MEMBERSHIP{store_number} m ON s.CUSTOMERID = m.CUSTOMERID
     WHERE s.MEMBERSHIPTYPE = 1 AND m.MEMBERSHIPTYPE = 3
     ORDER BY s.CUSTOMERID
 )
@@ -873,8 +873,8 @@ SELECT * FROM (
         TO_CHAR(s.EXPIREDATE, 'YYYY-MM-DD') AS before_expire,
         TO_CHAR(m.EXPIREDATE, 'YYYY-MM-DD') AS after_expire,
         '2->3 UPGRADE' AS status
-    FROM MEMBERSHIP_SNAPSHOT s
-    INNER JOIN DS3.MEMBERSHIP1 m ON s.CUSTOMERID = m.CUSTOMERID
+    FROM MEMBERSHIP_SNAPSHOT_{store_number} s
+    INNER JOIN DS3.MEMBERSHIP{store_number} m ON s.CUSTOMERID = m.CUSTOMERID
     WHERE s.MEMBERSHIPTYPE = 2 AND m.MEMBERSHIPTYPE = 3
     ORDER BY s.CUSTOMERID
 )
@@ -889,8 +889,8 @@ SELECT * FROM (
         TO_CHAR(s.EXPIREDATE, 'YYYY-MM-DD') AS before_expire,
         'N/A' AS after_expire,
         'DELETED' AS status
-    FROM MEMBERSHIP_SNAPSHOT s
-    LEFT JOIN DS3.MEMBERSHIP1 m ON s.CUSTOMERID = m.CUSTOMERID
+    FROM MEMBERSHIP_SNAPSHOT_{store_number} s
+    LEFT JOIN DS3.MEMBERSHIP{store_number} m ON s.CUSTOMERID = m.CUSTOMERID
     WHERE m.CUSTOMERID IS NULL
     ORDER BY s.CUSTOMERID
 )
@@ -905,8 +905,8 @@ SELECT * FROM (
         'N/A' AS before_expire,
         TO_CHAR(m.EXPIREDATE, 'YYYY-MM-DD') AS after_expire,
         'NEW' AS status
-    FROM DS3.MEMBERSHIP1 m
-    LEFT JOIN MEMBERSHIP_SNAPSHOT s ON m.CUSTOMERID = s.CUSTOMERID
+    FROM DS3.MEMBERSHIP{store_number} m
+    LEFT JOIN MEMBERSHIP_SNAPSHOT_{store_number} s ON m.CUSTOMERID = s.CUSTOMERID
     WHERE s.CUSTOMERID IS NULL
     ORDER BY m.CUSTOMERID
 )
@@ -921,8 +921,8 @@ SELECT * FROM (
         TO_CHAR(s.EXPIREDATE, 'YYYY-MM-DD') AS before_expire,
         TO_CHAR(m.EXPIREDATE, 'YYYY-MM-DD') AS after_expire,
         '1->2 UPGRADE' AS status
-    FROM MEMBERSHIP_SNAPSHOT s
-    INNER JOIN DS3.MEMBERSHIP1 m ON s.CUSTOMERID = m.CUSTOMERID
+    FROM MEMBERSHIP_SNAPSHOT_{store_number} s
+    INNER JOIN DS3.MEMBERSHIP{store_number} m ON s.CUSTOMERID = m.CUSTOMERID
     WHERE s.MEMBERSHIPTYPE = 1 AND m.MEMBERSHIPTYPE = 2
     ORDER BY s.CUSTOMERID
 )
@@ -937,8 +937,8 @@ SELECT * FROM (
         TO_CHAR(s.EXPIREDATE, 'YYYY-MM-DD') AS before_expire,
         TO_CHAR(m.EXPIREDATE, 'YYYY-MM-DD') AS after_expire,
         'EXTENDED' AS status
-    FROM MEMBERSHIP_SNAPSHOT s
-    INNER JOIN DS3.MEMBERSHIP1 m ON s.CUSTOMERID = m.CUSTOMERID
+    FROM MEMBERSHIP_SNAPSHOT_{store_number} s
+    INNER JOIN DS3.MEMBERSHIP{store_number} m ON s.CUSTOMERID = m.CUSTOMERID
     WHERE s.MEMBERSHIPTYPE = m.MEMBERSHIPTYPE AND m.EXPIREDATE > s.EXPIREDATE
     ORDER BY s.CUSTOMERID
 )
@@ -971,17 +971,17 @@ BEGIN
     DBMS_OUTPUT.PUT_LINE('');
 
     -- Calculate deltas from baseline
-    SELECT metric_value INTO v_customers_before FROM VALIDATION_METRICS WHERE metric_name = 'CUSTOMERS_COUNT';
-    SELECT metric_value INTO v_orders_before FROM VALIDATION_METRICS WHERE metric_name = 'ORDERS_COUNT';
-    SELECT metric_value INTO v_products_before FROM VALIDATION_METRICS WHERE metric_name = 'PRODUCTS_COUNT';
-    SELECT metric_value INTO v_memberships_before FROM VALIDATION_METRICS WHERE metric_name = 'MEMBERSHIP_COUNT';
-    SELECT metric_value INTO v_reviews_before FROM VALIDATION_METRICS WHERE metric_name = 'REVIEWS_COUNT';
+    SELECT metric_value INTO v_customers_before FROM VALIDATION_METRICS_{store_number} WHERE metric_name = 'CUSTOMERS_COUNT';
+    SELECT metric_value INTO v_orders_before FROM VALIDATION_METRICS_{store_number} WHERE metric_name = 'ORDERS_COUNT';
+    SELECT metric_value INTO v_products_before FROM VALIDATION_METRICS_{store_number} WHERE metric_name = 'PRODUCTS_COUNT';
+    SELECT metric_value INTO v_memberships_before FROM VALIDATION_METRICS_{store_number} WHERE metric_name = 'MEMBERSHIP_COUNT';
+    SELECT metric_value INTO v_reviews_before FROM VALIDATION_METRICS_{store_number} WHERE metric_name = 'REVIEWS_COUNT';
 
-    SELECT COUNT(*) INTO v_customers_after FROM DS3.CUSTOMERS1;
-    SELECT COUNT(*) INTO v_orders_after FROM DS3.ORDERS1;
-    SELECT COUNT(*) INTO v_products_after FROM DS3.PRODUCTS1;
-    SELECT COUNT(*) INTO v_memberships_after FROM DS3.MEMBERSHIP1;
-    SELECT COUNT(*) INTO v_reviews_after FROM DS3.REVIEWS1;
+    SELECT COUNT(*) INTO v_customers_after FROM DS3.CUSTOMERS{store_number};
+    SELECT COUNT(*) INTO v_orders_after FROM DS3.ORDERS{store_number};
+    SELECT COUNT(*) INTO v_products_after FROM DS3.PRODUCTS{store_number};
+    SELECT COUNT(*) INTO v_memberships_after FROM DS3.MEMBERSHIP{store_number};
+    SELECT COUNT(*) INTO v_reviews_after FROM DS3.REVIEWS{store_number};
 
     DBMS_OUTPUT.PUT_LINE('New Records Created During Benchmark:');
     DBMS_OUTPUT.PUT_LINE('  Customers:   ' || (v_customers_after - v_customers_before));
@@ -993,7 +993,7 @@ BEGIN
     DBMS_OUTPUT.PUT_LINE('');
     DBMS_OUTPUT.PUT_LINE('Manager Operation Impact:');
     SELECT COUNT(*) INTO v_adjusted_prices
-    FROM DS3.PRODUCTS1
+    FROM DS3.PRODUCTS{store_number}
     WHERE (PRICE - FLOOR(PRICE)) != 0.99 AND (PRICE - FLOOR(PRICE)) != 0.01;
     DBMS_OUTPUT.PUT_LINE('  Products with Adjusted Prices: ' || v_adjusted_prices);
 
@@ -1007,7 +1007,7 @@ BEGIN
     DBMS_OUTPUT.PUT_LINE('');
 
     SELECT metric_value INTO v_max_customerid_pre
-    FROM VALIDATION_METRICS
+    FROM VALIDATION_METRICS_{store_number}
     WHERE metric_name = 'MAX_CUSTOMERID';
 END;
 /
@@ -1018,8 +1018,8 @@ SELECT * FROM (
         FIRSTNAME,
         LASTNAME,
         CITY
-    FROM DS3.CUSTOMERS1
-    WHERE CUSTOMERID > (SELECT metric_value FROM VALIDATION_METRICS WHERE metric_name = 'MAX_CUSTOMERID')
+    FROM DS3.CUSTOMERS{store_number}
+    WHERE CUSTOMERID > (SELECT metric_value FROM VALIDATION_METRICS_{store_number} WHERE metric_name = 'MAX_CUSTOMERID')
     ORDER BY CUSTOMERID
 )
 WHERE ROWNUM <= 10;

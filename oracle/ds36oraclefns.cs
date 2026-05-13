@@ -1195,6 +1195,76 @@ namespace ds2xdriver
     //
     //-------------------------------------------------------------------------------------------------
     //
+    public static string GetDatabaseType()
+    {
+      return "oracle";
+    }
+
+    //
+    //-------------------------------------------------------------------------------------------------
+    //
+    public void ds2validate(string outputFile, string targetServer, int storeNumber)
+    {
+      string sqlFilePath = $"validate/{targetServer}/oracle_validate_after{storeNumber}.sql";
+      if (!File.Exists(sqlFilePath))
+      {
+        Console.WriteLine($"Error: Validation SQL file not found: {sqlFilePath}");
+        Console.WriteLine("Please run the Perl generation script first:");
+        Console.WriteLine($"  perl oracle_ds_perl_validate_multi.pl {targetServer} {storeNumber} after generate");
+        return;
+      }
+
+      // Execute via sqlplus (handles all SQL*Plus formatting, /, DBMS_OUTPUT automatically)
+      ProcessStartInfo psi = new ProcessStartInfo
+      {
+        FileName = "sqlplus",
+        Arguments = $"-S sys/oracle@{targetServer} as sysdba @{sqlFilePath}",
+        RedirectStandardOutput = true,
+        RedirectStandardError = true,
+        UseShellExecute = false
+      };
+
+      try
+      {
+        using (Process? process = Process.Start(psi))
+        {
+          if (process == null)
+          {
+            Console.WriteLine("Error: Could not start sqlplus process");
+            return;
+          }
+
+          using (StreamWriter writer = new StreamWriter(outputFile, append: true))
+          {
+            // Capture stdout and stderr
+            string output = process.StandardOutput.ReadToEnd();
+            string errors = process.StandardError.ReadToEnd();
+
+            writer.Write(output);
+
+            if (!string.IsNullOrWhiteSpace(errors))
+            {
+              writer.WriteLine($"Errors: {errors}");
+            }
+          }
+
+          process.WaitForExit();
+
+          if (process.ExitCode != 0)
+          {
+            Console.WriteLine($"Warning: sqlplus exited with code {process.ExitCode}");
+          }
+        }
+      }
+      catch (Exception e)
+      {
+        Console.WriteLine($"Error executing sqlplus: {e.Message}");
+      }
+    }
+
+    //
+    //-------------------------------------------------------------------------------------------------
+    //
     public bool ds2close()
     {
       objConn.Close();

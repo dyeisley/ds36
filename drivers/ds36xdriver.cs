@@ -151,6 +151,8 @@ namespace ds2xdriver
     public static bool is_Win_VM = false;
     //Boolean value to simulate DS2 version of driver on DS3 database
     public static bool ds2_mode = false;
+    // Boolean value to run post-benchmark validation SQL
+    public static bool validate_after = false;
     // Value for number of stores to support multi stores
     public static int n_stores = 1;
     public static int n_vectors = 0;
@@ -810,6 +812,16 @@ namespace ds2xdriver
         Validator = (value) => ValidateInt(value, min: 1, max: 100)
       };
 
+      // validate_after - run validation SQL after benchmark completes
+      definitions["validate_after"] = new ParameterDefinition
+      {
+        Name = "validate_after",
+        Description = "Run post-benchmark validation SQL (Y / N)",
+        DefaultValue = "N",
+        Type = ParamType.Boolean,
+        Validator = ValidateYesNo
+      };
+
       return definitions;
     }
 
@@ -1268,6 +1280,13 @@ namespace ds2xdriver
       if (ds2_mode)
       {
         Console.WriteLine("Running in DS2 mode.");
+      }
+
+      // Validation after benchmark (validator returns bool)
+      validate_after = parser.GetValue<bool>("validate_after");
+      if (validate_after)
+      {
+        Console.WriteLine("Post-benchmark validation enabled.");
       }
 
       // Number of stores
@@ -2157,16 +2176,85 @@ namespace ds2xdriver
 
       // Signal threads to end, wait for 'em to stop
       End = true;
-      bool all_stopped;
-      do
+
+      // Wait for all user threads to complete
+      Console.WriteLine("Controller ({0}): waiting for user threads to complete...", DateTime.Now);
+      for (i = 0; i < n_threads; i++)
       {
-        Thread.Sleep(500);
-        all_stopped = true;
-        for (i = 0; i < n_threads; i++)
-          all_stopped &= (threads[i].ThreadState == System.Threading.ThreadState.Stopped);
+        if (threads[i] != null && threads[i].IsAlive)
+        {
+          threads[i].Join();
+        }
       }
-      while (!all_stopped);
+      Console.WriteLine("Controller ({0}): all user threads completed", DateTime.Now);
+
+      // Wait for all manager threads to complete
+      if (enable_managers)
+      {
+        Console.WriteLine("Controller ({0}): waiting for manager threads to complete...", DateTime.Now);
+        for (i = 0; i < n_stores; i++)
+        {
+          if (manager_threads[i] != null && manager_threads[i].IsAlive)
+          {
+            manager_threads[i].Join();
+          }
+        }
+        Console.WriteLine("Controller ({0}): all manager threads completed", DateTime.Now);
+      }
+
       Console.WriteLine("Controller ({0}): all threads stopped, exiting", DateTime.Now);
+
+      // Run post-benchmark validation if requested
+      if (validate_after)
+      {
+        Console.WriteLine("\nRunning post-benchmark validation...");
+        string timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
+        string databaseType = ds2Interface.GetDatabaseType();
+        string validationServer = target_servers[0]; // Use first server for validation
+
+        // Validate each store
+        for (int store = 1; store <= n_stores; store++)
+        {
+          string validationOutputFile = $"validation_{databaseType}_store{store}_{timestamp}.txt";
+          Console.WriteLine($"  Validating store {store}...");
+
+          // Write benchmark parameters header
+          WriteBenchmarkParametersHeader(validationOutputFile, databaseType, validationServer, store);
+
+          // Create temporary ds2interface for validation
+          ds2Interface validationInterface = new ds2Interface(9999, validationServer, store);
+
+          try
+          {
+            // Connect to database (Oracle doesn't need this - sqlplus handles connection)
+            // But PostgreSQL, MySQL, SQL Server need active connection for ADO.NET commands
+            if (databaseType != "oracle")
+            {
+              if (!validationInterface.ds2connect())
+              {
+                Console.WriteLine($"  Error: Could not connect to database for validation");
+                continue;
+              }
+            }
+
+            // Run validation SQL and append results to output file
+            validationInterface.ds2validate(validationOutputFile, validationServer, store);
+          }
+          finally
+          {
+            // Close connection (safe to call even if not connected)
+            if (databaseType != "oracle")
+            {
+              validationInterface.ds2close();
+            }
+          }
+
+          Console.WriteLine($"  Validation output saved to: {validationOutputFile}");
+        }
+
+        Console.WriteLine("Validation complete.");
+      }
+
       Console.WriteLine("n_purchase_from_start= {0} n_rollbacks_from_start= {1}", n_purchase_from_start, n_rollbacks_from_start);
 
       //Added by GSK
@@ -2189,7 +2277,56 @@ namespace ds2xdriver
 
     //
     //-------------------------------------------------------------------------------------------------
+    // Validation Support
+    //-------------------------------------------------------------------------------------------------
     //
+
+    // Write benchmark parameters header to validation output file
+    private static void WriteBenchmarkParametersHeader(string outputFile, string databaseType, string serverName, int storeNumber)
+    {
+      using (StreamWriter writer = new StreamWriter(outputFile))
+      {
+        writer.WriteLine("========================================================================");
+        writer.WriteLine("DVD Store 3.6 Benchmark - Validation Report");
+        writer.WriteLine($"Generated: {DateTime.Now:yyyy-MM-dd HH:mm:ss}");
+        writer.WriteLine("========================================================================");
+        writer.WriteLine();
+        writer.WriteLine("BENCHMARK PARAMETERS:");
+        writer.WriteLine($"  Database Type:          {databaseType}");
+        writer.WriteLine($"  Store Number:           {storeNumber}");
+        writer.WriteLine($"  Target Server:          {serverName}");
+        writer.WriteLine($"  Run Time:               {run_time} minutes");
+        writer.WriteLine($"  Threads:                {n_threads}");
+        writer.WriteLine($"  Ramp Rate:              {ramp_rate} users/sec");
+        writer.WriteLine($"  n_searches:             {n_searches}");
+        writer.WriteLine($"  search_batch_size:      {search_batch_size}");
+        writer.WriteLine($"  pct_newcustomers:       {pct_newcustomers}%");
+        writer.WriteLine($"  pct_newmember:          {pct_newmember}%");
+        writer.WriteLine($"  pct_newreviews:         {pct_newreviews}%");
+        writer.WriteLine($"  pct_newhelpfulness:     {pct_newhelpfulness}%");
+        writer.WriteLine($"  DS2 Mode:               {(ds2_mode ? "yes" : "no")}");
+        writer.WriteLine($"  Manager Threads:        {(enable_managers ? n_stores.ToString() : "disabled")}");
+        if (enable_managers)
+        {
+          writer.WriteLine($"  manager_interval:       {manager_interval} sec");
+          writer.WriteLine($"  manager_add_product:    {manager_add_product_pct}%");
+          writer.WriteLine($"  manager_delete_review:  {manager_delete_review_pct}%");
+          writer.WriteLine($"  manager_update_price:   {manager_update_price_pct}%");
+          writer.WriteLine($"  manager_update_special: {manager_update_special_pct}%");
+          writer.WriteLine($"  manager_expire_member:  {manager_expire_memberships_pct}%");
+          writer.WriteLine($"  manager_purge_orders:   {manager_purge_old_orders_pct}%");
+          writer.WriteLine($"  manager_upgrade_member: {manager_upgrade_membership_pct}%");
+          writer.WriteLine($"  manager_batch_size:     {manager_batch_size_min}-{manager_batch_size_max}");
+        }
+        writer.WriteLine($"  Vector Search:          {(n_vectors > 0 ? "enabled" : "disabled")}");
+        writer.WriteLine();
+        writer.WriteLine("========================================================================");
+        writer.WriteLine("VALIDATION RESULTS:");
+        writer.WriteLine("========================================================================");
+        writer.WriteLine();
+      }
+    }
+
     //
     //-------------------------------------------------------------------------------------------------
     // Help System (Phase 5)

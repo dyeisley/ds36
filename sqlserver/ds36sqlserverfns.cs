@@ -1174,6 +1174,146 @@ namespace ds2xdriver
     //
     //-------------------------------------------------------------------------------------------------
     //
+    public static string GetDatabaseType()
+    {
+      return "sqlserver";
+    }
+
+    //
+    //-------------------------------------------------------------------------------------------------
+    //
+    public void ds2validate(string outputFile, string targetServer, int storeNumber)
+    {
+      string sqlFilePath = $"validate/{targetServer}/sqlserver_validate_after{storeNumber}.sql";
+
+      if (!File.Exists(sqlFilePath))
+      {
+        Console.WriteLine($"Error: Validation SQL file not found: {sqlFilePath}");
+        Console.WriteLine("Please run the Perl generation script first:");
+        Console.WriteLine($"  perl sqlserver_ds_perl_validate_multi.pl {targetServer} {storeNumber} <password> after generate");
+        return;
+      }
+
+      try
+      {
+        string sqlContent = File.ReadAllText(sqlFilePath);
+
+        // Filter out USE and GO commands (connection already has database context)
+        var filteredLines = new List<string>();
+        foreach (string line in sqlContent.Split(new[] { '\r', '\n' }, StringSplitOptions.None))
+        {
+          string trimmed = line.Trim();
+          // Skip USE and GO commands
+          if (trimmed.Equals("GO", StringComparison.OrdinalIgnoreCase) ||
+              trimmed.StartsWith("USE ", StringComparison.OrdinalIgnoreCase))
+          {
+            continue;
+          }
+          filteredLines.Add(line);
+        }
+        sqlContent = string.Join("\n", filteredLines);
+
+        // Set up InfoMessage event handler to capture PRINT statements
+        var printMessages = new List<string>();
+        objConn.InfoMessage += (sender, e) =>
+        {
+          printMessages.Add(e.Message);
+        };
+
+        // Execute entire script at once
+        using (SqlCommand cmd = new SqlCommand(sqlContent, objConn))
+        {
+          cmd.CommandTimeout = 600; // 10 minutes for validation queries
+
+          using (SqlDataReader reader = cmd.ExecuteReader())
+          {
+            using (StreamWriter writer = new StreamWriter(outputFile, true))
+            {
+              do
+              {
+                // Write any PRINT messages collected before this result set
+                foreach (string msg in printMessages)
+                {
+                  writer.WriteLine(msg);
+                }
+                printMessages.Clear();
+
+                // Write column headers if there are any columns
+                if (reader.FieldCount > 0)
+                {
+                  List<string> headers = new List<string>();
+                  for (int i = 0; i < reader.FieldCount; i++)
+                  {
+                    string colName = reader.GetName(i);
+                    // Numeric types get right padding, strings get left padding
+                    Type fieldType = reader.GetFieldType(i);
+                    if (fieldType == typeof(int) || fieldType == typeof(long) ||
+                        fieldType == typeof(decimal) || fieldType == typeof(double) ||
+                        fieldType == typeof(float) || fieldType == typeof(short) ||
+                        fieldType == typeof(byte))
+                    {
+                      headers.Add(colName.PadLeft(12));
+                    }
+                    else
+                    {
+                      headers.Add(colName.PadRight(30));
+                    }
+                  }
+                  writer.WriteLine(string.Join(" ", headers));
+                }
+
+                // Write column values with padding for alignment
+                while (reader.Read())
+                {
+                  List<string> rowValues = new List<string>();
+                  for (int i = 0; i < reader.FieldCount; i++)
+                  {
+                    object value = reader.GetValue(i);
+                    string strValue = value?.ToString() ?? "NULL";
+
+                    // Pad numeric columns to the right, string columns to the left
+                    Type fieldType = reader.GetFieldType(i);
+                    if (fieldType == typeof(int) || fieldType == typeof(long) ||
+                        fieldType == typeof(decimal) || fieldType == typeof(double) ||
+                        fieldType == typeof(float) || fieldType == typeof(short) ||
+                        fieldType == typeof(byte))
+                    {
+                      rowValues.Add(strValue.PadLeft(12));
+                    }
+                    else
+                    {
+                      rowValues.Add(strValue.PadRight(30));
+                    }
+                  }
+                  writer.WriteLine(string.Join(" ", rowValues));
+                }
+              } while (reader.NextResult());
+
+              // Write any remaining PRINT messages
+              foreach (string msg in printMessages)
+              {
+                writer.WriteLine(msg);
+              }
+
+              writer.WriteLine("\n========================================================================");
+              writer.WriteLine("Validation Complete");
+              writer.WriteLine("========================================================================");
+            }
+          }
+        }
+      }
+      catch (Exception ex)
+      {
+        using (StreamWriter writer = new StreamWriter(outputFile, true))
+        {
+          writer.WriteLine($"\nError executing validation SQL: {ex.Message}");
+        }
+      }
+    }
+
+    //
+    //-------------------------------------------------------------------------------------------------
+    //
     public bool ds2close()
     {
       objConn.Close();

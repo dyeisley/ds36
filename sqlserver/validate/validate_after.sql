@@ -28,31 +28,31 @@ SELECT
     RIGHT(REPLICATE(' ', 15) + CAST(m.metric_value AS VARCHAR), 15) AS [Pre],
     RIGHT(REPLICATE(' ', 15) + CAST(
         CASE REPLACE(m.metric_name, '_COUNT', '')
-            WHEN 'CUSTOMERS' THEN (SELECT COUNT(*) FROM CUSTOMERS1)
-            WHEN 'CUST_HIST' THEN (SELECT COUNT(*) FROM CUST_HIST1)
-            WHEN 'PRODUCTS' THEN (SELECT COUNT(*) FROM PRODUCTS1)
-            WHEN 'ORDERS' THEN (SELECT COUNT(*) FROM ORDERS1)
-            WHEN 'ORDERLINES' THEN (SELECT COUNT(*) FROM ORDERLINES1)
-            WHEN 'INVENTORY' THEN (SELECT COUNT(*) FROM INVENTORY1)
-            WHEN 'REVIEWS' THEN (SELECT COUNT(*) FROM REVIEWS1)
-            WHEN 'REVIEWS_HELPFULNESS' THEN (SELECT COUNT(*) FROM REVIEWS_HELPFULNESS1)
-            WHEN 'MEMBERSHIP' THEN (SELECT COUNT(*) FROM MEMBERSHIP1)
-            WHEN 'REORDER' THEN (SELECT COUNT(*) FROM REORDER1)
+            WHEN 'CUSTOMERS' THEN (SELECT COUNT(*) FROM CUSTOMERS{store_number})
+            WHEN 'CUST_HIST' THEN (SELECT COUNT(*) FROM CUST_HIST{store_number})
+            WHEN 'PRODUCTS' THEN (SELECT COUNT(*) FROM PRODUCTS{store_number})
+            WHEN 'ORDERS' THEN (SELECT COUNT(*) FROM ORDERS{store_number})
+            WHEN 'ORDERLINES' THEN (SELECT COUNT(*) FROM ORDERLINES{store_number})
+            WHEN 'INVENTORY' THEN (SELECT COUNT(*) FROM INVENTORY{store_number})
+            WHEN 'REVIEWS' THEN (SELECT COUNT(*) FROM REVIEWS{store_number})
+            WHEN 'REVIEWS_HELPFULNESS' THEN (SELECT COUNT(*) FROM REVIEWS_HELPFULNESS{store_number})
+            WHEN 'MEMBERSHIP' THEN (SELECT COUNT(*) FROM MEMBERSHIP{store_number})
+            WHEN 'REORDER' THEN (SELECT COUNT(*) FROM REORDER{store_number})
         END AS VARCHAR), 15) AS [Post],
     RIGHT(REPLICATE(' ', 15) + CAST(
         CASE REPLACE(m.metric_name, '_COUNT', '')
-            WHEN 'CUSTOMERS' THEN (SELECT COUNT(*) FROM CUSTOMERS1) - m.metric_value
-            WHEN 'CUST_HIST' THEN (SELECT COUNT(*) FROM CUST_HIST1) - m.metric_value
-            WHEN 'PRODUCTS' THEN (SELECT COUNT(*) FROM PRODUCTS1) - m.metric_value
-            WHEN 'ORDERS' THEN (SELECT COUNT(*) FROM ORDERS1) - m.metric_value
-            WHEN 'ORDERLINES' THEN (SELECT COUNT(*) FROM ORDERLINES1) - m.metric_value
-            WHEN 'INVENTORY' THEN (SELECT COUNT(*) FROM INVENTORY1) - m.metric_value
-            WHEN 'REVIEWS' THEN (SELECT COUNT(*) FROM REVIEWS1) - m.metric_value
-            WHEN 'REVIEWS_HELPFULNESS' THEN (SELECT COUNT(*) FROM REVIEWS_HELPFULNESS1) - m.metric_value
-            WHEN 'MEMBERSHIP' THEN (SELECT COUNT(*) FROM MEMBERSHIP1) - m.metric_value
-            WHEN 'REORDER' THEN (SELECT COUNT(*) FROM REORDER1) - m.metric_value
+            WHEN 'CUSTOMERS' THEN (SELECT COUNT(*) FROM CUSTOMERS{store_number}) - m.metric_value
+            WHEN 'CUST_HIST' THEN (SELECT COUNT(*) FROM CUST_HIST{store_number}) - m.metric_value
+            WHEN 'PRODUCTS' THEN (SELECT COUNT(*) FROM PRODUCTS{store_number}) - m.metric_value
+            WHEN 'ORDERS' THEN (SELECT COUNT(*) FROM ORDERS{store_number}) - m.metric_value
+            WHEN 'ORDERLINES' THEN (SELECT COUNT(*) FROM ORDERLINES{store_number}) - m.metric_value
+            WHEN 'INVENTORY' THEN (SELECT COUNT(*) FROM INVENTORY{store_number}) - m.metric_value
+            WHEN 'REVIEWS' THEN (SELECT COUNT(*) FROM REVIEWS{store_number}) - m.metric_value
+            WHEN 'REVIEWS_HELPFULNESS' THEN (SELECT COUNT(*) FROM REVIEWS_HELPFULNESS{store_number}) - m.metric_value
+            WHEN 'MEMBERSHIP' THEN (SELECT COUNT(*) FROM MEMBERSHIP{store_number}) - m.metric_value
+            WHEN 'REORDER' THEN (SELECT COUNT(*) FROM REORDER{store_number}) - m.metric_value
         END AS VARCHAR), 15) AS [Delta]
-FROM VALIDATION_METRICS m
+FROM VALIDATION_METRICS_{store_number} m
 WHERE m.metric_name LIKE '%_COUNT'
     AND m.metric_name NOT IN ('MANAGER_PRODUCTS_COUNT', 'SPECIAL_PRODUCTS_COUNT', 'OLD_ORDERS_COUNT', 'SILVER_MEMBERS_COUNT', 'GOLD_MEMBERS_COUNT')
 ORDER BY [Table];
@@ -75,8 +75,8 @@ SELECT TOP 5 WITH TIES
     LEFT(c.FIRSTNAME + REPLICATE(' ', 15), 15) AS [FirstName],
     LEFT(c.LASTNAME + REPLICATE(' ', 15), 15) AS [LastName],
     RIGHT(REPLICATE(' ', 8) + CAST(COUNT(*) AS VARCHAR), 8) AS [Products]
-FROM CUST_HIST1 ch
-JOIN CUSTOMERS1 c ON ch.CUSTOMERID = c.CUSTOMERID
+FROM CUST_HIST{store_number} ch
+JOIN CUSTOMERS{store_number} c ON ch.CUSTOMERID = c.CUSTOMERID
 GROUP BY ch.CUSTOMERID, c.FIRSTNAME, c.LASTNAME
 ORDER BY COUNT(*) DESC;
 
@@ -102,8 +102,8 @@ SELECT TOP 10
         WHEN i.PROD_ID % 10000 = 0 THEN '**POPULAR**'
         ELSE ''
     END AS IsPopularProduct
-FROM INVENTORY1 i
-JOIN PRODUCTS1 p ON i.PROD_ID = p.PROD_ID
+FROM INVENTORY{store_number} i
+JOIN PRODUCTS{store_number} p ON i.PROD_ID = p.PROD_ID
 ORDER BY i.SALES DESC;
 
 PRINT '';
@@ -111,11 +111,11 @@ PRINT '';
 -- Summary statistics on popular vs non-popular products
 DECLARE @PopularSales BIGINT, @NonPopularSales BIGINT, @PopularCount INT, @NonPopularCount INT;
 SELECT @PopularSales = SUM(SALES), @PopularCount = COUNT(*)
-FROM INVENTORY1
+FROM INVENTORY{store_number}
 WHERE PROD_ID % 10000 = 0;
 
 SELECT @NonPopularSales = SUM(SALES), @NonPopularCount = COUNT(*)
-FROM INVENTORY1
+FROM INVENTORY{store_number}
 WHERE PROD_ID % 10000 != 0;
 
 PRINT 'GetSkewedProductId Effectiveness:';
@@ -151,8 +151,8 @@ SELECT TOP 20
         WHEN r.PROD_ID % 10000 = 0 THEN '**POPULAR**'
         ELSE ''
     END AS IsPopularProduct
-FROM REORDER1 r
-JOIN PRODUCTS1 p ON r.PROD_ID = p.PROD_ID
+FROM REORDER{store_number} r
+JOIN PRODUCTS{store_number} p ON r.PROD_ID = p.PROD_ID
 GROUP BY r.PROD_ID, p.TITLE
 ORDER BY SUM(r.QUAN_REORDERED) DESC;
 
@@ -160,8 +160,8 @@ PRINT '';
 
 -- Reorder statistics
 DECLARE @TotalReorders INT, @PopularReorders INT;
-SELECT @TotalReorders = COUNT(*) FROM REORDER1;
-SELECT @PopularReorders = COUNT(*) FROM REORDER1 WHERE PROD_ID % 10000 = 0;
+SELECT @TotalReorders = COUNT(*) FROM REORDER{store_number};
+SELECT @PopularReorders = COUNT(*) FROM REORDER{store_number} WHERE PROD_ID % 10000 = 0;
 
 PRINT 'Restock Trigger Statistics:';
 PRINT '  Total Reorder Events: ' + CAST(@TotalReorders AS VARCHAR);
@@ -188,7 +188,7 @@ SELECT
     RIGHT(REPLICATE(' ', 10) + CAST(t.review_id AS VARCHAR), 10) AS [ReviewID],
     RIGHT(REPLICATE(' ', 10) + CAST(t.prod_id AS VARCHAR), 10) AS [ProdID],
     RIGHT(REPLICATE(' ', 12) + CAST(t.total_helpfulness AS VARCHAR), 12) AS [Helpfulness]
-FROM VALIDATION_TOP_REVIEWS t
+FROM VALIDATION_TOP_REVIEWS_{store_number} t
 ORDER BY t.rank_position;
 
 PRINT '';
@@ -199,7 +199,7 @@ SELECT TOP 10
     RIGHT(REPLICATE(' ', 10) + CAST(PROD_ID AS VARCHAR), 10) AS [ProdID],
     RIGHT(REPLICATE(' ', 12) + CAST(TOTAL_HELPFULNESS AS VARCHAR), 12) AS [Helpfulness],
     LEFT(CASE WHEN PROD_ID % 10000 = 0 THEN '**POPULAR**' ELSE '' END + REPLICATE(' ', 12), 12) AS [Popular]
-FROM REVIEWS1
+FROM REVIEWS{store_number}
 ORDER BY TOTAL_HELPFULNESS DESC, REVIEW_ID;
 
 PRINT '';
@@ -213,10 +213,10 @@ SELECT @TotalReviews = COUNT(*),
        @AvgHelpfulness = AVG(CAST(TOTAL_HELPFULNESS AS FLOAT)),
        @MaxHelpfulness = MAX(TOTAL_HELPFULNESS),
        @TotalHelpfulness = ISNULL(SUM(TOTAL_HELPFULNESS), 0)
-FROM REVIEWS1;
+FROM REVIEWS{store_number};
 
 SELECT @TotalHelpfulnessPre = metric_value
-FROM VALIDATION_METRICS
+FROM VALIDATION_METRICS_{store_number}
 WHERE metric_name = 'TOTAL_HELPFULNESS';
 
 PRINT 'Review Statistics:';
@@ -237,14 +237,14 @@ SELECT
     ISNULL(pre.review_count, 0) AS Pre,
     ISNULL(post.ReviewCount, 0) AS Post,
     ISNULL(post.ReviewCount, 0) - ISNULL(pre.review_count, 0) AS Delta
-FROM VALIDATION_POPULAR_REVIEWS pre
+FROM VALIDATION_POPULAR_REVIEWS_{store_number} pre
 FULL OUTER JOIN (
     SELECT
         p.PROD_ID,
         p.TITLE,
         COUNT(r.REVIEW_ID) AS ReviewCount
-    FROM PRODUCTS1 p
-    LEFT JOIN REVIEWS1 r ON p.PROD_ID = r.PROD_ID
+    FROM PRODUCTS{store_number} p
+    LEFT JOIN REVIEWS{store_number} r ON p.PROD_ID = r.PROD_ID
     WHERE p.PROD_ID % 10000 = 0
     GROUP BY p.PROD_ID, p.TITLE
 ) post ON pre.prod_id = post.PROD_ID
@@ -263,10 +263,10 @@ PRINT '';
 DECLARE @MismatchCount INT;
 
 SELECT @MismatchCount = COUNT(*)
-FROM REVIEWS1 r
+FROM REVIEWS{store_number} r
 LEFT JOIN (
     SELECT REVIEW_ID, SUM(HELPFULNESS) AS CalculatedTotal
-    FROM REVIEWS_HELPFULNESS1
+    FROM REVIEWS_HELPFULNESS{store_number}
     GROUP BY REVIEW_ID
 ) h ON r.REVIEW_ID = h.REVIEW_ID
 WHERE ISNULL(r.TOTAL_HELPFULNESS, 0) != ISNULL(h.CalculatedTotal, 0);
@@ -284,10 +284,10 @@ BEGIN
         r.TOTAL_HELPFULNESS AS Stored_Helpfulness,
         ISNULL(h.CalculatedTotal, 0) AS Calculated_Helpfulness,
         ISNULL(h.CalculatedTotal, 0) - ISNULL(r.TOTAL_HELPFULNESS, 0) AS Difference
-    FROM REVIEWS1 r
+    FROM REVIEWS{store_number} r
     LEFT JOIN (
         SELECT REVIEW_ID, SUM(HELPFULNESS) AS CalculatedTotal
-        FROM REVIEWS_HELPFULNESS1
+        FROM REVIEWS_HELPFULNESS{store_number}
         GROUP BY REVIEW_ID
     ) h ON r.REVIEW_ID = h.REVIEW_ID
     WHERE ISNULL(r.TOTAL_HELPFULNESS, 0) != ISNULL(h.CalculatedTotal, 0);
@@ -306,11 +306,11 @@ PRINT '';
 -- Manager-created products (price ends in .01)
 DECLARE @ManagerProducts INT, @ManagerProductsPre INT;
 SELECT @ManagerProducts = COUNT(*)
-FROM PRODUCTS1
+FROM PRODUCTS{store_number}
 WHERE PRICE - FLOOR(PRICE) = 0.01;
 
 SELECT @ManagerProductsPre = metric_value
-FROM VALIDATION_METRICS
+FROM VALIDATION_METRICS_{store_number}
 WHERE metric_name = 'MANAGER_PRODUCTS_COUNT';
 
 PRINT 'Manager-Created Products (price .01):';
@@ -327,18 +327,18 @@ SELECT TOP 10
     PRICE,
     SPECIAL,
     COMMON_PROD_ID
-FROM PRODUCTS1
+FROM PRODUCTS{store_number}
 WHERE PRICE - FLOOR(PRICE) = 0.01
 ORDER BY PROD_ID DESC;
 
 -- Products marked as SPECIAL
 DECLARE @SpecialProducts INT, @SpecialProductsPre INT;
 SELECT @SpecialProducts = COUNT(*)
-FROM PRODUCTS1
+FROM PRODUCTS{store_number}
 WHERE SPECIAL = 1;
 
 SELECT @SpecialProductsPre = metric_value
-FROM VALIDATION_METRICS
+FROM VALIDATION_METRICS_{store_number}
 WHERE metric_name = 'SPECIAL_PRODUCTS_COUNT';
 
 PRINT 'Products Marked Special (SPECIAL=1):';
@@ -350,10 +350,10 @@ PRINT '  (MarkSpecials toggles SPECIAL flag)';
 -- Price changes (detect products with non-standard pricing)
 DECLARE @AdjustedPrices INT, @BulkAdjustedPrices INT;
 SELECT @AdjustedPrices = COUNT(*)
-FROM PRODUCTS1
+FROM PRODUCTS{store_number}
 WHERE PRICE - FLOOR(PRICE) != 0.99 AND PRICE - FLOOR(PRICE) != 0.01;
 SELECT @BulkAdjustedPrices = COUNT(*)
-FROM PRODUCTS1
+FROM PRODUCTS{store_number}
 WHERE PRICE - FLOOR(PRICE) = 0.77;
 PRINT 'Products with Adjusted Prices (not ending in .99 or .01): ' + CAST(@AdjustedPrices AS VARCHAR);
 PRINT '  - Prices ending in .77: ' + CAST(@BulkAdjustedPrices AS VARCHAR) + ' (BulkPriceAdjustment: category-wide ±25%)';
@@ -370,7 +370,7 @@ SELECT * FROM (
         SPECIAL,
         COMMON_PROD_ID,
         'Bulk (.77)' AS adjustment_type
-    FROM PRODUCTS1
+    FROM PRODUCTS{store_number}
     WHERE PRICE - FLOOR(PRICE) = 0.77
     ORDER BY PROD_ID
 ) AS bulk_adjustments
@@ -384,7 +384,7 @@ SELECT * FROM (
         SPECIAL,
         COMMON_PROD_ID,
         'Individual' AS adjustment_type
-    FROM PRODUCTS1
+    FROM PRODUCTS{store_number}
     WHERE PRICE - FLOOR(PRICE) != 0.99
       AND PRICE - FLOOR(PRICE) != 0.01
       AND PRICE - FLOOR(PRICE) != 0.77
@@ -396,11 +396,11 @@ ORDER BY adjustment_type DESC, PROD_ID;
 DECLARE @TotalMemberships INT, @TotalMembershipsPre INT;
 DECLARE @ExpiredMemberships INT, @ExpiredMembershipsPre INT;
 
-SELECT @TotalMemberships = COUNT(*) FROM MEMBERSHIP1;
-SELECT @ExpiredMemberships = COUNT(*) FROM MEMBERSHIP1 WHERE EXPIREDATE < GETDATE();
+SELECT @TotalMemberships = COUNT(*) FROM MEMBERSHIP{store_number};
+SELECT @ExpiredMemberships = COUNT(*) FROM MEMBERSHIP{store_number} WHERE EXPIREDATE < GETDATE();
 
-SELECT @TotalMembershipsPre = metric_value FROM VALIDATION_METRICS WHERE metric_name = 'TOTAL_MEMBERSHIPS';
-SELECT @ExpiredMembershipsPre = metric_value FROM VALIDATION_METRICS WHERE metric_name = 'EXPIRED_MEMBERSHIPS';
+SELECT @TotalMembershipsPre = metric_value FROM VALIDATION_METRICS_{store_number} WHERE metric_name = 'TOTAL_MEMBERSHIPS';
+SELECT @ExpiredMembershipsPre = metric_value FROM VALIDATION_METRICS_{store_number} WHERE metric_name = 'EXPIRED_MEMBERSHIPS';
 
 PRINT '';
 PRINT 'Membership Status:';
@@ -445,11 +445,11 @@ PRINT '';
 DECLARE @ReviewsBefore INT, @ReviewsAfter INT, @ReviewsDelta INT;
 DECLARE @ReviewsHelpfulnessBefore INT, @ReviewsHelpfulnessAfter INT, @HelpfulnessDeleted INT;
 
-SELECT @ReviewsBefore = metric_value FROM VALIDATION_METRICS WHERE metric_name = 'REVIEWS_COUNT';
-SELECT @ReviewsHelpfulnessBefore = metric_value FROM VALIDATION_METRICS WHERE metric_name = 'REVIEWS_HELPFULNESS_COUNT';
+SELECT @ReviewsBefore = metric_value FROM VALIDATION_METRICS_{store_number} WHERE metric_name = 'REVIEWS_COUNT';
+SELECT @ReviewsHelpfulnessBefore = metric_value FROM VALIDATION_METRICS_{store_number} WHERE metric_name = 'REVIEWS_HELPFULNESS_COUNT';
 
-SELECT @ReviewsAfter = COUNT(*) FROM REVIEWS1;
-SELECT @ReviewsHelpfulnessAfter = COUNT(*) FROM REVIEWS_HELPFULNESS1;
+SELECT @ReviewsAfter = COUNT(*) FROM REVIEWS{store_number};
+SELECT @ReviewsHelpfulnessAfter = COUNT(*) FROM REVIEWS_HELPFULNESS{store_number};
 
 SET @ReviewsDelta = @ReviewsAfter - @ReviewsBefore;
 SET @HelpfulnessDeleted = @ReviewsHelpfulnessBefore - @ReviewsHelpfulnessAfter;
@@ -493,13 +493,13 @@ DECLARE @OrdersCascadeBefore INT, @OrdersCascadeAfter INT, @OrdersCascadeDelta I
 DECLARE @OrderlinesCascadeBefore INT, @OrderlinesCascadeAfter INT, @OrderlinesCascadeDeleted INT;
 DECLARE @OldOrdersCascadeBefore INT, @OldOrdersCascadeAfter INT, @OldOrdersCascadeDeleted INT;
 
-SELECT @OrdersCascadeBefore = metric_value FROM VALIDATION_METRICS WHERE metric_name = 'ORDERS_COUNT';
-SELECT @OrderlinesCascadeBefore = metric_value FROM VALIDATION_METRICS WHERE metric_name = 'ORDERLINES_COUNT';
-SELECT @OldOrdersCascadeBefore = metric_value FROM VALIDATION_METRICS WHERE metric_name = 'OLD_ORDERS_COUNT';
+SELECT @OrdersCascadeBefore = metric_value FROM VALIDATION_METRICS_{store_number} WHERE metric_name = 'ORDERS_COUNT';
+SELECT @OrderlinesCascadeBefore = metric_value FROM VALIDATION_METRICS_{store_number} WHERE metric_name = 'ORDERLINES_COUNT';
+SELECT @OldOrdersCascadeBefore = metric_value FROM VALIDATION_METRICS_{store_number} WHERE metric_name = 'OLD_ORDERS_COUNT';
 
-SELECT @OrdersCascadeAfter = COUNT(*) FROM ORDERS1;
-SELECT @OrderlinesCascadeAfter = COUNT(*) FROM ORDERLINES1;
-SELECT @OldOrdersCascadeAfter = COUNT(*) FROM ORDERS1 WHERE ORDERDATE < CAST(GETDATE() AS DATE);
+SELECT @OrdersCascadeAfter = COUNT(*) FROM ORDERS{store_number};
+SELECT @OrderlinesCascadeAfter = COUNT(*) FROM ORDERLINES{store_number};
+SELECT @OldOrdersCascadeAfter = COUNT(*) FROM ORDERS{store_number} WHERE ORDERDATE < CAST(GETDATE() AS DATE);
 
 SET @OrdersCascadeDelta = @OrdersCascadeAfter - @OrdersCascadeBefore;
 SET @OrderlinesCascadeDeleted = @OrderlinesCascadeBefore - @OrderlinesCascadeAfter;
@@ -542,11 +542,11 @@ PRINT '--- MEMBERSHIP TIER ---';
 DECLARE @SilverMembersBefore INT, @SilverMembersAfter INT, @SilverDelta INT;
 DECLARE @GoldMembersBefore INT, @GoldMembersAfter INT, @GoldDelta INT;
 
-SELECT @SilverMembersBefore = metric_value FROM VALIDATION_METRICS WHERE metric_name = 'SILVER_MEMBERS_COUNT';
-SELECT @GoldMembersBefore = metric_value FROM VALIDATION_METRICS WHERE metric_name = 'GOLD_MEMBERS_COUNT';
+SELECT @SilverMembersBefore = metric_value FROM VALIDATION_METRICS_{store_number} WHERE metric_name = 'SILVER_MEMBERS_COUNT';
+SELECT @GoldMembersBefore = metric_value FROM VALIDATION_METRICS_{store_number} WHERE metric_name = 'GOLD_MEMBERS_COUNT';
 
-SELECT @SilverMembersAfter = COUNT(*) FROM MEMBERSHIP1 WHERE MEMBERSHIPTYPE = 2;
-SELECT @GoldMembersAfter = COUNT(*) FROM MEMBERSHIP1 WHERE MEMBERSHIPTYPE = 3;
+SELECT @SilverMembersAfter = COUNT(*) FROM MEMBERSHIP{store_number} WHERE MEMBERSHIPTYPE = 2;
+SELECT @GoldMembersAfter = COUNT(*) FROM MEMBERSHIP{store_number} WHERE MEMBERSHIPTYPE = 3;
 
 SET @SilverDelta = @SilverMembersAfter - @SilverMembersBefore;
 SET @GoldDelta = @GoldMembersAfter - @GoldMembersBefore;
@@ -574,8 +574,8 @@ SELECT
     SUM(CASE WHEN s.MEMBERSHIPTYPE = 2 AND m.MEMBERSHIPTYPE = 3 THEN 1 ELSE 0 END) AS upgrades_2_to_3,
     SUM(CASE WHEN s.MEMBERSHIPTYPE = 1 AND m.MEMBERSHIPTYPE = 3 THEN 1 ELSE 0 END) AS upgrades_1_to_3,
     SUM(CASE WHEN m.MEMBERSHIPTYPE = s.MEMBERSHIPTYPE AND m.EXPIREDATE > s.EXPIREDATE THEN 1 ELSE 0 END) AS extended_only
-FROM MEMBERSHIP_SNAPSHOT s
-FULL OUTER JOIN MEMBERSHIP1 m ON s.CUSTOMERID = m.CUSTOMERID
+FROM MEMBERSHIP_SNAPSHOT_{store_number} s
+FULL OUTER JOIN MEMBERSHIP{store_number} m ON s.CUSTOMERID = m.CUSTOMERID
 WHERE s.CUSTOMERID IS NULL
    OR m.CUSTOMERID IS NULL
    OR m.MEMBERSHIPTYPE > s.MEMBERSHIPTYPE
@@ -595,8 +595,8 @@ SELECT * FROM (
         CONVERT(VARCHAR(10), s.EXPIREDATE, 120) AS before_expire,
         CONVERT(VARCHAR(10), m.EXPIREDATE, 120) AS after_expire,
         '1->3 JUMP' AS status
-    FROM MEMBERSHIP_SNAPSHOT s
-    INNER JOIN MEMBERSHIP1 m ON s.CUSTOMERID = m.CUSTOMERID
+    FROM MEMBERSHIP_SNAPSHOT_{store_number} s
+    INNER JOIN MEMBERSHIP{store_number} m ON s.CUSTOMERID = m.CUSTOMERID
     WHERE s.MEMBERSHIPTYPE = 1 AND m.MEMBERSHIPTYPE = 3
     ORDER BY s.CUSTOMERID
 ) AS jumps_1_to_3
@@ -612,8 +612,8 @@ SELECT * FROM (
         CONVERT(VARCHAR(10), s.EXPIREDATE, 120) AS before_expire,
         CONVERT(VARCHAR(10), m.EXPIREDATE, 120) AS after_expire,
         '2->3 UPGRADE' AS status
-    FROM MEMBERSHIP_SNAPSHOT s
-    INNER JOIN MEMBERSHIP1 m ON s.CUSTOMERID = m.CUSTOMERID
+    FROM MEMBERSHIP_SNAPSHOT_{store_number} s
+    INNER JOIN MEMBERSHIP{store_number} m ON s.CUSTOMERID = m.CUSTOMERID
     WHERE s.MEMBERSHIPTYPE = 2 AND m.MEMBERSHIPTYPE = 3
     ORDER BY s.CUSTOMERID
 ) AS upgrades_2_to_3
@@ -629,8 +629,8 @@ SELECT * FROM (
         CONVERT(VARCHAR(10), s.EXPIREDATE, 120) AS before_expire,
         'N/A' AS after_expire,
         'DELETED' AS status
-    FROM MEMBERSHIP_SNAPSHOT s
-    LEFT JOIN MEMBERSHIP1 m ON s.CUSTOMERID = m.CUSTOMERID
+    FROM MEMBERSHIP_SNAPSHOT_{store_number} s
+    LEFT JOIN MEMBERSHIP{store_number} m ON s.CUSTOMERID = m.CUSTOMERID
     WHERE m.CUSTOMERID IS NULL
     ORDER BY s.CUSTOMERID
 ) AS deleted_memberships
@@ -646,8 +646,8 @@ SELECT * FROM (
         'N/A' AS before_expire,
         CONVERT(VARCHAR(10), m.EXPIREDATE, 120) AS after_expire,
         'NEW' AS status
-    FROM MEMBERSHIP1 m
-    LEFT JOIN MEMBERSHIP_SNAPSHOT s ON m.CUSTOMERID = s.CUSTOMERID
+    FROM MEMBERSHIP{store_number} m
+    LEFT JOIN MEMBERSHIP_SNAPSHOT_{store_number} s ON m.CUSTOMERID = s.CUSTOMERID
     WHERE s.CUSTOMERID IS NULL
     ORDER BY m.CUSTOMERID
 ) AS new_memberships
@@ -663,8 +663,8 @@ SELECT * FROM (
         CONVERT(VARCHAR(10), s.EXPIREDATE, 120) AS before_expire,
         CONVERT(VARCHAR(10), m.EXPIREDATE, 120) AS after_expire,
         '1->2 UPGRADE' AS status
-    FROM MEMBERSHIP_SNAPSHOT s
-    INNER JOIN MEMBERSHIP1 m ON s.CUSTOMERID = m.CUSTOMERID
+    FROM MEMBERSHIP_SNAPSHOT_{store_number} s
+    INNER JOIN MEMBERSHIP{store_number} m ON s.CUSTOMERID = m.CUSTOMERID
     WHERE s.MEMBERSHIPTYPE = 1 AND m.MEMBERSHIPTYPE = 2
     ORDER BY s.CUSTOMERID
 ) AS upgrades_1_to_2
@@ -680,8 +680,8 @@ SELECT * FROM (
         CONVERT(VARCHAR(10), s.EXPIREDATE, 120) AS before_expire,
         CONVERT(VARCHAR(10), m.EXPIREDATE, 120) AS after_expire,
         'EXTENDED' AS status
-    FROM MEMBERSHIP_SNAPSHOT s
-    INNER JOIN MEMBERSHIP1 m ON s.CUSTOMERID = m.CUSTOMERID
+    FROM MEMBERSHIP_SNAPSHOT_{store_number} s
+    INNER JOIN MEMBERSHIP{store_number} m ON s.CUSTOMERID = m.CUSTOMERID
     WHERE s.MEMBERSHIPTYPE = m.MEMBERSHIPTYPE AND m.EXPIREDATE > s.EXPIREDATE
     ORDER BY s.CUSTOMERID
 ) AS extended_only;
@@ -697,17 +697,17 @@ DECLARE @ReviewsBeforeNew INT, @ReviewsAfterNew INT, @ReviewsDeltaNew INT;
 DECLARE @ProductsBefore INT, @ProductsAfter INT, @ProductsDelta INT;
 DECLARE @MembershipsBefore INT, @MembershipsAfter INT, @MembershipsDelta INT;
 
-SELECT @CustomersBefore = metric_value FROM VALIDATION_METRICS WHERE metric_name = 'CUSTOMERS_COUNT';
-SELECT @OrdersBefore = metric_value FROM VALIDATION_METRICS WHERE metric_name = 'ORDERS_COUNT';
-SELECT @ReviewsBeforeNew = metric_value FROM VALIDATION_METRICS WHERE metric_name = 'REVIEWS_COUNT';
-SELECT @ProductsBefore = metric_value FROM VALIDATION_METRICS WHERE metric_name = 'PRODUCTS_COUNT';
-SELECT @MembershipsBefore = metric_value FROM VALIDATION_METRICS WHERE metric_name = 'MEMBERSHIP_COUNT';
+SELECT @CustomersBefore = metric_value FROM VALIDATION_METRICS_{store_number} WHERE metric_name = 'CUSTOMERS_COUNT';
+SELECT @OrdersBefore = metric_value FROM VALIDATION_METRICS_{store_number} WHERE metric_name = 'ORDERS_COUNT';
+SELECT @ReviewsBeforeNew = metric_value FROM VALIDATION_METRICS_{store_number} WHERE metric_name = 'REVIEWS_COUNT';
+SELECT @ProductsBefore = metric_value FROM VALIDATION_METRICS_{store_number} WHERE metric_name = 'PRODUCTS_COUNT';
+SELECT @MembershipsBefore = metric_value FROM VALIDATION_METRICS_{store_number} WHERE metric_name = 'MEMBERSHIP_COUNT';
 
-SELECT @CustomersAfter = COUNT(*) FROM CUSTOMERS1;
-SELECT @OrdersAfter = COUNT(*) FROM ORDERS1;
-SELECT @ReviewsAfterNew = COUNT(*) FROM REVIEWS1;
-SELECT @ProductsAfter = COUNT(*) FROM PRODUCTS1;
-SELECT @MembershipsAfter = COUNT(*) FROM MEMBERSHIP1;
+SELECT @CustomersAfter = COUNT(*) FROM CUSTOMERS{store_number};
+SELECT @OrdersAfter = COUNT(*) FROM ORDERS{store_number};
+SELECT @ReviewsAfterNew = COUNT(*) FROM REVIEWS{store_number};
+SELECT @ProductsAfter = COUNT(*) FROM PRODUCTS{store_number};
+SELECT @MembershipsAfter = COUNT(*) FROM MEMBERSHIP{store_number};
 
 SET @CustomersDelta = @CustomersAfter - @CustomersBefore;
 SET @OrdersDelta = @OrdersAfter - @OrdersBefore;
@@ -723,7 +723,7 @@ PRINT '  Products:    ' + CAST(@ProductsDelta AS VARCHAR);
 PRINT '  Memberships: ' + CAST(@MembershipsDelta AS VARCHAR);
 
 SELECT @AdjustedPrices = COUNT(*)
-FROM PRODUCTS1
+FROM PRODUCTS{store_number}
 WHERE (PRICE - FLOOR(PRICE)) != 0.99 AND (PRICE - FLOOR(PRICE)) != 0.01;
 
 PRINT '';
@@ -741,7 +741,7 @@ PRINT '';
 
 DECLARE @MaxCustomerIDPre INT;
 SELECT @MaxCustomerIDPre = metric_value
-FROM VALIDATION_METRICS
+FROM VALIDATION_METRICS_{store_number}
 WHERE metric_name = 'MAX_CUSTOMERID';
 
 SELECT TOP 10
@@ -749,7 +749,7 @@ SELECT TOP 10
     LEFT(FIRSTNAME + REPLICATE(' ', 20), 20) AS [FirstName],
     LEFT(LASTNAME + REPLICATE(' ', 20), 20) AS [LastName],
     LEFT(CITY + REPLICATE(' ', 20), 20) AS [City]
-FROM CUSTOMERS1
+FROM CUSTOMERS{store_number}
 WHERE CUSTOMERID > @MaxCustomerIDPre
 ORDER BY CUSTOMERID;
 
@@ -767,7 +767,7 @@ PRINT '';
 
 DECLARE @MaxProdIDPre INT;
 SELECT @MaxProdIDPre = metric_value
-FROM VALIDATION_METRICS
+FROM VALIDATION_METRICS_{store_number}
 WHERE metric_name = 'MAX_PROD_ID';
 
 DECLARE @NewProductsAdded INT;
@@ -776,19 +776,19 @@ DECLARE @NewProductsPurchased INT;
 DECLARE @NewProductsReordered INT;
 
 SELECT @NewProductsAdded = COUNT(*)
-FROM PRODUCTS1
+FROM PRODUCTS{store_number}
 WHERE PROD_ID > @MaxProdIDPre;
 
 SELECT @NewProductsWithInventory = COUNT(DISTINCT i.PROD_ID)
-FROM INVENTORY1 i
+FROM INVENTORY{store_number} i
 WHERE i.PROD_ID > @MaxProdIDPre;
 
 SELECT @NewProductsPurchased = COUNT(DISTINCT ol.PROD_ID)
-FROM ORDERLINES1 ol
+FROM ORDERLINES{store_number} ol
 WHERE ol.PROD_ID > @MaxProdIDPre;
 
 SELECT @NewProductsReordered = COUNT(DISTINCT r.PROD_ID)
-FROM REORDER1 r
+FROM REORDER{store_number} r
 WHERE r.PROD_ID > @MaxProdIDPre;
 
 PRINT 'New Products Added:          ' + CAST(@NewProductsAdded AS VARCHAR);
@@ -804,8 +804,8 @@ SELECT TOP 10
     SUM(r.QUAN_REORDERED) AS TOTAL_REORDERED,
     COUNT(*) AS REORDER_COUNT,
     MAX(r.DATE_REORDERED) AS LAST_REORDER
-FROM REORDER1 r
-JOIN PRODUCTS1 p ON r.PROD_ID = p.PROD_ID
+FROM REORDER{store_number} r
+JOIN PRODUCTS{store_number} p ON r.PROD_ID = p.PROD_ID
 WHERE r.PROD_ID > @MaxProdIDPre
 GROUP BY r.PROD_ID, p.TITLE
 ORDER BY MAX(r.DATE_REORDERED) DESC, r.PROD_ID;

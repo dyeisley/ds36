@@ -64,7 +64,7 @@ namespace ds2xdriver
         {
         ds2Interfaceid = ds2interfaceid;
         target_server_name = target_name;
-        conn_str = "Server=" + target_server_name + ";User ID=web;Password=web;Database=DS3";
+        conn_str = "Server=" + target_server_name + ";User ID=web;Password=web;Database=DS3;AllowUserVariables=True;";
         //Console.WriteLine("ds2Interface {0} created", ds2Interfaceid);
         }
 //
@@ -76,7 +76,7 @@ namespace ds2xdriver
         ds2Interfaceid = ds2interfaceid;
         target_server_name = target_name;
         target_store_number = target_store;
-        conn_str = "Server=" + target_server_name + ";User ID=web;Password=web;Database=DS3";
+        conn_str = "Server=" + target_server_name + ";User ID=web;Password=web;Database=DS3;AllowUserVariables=True;";
         //Console.WriteLine("ds2Interface {0} created", ds2Interfaceid);
     }
  
@@ -1188,6 +1188,141 @@ namespace ds2xdriver
         {
             rt = timer.Elapsed.TotalSeconds;
         }
+    }
+
+//
+//-------------------------------------------------------------------------------------------------
+//
+    private static string FormatValue(object value)
+    {
+      if (value == null || value == DBNull.Value)
+        return "";
+
+      // Handle byte arrays (MySQL sometimes returns numeric values as binary)
+      if (value is byte[] byteArray)
+      {
+        // Try to convert to number
+        if (byteArray.Length <= 8)
+        {
+          // Reverse for little-endian if needed and convert to long
+          long result = 0;
+          for (int i = 0; i < byteArray.Length; i++)
+          {
+            result |= ((long)byteArray[i]) << (i * 8);
+          }
+          return result.ToString();
+        }
+        // Otherwise try as string
+        return System.Text.Encoding.UTF8.GetString(byteArray);
+      }
+
+      return value.ToString() ?? "";
+    }
+
+//
+//-------------------------------------------------------------------------------------------------
+//
+    public static string GetDatabaseType()
+    {
+      return "mysql";
+    }
+
+//
+//-------------------------------------------------------------------------------------------------
+//
+    public void ds2validate(string outputFile, string targetServer, int storeNumber)
+    {
+      string sqlFilePath = $"validate/{targetServer}/mysql_validate_after{storeNumber}.sql";
+      if (!File.Exists(sqlFilePath))
+      {
+        Console.WriteLine($"Error: Validation SQL file not found: {sqlFilePath}");
+        Console.WriteLine("Please run the Perl generation script first:");
+        Console.WriteLine($"  perl mysql_ds_perl_validate_multi.pl {targetServer} {storeNumber} after generate");
+        return;
+      }
+
+      string sqlContent = File.ReadAllText(sqlFilePath);
+
+      // Filter out mysql client commands (USE, SOURCE, etc.)
+      var filteredLines = new List<string>();
+      foreach (string line in sqlContent.Split(new[] { '\r', '\n' }, StringSplitOptions.None))
+      {
+        string trimmed = line.TrimStart();
+        // Skip mysql client-specific commands
+        if (trimmed.StartsWith("USE ", StringComparison.OrdinalIgnoreCase) ||
+            trimmed.StartsWith("SOURCE ", StringComparison.OrdinalIgnoreCase))
+        {
+          continue;
+        }
+        filteredLines.Add(line);
+      }
+      sqlContent = string.Join("\n", filteredLines);
+
+      try
+      {
+        // Execute entire script (MySQL handles multiple statements with AllowUserVariables=True)
+        using (MySqlCommand cmd = new MySqlCommand(sqlContent, objConn))
+        {
+          cmd.CommandTimeout = 600; // 10 minutes for validation queries
+
+          // Execute and capture result sets
+          using (MySqlDataReader reader = cmd.ExecuteReader())
+          {
+            using (StreamWriter writer = new StreamWriter(outputFile, append: true))
+            {
+              do
+              {
+                // Check if this result set has rows
+                if (reader.HasRows)
+                {
+                  // Determine if this is a message SELECT (single column) or data SELECT (multiple columns)
+                  bool isSingleColumn = reader.FieldCount == 1;
+
+                  if (isSingleColumn)
+                  {
+                    // Single column - likely a message SELECT like SELECT 'message'
+                    while (reader.Read())
+                    {
+                      string value = reader.IsDBNull(0) ? "" : FormatValue(reader.GetValue(0));
+                      writer.WriteLine(value);
+                    }
+                  }
+                  else
+                  {
+                    // Multiple columns - format as table
+                    // Write column headers
+                    for (int i = 0; i < reader.FieldCount; i++)
+                    {
+                      writer.Write(reader.GetName(i).PadRight(20));
+                    }
+                    writer.WriteLine();
+
+                    // Write separator
+                    string separator = new string('-', reader.FieldCount * 20);
+                    writer.WriteLine(separator);
+
+                    // Write data rows
+                    while (reader.Read())
+                    {
+                      for (int i = 0; i < reader.FieldCount; i++)
+                      {
+                        string value = reader.IsDBNull(i) ? "" : FormatValue(reader.GetValue(i));
+                        writer.Write(value.PadRight(20));
+                      }
+                      writer.WriteLine();
+                    }
+                    writer.WriteLine();
+                  }
+                }
+              } while (reader.NextResult());
+            }
+          }
+        }
+      }
+      catch (Exception e)
+      {
+        Console.WriteLine($"Error executing validation SQL: {e.Message}");
+      }
     }
 
 //
