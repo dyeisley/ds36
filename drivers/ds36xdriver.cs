@@ -2204,7 +2204,7 @@ namespace ds2xdriver
         // Validate each store
         for (int store = 1; store <= n_stores; store++)
         {
-          string validationOutputFile = $"validation_{databaseType}_store{store}_{timestamp}.txt";
+          string validationOutputFile = $"validation_{databaseType}_store{store}of{n_stores}_{timestamp}.txt";
           Console.WriteLine($"  Validating store {store}...");
 
           // Write benchmark parameters header
