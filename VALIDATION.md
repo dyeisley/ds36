@@ -18,45 +18,45 @@ Perl scripts generate store-specific SQL files from templates:
 **SQL Server:**
 ```bash
 cd sqlserver/validate
-perl sqlserver_ds_perl_validate_multi.pl localhost 3 mypassword before generate
-perl sqlserver_ds_perl_validate_multi.pl localhost 3 mypassword after generate
+perl sqlserver_ds_perl_validate_multi.pl localhost 3 mypassword pre_test generate
+perl sqlserver_ds_perl_validate_multi.pl localhost 3 mypassword post_test generate
 ```
 
 **MySQL:**
 ```bash
 cd mysql/validate
-perl mysql_ds_perl_validate_multi.pl localhost 3 before generate
-perl mysql_ds_perl_validate_multi.pl localhost 3 after generate
+perl mysql_ds_perl_validate_multi.pl localhost 3 pre_test generate
+perl mysql_ds_perl_validate_multi.pl localhost 3 post_test generate
 ```
 
 **PostgreSQL:**
 ```bash
 cd pgsql/validate
-perl pgsql_ds_perl_validate_multi.pl localhost 3 before generate
-perl pgsql_ds_perl_validate_multi.pl localhost 3 after generate
+perl pgsql_ds_perl_validate_multi.pl localhost 3 pre_test generate
+perl pgsql_ds_perl_validate_multi.pl localhost 3 post_test generate
 ```
 
 **Oracle:**
 ```bash
 cd oracle/validate
-perl oracle_ds_perl_validate_multi.pl localhost 3 before generate
-perl oracle_ds_perl_validate_multi.pl localhost 3 after generate
+perl oracle_ds_perl_validate_multi.pl localhost 3 pre_test generate
+perl oracle_ds_perl_validate_multi.pl localhost 3 post_test generate
 ```
 
-**Generated files:** `{database}/validate/{server}/{database}_validate_before{N}.sql`, `{database}_validate_after{N}.sql`
+**Generated files:** `{database}/validate/{server}/{database}_validate_pre_test{N}.sql`, `{database}_validate_post_test{N}.sql`
 
 ### Step 2: Execute Validation (C# Driver)
 
 **Capture baseline (before benchmark):**
 ```bash
 cd sqlserver/validate
-perl sqlserver_ds_perl_validate_multi.pl localhost 3 mypassword before execute
+perl sqlserver_ds_perl_validate_multi.pl localhost 3 mypassword pre_test execute
 ```
 
 **Run benchmark with automatic post-validation:**
 ```bash
 cd sqlserver
-dotnet run --config_file=../DriverConfig.txt --target=localhost --run_time=60 --validate_after=Y
+dotnet run --config_file=../DriverConfig.txt --target=localhost --run_time=60 --validate_post_test=Y
 ```
 
 **Output file:** `validation_{database}_store{N}_{timestamp}.txt`
@@ -74,7 +74,7 @@ Prevent new memberships from interfering with expiration counts:
   --enable_managers=Y \
   --pct_newmember=0 \
   --manager_expire_memberships_pct=100 \
-  --validate_after=Y
+  --validate_post_test=Y
 ```
 
 **Why:** New memberships (`pct_newmember`) would add rows to MEMBERSHIP table while ExpireMemberships is deleting them, making delta analysis unclear.
@@ -89,7 +89,7 @@ Prevent new memberships and expirations from interfering with tier changes:
   --pct_newmember=0 \
   --manager_expire_memberships_pct=0 \
   --manager_upgrade_membership_pct=100 \
-  --validate_after=Y
+  --validate_post_test=Y
 ```
 
 **Why:** 
@@ -106,7 +106,7 @@ Use DS2 mode to focus on review removal (DS2 mode automatically disables newrevi
   --enable_managers=Y \
   --ds2_mode=Y \
   --manager_delete_review_pct=100 \
-  --validate_after=Y
+  --validate_post_test=Y
 ```
 
 **Why:** 
@@ -126,13 +126,13 @@ SELECT COUNT(*) FROM CUSTOMERS{store_number};
 
 **After generation (store 1, 2, 3):**
 ```sql
--- customers_validate_after1.sql
+-- customers_validate_post_test1.sql
 SELECT COUNT(*) FROM CUSTOMERS1;
 
--- customers_validate_after2.sql
+-- customers_validate_post_test2.sql
 SELECT COUNT(*) FROM CUSTOMERS2;
 
--- customers_validate_after3.sql
+-- customers_validate_post_test3.sql
 SELECT COUNT(*) FROM CUSTOMERS3;
 ```
 
@@ -210,10 +210,10 @@ MEMBERSHIP      6000            5973            -27
 
 ### 4. Membership Snapshot Comparison
 
-**Full membership snapshot captured in validate_before.sql:**
+**Full membership snapshot captured in validate_pre_test.sql:**
 - All CUSTOMERID, MEMBERSHIPTYPE, EXPIREDATE rows
 
-**Comparison in validate_after.sql shows:**
+**Comparison in validate_post_test.sql shows:**
 - New memberships added during benchmark
 - Tier upgrades (1→2, 2→3, 1→3)
 - Expired memberships removed
@@ -323,15 +323,15 @@ Process.Start("sqlplus", "-S sys/oracle@server as sysdba @file.sql");
 **Cause:** Validation SQL files not generated
 **Solution:** Run Perl generation script first:
 ```bash
-perl {database}_ds_perl_validate_multi.pl {server} {num_stores} before generate
-perl {database}_ds_perl_validate_multi.pl {server} {num_stores} after generate
+perl {database}_ds_perl_validate_multi.pl {server} {num_stores} pre_test generate
+perl {database}_ds_perl_validate_multi.pl {server} {num_stores} post_test generate
 ```
 
 ### "File not found" error
 
 **Cause:** Wrong working directory or incorrect file path
 **Solution:** Always run driver from database root directory (e.g., `sqlserver/`, `mysql/`)
-**File path:** `validate/{server}/{database}_validate_after{N}.sql`
+**File path:** `validate/{server}/{database}_validate_post_test{N}.sql`
 
 ### Validation shows no changes
 
@@ -343,41 +343,41 @@ perl {database}_ds_perl_validate_multi.pl {server} {num_stores} after generate
 
 ### Membership snapshot comparison empty
 
-**Cause:** validate_before.sql not executed before benchmark
+**Cause:** validate_pre_test.sql not executed before benchmark
 **Solution:**
 ```bash
-perl {database}_ds_perl_validate_multi.pl {server} {num_stores} before execute
+perl {database}_ds_perl_validate_multi.pl {server} {num_stores} pre_test execute
 # Run benchmark
-# validate_after will now have baseline to compare against
+# validate_post_test will now have baseline to compare against
 ```
 
 ## Important Notes
 
 ### Baseline Comparison Caveat
 
-**Validation SQL compares against the snapshot from validate_before.sql execution, NOT the start of the current benchmark run.**
+**Validation SQL compares against the snapshot from validate_pre_test.sql execution, NOT the start of the current benchmark run.**
 
 **Example:**
 ```bash
-# Run validate_before (captures baseline)
-perl sqlserver_ds_perl_validate_multi.pl localhost 1 mypassword before execute
+# Run validate_pre_test (captures baseline)
+perl sqlserver_ds_perl_validate_multi.pl localhost 1 mypassword pre_test execute
 
 # Run 1: benchmark with validation
-./sqlserver_ds --run_time=60 --validate_after=Y
+./sqlserver_ds --run_time=60 --validate_post_test=Y
 # Manager stats:     25 products added, 150 reviews deleted
 # Validation output: 25 products added, 150 reviews deleted ✓ MATCHES
 
 # Run 2: benchmark again (same baseline)
-./sqlserver_ds --run_time=60 --validate_after=Y
+./sqlserver_ds --run_time=60 --validate_post_test=Y
 # Manager stats:     30 products added, 200 reviews deleted
 # Validation output: 55 products added, 350 reviews deleted ✗ DOESN'T MATCH
 #                    (cumulative from Run 1 + Run 2)
 ```
 
-**Solution:** Re-execute validate_before.sql before each benchmark to reset the baseline:
+**Solution:** Re-execute validate_pre_test.sql before each benchmark to reset the baseline:
 ```bash
-perl sqlserver_ds_perl_validate_multi.pl localhost 1 mypassword before execute
-./sqlserver_ds --run_time=60 --validate_after=Y  # Now validation matches manager stats
+perl sqlserver_ds_perl_validate_multi.pl localhost 1 mypassword pre_test execute
+./sqlserver_ds --run_time=60 --validate_post_test=Y  # Now validation matches manager stats
 ```
 
 **When this matters:**
@@ -393,7 +393,7 @@ perl sqlserver_ds_perl_validate_multi.pl localhost 1 mypassword before execute
 ## Best Practices
 
 1. **Always generate before/after SQL together** - Ensures template versions match
-2. **Execute validate_before.sql before EACH benchmark** - Captures fresh baseline for accurate manager statistics comparison
+2. **Execute validate_pre_test.sql before EACH benchmark** - Captures fresh baseline for accurate manager statistics comparison
 3. **Use meaningful run times** - 60+ minutes for manager operations to show clear patterns
 4. **Isolate operations** - Disable interfering parameters when testing specific functionality
 5. **Compare multiple runs** - Timestamps in filenames allow historical comparison
@@ -406,11 +406,11 @@ perl sqlserver_ds_perl_validate_multi.pl localhost 1 mypassword before execute
 ```bash
 # 1. Generate validation SQL for 1 store
 cd sqlserver/validate
-perl sqlserver_ds_perl_validate_multi.pl localhost 1 mypassword before generate
-perl sqlserver_ds_perl_validate_multi.pl localhost 1 mypassword after generate
+perl sqlserver_ds_perl_validate_multi.pl localhost 1 mypassword pre_test generate
+perl sqlserver_ds_perl_validate_multi.pl localhost 1 mypassword post_test generate
 
 # 2. Capture baseline
-perl sqlserver_ds_perl_validate_multi.pl localhost 1 mypassword before execute
+perl sqlserver_ds_perl_validate_multi.pl localhost 1 mypassword pre_test execute
 
 # 3. Run benchmark (isolated parameters for UpgradeMembership)
 cd ..
@@ -422,7 +422,7 @@ cd ..
   --pct_newmember=0 \
   --manager_expire_memberships_pct=0 \
   --manager_upgrade_membership_pct=100 \
-  --validate_after=Y
+  --validate_post_test=Y
 
 # 4. Review validation output
 cat validation_sqlserver_store1_*.txt
@@ -437,6 +437,6 @@ cat validation_sqlserver_store1_*.txt
 ## See Also
 
 - `CHANGES.md` - Validation system changelog
-- `{database}/validate/validate_before.sql` - Template SQL (before generation)
-- `{database}/validate/validate_after.sql` - Template SQL (before generation)
+- `{database}/validate/validate_pre_test.sql` - Template SQL (before generation)
+- `{database}/validate/validate_post_test.sql` - Template SQL (before generation)
 - `{database}/validate/{database}_ds_perl_validate_multi.pl` - Generation/execution scripts

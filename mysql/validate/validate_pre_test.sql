@@ -129,11 +129,11 @@ SELECT '';
 -- =======================================================================
 -- TOP 10 INVENTORY BY SALES
 -- Purpose: Verify GetSkewedProductId distribution
--- Expected: Products divisible by 10000 should have higher sales
+-- Expected: Products divisible by {popular_modulo} should have higher sales
 -- =======================================================================
 SELECT '--- TOP 10 INVENTORY BY SALES (GetSkewedProductId Verification) ---';
 SELECT 'Verifying: Skewed product selection (every 10,000th product should be popular)';
-SELECT 'Expected: After test, PROD_ID values divisible by 10000 should appear in top sales';
+SELECT 'Expected: After test, PROD_ID values divisible by {popular_modulo} should appear in top sales';
 SELECT '';
 
 SELECT
@@ -141,7 +141,7 @@ SELECT
     RPAD(p.TITLE, 40) AS TITLE,
     LPAD(i.SALES, 10) AS SALES,
     RPAD(CASE
-        WHEN i.PROD_ID % 10000 = 0 THEN '**POPULAR**'
+        WHEN i.PROD_ID % {popular_modulo} = 0 THEN '**POPULAR**'
         ELSE ''
     END, 12) AS IsPopularProduct
 FROM INVENTORY{store_number} i
@@ -193,7 +193,7 @@ SELECT
     LPAD(REVIEW_ID, 10) AS `ReviewID`,
     LPAD(PROD_ID, 10) AS `ProdID`,
     LPAD(TOTAL_HELPFULNESS, 12) AS `Helpfulness`,
-    RPAD(CASE WHEN PROD_ID % 10000 = 0 THEN '**POPULAR**' ELSE '' END, 12) AS `Popular`
+    RPAD(CASE WHEN PROD_ID % {popular_modulo} = 0 THEN '**POPULAR**' ELSE '' END, 12) AS `Popular`
 FROM REVIEWS{store_number}
 CROSS JOIN (SELECT @rownum := 0) AS init
 ORDER BY TOTAL_HELPFULNESS DESC, REVIEW_ID
@@ -214,8 +214,8 @@ LIMIT 10;
 SELECT '';
 SELECT '';
 
--- Count reviews for popular products (ID % 10000 = 0)
-SELECT 'Reviews for Popular Products (ID % 10000 = 0):';
+-- Count reviews for popular products (ID % {popular_modulo} = 0)
+SELECT 'Reviews for Popular Products (ID % {popular_modulo} = 0):';
 SELECT '';
 
 SELECT
@@ -224,7 +224,7 @@ SELECT
     LPAD(COUNT(r.REVIEW_ID), 12) AS ReviewCount
 FROM PRODUCTS{store_number} p
 LEFT JOIN REVIEWS{store_number} r ON p.PROD_ID = r.PROD_ID
-WHERE p.PROD_ID % 10000 = 0
+WHERE p.PROD_ID % {popular_modulo} = 0
 GROUP BY p.PROD_ID, p.TITLE
 ORDER BY COUNT(r.REVIEW_ID) DESC, p.PROD_ID;
 
@@ -236,7 +236,7 @@ SELECT
     COUNT(r.REVIEW_ID)
 FROM PRODUCTS{store_number} p
 LEFT JOIN REVIEWS{store_number} r ON p.PROD_ID = r.PROD_ID
-WHERE p.PROD_ID % 10000 = 0
+WHERE p.PROD_ID % {popular_modulo} = 0
 GROUP BY p.PROD_ID, p.TITLE;
 
 

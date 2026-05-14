@@ -7,6 +7,12 @@ STORES=${2:-1}
 PASSWORD=${3:-password}
 USEVECTORS=${4:-0}
 
+if [ $STORES -gt 16 ]
+then
+   echo "Number of STORES limited to 16."
+   STORES=16
+fi
+
 # Remove the double quotes from the vector data.
 perl -i -pe 's/"//g' ../data_files/prod/prod.csv
 
@@ -38,8 +44,8 @@ echo sqlcmd -C -S $TARGET -U sa -P $PASSWORD -i sqlserver_ds_create_user.sql
 sqlcmd -C -S $TARGET -U sa -P $PASSWORD -i sqlserver_ds_create_user.sql
 
 cd ../validate
-echo perl sqlserver_ds_perl_validate_multi.pl $TARGET $STORES $PASSWORD before
-perl sqlserver_ds_perl_validate_multi.pl $TARGET $STORES $PASSWORD before > before.txt
-perl sqlserver_ds_perl_validate_multi.pl $TARGET $STORES $PASSWORD after generate > generate_after.txt
+echo perl sqlserver_ds_perl_validate_multi.pl $TARGET $STORES $PASSWORD pre_test
+perl sqlserver_ds_perl_validate_multi.pl $TARGET $STORES $PASSWORD pre_test both {POPULAR_MODULO} > pre_test.txt
+perl sqlserver_ds_perl_validate_multi.pl $TARGET $STORES $PASSWORD post_test generate {POPULAR_MODULO} > generate_post_test.txt
 
 cd ../

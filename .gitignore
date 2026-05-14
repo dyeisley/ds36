@@ -1,0 +1,41 @@
+# .NET build output
+[Bb]in/
+[Oo]bj/
+
+# User-specific files
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# Build results
+[Dd]ebug/
+[Rr]elease/
+x64/
+x86/
+[Aa][Rr][Mm]/
+[Aa][Rr][Mm]64/
+bld/
+
+# Visual Studio cache/options
+.vs/
+
+# Generated scripts from Install_DVDStore.pl (but not *_generic_template.sh templates)
+mysql/mysql_ds_create_all_[0-9]*.sh
+mysql/mysql_ds_create_all_[0-9]*_vectors.sh
+pgsql/pgsql_ds_create_all_[0-9]*.sh
+oracle/oracle_ds_create_all_[0-9]*.sh
+oracle/oracle_ds_create_all_[0-9]*.bat
+sqlserver/sqlserver_ds_create_all_concurrent_[0-9]*.sh
+sqlserver/sqlserver_ds_create_all_concurrent_[0-9]*.bat
+
+# Generated validation SQL files
+**/validate/*/
+
+# Data files
+data_files/
+*.csv
+
+# Backup files
+*.bak
+*~

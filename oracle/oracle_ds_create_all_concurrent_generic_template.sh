@@ -7,6 +7,12 @@
 TARGET=${1:-`hostname`}
 STORES=${2:-1}
 
+if [ $STORES -gt 16 ]
+then
+   echo "Number of STORES limited to 16."
+   STORES=16
+fi
+
 cd build
 sqlplus "sys/oracle@$TARGET as sysdba" @oracle_ds_drop_tablespaces.sql
 sqlplus -S "sys/oracle@$TARGET as sysdba" @{TBLSPACE_SQLFNAME}
@@ -23,7 +29,7 @@ perl oracle_ds_perl_create_fulltextindex_multi.pl $TARGET $STORES
 perl oracle_ds_perl_create_sp_multi.pl $TARGET $STORES
 perl oracle_ds_perl_analyze_all_multi.pl $TARGET $STORES
 cd ../validate
-perl oracle_ds_perl_validate_multi.pl $HOSTNAME $STORES after generate > generate_after.txt
-perl oracle_ds_perl_validate_multi.pl $HOSTNAME $STORES before > before.txt
+perl oracle_ds_perl_validate_multi.pl $HOSTNAME $STORES post_test generate {POPULAR_MODULO} > generate_post_test.txt
+perl oracle_ds_perl_validate_multi.pl $HOSTNAME $STORES pre_test both {POPULAR_MODULO} > pre_test.txt
 cd ..
 

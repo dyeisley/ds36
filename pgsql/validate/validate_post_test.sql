@@ -92,11 +92,11 @@ BEGIN
     -- =======================================================================
     -- TOP 10 INVENTORY BY SALES
     -- Purpose: Verify GetSkewedProductId distribution
-    -- Expected: Products divisible by 10000 should dominate top sales
+    -- Expected: Products divisible by {popular_modulo} should dominate top sales
     -- =======================================================================
     RAISE NOTICE '--- TOP 10 INVENTORY BY SALES (GetSkewedProductId Verification) ---';
     RAISE NOTICE 'Verifying: Skewed product selection worked correctly';
-    RAISE NOTICE 'Expected: Products divisible by 10000 should appear in top 10 with higher SALES';
+    RAISE NOTICE 'Expected: Products divisible by {popular_modulo} should appear in top 10 with higher SALES';
     RAISE NOTICE 'Expected: SALES values should be significantly higher than pre-test baseline';
     RAISE NOTICE '';
 END $$;
@@ -106,7 +106,7 @@ SELECT
     p.TITLE,
     i.SALES,
     CASE
-        WHEN i.PROD_ID % 10000 = 0 THEN '**POPULAR**'
+        WHEN i.PROD_ID % {popular_modulo} = 0 THEN '**POPULAR**'
         ELSE ''
     END AS IsPopularProduct
 FROM INVENTORY{store_number} i
@@ -126,14 +126,14 @@ BEGIN
     -- Summary statistics on popular vs non-popular products
     SELECT SUM(SALES), COUNT(*) INTO v_popular_sales, v_popular_count
     FROM INVENTORY{store_number}
-    WHERE PROD_ID % 10000 = 0;
+    WHERE PROD_ID % {popular_modulo} = 0;
 
     SELECT SUM(SALES), COUNT(*) INTO v_non_popular_sales, v_non_popular_count
     FROM INVENTORY{store_number}
-    WHERE PROD_ID % 10000 != 0;
+    WHERE PROD_ID % {popular_modulo} != 0;
 
     RAISE NOTICE 'GetSkewedProductId Effectiveness:';
-    RAISE NOTICE '  Popular Products (ID %% 10000 = 0):';
+    RAISE NOTICE '  Popular Products (ID %% {popular_modulo} = 0):';
     RAISE NOTICE '    Count: %, Total Sales: %', v_popular_count, v_popular_sales;
     IF v_popular_count > 0 THEN
         RAISE NOTICE '    Avg Sales per Product: %', v_popular_sales / v_popular_count;
@@ -165,7 +165,7 @@ SELECT
     COUNT(*) AS RESTOCK_COUNT,
     MAX(r.DATE_REORDERED) AS LAST_RESTOCK_DATE,
     CASE
-        WHEN r.PROD_ID % 10000 = 0 THEN '**POPULAR**'
+        WHEN r.PROD_ID % {popular_modulo} = 0 THEN '**POPULAR**'
         ELSE ''
     END AS IsPopularProduct
 FROM REORDER{store_number} r
@@ -183,7 +183,7 @@ BEGIN
 
     -- Reorder statistics
     SELECT COUNT(*) INTO v_total_reorders FROM REORDER{store_number};
-    SELECT COUNT(*) INTO v_popular_reorders FROM REORDER{store_number} WHERE PROD_ID % 10000 = 0;
+    SELECT COUNT(*) INTO v_popular_reorders FROM REORDER{store_number} WHERE PROD_ID % {popular_modulo} = 0;
 
     RAISE NOTICE 'Restock Trigger Statistics:';
     RAISE NOTICE '  Total Reorder Events: %', v_total_reorders;
@@ -227,7 +227,7 @@ SELECT
     LPAD(REVIEW_ID::TEXT, 10) AS "ReviewID",
     LPAD(PROD_ID::TEXT, 10) AS "ProdID",
     LPAD(TOTAL_HELPFULNESS::TEXT, 12) AS "Helpfulness",
-    RPAD(CASE WHEN PROD_ID % 10000 = 0 THEN '**POPULAR**' ELSE '' END, 12) AS "Popular"
+    RPAD(CASE WHEN PROD_ID % {popular_modulo} = 0 THEN '**POPULAR**' ELSE '' END, 12) AS "Popular"
 FROM REVIEWS{store_number}
 ORDER BY TOTAL_HELPFULNESS DESC, REVIEW_ID
 LIMIT 10;
@@ -261,7 +261,7 @@ BEGIN
     RAISE NOTICE '    Post:  %', v_total_helpfulness;
     RAISE NOTICE '    Delta: %', v_total_helpfulness - v_total_helpfulness_pre;
     RAISE NOTICE '';
-    RAISE NOTICE 'Reviews for Popular Products (ID %% 10000 = 0):';
+    RAISE NOTICE 'Reviews for Popular Products (ID %% {popular_modulo} = 0):';
     RAISE NOTICE '';
 
     RAISE NOTICE '';
@@ -281,7 +281,7 @@ FULL OUTER JOIN (
         COUNT(r.REVIEW_ID)::INT AS ReviewCount
     FROM PRODUCTS{store_number} p
     LEFT JOIN REVIEWS{store_number} r ON p.PROD_ID = r.PROD_ID
-    WHERE p.PROD_ID % 10000 = 0
+    WHERE p.PROD_ID % {popular_modulo} = 0
     GROUP BY p.PROD_ID, p.TITLE
 ) post ON pre.prod_id = post.PROD_ID
 ORDER BY COALESCE(post.ReviewCount, 0) DESC, COALESCE(pre.prod_id, post.PROD_ID);
@@ -960,7 +960,7 @@ BEGIN
     RAISE NOTICE '========================================================================';
     RAISE NOTICE 'Post-Test Validation Complete';
     RAISE NOTICE 'Compare these results with validate_before.sql to verify:';
-    RAISE NOTICE '  1. GetSkewedProductId: Popular products (ID %% 10000) have highest sales';
+    RAISE NOTICE '  1. GetSkewedProductId: Popular products (ID %% {popular_modulo}) have highest sales';
     RAISE NOTICE '  2. Restock Trigger: REORDER table shows restocking for sold-out products';
     RAISE NOTICE '  3. Review Operations: New reviews created, helpfulness scores increased';
     RAISE NOTICE '  4. Manager Operations: New products added, prices adjusted, specials toggled';

@@ -1167,12 +1167,12 @@ namespace ds2xdriver
     //
     public void ds2validate(string outputFile, string targetServer, int storeNumber)
     {
-      string sqlFilePath = $"validate/{targetServer}/mysql_validate_after{storeNumber}.sql";
+      string sqlFilePath = $"validate/{targetServer}/mysql_validate_post_test{storeNumber}.sql";
       if (!File.Exists(sqlFilePath))
       {
         Console.WriteLine($"Error: Validation SQL file not found: {sqlFilePath}");
         Console.WriteLine("Please run the Perl generation script first:");
-        Console.WriteLine($"  perl mysql_ds_perl_validate_multi.pl {targetServer} {storeNumber} after generate");
+        Console.WriteLine($"  perl mysql_ds_perl_validate_multi.pl {targetServer} {storeNumber} post_test generate");
         return;
       }
 

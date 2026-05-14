@@ -427,6 +427,10 @@ print "Membership Rows: $i_Membership_Rows (10% of customers)\n";
 print "Reviews Rows: $i_Reviews_Rows (20 per product average)\n";
 print "Reviews Helpfulness Rows: $i_Reviews_Helpfulness_Rows (~21.5 per review average)\n";
 
+# Calculate popular modulo for validation (1000 for <10K products, 10000 otherwise)
+my $popular_modulo = ($i_Prod_Rows < 10000) ? 1000 : 10000;
+print "Popular Product Modulo: $popular_modulo (for GetSkewedProductId validation)\n";
+
 #***************************************************************************************
 
 #Start data generation and dump data into CSV files
@@ -760,20 +764,39 @@ if($bln_is_DB_MYSQL == 1)			#For MySQL
 	print NEWFILE @lines;
 	close (NEWFILE);
 
+	# Process mysql_ds_create_all_generic_template.sh
+	chdir "../";  # Move back to mysql directory
+	@lines = ();
+	$line = "";
+	$str_file_name = "";
+	open (FILE, "mysql_ds_create_all_generic_template.sh") || die "Can not Open file : $!";
+	@lines = <FILE>;
+	close (FILE);
+	foreach $line (@lines)
+	{
+		$line =~ s/{POPULAR_MODULO}/$popular_modulo/g;
+	}
+	$str_file_name = "mysql_ds_create_all_".$database_size.$database_size_str.".sh";
+	open (NEWFILE, ">", $str_file_name) || die "Creating new file to write failed : $!";
+	print NEWFILE @lines;
+	close (NEWFILE);
+
+	if(lc($^O) eq lc("linux"))   #If system on which perl script is executing is Linux
+	{
+		system("chmod +x $str_file_name");
+	}
+
 	if ($bln_is_use_vectors == 1)
 	{
-	   chdir "../";
-
-	   my $filename = 'mysql_ds_create_all.sh';
-	   my $newfile = 'mysql_ds_create_all_vectors.sh';
+	   my $filename = "mysql_ds_create_all_".$database_size.$database_size_str.".sh";
+	   my $newfile = "mysql_ds_create_all_".$database_size.$database_size_str."_vectors.sh";
 
 	   open(my $in,  '<', $filename) or die "Can't open $filename: $!";
 	   open(my $out, '>', $newfile) or die "Can't open $newfile: $!";
 
 	   while (my $line = <$in>)
 	   {
-		$line =~ s/3:-0/3:-1/g;
-		$line =~ s/mysql_ds_create_all.sh/mysql_ds_create_all_vectors.sh/g;
+		$line =~ s/VECTORS=\$\{3:-0\}/VECTORS=\$\{3:-1\}/g;
 		print $out $line;
 	   }
 
@@ -815,7 +838,29 @@ elsif($bln_is_DB_PGSQL == 1)			#For PGSQL
 	open (NEWFILE, ">" , $str_file_name) || die "Creating new file to write failed : $!";
 	print NEWFILE @lines;
 	close (NEWFILE);
-	
+
+	# Process pgsql_ds_create_all_generic_template.sh
+	chdir "../";  # Move back to pgsql directory
+	@lines = ();
+	$line = "";
+	$str_file_name = "";
+	open (FILE, "pgsql_ds_create_all_generic_template.sh") || die "Can not Open file : $!";
+	@lines = <FILE>;
+	close (FILE);
+	foreach $line (@lines)
+	{
+		$line =~ s/{POPULAR_MODULO}/$popular_modulo/g;
+	}
+	$str_file_name = "pgsql_ds_create_all_".$database_size.$database_size_str.".sh";
+	open (NEWFILE, ">", $str_file_name) || die "Creating new file to write failed : $!";
+	print NEWFILE @lines;
+	close (NEWFILE);
+
+	if(lc($^O) eq lc("linux"))   #If system on which perl script is executing is Linux
+	{
+		system("chmod +x $str_file_name");
+	}
+
 	print "\nCompleted creating and writing build scripts for PostgreSQL database... \n";
 	
 }
@@ -1002,7 +1047,8 @@ elsif($bln_is_DB_ORACLE == 1) 		#For Oracle
 		$str_file_name = "oracle_ds_create_tablespaces_".$database_size.$database_size_str.".sql";
 		$line =~ s/{TBLSPACE_SQLFNAME}/$str_file_name/g;
 		$str_file_name = "oracle_ds_perl_create_db_tables_multi_".$database_size.$database_size_str.".pl";
-		$line =~ s/{CREATEDB_SQLFNAME}/$str_file_name/g;		   		   	
+		$line =~ s/{CREATEDB_SQLFNAME}/$str_file_name/g;
+		$line =~ s/{POPULAR_MODULO}/$popular_modulo/g;
 	}	
 	$str_file_name = "";
 	$str_file_name = "oracle_ds_create_all_".$database_size.$database_size_str.".sh";
@@ -1027,8 +1073,9 @@ elsif($bln_is_DB_ORACLE == 1) 		#For Oracle
 		$str_file_name = "oracle_ds_create_tablespaces_".$database_size.$database_size_str.".sql";
 		$line =~ s/{TBLSPACE_SQLFNAME}/$str_file_name/g;
 		$str_file_name = "oracle_ds_perl_create_db_tables_multi".$database_size.$database_size_str.".pl";
-		$line =~ s/{CREATEDB_SQLFNAME}/$str_file_name/g;		   		   	
-	}	
+		$line =~ s/{CREATEDB_SQLFNAME}/$str_file_name/g;
+		$line =~ s/{POPULAR_MODULO}/$popular_modulo/g;
+	}
 	$str_file_name = "";
 	$str_file_name = "oracle_ds_create_all_".$database_size.$database_size_str.".bat";
 	open (NEWFILE, ">", $str_file_name) || die "Creating new file to write failed : $!";
@@ -1116,10 +1163,11 @@ elsif($bln_is_DB_MSSQL == 1) 		#For SQL Server
 		if($line =~ m/{DB_SIZE}/)
 		{
 			#$arr_db_file_paths[$i_Cnt] =~ s/\\//g;    #Replace all backslashes if exists
-			$line =~ s/{DB_SIZE}/$database_size$database_size_str/g;			
-			$i_Cnt = ($i_Cnt + 1);				
-		}			   		    			
-	}	
+			$line =~ s/{DB_SIZE}/$database_size$database_size_str/g;
+			$i_Cnt = ($i_Cnt + 1);
+		}
+		$line =~ s/{POPULAR_MODULO}/$popular_modulo/g;
+	}
 	$str_file_name = "sqlserver_ds_create_all_concurrent_".$database_size.$database_size_str.".bat";
 	open (NEWFILE, ">", $str_file_name) || die "Creating new file to write failed : $!";
 	print NEWFILE @lines;
@@ -1146,6 +1194,7 @@ elsif($bln_is_DB_MSSQL == 1) 		#For SQL Server
                         $line =~ s/4:-0/4:-1/g;
                         $i_Cnt = ($i_Cnt + 1);
                 }
+                $line =~ s/{POPULAR_MODULO}/$popular_modulo/g;
         }
         $str_file_name = "sqlserver_ds_create_all_concurrent_".$database_size.$database_size_str.".sh";
         open (NEWFILE, ">", $str_file_name) || die "Creating new file to write failed : $!";
@@ -1161,11 +1210,7 @@ elsif($bln_is_DB_MSSQL == 1) 		#For SQL Server
 }
 
 print "\nAll database build scripts(shell and sql) are dumped into their respective folders. \n";
-
-if($bln_is_DB_ORACLE == 1 || $bln_is_DB_MSSQL == 1)
-{
 print "\nThese scripts are created from template files in same folders with '_generic_template' in their name. \n";
-print "\nScripts that are created from template files have '_' $database_size $database_size_str in their name. \n";
-}
+print "\nScripts that are created from template files have the database size ('$database_size$database_size_str') in their name. \n";
 
 print "\nRun 'perl CreateConfigFile.pl' to generate a configuration file to use as input to the driver program.\n"

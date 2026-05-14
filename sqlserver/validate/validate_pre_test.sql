@@ -136,11 +136,11 @@ PRINT '';
 -- =======================================================================
 -- TOP 10 INVENTORY BY SALES
 -- Purpose: Verify GetSkewedProductId distribution
--- Expected: Products divisible by 10000 should have higher sales
+-- Expected: Products divisible by {popular_modulo} should have higher sales
 -- =======================================================================
 PRINT '--- TOP 10 INVENTORY BY SALES (GetSkewedProductId Verification) ---';
 PRINT 'Verifying: Skewed product selection (every 10,000th product should be popular)';
-PRINT 'Expected: After test, PROD_ID values divisible by 10000 should appear in top sales';
+PRINT 'Expected: After test, PROD_ID values divisible by {popular_modulo} should appear in top sales';
 PRINT '';
 
 SELECT TOP 10
@@ -148,7 +148,7 @@ SELECT TOP 10
     p.TITLE,
     i.SALES,
     CASE
-        WHEN i.PROD_ID % 10000 = 0 THEN '**POPULAR**'
+        WHEN i.PROD_ID % {popular_modulo} = 0 THEN '**POPULAR**'
         ELSE ''
     END AS IsPopularProduct
 FROM INVENTORY{store_number} i
@@ -199,7 +199,7 @@ SELECT TOP 10
     RIGHT(REPLICATE(' ', 10) + CAST(REVIEW_ID AS VARCHAR), 10) AS [ReviewID],
     RIGHT(REPLICATE(' ', 10) + CAST(PROD_ID AS VARCHAR), 10) AS [ProdID],
     RIGHT(REPLICATE(' ', 12) + CAST(TOTAL_HELPFULNESS AS VARCHAR), 12) AS [Helpfulness],
-    LEFT(CASE WHEN PROD_ID % 10000 = 0 THEN '**POPULAR**' ELSE '' END + REPLICATE(' ', 12), 12) AS [Popular]
+    LEFT(CASE WHEN PROD_ID % {popular_modulo} = 0 THEN '**POPULAR**' ELSE '' END + REPLICATE(' ', 12), 12) AS [Popular]
 FROM REVIEWS{store_number}
 ORDER BY TOTAL_HELPFULNESS DESC, REVIEW_ID;
 
@@ -215,9 +215,9 @@ ORDER BY TOTAL_HELPFULNESS DESC, REVIEW_ID;
 
 PRINT '';
 
--- Count reviews for popular products (ID % 10000 = 0)
+-- Count reviews for popular products (ID % {popular_modulo} = 0)
 PRINT '';
-PRINT 'Reviews for Popular Products (ID % 10000 = 0):';
+PRINT 'Reviews for Popular Products (ID % {popular_modulo} = 0):';
 PRINT '';
 
 SELECT
@@ -226,7 +226,7 @@ SELECT
     COUNT(r.REVIEW_ID) AS ReviewCount
 FROM PRODUCTS{store_number} p
 LEFT JOIN REVIEWS{store_number} r ON p.PROD_ID = r.PROD_ID
-WHERE p.PROD_ID % 10000 = 0
+WHERE p.PROD_ID % {popular_modulo} = 0
 GROUP BY p.PROD_ID, p.TITLE
 ORDER BY ReviewCount DESC, p.PROD_ID;
 
@@ -238,7 +238,7 @@ SELECT
     COUNT(r.REVIEW_ID)
 FROM PRODUCTS{store_number} p
 LEFT JOIN REVIEWS{store_number} r ON p.PROD_ID = r.PROD_ID
-WHERE p.PROD_ID % 10000 = 0
+WHERE p.PROD_ID % {popular_modulo} = 0
 GROUP BY p.PROD_ID, p.TITLE;
 
 PRINT '';
