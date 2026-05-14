@@ -152,7 +152,7 @@ namespace ds2xdriver
     //Boolean value to simulate DS2 version of driver on DS3 database
     public static bool ds2_mode = false;
     // Boolean value to run post-benchmark validation SQL
-    public static bool validate_after = false;
+    public static bool validate_post_test = false;
     // Value for number of stores to support multi stores
     public static int n_stores = 1;
     public static int n_vectors = 0;
@@ -812,10 +812,10 @@ namespace ds2xdriver
         Validator = (value) => ValidateInt(value, min: 1, max: 100)
       };
 
-      // validate_after - run validation SQL after benchmark completes
-      definitions["validate_after"] = new ParameterDefinition
+      // validate_post_test - run validation SQL after benchmark completes
+      definitions["validate_post_test"] = new ParameterDefinition
       {
-        Name = "validate_after",
+        Name = "validate_post_test",
         Description = "Run post-benchmark validation SQL (Y / N)",
         DefaultValue = "N",
         Type = ParamType.Boolean,
@@ -1272,8 +1272,8 @@ namespace ds2xdriver
       }
 
       // Validation after benchmark (validator returns bool)
-      validate_after = parser.GetValue<bool>("validate_after");
-      if (validate_after)
+      validate_post_test = parser.GetValue<bool>("validate_post_test");
+      if (validate_post_test)
       {
         Console.WriteLine("Post-benchmark validation enabled.");
       }
@@ -2194,7 +2194,7 @@ namespace ds2xdriver
       Console.WriteLine("Controller ({0}): all threads stopped, exiting", DateTime.Now);
 
       // Run post-benchmark validation if requested
-      if (validate_after)
+      if (validate_post_test)
       {
         Console.WriteLine("\nRunning post-benchmark validation...");
         string timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
@@ -2283,6 +2283,7 @@ namespace ds2xdriver
         writer.WriteLine("BENCHMARK PARAMETERS:");
         writer.WriteLine($"  Database Type:          {databaseType}");
         writer.WriteLine($"  Store Number:           {storeNumber}");
+        writer.WriteLine($"  Database size:          {db_size}");
         writer.WriteLine($"  Target Server:          {serverName}");
         writer.WriteLine($"  Run Time:               {run_time} minutes");
         writer.WriteLine($"  Threads:                {n_threads}");
@@ -2574,6 +2575,11 @@ namespace ds2xdriver
     {
       int popularInterval = 10000;
       int weightBoost = 9;
+
+      if (maxProduct < popularInterval)
+      {
+        popularInterval = 1000;
+      }
 
       int popularCount = maxProduct / popularInterval;
 

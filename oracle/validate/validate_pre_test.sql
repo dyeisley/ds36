@@ -191,11 +191,11 @@ BEGIN
     -- =======================================================================
     -- TOP 10 INVENTORY BY SALES
     -- Purpose: Verify GetSkewedProductId distribution
-    -- Expected: Products divisible by 10000 should have higher sales
+    -- Expected: Products divisible by should have higher sales
     -- =======================================================================
     DBMS_OUTPUT.PUT_LINE('--- TOP 10 INVENTORY BY SALES (GetSkewedProductId Verification) ---');
     DBMS_OUTPUT.PUT_LINE('Verifying: Skewed product selection (every 10,000th product should be popular)');
-    DBMS_OUTPUT.PUT_LINE('Expected: After test, PROD_ID values divisible by 10000 should appear in top sales');
+    DBMS_OUTPUT.PUT_LINE('Expected: After test, PROD_ID values divisible by {popular_modulo} should appear in top sales');
     DBMS_OUTPUT.PUT_LINE('');
 END;
 /
@@ -206,7 +206,7 @@ SELECT * FROM (
         p.TITLE,
         i.SALES,
         CASE
-            WHEN MOD(i.PROD_ID, 10000) = 0 THEN '**POPULAR**'
+            WHEN MOD(i.PROD_ID, {popular_modulo}) = 0 THEN '**POPULAR**'
             ELSE ''
         END AS IsPopularProduct
     FROM DS3.INVENTORY{store_number} i
@@ -269,7 +269,7 @@ SELECT * FROM (
         LPAD(TO_CHAR(REVIEW_ID), 10) AS ReviewID,
         LPAD(TO_CHAR(PROD_ID), 10) AS ProdID,
         LPAD(TO_CHAR(TOTAL_HELPFULNESS), 12) AS Helpfulness,
-        RPAD(CASE WHEN MOD(PROD_ID, 10000) = 0 THEN '**POPULAR**' ELSE '' END, 12) AS Popular
+        RPAD(CASE WHEN MOD(PROD_ID, {popular_modulo}) = 0 THEN '**POPULAR**' ELSE '' END, 12) AS Popular
     FROM DS3.REVIEWS{store_number}
     ORDER BY TOTAL_HELPFULNESS DESC, REVIEW_ID
 )
@@ -295,7 +295,7 @@ COMMIT;
 
 BEGIN
     DBMS_OUTPUT.PUT_LINE('');
-    DBMS_OUTPUT.PUT_LINE('Reviews for Popular Products (ID % 10000 = 0):');
+    DBMS_OUTPUT.PUT_LINE('Reviews for Popular Products (ID % {popular_modulo} = 0):');
     DBMS_OUTPUT.PUT_LINE('');
 END;
 /
@@ -306,7 +306,7 @@ SELECT
     COUNT(r.REVIEW_ID) AS ReviewCount
 FROM DS3.PRODUCTS{store_number} p
 LEFT JOIN DS3.REVIEWS{store_number} r ON p.PROD_ID = r.PROD_ID
-WHERE MOD(p.PROD_ID, 10000) = 0
+WHERE MOD(p.PROD_ID, {popular_modulo}) = 0
 GROUP BY p.PROD_ID, p.TITLE
 ORDER BY COUNT(r.REVIEW_ID) DESC, p.PROD_ID;
 
@@ -318,7 +318,7 @@ SELECT
     COUNT(r.REVIEW_ID)
 FROM DS3.PRODUCTS{store_number} p
 LEFT JOIN DS3.REVIEWS{store_number} r ON p.PROD_ID = r.PROD_ID
-WHERE MOD(p.PROD_ID, 10000) = 0
+WHERE MOD(p.PROD_ID, {popular_modulo}) = 0
 GROUP BY p.PROD_ID, p.TITLE;
 
 COMMIT;

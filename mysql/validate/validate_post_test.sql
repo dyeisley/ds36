@@ -84,11 +84,11 @@ SELECT '';
 -- =======================================================================
 -- TOP 10 INVENTORY BY SALES
 -- Purpose: Verify GetSkewedProductId distribution
--- Expected: Products divisible by 10000 should dominate top sales
+-- Expected: Products divisible by {popular_modulo} should dominate top sales
 -- =======================================================================
 SELECT '--- TOP 10 INVENTORY BY SALES (GetSkewedProductId Verification) ---';
 SELECT 'Verifying: Skewed product selection worked correctly';
-SELECT 'Expected: Products divisible by 10000 should appear in top 10 with higher SALES';
+SELECT 'Expected: Products divisible by {popular_modulo} should appear in top 10 with higher SALES';
 SELECT 'Expected: SALES values should be significantly higher than pre-test baseline';
 SELECT '';
 
@@ -97,7 +97,7 @@ SELECT
     RPAD(p.TITLE, 40) AS TITLE,
     LPAD(i.SALES, 10) AS SALES,
     RPAD(CASE
-        WHEN i.PROD_ID % 10000 = 0 THEN '**POPULAR**'
+        WHEN i.PROD_ID % {popular_modulo} = 0 THEN '**POPULAR**'
         ELSE ''
     END, 12) AS IsPopularProduct
 FROM INVENTORY{store_number} i
@@ -109,13 +109,13 @@ SELECT '';
 SELECT '';
 
 -- Summary statistics on popular vs non-popular products
-SET @popular_sales = (SELECT SUM(SALES) FROM INVENTORY{store_number} WHERE PROD_ID % 10000 = 0);
-SET @popular_count = (SELECT COUNT(*) FROM INVENTORY{store_number} WHERE PROD_ID % 10000 = 0);
-SET @non_popular_sales = (SELECT SUM(SALES) FROM INVENTORY{store_number} WHERE PROD_ID % 10000 != 0);
-SET @non_popular_count = (SELECT COUNT(*) FROM INVENTORY{store_number} WHERE PROD_ID % 10000 != 0);
+SET @popular_sales = (SELECT SUM(SALES) FROM INVENTORY{store_number} WHERE PROD_ID % {popular_modulo} = 0);
+SET @popular_count = (SELECT COUNT(*) FROM INVENTORY{store_number} WHERE PROD_ID % {popular_modulo} = 0);
+SET @non_popular_sales = (SELECT SUM(SALES) FROM INVENTORY{store_number} WHERE PROD_ID % {popular_modulo} != 0);
+SET @non_popular_count = (SELECT COUNT(*) FROM INVENTORY{store_number} WHERE PROD_ID % {popular_modulo} != 0);
 
 SELECT 'GetSkewedProductId Effectiveness:';
-SELECT '  Popular Products (ID % 10000 = 0):';
+SELECT '  Popular Products (ID % {popular_modulo} = 0):';
 SELECT CONCAT('    Count: ', @popular_count, ', Total Sales: ', @popular_sales);
 SELECT CONCAT('    Avg Sales per Product: ', @popular_sales DIV @popular_count);
 SELECT '  Non-Popular Products:';
@@ -142,7 +142,7 @@ SELECT
     LPAD(COUNT(*), 13) AS RESTOCK_COUNT,
     MAX(r.DATE_REORDERED) AS LAST_RESTOCK_DATE,
     RPAD(CASE
-        WHEN r.PROD_ID % 10000 = 0 THEN '**POPULAR**'
+        WHEN r.PROD_ID % {popular_modulo} = 0 THEN '**POPULAR**'
         ELSE ''
     END, 12) AS IsPopularProduct
 FROM REORDER{store_number} r
@@ -156,7 +156,7 @@ SELECT '';
 
 -- Reorder statistics
 SET @total_reorders = (SELECT COUNT(*) FROM REORDER{store_number});
-SET @popular_reorders = (SELECT COUNT(*) FROM REORDER{store_number} WHERE PROD_ID % 10000 = 0);
+SET @popular_reorders = (SELECT COUNT(*) FROM REORDER{store_number} WHERE PROD_ID % {popular_modulo} = 0);
 
 SELECT 'Restock Trigger Statistics:';
 SELECT CONCAT('  Total Reorder Events: ', @total_reorders);
@@ -193,7 +193,7 @@ SELECT
     REVIEW_ID AS `ReviewID`,
     PROD_ID AS `ProdID`,
     TOTAL_HELPFULNESS AS `Helpfulness`,
-    CASE WHEN PROD_ID % 10000 = 0 THEN '**POPULAR**' ELSE '' END AS `Popular`
+    CASE WHEN PROD_ID % {popular_modulo} = 0 THEN '**POPULAR**' ELSE '' END AS `Popular`
 FROM REVIEWS{store_number}
 CROSS JOIN (SELECT @rownum := 0) AS init
 ORDER BY TOTAL_HELPFULNESS DESC, REVIEW_ID
@@ -216,7 +216,7 @@ SELECT '  Total Helpfulness (sum):';
 SELECT CONCAT('    Pre:   ', @total_helpfulness_pre);
 SELECT CONCAT('    Post:  ', @total_helpfulness);
 SELECT CONCAT('    Delta: ', @total_helpfulness - @total_helpfulness_pre);
-SELECT 'Reviews for Popular Products (ID % 10000 = 0):';
+SELECT 'Reviews for Popular Products (ID % {popular_modulo} = 0):';
 
 SELECT
     LPAD(IFNULL(pre.prod_id, post.PROD_ID), 8) AS PROD_ID,
@@ -232,7 +232,7 @@ LEFT JOIN (
         COUNT(r.REVIEW_ID) AS ReviewCount
     FROM PRODUCTS{store_number} p
     LEFT JOIN REVIEWS{store_number} r ON p.PROD_ID = r.PROD_ID
-    WHERE p.PROD_ID % 10000 = 0
+    WHERE p.PROD_ID % {popular_modulo} = 0
     GROUP BY p.PROD_ID, p.TITLE
 ) post ON pre.prod_id = post.PROD_ID
 UNION
@@ -250,7 +250,7 @@ RIGHT JOIN (
         COUNT(r.REVIEW_ID) AS ReviewCount
     FROM PRODUCTS{store_number} p
     LEFT JOIN REVIEWS{store_number} r ON p.PROD_ID = r.PROD_ID
-    WHERE p.PROD_ID % 10000 = 0
+    WHERE p.PROD_ID % {popular_modulo} = 0
     GROUP BY p.PROD_ID, p.TITLE
 ) post ON pre.prod_id = post.PROD_ID
 WHERE pre.prod_id IS NULL
@@ -747,7 +747,7 @@ LIMIT 10;
 SELECT '========================================================================';
 SELECT 'Post-Test Validation Complete';
 SELECT 'Compare these results with validate_before.sql to verify:';
-SELECT '  1. GetSkewedProductId: Popular products (ID % 10000) have highest sales';
+SELECT '  1. GetSkewedProductId: Popular products (ID % {popular_modulo}) have highest sales';
 SELECT '  2. Restock Trigger: REORDER table shows restocking for sold-out products';
 SELECT '  3. Review Operations: New reviews created, helpfulness scores increased';
 SELECT '  4. Manager Operations: New products added, prices adjusted, specials toggled';

@@ -1,7 +1,7 @@
 #!/usr/bin/perl
 # sqlserver_ds_perl_validate_multi.pl
 # Script to generate and execute validation SQL for multiple stores
-# Syntax: perl sqlserver_ds_perl_validate_multi.pl <server> <num_stores> <password> <before|after> [generate|execute]
+# Syntax: perl sqlserver_ds_perl_validate_multi.pl <server> <num_stores> <password> <pre_test|post_test> [generate|execute]
 
 use strict;
 use warnings;
@@ -14,20 +14,22 @@ my $numberofstores = $ARGV[1];
 my $password = $ARGV[2] || 'password';
 my $mode = $ARGV[3];
 my $action = $ARGV[4] || 'both';  # generate, execute, or both (default)
+my $popular_modulo = $ARGV[5] || 10000;  # Optional modulo value, default 10000
 
 # Validate arguments
 if (!defined $sqlservertarget || !defined $numberofstores || !defined $mode) {
-    print "Usage: perl sqlserver_ds_perl_validate_multi.pl <server> <num_stores> <password> <before|after> [generate|execute]\n";
+    print "Usage: perl sqlserver_ds_perl_validate_multi.pl <server> <num_stores> <password> <pre_test|post_test> [generate|execute] [popular_modulo]\n";
     print "\nExamples:\n";
-    print "  perl sqlserver_ds_perl_validate_multi.pl localhost 3 mypassword before generate\n";
-    print "  perl sqlserver_ds_perl_validate_multi.pl localhost 3 mypassword before execute\n";
-    print "  perl sqlserver_ds_perl_validate_multi.pl localhost 3 mypassword before (both)\n";
+    print "  perl sqlserver_ds_perl_validate_multi.pl localhost 3 mypassword pre_test generate\n";
+    print "  perl sqlserver_ds_perl_validate_multi.pl localhost 3 mypassword pre_test execute\n";
+    print "  perl sqlserver_ds_perl_validate_multi.pl localhost 3 mypassword pre_test both 1000\n";
+    print "  perl sqlserver_ds_perl_validate_multi.pl localhost 3 mypassword pre_test (defaults to both, modulo 10000)\n";
     exit 1;
 }
 
 # Validate mode parameter
-if ($mode ne 'before' && $mode ne 'after') {
-    die "Error: Mode must be 'before' or 'after'\n";
+if ($mode ne 'pre_test' && $mode ne 'post_test') {
+    die "Error: Mode must be 'pre_test' or 'post_test'\n";
 }
 
 # Validate action parameter
@@ -77,9 +79,10 @@ if ($action eq 'generate' || $action eq 'both') {
         my $output_file = "$sqlservertargetdir${pathsep}sqlserver_validate_${mode}${k}.sql";
         open(my $OUT, ">$output_file") || die("Can't open $output_file\n");
 
-        # Substitute store number
+        # Substitute store number and popular modulo
         my $sql = $template;
         $sql =~ s/\{store_number\}/$k/g;  # Replace {store_number} placeholder
+        $sql =~ s/\{popular_modulo\}/$popular_modulo/g;  # Replace {popular_modulo} placeholder
 
         print $OUT $sql;
         close $OUT;

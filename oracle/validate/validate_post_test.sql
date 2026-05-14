@@ -106,11 +106,11 @@ BEGIN
     -- =======================================================================
     -- TOP 10 INVENTORY BY SALES
     -- Purpose: Verify GetSkewedProductId distribution
-    -- Expected: Products divisible by 10000 should dominate top sales
+    -- Expected: Products divisible by {popular_modulo} should dominate top sales
     -- =======================================================================
     DBMS_OUTPUT.PUT_LINE('--- TOP 10 INVENTORY BY SALES (GetSkewedProductId Verification) ---');
     DBMS_OUTPUT.PUT_LINE('Verifying: Skewed product selection worked correctly');
-    DBMS_OUTPUT.PUT_LINE('Expected: Products divisible by 10000 should appear in top 10 with higher SALES');
+    DBMS_OUTPUT.PUT_LINE('Expected: Products divisible by {popular_modulo} should appear in top 10 with higher SALES');
     DBMS_OUTPUT.PUT_LINE('Expected: SALES values should be significantly higher than pre-test baseline');
     DBMS_OUTPUT.PUT_LINE('');
 END;
@@ -122,7 +122,7 @@ SELECT * FROM (
         p.TITLE,
         i.SALES,
         CASE
-            WHEN MOD(i.PROD_ID, 10000) = 0 THEN '**POPULAR**'
+            WHEN MOD(i.PROD_ID, {popular_modulo}) = 0 THEN '**POPULAR**'
             ELSE ''
         END AS IsPopularProduct
     FROM DS3.INVENTORY{store_number} i
@@ -142,14 +142,14 @@ BEGIN
     -- Summary statistics on popular vs non-popular products
     SELECT SUM(SALES), COUNT(*) INTO v_popular_sales, v_popular_count
     FROM DS3.INVENTORY{store_number}
-    WHERE MOD(PROD_ID, 10000) = 0;
+    WHERE MOD(PROD_ID, {popular_modulo}) = 0;
 
     SELECT SUM(SALES), COUNT(*) INTO v_non_popular_sales, v_non_popular_count
     FROM DS3.INVENTORY{store_number}
-    WHERE MOD(PROD_ID, 10000) != 0;
+    WHERE MOD(PROD_ID, {popular_modulo}) != 0;
 
     DBMS_OUTPUT.PUT_LINE('GetSkewedProductId Effectiveness:');
-    DBMS_OUTPUT.PUT_LINE('  Popular Products (ID % 10000 = 0):');
+    DBMS_OUTPUT.PUT_LINE('  Popular Products (ID % {popular_modulo} = 0):');
     DBMS_OUTPUT.PUT_LINE('    Count: ' || v_popular_count || ', Total Sales: ' || v_popular_sales);
     IF v_popular_count > 0 THEN
         DBMS_OUTPUT.PUT_LINE('    Avg Sales per Product: ' || ROUND(v_popular_sales / v_popular_count));
@@ -183,7 +183,7 @@ SELECT * FROM (
         COUNT(*) AS RESTOCK_COUNT,
         MAX(r.DATE_REORDERED) AS LAST_RESTOCK_DATE,
         CASE
-            WHEN MOD(r.PROD_ID, 10000) = 0 THEN '**POPULAR**'
+            WHEN MOD(r.PROD_ID, {popular_modulo}) = 0 THEN '**POPULAR**'
             ELSE ''
         END AS IsPopularProduct
     FROM DS3.REORDER{store_number} r
@@ -201,7 +201,7 @@ BEGIN
 
     -- Reorder statistics
     SELECT COUNT(*) INTO v_total_reorders FROM DS3.REORDER{store_number};
-    SELECT COUNT(*) INTO v_popular_reorders FROM DS3.REORDER{store_number} WHERE MOD(PROD_ID, 10000) = 0;
+    SELECT COUNT(*) INTO v_popular_reorders FROM DS3.REORDER{store_number} WHERE MOD(PROD_ID, {popular_modulo}) = 0;
 
     DBMS_OUTPUT.PUT_LINE('Restock Trigger Statistics:');
     DBMS_OUTPUT.PUT_LINE('  Total Reorder Events: ' || v_total_reorders);
@@ -246,7 +246,7 @@ SELECT
     LPAD(TO_CHAR(REVIEW_ID), 10) AS ReviewID,
     LPAD(TO_CHAR(PROD_ID), 10) AS ProdID,
     LPAD(TO_CHAR(TOTAL_HELPFULNESS), 12) AS Helpfulness,
-    RPAD(CASE WHEN MOD(PROD_ID, 10000) = 0 THEN '**POPULAR**' ELSE '' END, 12) AS Popular
+    RPAD(CASE WHEN MOD(PROD_ID, {popular_modulo}) = 0 THEN '**POPULAR**' ELSE '' END, 12) AS Popular
 FROM (
     SELECT
         REVIEW_ID,
@@ -285,7 +285,7 @@ BEGIN
     DBMS_OUTPUT.PUT_LINE('    Post:  ' || v_total_helpfulness);
     DBMS_OUTPUT.PUT_LINE('    Delta: ' || (v_total_helpfulness - v_total_helpfulness_pre));
     DBMS_OUTPUT.PUT_LINE('');
-    DBMS_OUTPUT.PUT_LINE('Reviews for Popular Products (ID % 10000 = 0):');
+    DBMS_OUTPUT.PUT_LINE('Reviews for Popular Products (ID % {popular_modulo} = 0):');
     DBMS_OUTPUT.PUT_LINE('');
 END;
 /
@@ -304,7 +304,7 @@ FULL OUTER JOIN (
         COUNT(r.REVIEW_ID) AS ReviewCount
     FROM DS3.PRODUCTS{store_number} p
     LEFT JOIN DS3.REVIEWS{store_number} r ON p.PROD_ID = r.PROD_ID
-    WHERE MOD(p.PROD_ID, 10000) = 0
+    WHERE MOD(p.PROD_ID, {popular_modulo}) = 0
     GROUP BY p.PROD_ID, p.TITLE
 ) post ON pre.prod_id = post.PROD_ID
 ORDER BY NVL(post.ReviewCount, 0) DESC, NVL(pre.prod_id, post.PROD_ID);
@@ -1030,7 +1030,7 @@ BEGIN
     DBMS_OUTPUT.PUT_LINE('========================================================================');
     DBMS_OUTPUT.PUT_LINE('Post-Test Validation Complete');
     DBMS_OUTPUT.PUT_LINE('Compare these results with validate_before.sql to verify:');
-    DBMS_OUTPUT.PUT_LINE('  1. GetSkewedProductId: Popular products (ID % 10000) have highest sales');
+    DBMS_OUTPUT.PUT_LINE('  1. GetSkewedProductId: Popular products (ID % {popular_modulo}) have highest sales');
     DBMS_OUTPUT.PUT_LINE('  2. Restock Trigger: REORDER table shows restocking for sold-out products');
     DBMS_OUTPUT.PUT_LINE('  3. Review Operations: New reviews created, helpfulness scores increased');
     DBMS_OUTPUT.PUT_LINE('  4. Manager Operations: New products added, prices adjusted, specials toggled');

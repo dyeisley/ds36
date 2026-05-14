@@ -86,11 +86,11 @@ PRINT '';
 -- =======================================================================
 -- TOP 10 INVENTORY BY SALES
 -- Purpose: Verify GetSkewedProductId distribution
--- Expected: Products divisible by 10000 should dominate top sales
+-- Expected: Products divisible by {popular_modulo} should dominate top sales
 -- =======================================================================
 PRINT '--- TOP 10 INVENTORY BY SALES (GetSkewedProductId Verification) ---';
 PRINT 'Verifying: Skewed product selection worked correctly';
-PRINT 'Expected: Products divisible by 10000 should appear in top 10 with higher SALES';
+PRINT 'Expected: Products divisible by {popular_modulo} should appear in top 10 with higher SALES';
 PRINT 'Expected: SALES values should be significantly higher than pre-test baseline';
 PRINT '';
 
@@ -99,7 +99,7 @@ SELECT TOP 10
     p.TITLE,
     i.SALES,
     CASE
-        WHEN i.PROD_ID % 10000 = 0 THEN '**POPULAR**'
+        WHEN i.PROD_ID % {popular_modulo} = 0 THEN '**POPULAR**'
         ELSE ''
     END AS IsPopularProduct
 FROM INVENTORY{store_number} i
@@ -112,14 +112,14 @@ PRINT '';
 DECLARE @PopularSales BIGINT, @NonPopularSales BIGINT, @PopularCount INT, @NonPopularCount INT;
 SELECT @PopularSales = SUM(SALES), @PopularCount = COUNT(*)
 FROM INVENTORY{store_number}
-WHERE PROD_ID % 10000 = 0;
+WHERE PROD_ID % {popular_modulo} = 0;
 
 SELECT @NonPopularSales = SUM(SALES), @NonPopularCount = COUNT(*)
 FROM INVENTORY{store_number}
-WHERE PROD_ID % 10000 != 0;
+WHERE PROD_ID % {popular_modulo} != 0;
 
 PRINT 'GetSkewedProductId Effectiveness:';
-PRINT '  Popular Products (ID % 10000 = 0):';
+PRINT '  Popular Products (ID % {popular_modulo} = 0):';
 PRINT '    Count: ' + CAST(@PopularCount AS VARCHAR) + ', Total Sales: ' + CAST(@PopularSales AS VARCHAR);
 IF @PopularCount > 0
     PRINT '    Avg Sales per Product: ' + CAST(@PopularSales / @PopularCount AS VARCHAR);
@@ -148,7 +148,7 @@ SELECT TOP 20
     COUNT(*) AS RESTOCK_COUNT,
     MAX(r.DATE_REORDERED) AS LAST_RESTOCK_DATE,
     CASE
-        WHEN r.PROD_ID % 10000 = 0 THEN '**POPULAR**'
+        WHEN r.PROD_ID % {popular_modulo} = 0 THEN '**POPULAR**'
         ELSE ''
     END AS IsPopularProduct
 FROM REORDER{store_number} r
@@ -161,7 +161,7 @@ PRINT '';
 -- Reorder statistics
 DECLARE @TotalReorders INT, @PopularReorders INT;
 SELECT @TotalReorders = COUNT(*) FROM REORDER{store_number};
-SELECT @PopularReorders = COUNT(*) FROM REORDER{store_number} WHERE PROD_ID % 10000 = 0;
+SELECT @PopularReorders = COUNT(*) FROM REORDER{store_number} WHERE PROD_ID % {popular_modulo} = 0;
 
 PRINT 'Restock Trigger Statistics:';
 PRINT '  Total Reorder Events: ' + CAST(@TotalReorders AS VARCHAR);
@@ -198,7 +198,7 @@ SELECT TOP 10
     RIGHT(REPLICATE(' ', 10) + CAST(REVIEW_ID AS VARCHAR), 10) AS [ReviewID],
     RIGHT(REPLICATE(' ', 10) + CAST(PROD_ID AS VARCHAR), 10) AS [ProdID],
     RIGHT(REPLICATE(' ', 12) + CAST(TOTAL_HELPFULNESS AS VARCHAR), 12) AS [Helpfulness],
-    LEFT(CASE WHEN PROD_ID % 10000 = 0 THEN '**POPULAR**' ELSE '' END + REPLICATE(' ', 12), 12) AS [Popular]
+    LEFT(CASE WHEN PROD_ID % {popular_modulo} = 0 THEN '**POPULAR**' ELSE '' END + REPLICATE(' ', 12), 12) AS [Popular]
 FROM REVIEWS{store_number}
 ORDER BY TOTAL_HELPFULNESS DESC, REVIEW_ID;
 
@@ -228,7 +228,7 @@ PRINT '    Pre:   ' + CAST(@TotalHelpfulnessPre AS VARCHAR);
 PRINT '    Post:  ' + CAST(@TotalHelpfulness AS VARCHAR);
 PRINT '    Delta: ' + CAST(@TotalHelpfulness - @TotalHelpfulnessPre AS VARCHAR);
 PRINT '';
-PRINT 'Reviews for Popular Products (ID % 10000 = 0):';
+PRINT 'Reviews for Popular Products (ID % {popular_modulo} = 0):';
 PRINT '';
 
 SELECT
@@ -245,7 +245,7 @@ FULL OUTER JOIN (
         COUNT(r.REVIEW_ID) AS ReviewCount
     FROM PRODUCTS{store_number} p
     LEFT JOIN REVIEWS{store_number} r ON p.PROD_ID = r.PROD_ID
-    WHERE p.PROD_ID % 10000 = 0
+    WHERE p.PROD_ID % {popular_modulo} = 0
     GROUP BY p.PROD_ID, p.TITLE
 ) post ON pre.prod_id = post.PROD_ID
 ORDER BY ISNULL(post.ReviewCount, 0) DESC, ISNULL(pre.prod_id, post.PROD_ID);
@@ -828,7 +828,7 @@ PRINT '';
 PRINT '========================================================================';
 PRINT 'Post-Test Validation Complete';
 PRINT 'Compare these results with validate_before.sql to verify:';
-PRINT '  1. GetSkewedProductId: Popular products (ID % 10000) have highest sales';
+PRINT '  1. GetSkewedProductId: Popular products (ID % {popular_modulo}) have highest sales';
 PRINT '  2. Restock Trigger: REORDER table shows restocking for sold-out products';
 PRINT '  3. Review Operations: New reviews created, helpfulness scores increased';
 PRINT '  4. Manager Operations: New products added, prices adjusted, specials toggled';

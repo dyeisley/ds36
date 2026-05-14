@@ -94,8 +94,8 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 ### Added - Validation SQL Framework
 
 **New SQL-based validation system**:
-- `validate_before.sql` - captures baseline state before benchmark run (snapshots, counts, samples)
-- `validate_after.sql` - analyzes changes after benchmark run, compares to baseline
+- `validate_pre_test.sql` - captures baseline state before benchmark run (snapshots, counts, samples)
+- `validate_post_test.sql` - analyzes changes after benchmark run, compares to baseline
 - Available for all 4 database platforms (SQL Server, MySQL, PostgreSQL, Oracle)
 - Validates manager operations: membership changes, price adjustments, review deletions, order purging
 - Verifies data integrity: cascading deletes, trigger behavior, referential integrity
@@ -115,18 +115,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - `oracle/validate/oracle_ds_perl_validate_multi.pl <server> <num_stores> <before|after> [generate|execute]`
 
 **Template Files**:
-- `sqlserver/validate/validate_before.sql`, `validate_after.sql`
-- `mysql/validate/validate_before.sql`, `validate_after.sql`
-- `pgsql/validate/validate_before.sql`, `validate_after.sql`
-- `oracle/validate/validate_before.sql`, `validate_after.sql`
+- `sqlserver/validate/validate_pre_test.sql`, `validate_post_test.sql`
+- `mysql/validate/validate_pre_test.sql`, `validate_post_test.sql`
+- `pgsql/validate/validate_pre_test.sql`, `validate_post_test.sql`
+- `oracle/validate/validate_pre_test.sql`, `validate_post_test.sql`
 
 **Usage Examples**:
 ```bash
 # Generate SQL only (for review)
-perl mysql_ds_perl_validate_multi.pl localhost 3 before generate
+perl mysql_ds_perl_validate_multi.pl localhost 3 pre_test generate
 
 # Execute previously generated SQL
-perl mysql_ds_perl_validate_multi.pl localhost 3 before execute
+perl mysql_ds_perl_validate_multi.pl localhost 3 pre_test execute
 
 # Both generate and execute (default)
 perl mysql_ds_perl_validate_multi.pl localhost 3 before
@@ -135,8 +135,8 @@ perl mysql_ds_perl_validate_multi.pl localhost 3 before
 ### Added - Validation SQL Enhancements
 
 **MEMBERSHIP_SNAPSHOT Pattern**:
-- Full membership snapshot captured in validate_before.sql
-- Before/after comparison in validate_after.sql for tier upgrade tracking
+- Full membership snapshot captured in validate_pre_test.sql
+- Before/after comparison in validate_post_test.sql for tier upgrade tracking
 - Detects: new memberships, tier upgrades (1→2, 2→3, 1→3), expiration changes
 - Index added on CUSTOMERID for performance (MySQL/Oracle needed optimization)
 
@@ -356,10 +356,10 @@ All manager operations implemented for all 4 database platforms:
 - `oracle/ds36oraclefns.cs`
 
 **Validation SQL** (4 databases):
-- `sqlserver/validate/validate_after.sql`
-- `mysql/validate/validate_after.sql`
-- `pgsql/validate/validate_after.sql`
-- `oracle/validate/validate_after.sql`
+- `sqlserver/validate/validate_post_test.sql`
+- `mysql/validate/validate_post_test.sql`
+- `pgsql/validate/validate_post_test.sql`
+- `oracle/validate/validate_post_test.sql`
 
 ### Testing
 

@@ -8,6 +8,12 @@ export PGPASSWORD=ds3
 TARGET=${1:-`hostname`}
 STORES=${2:-1}
 
+if [ $STORES -gt 16 ]
+then
+   echo "Number of STORES limited to 16."
+   STORES=16
+fi
+
 cd build/
 perl pgsql_ds_perl_logout_all.pl $TARGET
 perl pgsql_ds_perl_create_db_tables_multi.pl $TARGET $STORES
@@ -20,6 +26,6 @@ perl pgsql_ds_perl_create_indexes_multi.pl $TARGET $STORES
 perl pgsql_ds_perl_create_triggers.pl $TARGET $STORES
 perl pgsql_ds_perl_reset_sequences.pl $TARGET $STORES
 cd ../validate
-perl pgsql_ds_perl_validate_multi.pl $TARGET $STORES after generate > after.txt 2>&1
-perl pgsql_ds_perl_validate_multi.pl $TARGET $STORES before > before.txt 2>&1
+perl pgsql_ds_perl_validate_multi.pl $TARGET $STORES post_test generate {POPULAR_MODULO} > post_test.txt 2>&1
+perl pgsql_ds_perl_validate_multi.pl $TARGET $STORES pre_test both {POPULAR_MODULO} > pre_test.txt 2>&1
 cd ../

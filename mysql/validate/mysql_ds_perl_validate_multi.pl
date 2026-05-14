@@ -1,7 +1,7 @@
 #!/usr/bin/perl
 # mysql_ds_perl_validate_multi.pl
 # Script to generate and execute validation SQL for multiple stores
-# Syntax: perl mysql_ds_perl_validate_multi.pl <server> <num_stores> <before|after> [generate|execute]
+# Syntax: perl mysql_ds_perl_validate_multi.pl <server> <num_stores> <pre_test|post_test> [generate|execute]
 
 use strict;
 use warnings;
@@ -13,20 +13,22 @@ my $mysqltarget = $ARGV[0];
 my $numberofstores = $ARGV[1];
 my $mode = $ARGV[2];
 my $action = $ARGV[3] || 'both';  # generate, execute, or both (default)
+my $popular_modulo = $ARGV[4] || 10000;  # Optional modulo value, default 10000
 
 # Validate arguments
 if (!defined $mysqltarget || !defined $numberofstores || !defined $mode) {
-    print "Usage: perl mysql_ds_perl_validate_multi.pl <server> <num_stores> <before|after> [generate|execute]\n";
+    print "Usage: perl mysql_ds_perl_validate_multi.pl <server> <num_stores> <pre_test|post_test> [generate|execute] [popular_modulo]\n";
     print "\nExamples:\n";
-    print "  perl mysql_ds_perl_validate_multi.pl localhost 3 before generate\n";
-    print "  perl mysql_ds_perl_validate_multi.pl localhost 3 before execute\n";
-    print "  perl mysql_ds_perl_validate_multi.pl localhost 3 before (both)\n";
+    print "  perl mysql_ds_perl_validate_multi.pl localhost 3 pre_test generate\n";
+    print "  perl mysql_ds_perl_validate_multi.pl localhost 3 pre_test execute\n";
+    print "  perl mysql_ds_perl_validate_multi.pl localhost 3 pre_test both 1000\n";
+    print "  perl mysql_ds_perl_validate_multi.pl localhost 3 pre_test (defaults to both, modulo 10000)\n";
     exit 1;
 }
 
 # Validate mode parameter
-if ($mode ne 'before' && $mode ne 'after') {
-    die "Error: Mode must be 'before' or 'after'\n";
+if ($mode ne 'pre_test' && $mode ne 'post_test') {
+    die "Error: Mode must be 'pre_test' or 'post_test'\n";
 }
 
 # Validate action parameter
@@ -76,9 +78,10 @@ if ($action eq 'generate' || $action eq 'both') {
         my $output_file = "$mysqltargetdir${pathsep}mysql_validate_${mode}${k}.sql";
         open(my $OUT, ">$output_file") || die("Can't open $output_file\n");
 
-        # Substitute store number
+        # Substitute store number and popular modulo
         my $sql = $template;
         $sql =~ s/\{store_number\}/$k/g;  # Replace {store_number} placeholder
+        $sql =~ s/\{popular_modulo\}/$popular_modulo/g;  # Replace {popular_modulo} placeholder
 
         print $OUT $sql;
         close $OUT;
