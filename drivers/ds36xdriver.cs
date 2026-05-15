@@ -77,6 +77,7 @@ namespace ds2xdriver
     public static int n_target_servers = 1;                         //Added by GSK to keep track of number of Servers/DB instances on which threads spawned
     public static object UpdateLock = 1;
     public static int n_threads, n_threads_running = 0, n_threads_connected = 0;
+    public static int n_managers_connected = 0;
     public static int n_overall = 0, n_login_overall = 0, n_newcust_overall = 0, n_browse_overall = 0,
       n_purchase_overall = 0, n_rollbacks_overall = 0, n_rollbacks_from_start = 0, n_purchase_from_start = 0, n_cpu_pct_samples = 0;
     public static int n_reviewbrowse_overall = 0, n_newreview_overall = 0, n_newhelpfulness_overall = 0, n_newmember_overall = 0, n_browse_vector = 0;
@@ -1576,6 +1577,27 @@ namespace ds2xdriver
             server_id = 0;
         }
         Console.WriteLine("Controller ({0}): {1} manager thread(s) started", DateTime.Now, n_stores);
+
+        // Wait for all manager threads to connect (with timeout)
+        ConnectTimeout = 60;
+        while ((n_managers_connected < n_stores) && (ConnectTimeout > 0))
+        {
+          for (int j = 0; j < n_stores; j++)  // If one of the manager threads has stopped quit
+            if (manager_threads[j].ThreadState == System.Threading.ThreadState.Stopped)
+            {
+              Console.WriteLine("Controller: Manager thread {0} stopped unexpectedly, Aborting...", j);
+              return;
+            }
+          Thread.Sleep(100);
+          --ConnectTimeout;
+        }
+
+        if (n_managers_connected < n_stores)   // If all manager threads are not connected, then timeout was exceeded
+        {
+          Console.WriteLine("Controller: ConnectTimeout reached : could not connect all manager threads, Aborting...");
+          Thread.Sleep(500);
+          return;
+        }
       }
 
       Console.WriteLine("Controller ({0}): all threads connected - issuing Start", DateTime.Now);
@@ -2534,6 +2556,44 @@ namespace ds2xdriver
       }
     }
 
+    //
+    //-------------------------------------------------------------------------------------------------
+    // GetSkewedProductId - Returns product ID with bias toward popular products
+    // Popular products are those where ID % popularInterval == 0
+    // Used by both user threads (browse operations) and manager threads (operations on products)
+    //-------------------------------------------------------------------------------------------------
+    //
+    public static int GetSkewedProductId(int maxProduct)
+    {
+      int popularInterval = 10000;
+      int weightBoost = 9;
+
+      if (maxProduct < popularInterval)
+      {
+        popularInterval = 1000;
+      }
+
+      int popularCount = maxProduct / popularInterval;
+
+      long totalWeight = (long)maxProduct + ((long)popularCount * weightBoost);
+
+      long roll = (long)(Random.Shared.NextDouble() * totalWeight);
+
+      long blockSize = popularInterval + weightBoost; // 10,009
+      long blockCount = roll / blockSize;
+      long offsetInBlock = roll % blockSize;
+
+      if (offsetInBlock >= popularInterval)
+      {
+        return (int)(blockCount + 1) * popularInterval;
+      }
+      else
+      {
+        int rawId = (int)(blockCount * popularInterval + offsetInBlock) + 1;
+        return rawId > maxProduct ? maxProduct : rawId;
+      }
+    }
+
   } // End of class Controller
 
   //
@@ -2566,40 +2626,6 @@ namespace ds2xdriver
       new_review_summary_in = new_review_text_in = string.Empty;
 
       //Console.WriteLine("user {0} created, target_store: {1}", userid, target_store);
-    }
-
-    //
-    //-------------------------------------------------------------------------------------------------
-    //
-    public int GetSkewedProductId(int maxProduct)
-    {
-      int popularInterval = 10000;
-      int weightBoost = 9;
-
-      if (maxProduct < popularInterval)
-      {
-        popularInterval = 1000;
-      }
-
-      int popularCount = maxProduct / popularInterval;
-
-      long totalWeight = (long)maxProduct + ((long)popularCount * weightBoost);
-
-      long roll = (long)(Random.Shared.NextDouble() * totalWeight);
-
-      long blockSize = popularInterval + weightBoost; // 10,009
-      long blockCount = roll / blockSize;
-      long offsetInBlock = roll % blockSize;
-
-      if (offsetInBlock >= popularInterval)
-      {
-        return (int)(blockCount + 1) * popularInterval;
-      }
-      else
-      {
-        int rawId = (int)(blockCount * popularInterval + offsetInBlock) + 1;
-        return rawId > maxProduct ? maxProduct : rawId;
-      }
     }
 
     //
@@ -3036,15 +3062,15 @@ namespace ds2xdriver
               case 0:  // Get Reviews with no order
                 get_review_type_in = "noorder";
                 // assign get_review_prod_in to be a random product id number
-                get_review_prod_in = GetSkewedProductId(Controller.max_product[target_store]);
+                get_review_prod_in = Controller.GetSkewedProductId(Controller.max_product[target_store]);
                 break;
               case 1:  // Get Reviews by Star ranking
                 get_review_type_in = "star";
-                get_review_prod_in = GetSkewedProductId(Controller.max_product[target_store]);
+                get_review_prod_in = Controller.GetSkewedProductId(Controller.max_product[target_store]);
                 break;
               case 2:  // Get Reviews by date
                 get_review_type_in = "date";
-                get_review_prod_in = GetSkewedProductId(Controller.max_product[target_store]);
+                get_review_prod_in = Controller.GetSkewedProductId(Controller.max_product[target_store]);
                 break;
             }
             failures = 0;
@@ -3152,7 +3178,7 @@ namespace ds2xdriver
         // For each cart item randomly select product_id using weighted random Id
         for (i = 0; i < cart_items; i++)
         {
-          prod_id_in[i] = GetSkewedProductId(Controller.max_product[target_store]);
+          prod_id_in[i] = Controller.GetSkewedProductId(Controller.max_product[target_store]);
           qty_in[i] = Random.Shared.Next(1, 4);  // qty (1, 2 or 3)
                                                  //        Console.WriteLine("Thread {0}: Purchase prod_id_in[{1}] = {2}  qty_in[{1}]= {3}",
                                                  //          Thread.CurrentThread.Name, i, prod_id_in[i], qty_in[i]);

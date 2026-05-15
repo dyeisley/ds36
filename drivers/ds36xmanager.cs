@@ -100,33 +100,6 @@ namespace ds2xdriver
     //
     //-------------------------------------------------------------------------------------------------
     //
-    public int GetSkewedProductId(int maxProduct)
-    {
-      int popularInterval = 10000;
-      int weightBoost = 9;
-
-      int popularCount = maxProduct / popularInterval;
-      long totalWeight = (long)maxProduct + ((long)popularCount * weightBoost);
-      long roll = (long)(Random.Shared.NextDouble() * totalWeight);
-
-      long blockSize = popularInterval + weightBoost;
-      long blockCount = roll / blockSize;
-      long offsetInBlock = roll % blockSize;
-
-      if (offsetInBlock >= popularInterval)
-      {
-        return (int)(blockCount + 1) * popularInterval;
-      }
-      else
-      {
-        int rawId = (int)(blockCount * popularInterval + offsetInBlock) + 1;
-        return rawId > maxProduct ? maxProduct : rawId;
-      }
-    }
-
-    //
-    //-------------------------------------------------------------------------------------------------
-    //
     public void RunManager()
     {
       Thread.CurrentThread.Name = "Manager" + ManagerId;
@@ -142,12 +115,13 @@ namespace ds2xdriver
         return;
       }
       Console.WriteLine("Thread {0}: connected to {1}", Thread.CurrentThread.Name, Controller.target_servers[target_server_id]);
+      ++Controller.n_managers_connected;
 
       // Wait for Controller to signal start
       while (!Controller.Start)
         Thread.Sleep(100);
 
-      Console.WriteLine("Thread {0}: Manager thread started", Thread.CurrentThread.Name);
+      // Console.WriteLine("Thread {0}: Manager thread started", Thread.CurrentThread.Name);
 
       // Manager loop: run until Controller signals End
       while (!Controller.End)
@@ -219,7 +193,7 @@ namespace ds2xdriver
 
               for (int i = 0; i < batch_size; i++)
               {
-                int prod_id = GetSkewedProductId(Controller.max_product[target_store]);
+                int prod_id = Controller.GetSkewedProductId(Controller.max_product[target_store]);
                 int deleted_review_id = ds2interface.ds36removereviewbyproduct(prod_id, ref rt);
                 rt_remove_review_by_product += rt;  // INSIDE loop - accumulate response times
                 if (deleted_review_id > 0)
@@ -271,7 +245,7 @@ namespace ds2xdriver
               n_adjust_prices++;
               for (int i = 0; i < batch_size; i++)
               {
-                int prod_id = GetSkewedProductId(Controller.max_product[target_store]);
+                int prod_id = Controller.GetSkewedProductId(Controller.max_product[target_store]);
                 rows_affected = ds2interface.ds36adjustprices(prod_id, ref rt);
                 rt_adjust_prices += rt;
                 n_products_price_changed += rows_affected;
@@ -289,7 +263,7 @@ namespace ds2xdriver
 
             for (int i = 0; i < batch_size; i++)
             {
-              int prod_id = GetSkewedProductId(Controller.max_product[target_store]);
+              int prod_id = Controller.GetSkewedProductId(Controller.max_product[target_store]);
               rows_affected = ds2interface.ds36markspecials(prod_id, ref rt);
               rt_mark_specials += rt;  // INSIDE loop - accumulate response times
               n_products_special_changed += rows_affected;  // INSIDE loop - count products actually changed
