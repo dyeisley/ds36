@@ -744,6 +744,82 @@ GROUP BY r.PROD_ID, p.TITLE
 ORDER BY MAX(r.DATE_REORDERED) DESC, r.PROD_ID
 LIMIT 10;
 
+-- =======================================================================
+-- MERGE/UPSERT OPERATION VALIDATION (NEW_REVIEW_HELPFULNESS)
+-- =======================================================================
+SELECT '--- MERGE/UPSERT VALIDATION (NEW_REVIEW_HELPFULNESS) ---';
+SELECT 'Verifying: No duplicate (REVIEW_ID, CUSTOMERID) combinations exist';
+SELECT '';
+
+-- Check for duplicates (should return 0 rows after MERGE conversion)
+SELECT 'Checking for duplicate helpfulness ratings:';
+SET @duplicate_count = (
+    SELECT COUNT(*)
+    FROM (
+        SELECT REVIEW_ID, CUSTOMERID, COUNT(*) as rating_count
+        FROM REVIEWS_HELPFULNESS{store_number}
+        GROUP BY REVIEW_ID, CUSTOMERID
+        HAVING COUNT(*) > 1
+    ) AS duplicates
+);
+
+SELECT CASE
+    WHEN @duplicate_count = 0 THEN 'SUCCESS: No duplicate ratings found'
+    ELSE CONCAT('FAILURE: Found ', @duplicate_count, ' duplicate rating combinations!')
+END AS DuplicateCheck;
+
+SELECT '';
+SELECT 'MERGE Operation Statistics (from MERGE_AUDIT table):';
+
+SET @insert_count = (SELECT COUNT(*) FROM MERGE_AUDIT{store_number} WHERE OPERATION = 'INSERT');
+SET @update_count = (SELECT COUNT(*) FROM MERGE_AUDIT{store_number} WHERE OPERATION = 'UPDATE');
+SET @total_ops = @insert_count + @update_count;
+
+SELECT CONCAT('Total MERGE Operations:  ', @total_ops);
+SELECT CONCAT('  INSERTs (new ratings): ', @insert_count,
+              ' (', ROUND(100.0 * @insert_count / NULLIF(@total_ops, 0), 1), '%)');
+SELECT CONCAT('  UPDATEs (re-ratings):  ', @update_count,
+              ' (', ROUND(100.0 * @update_count / NULLIF(@total_ops, 0), 1), '%)');
+
+SELECT '';
+SELECT CASE
+    WHEN @total_ops = 0 THEN 'INFO: No MERGE operations recorded (test may not have executed NEW_REVIEW_HELPFULNESS)'
+    WHEN @update_count = 0 THEN 'INFO: All operations were INSERTs (expected for large databases - low collision probability)'
+    WHEN @update_count > 0 THEN CONCAT('SUCCESS: MERGE UPDATE path validated (', @update_count, ' customers re-rated reviews)')
+    ELSE ''
+END AS MergeStatus;
+
+SELECT '';
+SELECT 'Sample MERGE Operations (5 INSERTs, 5 UPDATEs):';
+
+SELECT '--- Recent INSERT Operations ---';
+SELECT
+    LPAD(AUDIT_ID, 10) AS AUDIT_ID,
+    LPAD(REVIEW_HELPFULNESS_ID, 20) AS HELPFULNESS_ID,
+    LPAD(REVIEW_ID, 12) AS REVIEW_ID,
+    LPAD(CUSTOMERID, 14) AS CUSTOMERID,
+    LPAD(NEW_HELPFULNESS, 11) AS HELPFULNESS,
+    AUDIT_TIMESTAMP
+FROM MERGE_AUDIT{store_number}
+WHERE OPERATION = 'INSERT'
+ORDER BY AUDIT_ID DESC
+LIMIT 5;
+
+SELECT '--- Recent UPDATE Operations ---';
+SELECT
+    LPAD(AUDIT_ID, 10) AS AUDIT_ID,
+    LPAD(REVIEW_HELPFULNESS_ID, 20) AS HELPFULNESS_ID,
+    LPAD(REVIEW_ID, 12) AS REVIEW_ID,
+    LPAD(CUSTOMERID, 14) AS CUSTOMERID,
+    LPAD(OLD_HELPFULNESS, 5) AS OLD,
+    LPAD(NEW_HELPFULNESS, 5) AS NEW,
+    AUDIT_TIMESTAMP
+FROM MERGE_AUDIT{store_number}
+WHERE OPERATION = 'UPDATE'
+ORDER BY AUDIT_ID DESC
+LIMIT 5;
+
+SELECT '';
 SELECT '========================================================================';
 SELECT 'Post-Test Validation Complete';
 SELECT 'Compare these results with validate_before.sql to verify:';

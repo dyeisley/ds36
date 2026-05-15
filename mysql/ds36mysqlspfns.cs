@@ -757,6 +757,17 @@ namespace ds2xdriver
       }
       catch (MySqlException e)
       {
+        // Error 1452: FK violation (review was deleted by manager between browse and rating)
+        if (e.Number == 1452)
+        {
+          Console.WriteLine("Thread {0}: Review {1} no longer exists (deleted by manager), skipping helpfulness rating",
+            Thread.CurrentThread.Name, reviewid_in);
+          reviewhelpfulnessid_out = 0;
+          return true;  // Return success to avoid retries
+        }
+
+        // Error 1213: Deadlock - return false to trigger retry
+        // All other errors - log and return false
         Console.WriteLine("Thread {0}: MySql Error {1} in New_Helpfulness: {2}",
           Thread.CurrentThread.Name, e.Number, e.Message);
         return false;

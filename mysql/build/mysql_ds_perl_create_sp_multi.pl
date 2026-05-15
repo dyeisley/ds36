@@ -176,7 +176,8 @@ BEGIN
       customerid_in,
       review_helpfulness_in
       )
-      ;
+      ON DUPLICATE KEY UPDATE
+        HELPFULNESS = review_helpfulness_in;
     COMMIT;
     select last_insert_id() into review_helpfulness_id_out;
 END; $$
