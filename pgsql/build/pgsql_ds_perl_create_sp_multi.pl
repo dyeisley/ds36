@@ -443,6 +443,8 @@ CREATE OR REPLACE FUNCTION new_review_helpfulness$k
         customerid_in,
         review_helpfulness_in
         )
+        ON CONFLICT (REVIEW_ID, CUSTOMERID) DO UPDATE
+          SET HELPFULNESS = review_helpfulness_in
                 RETURNING REVIEW_HELPFULNESS_ID INTO review_helpfulness_id_out;
       RETURN review_helpfulness_id_out;
           COMMIT;

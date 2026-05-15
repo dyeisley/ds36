@@ -958,6 +958,107 @@ DO $$
 BEGIN
     RAISE NOTICE '';
     RAISE NOTICE '========================================================================';
+    RAISE NOTICE '';
+    RAISE NOTICE '--- MERGE/UPSERT VALIDATION (NEW_REVIEW_HELPFULNESS) ---';
+    RAISE NOTICE 'Verifying: No duplicate (REVIEW_ID, CUSTOMERID) combinations exist';
+    RAISE NOTICE '';
+END $$;
+
+-- Check for duplicates (should return 0 rows after MERGE conversion)
+DO $$
+DECLARE
+    duplicate_count INTEGER;
+    insert_count INTEGER;
+    update_count INTEGER;
+    total_ops INTEGER;
+    insert_pct NUMERIC;
+    update_pct NUMERIC;
+BEGIN
+    RAISE NOTICE 'Checking for duplicate helpfulness ratings:';
+
+    SELECT COUNT(*) INTO duplicate_count
+    FROM (
+        SELECT REVIEW_ID, CUSTOMERID, COUNT(*) as rating_count
+        FROM REVIEWS_HELPFULNESS{store_number}
+        GROUP BY REVIEW_ID, CUSTOMERID
+        HAVING COUNT(*) > 1
+    ) AS duplicates;
+
+    IF duplicate_count = 0 THEN
+        RAISE NOTICE 'SUCCESS: No duplicate ratings found';
+    ELSE
+        RAISE NOTICE 'FAILURE: Found % duplicate rating combinations!', duplicate_count;
+    END IF;
+
+    RAISE NOTICE '';
+    RAISE NOTICE 'MERGE Operation Statistics (from MERGE_AUDIT table):';
+
+    SELECT COUNT(*) INTO insert_count FROM MERGE_AUDIT{store_number} WHERE OPERATION = 'INSERT';
+    SELECT COUNT(*) INTO update_count FROM MERGE_AUDIT{store_number} WHERE OPERATION = 'UPDATE';
+    total_ops := insert_count + update_count;
+
+    IF total_ops > 0 THEN
+        insert_pct := ROUND(100.0 * insert_count / total_ops, 1);
+        update_pct := ROUND(100.0 * update_count / total_ops, 1);
+    ELSE
+        insert_pct := 0;
+        update_pct := 0;
+    END IF;
+
+    RAISE NOTICE 'Total MERGE Operations:  %', total_ops;
+    RAISE NOTICE '  INSERTs (new ratings): % (%%%)', insert_count, insert_pct;
+    RAISE NOTICE '  UPDATEs (re-ratings):  % (%%%)', update_count, update_pct;
+
+    RAISE NOTICE '';
+    IF total_ops = 0 THEN
+        RAISE NOTICE 'INFO: No MERGE operations recorded (test may not have executed NEW_REVIEW_HELPFULNESS)';
+    ELSIF update_count = 0 THEN
+        RAISE NOTICE 'INFO: All operations were INSERTs (expected for large databases - low collision probability)';
+    ELSE
+        RAISE NOTICE 'SUCCESS: MERGE UPDATE path validated (% customers re-rated reviews)', update_count;
+    END IF;
+
+    RAISE NOTICE '';
+    RAISE NOTICE 'Sample MERGE Operations (5 INSERTs, 5 UPDATEs):';
+    RAISE NOTICE '';
+    RAISE NOTICE '--- Recent INSERT Operations ---';
+END $$;
+
+SELECT
+    LPAD(AUDIT_ID::TEXT, 10) AS AUDIT_ID,
+    LPAD(REVIEW_HELPFULNESS_ID::TEXT, 20) AS HELPFULNESS_ID,
+    LPAD(REVIEW_ID::TEXT, 12) AS REVIEW_ID,
+    LPAD(CUSTOMERID::TEXT, 14) AS CUSTOMERID,
+    LPAD(NEW_HELPFULNESS::TEXT, 11) AS HELPFULNESS,
+    AUDIT_TIMESTAMP
+FROM MERGE_AUDIT{store_number}
+WHERE OPERATION = 'INSERT'
+ORDER BY AUDIT_ID DESC
+LIMIT 5;
+
+DO $$
+BEGIN
+    RAISE NOTICE '';
+    RAISE NOTICE '--- Recent UPDATE Operations ---';
+END $$;
+
+SELECT
+    LPAD(AUDIT_ID::TEXT, 10) AS AUDIT_ID,
+    LPAD(REVIEW_HELPFULNESS_ID::TEXT, 20) AS HELPFULNESS_ID,
+    LPAD(REVIEW_ID::TEXT, 12) AS REVIEW_ID,
+    LPAD(CUSTOMERID::TEXT, 14) AS CUSTOMERID,
+    LPAD(OLD_HELPFULNESS::TEXT, 5) AS OLD,
+    LPAD(NEW_HELPFULNESS::TEXT, 5) AS NEW,
+    AUDIT_TIMESTAMP
+FROM MERGE_AUDIT{store_number}
+WHERE OPERATION = 'UPDATE'
+ORDER BY AUDIT_ID DESC
+LIMIT 5;
+
+DO $$
+BEGIN
+    RAISE NOTICE '';
+    RAISE NOTICE '========================================================================';
     RAISE NOTICE 'Post-Test Validation Complete';
     RAISE NOTICE 'Compare these results with validate_before.sql to verify:';
     RAISE NOTICE '  1. GetSkewedProductId: Popular products (ID %% {popular_modulo}) have highest sales';

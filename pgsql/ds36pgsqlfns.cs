@@ -745,6 +745,17 @@ namespace ds2xdriver
       }
       catch (PostgresException e)
       {
+        // SqlState 23503: FK violation (review was deleted by manager between browse and rating)
+        if (e.SqlState == "23503")
+        {
+          Console.WriteLine("Thread {0}: Review {1} no longer exists (deleted by manager), skipping helpfulness rating",
+            Thread.CurrentThread.Name, reviewid_in);
+          reviewhelpfulnessid_out = 0;
+          return true;  // Return success to avoid retries
+        }
+
+        // SqlState 40P01: Deadlock - return false to trigger retry
+        // All other errors - log and return false
         Console.WriteLine("Thread {0}: postgreSQL error in New_Review_Helpfulness.ExecuteScalar(): {1}",
           Thread.CurrentThread.Name, e.Message);
         return false;
