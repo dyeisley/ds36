@@ -34,11 +34,11 @@
 
 #include "ds_reviews_data.h"
 
-int    review_id, prod_id, stars_num, cust_id, reviews_tot_num, n_customers, n_reviews_per_prod;
+int    review_id, prod_id, stars_num, cust_id, reviews_tot_num, n_customers, n_reviews_per_prod, helpfulness_cust_id;
 int    i, j, k, i_year, i_month, i_day_of_month;
 int    review_helpfulness_id, helpfulness_rating, num_helpfulness_reviews;
 int    i_review_length, cur_review_length;
-char   review_summary[150], review_text[2000], review_date[10];
+char   review_summary[150], review_text[2000], review_date[11];
 
 int    i_days_in_month[] = {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
 
@@ -123,17 +123,38 @@ int main(int argc, char* argv[])
 
     // Create a random number of review helpfulness ratings for each created review
     num_helpfulness_reviews = random2(3,40);
+    int used_customers[40];  // Track customers who rated this review
+    int num_used = 0;
+
     for (k = 1; k < num_helpfulness_reviews; k++)
       {
       review_helpfulness_id = review_helpfulness_id + 1;
       helpfulness_rating = random2(1,10);
+
+      // Pick a customer that hasn't rated this review yet
+      int found_unique = 0;
+      int m;
+      while (!found_unique) {
+        helpfulness_cust_id = random2(1, n_customers);
+
+        // Check if this customer already rated this review
+        found_unique = 1;
+        for (m = 0; m < num_used; m++) {
+          if (used_customers[m] == helpfulness_cust_id) {
+            found_unique = 0;
+            break;
+          }
+        }
+      }
+      used_customers[num_used++] = helpfulness_cust_id;
+
       if(i_Sys_Type == 0)   //If System is Linux, Append LF only
         {
-        fprintf(FP_review_helpfulness, "%d,%d,%d,%d%c", review_helpfulness_id, review_id, cust_id, helpfulness_rating, 10);
+        fprintf(FP_review_helpfulness, "%d,%d,%d,%d%c", review_helpfulness_id, review_id, helpfulness_cust_id, helpfulness_rating, 10);
         }
-        else if(i_Sys_Type == 1) //If System is Windows, Append CR+LF
+      else if(i_Sys_Type == 1) //If System is Windows, Append CR+LF
         {
-        fprintf(FP_review_helpfulness, "%d,%d,%d,%d%c%c", review_helpfulness_id, review_id, cust_id, helpfulness_rating, 13, 10);
+        fprintf(FP_review_helpfulness, "%d,%d,%d,%d%c%c", review_helpfulness_id, review_id, helpfulness_cust_id, helpfulness_rating, 13, 10);
         }
       }
     }
