@@ -269,6 +269,52 @@ perl mysql_ds_perl_validate_multi.pl localhost 3 before
 - All 4 database schema creation scripts (sqlserver, mysql, pgsql, oracle)
 - Trigger creation scripts: `mysql/build/mysql_ds_perl_create_trigger_multi.pl`, `pgsql/build/pgsql_ds_perl_create_triggers.pl`
 
+### Added - Data Generation Improvements
+
+**Linear Database Scaling** (`Install_DVDStore.pl`):
+- Replaced tiered S/M/L formulas with linear scaling from 4 GB baseline
+- **Old approach**: Discrete tiers with different baseline formulas
+  - Small (< 1 GB): 10 MB baseline, scaled by (size / 10)
+  - Medium (= 1 GB): 1 GB baseline, no scaling
+  - Large (> 1 GB): 100 GB baseline, scaled by (size / 100)
+- **Problem**: Small tier broken - 33× overshoot (256 MB → 8.3 GB actual)
+  - Root cause: 10,000 products multiplier created 256,000 products at 256 MB target
+  - Each product gets 20 reviews → 5.1M reviews → 8.1 GB of review data alone
+  - Review explosion consumed 98% of total space, completely unbalanced
+- **New approach**: Continuous linear scaling based on target size
+- **Per-GB ratios**:
+  - 12,000 products per GB
+  - 2,400,000 customers per GB (200:1 ratio to products)
+  - 120,000 orders per GB (10:1 ratio to products)
+  - 20 reviews per product (generated separately)
+- **Example at 4 GB**:
+  - 48,000 products
+  - 9,600,000 customers
+  - 480,000 orders
+  - 960,000 reviews
+- **Scaling formula**: `entity_count = count_per_GB * size_in_GB`
+- **Benefits**:
+  - Smooth scaling at any size (no tier boundaries)
+  - Predictable relationship between database size and entity counts
+  - Easier to generate specific target sizes for testing
+
+**Dynamic Popular Products Modulo**:
+- Adjusts popular product interval for small databases
+- **Formula**: `popular_modulo = (products < 10000) ? 1000 : 10000`
+- **Examples**:
+  - 5,000 products → modulo 1,000 (5 popular products)
+  - 12,000 products → modulo 10,000 (1 popular product, ID 10000 if it exists)
+  - 500,000 products → modulo 10,000 (50 popular products)
+- **Benefits**:
+  - Avoids hardcoded 10,000 modulo that breaks for small databases (<10K products)
+  - Ensures at least a few popular products for databases with 1,000-9,999 products
+  - Maintains skewed product distribution for realistic workload simulation
+- **GetSkewedProductId()**: Manager and customer threads use same logic for consistent behavior
+
+**Files Modified**:
+- `Install_DVDStore.pl` - Linear scaling formulas and popular_modulo calculation
+- `drivers/ds36xmanager.cs` - GetSkewedProductId() implementation
+
 ### Changed
 
 **Membership Distribution**:
@@ -360,6 +406,91 @@ All manager operations implemented for all 4 database platforms:
 - `mysql/validate/validate_post_test.sql`
 - `pgsql/validate/validate_post_test.sql`
 - `oracle/validate/validate_post_test.sql`
+
+### Added - MERGE/UPSERT Support for Review Helpfulness Ratings
+
+**NEW_REVIEW_HELPFULNESS Conversion**:
+- Converted from plain INSERT to MERGE/UPSERT to prevent duplicate helpfulness ratings
+- Handles race condition: customer re-rates the same review (UPDATE existing rating instead of failing)
+- Database-specific MERGE syntax:
+  - **SQL Server**: `MERGE INTO ... USING ... ON ... WHEN MATCHED ... WHEN NOT MATCHED`
+  - **MySQL**: `INSERT ... ON DUPLICATE KEY UPDATE`
+  - **PostgreSQL**: `INSERT ... ON CONFLICT (REVIEW_ID, CUSTOMERID) DO UPDATE`
+  - **Oracle**: `MERGE INTO ... USING ... ON ... WHEN MATCHED ... WHEN NOT MATCHED`
+
+**MERGE Audit Tracking**:
+- Added `MERGE_AUDIT` table to track INSERT vs UPDATE operations
+- Trigger-based tracking (fires on INSERT/UPDATE to REVIEWS_HELPFULNESS):
+  - **SQL Server**: Single trigger using `inserted`/`deleted` pseudo-tables
+  - **MySQL**: Two triggers (AFTER INSERT, AFTER UPDATE)
+  - **PostgreSQL**: Trigger function with TG_OP detection
+  - **Oracle**: Single trigger using `:NEW`/`:OLD` pseudo-records
+- Tracks: operation type, review_id, customerid, old/new helpfulness values, timestamp
+- Enables validation of both MERGE code paths (INSERT for new, UPDATE for existing)
+
+**Validation SQL Enhancements**:
+- Duplicate detection query (should return 0 rows after MERGE conversion)
+- MERGE operation statistics from MERGE_AUDIT table:
+  - Total operations count
+  - INSERT vs UPDATE breakdown with percentages
+  - Sample operations (5 INSERTs, 5 UPDATEs)
+- INFO messages:
+  - Expected behavior: low UPDATE percentage in large databases (collision probability)
+  - All INSERTs is normal, not a failure condition
+
+**New Database Feature Coverage**:
+- **MERGE/UPSERT operations**: Previously untested in DVD Store benchmark
+  - Tests database-specific MERGE syntax across all 4 platforms
+  - Validates atomic insert-or-update semantics (single operation, no race between check-and-insert)
+  - Exercises unique constraint enforcement with graceful handling (UPDATE instead of error)
+  - Real-world workload pattern: Applications use MERGE for user preferences, shopping carts, inventory, sessions, cache
+- **Audit logging for validation**: MERGE_AUDIT triggers enable verification
+  - Confirms both MERGE code paths execute correctly (INSERT for new, UPDATE for existing)
+  - Captures operation history with timestamps and old/new values
+  - Tests triggers firing from MERGE operations (existing triggers only fired from plain INSERT/UPDATE)
+  - Tests operation type detection within triggers (SQL Server: check `deleted` table, PostgreSQL: `TG_OP`, Oracle: check `:OLD`)
+
+**Foreign Key Violation Handling**:
+- Added FK constraint violation handling for manager/customer race condition
+- **Race condition scenario**:
+  1. Customer browses reviews, captures review_id
+  2. Manager deletes review (RemoveReviewsByDate, RemoveUnhelpfulReviews, etc.)
+  3. Customer attempts to rate deleted review
+  4. FK constraint violation occurs
+- **Solution**: Catch FK violation, log message, return success (skip rating gracefully)
+- Database-specific error codes:
+  - **SQL Server**: Error 547
+  - **MySQL**: Error 1452
+  - **PostgreSQL**: SqlState 23503
+  - **Oracle**: Error 2291 (ORA-02291)
+- Prevents retry loops on non-recoverable errors
+
+**Data Generator Bug Fix**:
+- Fixed duplicate customer bug in `ds3_create_reviews.c`
+- Problem: Random customer selection could pick same customer multiple times for same review
+- Solution: Track used customers in array, enforce uniqueness
+- Also fixed:
+  - Buffer overflow: `review_date[10]` → `review_date[11]` (accommodate "YYYY/MM/DD\0")
+  - Indentation alignment between if/else if statements
+
+**Files Modified**:
+- `sqlserver/build/sqlserver_ds_perl_create_sp_multi.pl` - MERGE procedure
+- `sqlserver/build/sqlserver_ds_perl_create_db_tables_multi.pl` - MERGE_AUDIT table + trigger
+- `sqlserver/validate/validate_post_test.sql` - MERGE validation queries
+- `sqlserver/ds36sqlserverfns.cs` - FK violation handling (error 547)
+- `mysql/build/mysql_ds_perl_create_sp_multi.pl` - ON DUPLICATE KEY UPDATE
+- `mysql/build/mysql_ds_perl_create_db_tables_multi.pl` - MERGE_AUDIT table + triggers
+- `mysql/validate/validate_post_test.sql` - MERGE validation queries
+- `mysql/ds36mysqlspfns.cs` - FK violation handling (error 1452)
+- `pgsql/build/pgsql_ds_perl_create_sp_multi.pl` - ON CONFLICT DO UPDATE
+- `pgsql/build/pgsql_ds_perl_create_db_tables_multi.pl` - MERGE_AUDIT table + trigger function
+- `pgsql/validate/validate_post_test.sql` - MERGE validation queries
+- `pgsql/ds36pgsqlfns.cs` - FK violation handling (SqlState 23503)
+- `oracle/build/oracle_ds_perl_create_sp_multi.pl` - MERGE procedure
+- `oracle/build/oracle_ds_perl_create_db_tables_multi.pl` - MERGE_AUDIT table + trigger + sequence
+- `oracle/validate/validate_post_test.sql` - MERGE validation queries
+- `oracle/ds36oraclefns.cs` - FK violation handling (error 2291)
+- `data_files/reviews/ds3_create_reviews.c` - Duplicate customer fix
 
 ### Testing
 

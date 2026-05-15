@@ -35,6 +35,7 @@ sqlserver/sqlserver_ds_create_all_concurrent_[0-9]*.bat
 # Data files
 data_files/
 *.csv
+.dvdstore_metadata
 
 # Backup files
 *.bak

@@ -1,13 +1,15 @@
-Welcome to DVD Store 3.6 dyeisley fork - This is currently a development version and has been made public to allow for
+Welcome to the **DVD Store 3.6** *dyeisley fork* - This is currently a development version and has been made public to allow for
 collaboration and forward progress without impacting the previous version 3.5.  
 
-This version has not been fully tested, but does have some improvements over 3.5. 
+*All testing has been done on Linux only.* 
 
-All testing has been done on Linux only. The web driver (drivers/ds36webfns.cs) and PHP code have not been modified.  
+The web driver (drivers/ds36webfns.cs) and PHP code have not been modified.  
 
 ## What's New in 3.6
 
 - **Manager Thread System**: Background thread with 10 administrative operations (AddProduct, RemoveReviews, AdjustPrices, BulkPriceAdjustment, MarkSpecials, ExpireMemberships, PurgeOldOrders, UpgradeMembership)
+- **MERGE/UPSERT Support**: NEW_REVIEW_HELPFULNESS converted to MERGE/UPSERT with audit tracking - prevents duplicate ratings, handles race conditions, and adds database feature coverage (MERGE operations and trigger behavior testing)
+- **Data Generation Improvements**: Linear database scaling (200:10:1 ratio from 4 GB baseline), dynamic popular products modulo for small databases
 - **C# Code Modernization**: Cross-platform compatibility (Stopwatch), resource management (using statements), command pre-compilation, 20%+ code reduction
 - **Parameter Parsing Rewrite**: Dictionary-based lookup, type-safe validators, centralized configuration
 - **Code Formatting**: Applied dotnet format linter for consistent styling across all projects
