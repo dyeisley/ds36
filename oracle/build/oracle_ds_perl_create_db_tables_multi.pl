@@ -138,7 +138,8 @@ CREATE TABLE \"DS3\".\"REVIEWS$k\"
   \"STARS\" NUMBER NOT NULL,
   \"CUSTOMERID\" NUMBER NOT NULL,
   \"REVIEW_SUMMARY\" VARCHAR2(50 byte) NOT NULL,
-  \"REVIEW_TEXT\" VARCHAR2(1000 byte) NOT NULL
+  \"REVIEW_TEXT\" VARCHAR2(1000 byte) NOT NULL,
+  \"TOTAL_HELPFULNESS\" NUMBER DEFAULT 0
   )
   PCTFREE 10
   ;
@@ -152,6 +153,19 @@ CREATE TABLE \"DS3\".\"REVIEWS_HELPFULNESS$k\"
   )
   ;
 
+CREATE TABLE \"DS3\".\"MERGE_AUDIT$k\"
+  (
+  \"AUDIT_ID\" NUMBER NOT NULL,
+  \"TABLE_NAME\" VARCHAR2(50) NOT NULL,
+  \"OPERATION\" VARCHAR2(10) NOT NULL,
+  \"REVIEW_HELPFULNESS_ID\" NUMBER NULL,
+  \"REVIEW_ID\" NUMBER NULL,
+  \"CUSTOMERID\" NUMBER NULL,
+  \"OLD_HELPFULNESS\" NUMBER NULL,
+  \"NEW_HELPFULNESS\" NUMBER NULL,
+  \"AUDIT_TIMESTAMP\" TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  )
+  ;
 
 CREATE TABLE \"DS3\".\"INVENTORY$k\"
   (
@@ -199,30 +213,6 @@ CREATE TABLE \"DS3\".\"REORDER$k\"
   )  
   ;
 
-
--- Sequences
-
-CREATE SEQUENCE \"DS3\".\"CUSTOMERID_SEQ$k\" 
-  INCREMENT BY 1 
-  START WITH 20000001
-  MAXVALUE 1.0E28 
-  MINVALUE 1 
-  NOCYCLE 
-  CACHE 1000000			--Check whether change also required for this parameter according to database size (might impact performance)
-  NOORDER
-  ;
-
-CREATE SEQUENCE \"DS3\".\"ORDERID_SEQ$k\" 
-  INCREMENT BY 1 
-  START WITH 20000001 
-  MAXVALUE 1.0E28 
-  MINVALUE 1 
-  NOCYCLE 
-  CACHE 1000000        --Check whether change also required for this parameter according to database size (might impact performance)
-  NOORDER
-  ;
-
-  
   exit;
   \n";
   close $OUT;

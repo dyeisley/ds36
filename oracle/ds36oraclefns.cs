@@ -826,9 +826,20 @@ namespace ds2xdriver
       }
       catch (OracleException e)
       {
+        // ORA-02291: FK violation (review was deleted by manager between browse and rating)
+        if (e.Number == 2291)
+        {
+          Console.WriteLine("Thread {0}: Review {1} no longer exists (deleted by manager), skipping helpfulness rating",
+            Thread.CurrentThread.Name, reviewid_in);
+          reviewhelpfulnessid_out = 0;
+          return true;  // Return success to avoid retries
+        }
+
+        // ORA-00060: Deadlock - return false to trigger retry
+        // All other errors - log and return false
         Console.WriteLine("Thread {0}: Oracle Error in New_Review_Helpfulness.ExecuteNonQuery(): {1}",
           Thread.CurrentThread.Name, e.Message);
-        return (false);
+        return false;
       }
       catch (System.Exception e)
       {

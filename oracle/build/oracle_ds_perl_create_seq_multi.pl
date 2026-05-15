@@ -35,12 +35,44 @@ else
 
 foreach my $k (1 .. $numberofstores){
 	open (my $OUT, ">$oracletargetdir${pathsep}oracle_ds_createseq$k.sql") || die("Can't open oracle_ds_createseq$k.sql");
-	print $OUT "DECLARE 
+	print $OUT "DECLARE
+  CUST_ROWS$k NUMBER;
+  ORD_ROWS$k NUMBER;
   REVIEW_ROWS$k NUMBER;
   HELP_ROWS$k NUMBER;
   PROD_ROWS$k NUMBER;
 
 BEGIN
+
+  SELECT count(*) INTO CUST_ROWS$k  from \"DS3\".\"CUSTOMERS$k\";
+
+CUST_ROWS$k := CUST_ROWS$k + 1;
+
+EXECUTE IMMEDIATE '
+CREATE SEQUENCE \"DS3\".\"CUSTOMERID_SEQ$k\"
+  INCREMENT BY 1
+  START WITH ' || CUST_ROWS$k || '
+  MAXVALUE 1.0E28
+  MINVALUE 1
+  NOCYCLE
+  CACHE 1000000
+  NOORDER'
+  ;
+
+  SELECT count(*) INTO ORD_ROWS$k  from \"DS3\".\"ORDERS$k\";
+
+ORD_ROWS$k := ORD_ROWS$k + 1;
+
+EXECUTE IMMEDIATE '
+CREATE SEQUENCE \"DS3\".\"ORDERID_SEQ$k\"
+  INCREMENT BY 1
+  START WITH ' || ORD_ROWS$k || '
+  MAXVALUE 1.0E28
+  MINVALUE 1
+  NOCYCLE
+  CACHE 1000000
+  NOORDER'
+  ;
 
   SELECT count(*) INTO REVIEW_ROWS$k  from \"DS3\".\"REVIEWS$k\";
 
@@ -87,8 +119,34 @@ CREATE SEQUENCE \"DS3\".\"PROD_SEQ$k\"
   NOORDER'
   ;
 
+  EXECUTE IMMEDIATE 'CREATE SEQUENCE \"DS3\".\"MERGE_AUDIT_SEQ$k\" START WITH 1 INCREMENT BY 1';
+
+  EXECUTE IMMEDIATE '
+CREATE OR REPLACE TRIGGER \"DS3\".\"AUDIT_HELPFULNESS_MERGE$k\"
+AFTER INSERT OR UPDATE ON \"DS3\".\"REVIEWS_HELPFULNESS$k\"
+FOR EACH ROW
+DECLARE
+  v_operation VARCHAR2(10);
+  v_old_helpfulness NUMBER;
+BEGIN
+  IF INSERTING THEN
+    v_operation := ''INSERT'';
+    v_old_helpfulness := NULL;
+  ELSIF UPDATING THEN
+    v_operation := ''UPDATE'';
+    v_old_helpfulness := :OLD.HELPFULNESS;
+  END IF;
+
+  INSERT INTO \"DS3\".\"MERGE_AUDIT$k\"
+    (AUDIT_ID, TABLE_NAME, OPERATION, REVIEW_HELPFULNESS_ID, REVIEW_ID, CUSTOMERID, OLD_HELPFULNESS, NEW_HELPFULNESS)
+  VALUES
+    (\"DS3\".\"MERGE_AUDIT_SEQ$k\".NEXTVAL, ''REVIEWS_HELPFULNESS'', v_operation, :NEW.REVIEW_HELPFULNESS_ID, :NEW.REVIEW_ID, :NEW.CUSTOMERID, v_old_helpfulness, :NEW.HELPFULNESS);
+END;'
+  ;
+
 END;
 /
+
 EXIT;
 \n";
 close $OUT;

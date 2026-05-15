@@ -1025,6 +1025,130 @@ SELECT * FROM (
 WHERE ROWNUM <= 10;
 
 DECLARE
+-- =======================================================================
+-- MERGE/UPSERT OPERATION VALIDATION (NEW_REVIEW_HELPFULNESS)
+-- =======================================================================
+BEGIN
+    DBMS_OUTPUT.PUT_LINE('');
+    DBMS_OUTPUT.PUT_LINE('--- MERGE/UPSERT VALIDATION (NEW_REVIEW_HELPFULNESS) ---');
+    DBMS_OUTPUT.PUT_LINE('Verifying: No duplicate (REVIEW_ID, CUSTOMERID) combinations exist');
+    DBMS_OUTPUT.PUT_LINE('');
+END;
+/
+
+-- Check for duplicates (should return 0 rows after MERGE conversion)
+DECLARE
+    duplicate_count NUMBER;
+    insert_count NUMBER;
+    update_count NUMBER;
+    total_ops NUMBER;
+    insert_pct NUMBER;
+    update_pct NUMBER;
+    status_msg VARCHAR2(200);
+BEGIN
+    DBMS_OUTPUT.PUT_LINE('Checking for duplicate helpfulness ratings:');
+
+    SELECT COUNT(*) INTO duplicate_count
+    FROM (
+        SELECT REVIEW_ID, CUSTOMERID, COUNT(*) as rating_count
+        FROM DS3.REVIEWS_HELPFULNESS{store_number}
+        GROUP BY REVIEW_ID, CUSTOMERID
+        HAVING COUNT(*) > 1
+    );
+
+    IF duplicate_count = 0 THEN
+        DBMS_OUTPUT.PUT_LINE('SUCCESS: No duplicate ratings found');
+    ELSE
+        DBMS_OUTPUT.PUT_LINE('FAILURE: Found ' || duplicate_count || ' duplicate rating combinations!');
+    END IF;
+
+    DBMS_OUTPUT.PUT_LINE('');
+    DBMS_OUTPUT.PUT_LINE('MERGE Operation Statistics (from MERGE_AUDIT table):');
+
+    SELECT COUNT(*) INTO insert_count FROM DS3.MERGE_AUDIT{store_number} WHERE OPERATION = 'INSERT';
+    SELECT COUNT(*) INTO update_count FROM DS3.MERGE_AUDIT{store_number} WHERE OPERATION = 'UPDATE';
+    total_ops := insert_count + update_count;
+
+    IF total_ops > 0 THEN
+        insert_pct := ROUND(100.0 * insert_count / total_ops, 1);
+        update_pct := ROUND(100.0 * update_count / total_ops, 1);
+    ELSE
+        insert_pct := 0;
+        update_pct := 0;
+    END IF;
+
+    DBMS_OUTPUT.PUT_LINE('Total MERGE Operations:  ' || total_ops);
+    DBMS_OUTPUT.PUT_LINE('  INSERTs (new ratings): ' || insert_count || ' (' || insert_pct || '%)');
+    DBMS_OUTPUT.PUT_LINE('  UPDATEs (re-ratings):  ' || update_count || ' (' || update_pct || '%)');
+
+    DBMS_OUTPUT.PUT_LINE('');
+    IF total_ops = 0 THEN
+        DBMS_OUTPUT.PUT_LINE('INFO: No MERGE operations recorded (test may not have executed NEW_REVIEW_HELPFULNESS)');
+    ELSIF update_count = 0 THEN
+        DBMS_OUTPUT.PUT_LINE('INFO: All operations were INSERTs (expected for large databases - low collision probability)');
+    ELSE
+        DBMS_OUTPUT.PUT_LINE('SUCCESS: MERGE UPDATE path validated (' || update_count || ' customers re-rated reviews)');
+    END IF;
+
+    DBMS_OUTPUT.PUT_LINE('');
+    DBMS_OUTPUT.PUT_LINE('Sample MERGE Operations (5 INSERTs, 5 UPDATEs):');
+    DBMS_OUTPUT.PUT_LINE('');
+    DBMS_OUTPUT.PUT_LINE('--- Recent INSERT Operations ---');
+END;
+/
+
+COLUMN AUDIT_ID FORMAT A10
+COLUMN HELPFULNESS_ID FORMAT A20
+COLUMN REVIEW_ID FORMAT A12
+COLUMN CUSTOMERID FORMAT A14
+COLUMN HELPFULNESS FORMAT A11
+COLUMN AUDIT_TIMESTAMP FORMAT A19
+
+SELECT
+    LPAD(TO_CHAR(AUDIT_ID), 10) AS AUDIT_ID,
+    LPAD(TO_CHAR(REVIEW_HELPFULNESS_ID), 20) AS HELPFULNESS_ID,
+    LPAD(TO_CHAR(REVIEW_ID), 12) AS REVIEW_ID,
+    LPAD(TO_CHAR(CUSTOMERID), 14) AS CUSTOMERID,
+    LPAD(TO_CHAR(NEW_HELPFULNESS), 11) AS HELPFULNESS,
+    TO_CHAR(AUDIT_TIMESTAMP, 'YYYY-MM-DD HH24:MI:SS') AS AUDIT_TIMESTAMP
+FROM (
+    SELECT *
+    FROM DS3.MERGE_AUDIT{store_number}
+    WHERE OPERATION = 'INSERT'
+    ORDER BY AUDIT_ID DESC
+)
+WHERE ROWNUM <= 5;
+
+BEGIN
+    DBMS_OUTPUT.PUT_LINE('');
+    DBMS_OUTPUT.PUT_LINE('--- Recent UPDATE Operations ---');
+END;
+/
+
+COLUMN AUDIT_ID FORMAT A10
+COLUMN HELPFULNESS_ID FORMAT A20
+COLUMN REVIEW_ID FORMAT A12
+COLUMN CUSTOMERID FORMAT A14
+COLUMN OLD FORMAT A5
+COLUMN NEW FORMAT A5
+COLUMN AUDIT_TIMESTAMP FORMAT A19
+
+SELECT
+    LPAD(TO_CHAR(AUDIT_ID), 10) AS AUDIT_ID,
+    LPAD(TO_CHAR(REVIEW_HELPFULNESS_ID), 20) AS HELPFULNESS_ID,
+    LPAD(TO_CHAR(REVIEW_ID), 12) AS REVIEW_ID,
+    LPAD(TO_CHAR(CUSTOMERID), 14) AS CUSTOMERID,
+    LPAD(TO_CHAR(OLD_HELPFULNESS), 5) AS OLD,
+    LPAD(TO_CHAR(NEW_HELPFULNESS), 5) AS NEW,
+    TO_CHAR(AUDIT_TIMESTAMP, 'YYYY-MM-DD HH24:MI:SS') AS AUDIT_TIMESTAMP
+FROM (
+    SELECT *
+    FROM DS3.MERGE_AUDIT{store_number}
+    WHERE OPERATION = 'UPDATE'
+    ORDER BY AUDIT_ID DESC
+)
+WHERE ROWNUM <= 5;
+
 BEGIN
     DBMS_OUTPUT.PUT_LINE('');
     DBMS_OUTPUT.PUT_LINE('========================================================================');

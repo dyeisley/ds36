@@ -959,23 +959,7 @@ elsif($bln_is_DB_ORACLE == 1) 		#For Oracle
 	print NEWFILE @lines;
 	close (NEWFILE);
 	
-	
-	#Create create db sql script from template
-	@lines = ();
-	$line = "";
-	$str_file_name = "";
-	open (FILE, "oracle_ds_perl_create_db_tables_multi_generic_template.pl") || die "Can not Open file : $!";	
-	@lines =  <FILE>;
-	close (FILE);
-	foreach $line (@lines)
-	{
-		$line =~ s/{CUST_ROW_PLUS_ONE}/$cust_row_plus_one/g;         			
-	}	
-	$str_file_name = "oracle_ds_perl_create_db_tables_multi_".$database_size.$database_size_str.".pl";
-	open (NEWFILE, ">", $str_file_name) || die "Creating new file to write failed : $!";
-	print NEWFILE @lines;
-	close (NEWFILE);
-	
+
 	#TODO : Need to create table space script which will depend on database size since number of database files will vary as DBsize varies
 	#Create create tablespace sql script from template
 	@lines = ();
@@ -1046,8 +1030,6 @@ elsif($bln_is_DB_ORACLE == 1) 		#For Oracle
 	{
 		$str_file_name = "oracle_ds_create_tablespaces_".$database_size.$database_size_str.".sql";
 		$line =~ s/{TBLSPACE_SQLFNAME}/$str_file_name/g;
-		$str_file_name = "oracle_ds_perl_create_db_tables_multi_".$database_size.$database_size_str.".pl";
-		$line =~ s/{CREATEDB_SQLFNAME}/$str_file_name/g;
 		$line =~ s/{POPULAR_MODULO}/$popular_modulo/g;
 	}	
 	$str_file_name = "";
@@ -1072,8 +1054,6 @@ elsif($bln_is_DB_ORACLE == 1) 		#For Oracle
 	{
 		$str_file_name = "oracle_ds_create_tablespaces_".$database_size.$database_size_str.".sql";
 		$line =~ s/{TBLSPACE_SQLFNAME}/$str_file_name/g;
-		$str_file_name = "oracle_ds_perl_create_db_tables_multi".$database_size.$database_size_str.".pl";
-		$line =~ s/{CREATEDB_SQLFNAME}/$str_file_name/g;
 		$line =~ s/{POPULAR_MODULO}/$popular_modulo/g;
 	}
 	$str_file_name = "";

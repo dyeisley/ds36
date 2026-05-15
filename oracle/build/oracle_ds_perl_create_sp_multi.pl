@@ -206,24 +206,29 @@ CREATE OR REPLACE PROCEDURE \"DS3\".\"NEW_REVIEW_HELPFULNESS$k\"
  )
   IS
   rows_returned INTEGER;
+  v_new_id INTEGER;
   BEGIN
+      -- Try MERGE (insert or update if exists)
+      SELECT REVIEWHELPFULNESSID_SEQ$k.NEXTVAL INTO v_new_id FROM DUAL;
 
-      SELECT REVIEWHELPFULNESSID_SEQ$k.NEXTVAL INTO review_helpfulness_id_out FROM DUAL;
-      INSERT INTO REVIEWS_HELPFULNESS$k
-        (
-        REVIEW_HELPFULNESS_ID,
-        REVIEW_ID,
-        CUSTOMERID,
-        HELPFULNESS
-        )
-        VALUES
-        (
-        review_helpfulness_id_out,
-        review_id_in,
-        customerid_in,
-        review_helpfulness_in
-        )
-        ;
+      MERGE INTO REVIEWS_HELPFULNESS$k target
+      USING (SELECT review_id_in AS review_id,
+                    customerid_in AS customerid,
+                    review_helpfulness_in AS helpfulness,
+                    v_new_id AS new_id
+             FROM DUAL) source
+      ON (target.REVIEW_ID = source.review_id AND target.CUSTOMERID = source.customerid)
+      WHEN MATCHED THEN
+        UPDATE SET target.HELPFULNESS = source.helpfulness
+      WHEN NOT MATCHED THEN
+        INSERT (REVIEW_HELPFULNESS_ID, REVIEW_ID, CUSTOMERID, HELPFULNESS)
+        VALUES (source.new_id, source.review_id, source.customerid, source.helpfulness);
+
+      -- Get the ID (either new or existing)
+      SELECT REVIEW_HELPFULNESS_ID INTO review_helpfulness_id_out
+      FROM REVIEWS_HELPFULNESS$k
+      WHERE REVIEW_ID = review_id_in AND CUSTOMERID = customerid_in;
+
       COMMIT;
 END NEW_REVIEW_HELPFULNESS$k;
 /
