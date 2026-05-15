@@ -810,7 +810,7 @@ if($bln_is_DB_MYSQL == 1)			#For MySQL
 	}
 
 	print "\nCompleted creating and writing build scripts for MySQL database... \n";
-	
+	chdir "../";
 }
 elsif($bln_is_DB_PGSQL == 1)			#For PGSQL
 {
@@ -862,7 +862,7 @@ elsif($bln_is_DB_PGSQL == 1)			#For PGSQL
 	}
 
 	print "\nCompleted creating and writing build scripts for PostgreSQL database... \n";
-	
+	chdir "../"
 }
 elsif($bln_is_DB_ORACLE == 1) 		#For Oracle
 {
@@ -1084,6 +1084,7 @@ elsif($bln_is_DB_ORACLE == 1) 		#For Oracle
 	
 	
 	print "\nCompleted creating and writing build scripts for Oracle database!!\n";
+	chdir "../"
 }
 elsif($bln_is_DB_MSSQL == 1) 		#For SQL Server
 {
@@ -1207,10 +1208,22 @@ elsif($bln_is_DB_MSSQL == 1) 		#For SQL Server
 	}
 
 	print "\nCompleted creating and writing build scripts for SQL Server database!!\n";
+	chdir "../";
 }
 
 print "\nAll database build scripts(shell and sql) are dumped into their respective folders. \n";
 print "\nThese scripts are created from template files in same folders with '_generic_template' in their name. \n";
 print "\nScripts that are created from template files have the database size ('$database_size$database_size_str') in their name. \n";
+
+# Save metadata for CreateConfigFile.pl to use as defaults
+open(my $META, ">", ".dvdstore_metadata") || die "Can't write .dvdstore_metadata: $!\n";
+print $META "database_size_mb=$database_size\n";
+print $META "database_size_str=$database_size_str\n";
+print $META "database_type=$database_type\n";
+print $META "products=$i_Prod_Rows\n";
+print $META "customers=$i_Cust_Rows\n";
+print $META "orders=$i_Ord_Rows\n";
+close $META;
+print "\nSaved database metadata to .dvdstore_metadata\n";
 
 print "\nRun 'perl CreateConfigFile.pl' to generate a configuration file to use as input to the driver program.\n"

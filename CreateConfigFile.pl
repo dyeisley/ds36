@@ -52,12 +52,46 @@ my $end_line = "";					#End of line character
 
 print "Please enter following parameters: \n";
 print "***********************************\n";
+
+# Read saved metadata from Install_DVDStore.pl if available
+my $saved_db_size = "4GB";  # Default fallback
+my $saved_db_type = "";
+if (-f ".dvdstore_metadata") {
+	open(my $META, "<", ".dvdstore_metadata");
+	while (<$META>) {
+		chomp;
+		if (/database_size_mb=(\d+)/) {
+			my $size_mb = $1;
+			if (/database_size_str=(\w+)/) {
+				# Will be read on next iteration
+			}
+		}
+		if (/database_size_str=(\w+)/) {
+			my $size_str = $1;
+			# Look back to get size_mb from previous line - need to save it
+		}
+	}
+	close $META;
+	# Re-read to construct full size string
+	open($META, "<", ".dvdstore_metadata");
+	my ($size_mb, $size_str);
+	while (<$META>) {
+		if (/database_size_mb=(\d+)/) { $size_mb = $1; }
+		if (/database_size_str=(\w+)/) { $size_str = $1; }
+		if (/database_type=(\w+)/) { $saved_db_type = $1; }
+	}
+	close $META;
+	if (defined $size_mb && defined $size_str) {
+		$saved_db_size = "$size_mb" . uc($size_str);
+	}
+}
+
 print "Please enter target host(s) (database/web server hostname or IP Address) [$target_host] : ";
 chomp($target_host = <STDIN>);
 $target_host ||= $hostname;
-print "Please enter database size (e.g. Input can be like 30MB, 80GB ,etc) [4GB] : ";
+print "Please enter database size (e.g. Input can be like 30MB, 80GB ,etc) [$saved_db_size] : ";
 chomp($database_size = <STDIN>);
-$database_size ||= "4GB";
+$database_size ||= $saved_db_size;
 print "Please enter target hostname for perfmon CPU% display (windows only) : ";
 chomp($windows_perf_host = <STDIN>);
 print "Please enter <username>:<password>:<IP Address> for linux machines for CPU % display (linux only) : ";
