@@ -218,25 +218,26 @@ GO
 CREATE PROCEDURE NEW_REVIEW_HELPFULNESS$k
   (
   \@review_id_in            INT,
-  \@customerid_in			     INT,
-  \@review_helpfulness_in		 INT
+  \@customerid_in           INT,
+  \@review_helpfulness_in   INT
   )
 
-  AS 
+  AS
 
-  INSERT INTO REVIEWS_HELPFULNESS$k
-      (
-      REVIEW_ID,
-      CUSTOMERID,
-      HELPFULNESS
-      ) 
-    VALUES 
-      ( 
-      \@review_id_in,
-      \@customerid_in,
-      \@review_helpfulness_in
-      )
-    SELECT SCOPE_IDENTITY()
+  DECLARE \@OutputTable TABLE (review_helpfulness_id INT);
+
+  MERGE INTO REVIEWS_HELPFULNESS$k AS target
+  USING (VALUES (\@review_id_in, \@customerid_in, \@review_helpfulness_in))
+    AS source (review_id, customerid, helpfulness)
+  ON target.REVIEW_ID = source.review_id AND target.CUSTOMERID = source.customerid
+  WHEN MATCHED THEN
+    UPDATE SET HELPFULNESS = source.helpfulness
+  WHEN NOT MATCHED THEN
+    INSERT (REVIEW_ID, CUSTOMERID, HELPFULNESS)
+    VALUES (source.review_id, source.customerid, source.helpfulness)
+  OUTPUT INSERTED.REVIEW_HELPFULNESS_ID INTO \@OutputTable;
+
+  SELECT review_helpfulness_id FROM \@OutputTable;
  GO
 
 -- LOGIN

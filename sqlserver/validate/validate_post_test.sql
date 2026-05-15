@@ -825,6 +825,101 @@ BEGIN
 END
 
 PRINT '';
+PRINT '--- MERGE/UPSERT VALIDATION: NEW_REVIEW_HELPFULNESS ---';
+PRINT 'Verifies MERGE operations prevent duplicate (REVIEW_ID, CUSTOMERID) ratings';
+PRINT '';
+
+-- Check for duplicate helpfulness ratings (should be 0 after MERGE conversion)
+DECLARE @duplicate_count INT;
+SELECT @duplicate_count = COUNT(*)
+FROM (
+    SELECT REVIEW_ID, CUSTOMERID
+    FROM REVIEWS_HELPFULNESS{store_number}
+    GROUP BY REVIEW_ID, CUSTOMERID
+    HAVING COUNT(*) > 1
+) AS dupes;
+
+PRINT 'Duplicate helpfulness ratings: ' + CAST(@duplicate_count AS VARCHAR);
+IF @duplicate_count = 0
+    PRINT 'SUCCESS: No duplicate ratings found (MERGE is working correctly)';
+ELSE
+BEGIN
+    PRINT 'ERROR: Found ' + CAST(@duplicate_count AS VARCHAR) + ' duplicate (REVIEW_ID, CUSTOMERID) pairs!';
+    PRINT 'Top 10 duplicates:';
+    SELECT TOP 10
+        REVIEW_ID,
+        CUSTOMERID,
+        COUNT(*) as rating_count,
+        STRING_AGG(CAST(HELPFULNESS AS VARCHAR), ', ') as all_ratings
+    FROM REVIEWS_HELPFULNESS{store_number}
+    GROUP BY REVIEW_ID, CUSTOMERID
+    HAVING COUNT(*) > 1
+    ORDER BY rating_count DESC;
+END
+
+PRINT '';
+PRINT 'MERGE Operation Statistics (INSERT vs UPDATE):';
+SELECT
+    OPERATION,
+    COUNT(*) as operation_count,
+    MIN(AUDIT_TIMESTAMP) as first_operation,
+    MAX(AUDIT_TIMESTAMP) as last_operation
+FROM MERGE_AUDIT{store_number}
+WHERE TABLE_NAME = 'REVIEWS_HELPFULNESS'
+GROUP BY OPERATION
+ORDER BY OPERATION;
+
+PRINT '';
+DECLARE @insert_count INT, @update_count INT, @total_ops INT;
+SELECT
+    @insert_count = SUM(CASE WHEN OPERATION = 'INSERT' THEN 1 ELSE 0 END),
+    @update_count = SUM(CASE WHEN OPERATION = 'UPDATE' THEN 1 ELSE 0 END),
+    @total_ops = COUNT(*)
+FROM MERGE_AUDIT{store_number}
+WHERE TABLE_NAME = 'REVIEWS_HELPFULNESS';
+
+IF @total_ops > 0
+BEGIN
+    PRINT 'Total MERGE operations: ' + CAST(@total_ops AS VARCHAR);
+    PRINT '  INSERTs (new ratings): ' + CAST(@insert_count AS VARCHAR) + ' (' + CAST(ROUND(100.0 * @insert_count / @total_ops, 1) AS VARCHAR(20)) + '%)';
+    PRINT '  UPDATEs (rating changes): ' + CAST(@update_count AS VARCHAR) + ' (' + CAST(ROUND(100.0 * @update_count / @total_ops, 1) AS VARCHAR(20)) + '%)';
+    IF @update_count > 0
+        PRINT 'SUCCESS: MERGE UPDATE path is working (customers changing their ratings)';
+    ELSE
+        PRINT 'INFO: No UPDATEs observed (expected with large databases - low collision probability)';
+
+    PRINT '';
+    PRINT 'Sample MERGE Operations (Top 5 INSERTs, Top 5 UPDATEs):';
+    PRINT '';
+    PRINT '--- Sample INSERTs (First Ratings) ---';
+    SELECT TOP 5
+        AUDIT_ID,
+        REVIEW_ID,
+        CUSTOMERID,
+        NEW_HELPFULNESS as Helpfulness,
+        AUDIT_TIMESTAMP as Timestamp
+    FROM MERGE_AUDIT{store_number}
+    WHERE TABLE_NAME = 'REVIEWS_HELPFULNESS' AND OPERATION = 'INSERT'
+    ORDER BY AUDIT_ID;
+
+    PRINT '';
+    PRINT '--- Sample UPDATEs (Rating Changes) ---';
+    SELECT TOP 5
+        AUDIT_ID,
+        REVIEW_ID,
+        CUSTOMERID,
+        OLD_HELPFULNESS as Old_Rating,
+        NEW_HELPFULNESS as New_Rating,
+        (NEW_HELPFULNESS - OLD_HELPFULNESS) as Change,
+        AUDIT_TIMESTAMP as Timestamp
+    FROM MERGE_AUDIT{store_number}
+    WHERE TABLE_NAME = 'REVIEWS_HELPFULNESS' AND OPERATION = 'UPDATE'
+    ORDER BY AUDIT_ID;
+END
+ELSE
+    PRINT 'INFO: No MERGE operations recorded (pct_newhelpfulness may be 0 or disabled)';
+
+PRINT '';
 PRINT '========================================================================';
 PRINT 'Post-Test Validation Complete';
 PRINT 'Compare these results with validate_before.sql to verify:';
