@@ -26,6 +26,6 @@ perl pgsql_ds_perl_create_indexes_multi.pl $TARGET $STORES
 perl pgsql_ds_perl_create_triggers.pl $TARGET $STORES
 perl pgsql_ds_perl_reset_sequences.pl $TARGET $STORES
 cd ../validate
-perl pgsql_ds_perl_validate_multi.pl $TARGET $STORES post_test generate {POPULAR_MODULO} > post_test.txt 2>&1
-perl pgsql_ds_perl_validate_multi.pl $TARGET $STORES pre_test both {POPULAR_MODULO} > pre_test.txt 2>&1
+perl pgsql_ds_perl_validate_multi.pl $TARGET $STORES post_test generate > post_test.txt 2>&1
+perl pgsql_ds_perl_validate_multi.pl $TARGET $STORES pre_test both > pre_test.txt 2>&1
 cd ../

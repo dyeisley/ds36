@@ -764,35 +764,12 @@ if($bln_is_DB_MYSQL == 1)			#For MySQL
 	print NEWFILE @lines;
 	close (NEWFILE);
 
-	# Process mysql_ds_create_all_generic_template.sh
 	chdir "../";  # Move back to mysql directory
-	@lines = ();
-	$line = "";
-	$str_file_name = "";
-	open (FILE, "mysql_ds_create_all_generic_template.sh") || die "Can not Open file : $!";
-	@lines = <FILE>;
-	close (FILE);
-	foreach $line (@lines)
-	{
-		$line =~ s/{POPULAR_MODULO}/$popular_modulo/g;
-	}
-	$str_file_name = "mysql_ds_create_all_".$database_size.$database_size_str.".sh";
-	open (NEWFILE, ">", $str_file_name) || die "Creating new file to write failed : $!";
-	print NEWFILE @lines;
-	close (NEWFILE);
-
-	if(lc($^O) eq lc("linux"))   #If system on which perl script is executing is Linux
-	{
-		system("chmod +x $str_file_name");
-	}
 
 	if ($bln_is_use_vectors == 1)
 	{
-	   my $filename = "mysql_ds_create_all_".$database_size.$database_size_str.".sh";
-	   my $newfile = "mysql_ds_create_all_".$database_size.$database_size_str."_vectors.sh";
-
-	   open(my $in,  '<', $filename) or die "Can't open $filename: $!";
-	   open(my $out, '>', $newfile) or die "Can't open $newfile: $!";
+	   open(my $in,  '<', "mysql_ds_create_all.sh") or die "Can't open mysql_ds_create_all.sh: $!";
+	   open(my $out, '>', "mysql_ds_create_all_vectors.sh") or die "Can't open mysql_ds_create_all_vectors.sh: $!";
 
 	   while (my $line = <$in>)
 	   {
@@ -805,7 +782,7 @@ if($bln_is_DB_MYSQL == 1)			#For MySQL
 
 	   if(lc($^O) eq lc("linux"))   #If system on which perl script is executing is Linux
 	   {
-	        system("chmod +x $newfile");
+	        system("chmod +x mysql_ds_create_all_vectors.sh");
 	   }
 	}
 
@@ -839,27 +816,7 @@ elsif($bln_is_DB_PGSQL == 1)			#For PGSQL
 	print NEWFILE @lines;
 	close (NEWFILE);
 
-	# Process pgsql_ds_create_all_generic_template.sh
 	chdir "../";  # Move back to pgsql directory
-	@lines = ();
-	$line = "";
-	$str_file_name = "";
-	open (FILE, "pgsql_ds_create_all_generic_template.sh") || die "Can not Open file : $!";
-	@lines = <FILE>;
-	close (FILE);
-	foreach $line (@lines)
-	{
-		$line =~ s/{POPULAR_MODULO}/$popular_modulo/g;
-	}
-	$str_file_name = "pgsql_ds_create_all_".$database_size.$database_size_str.".sh";
-	open (NEWFILE, ">", $str_file_name) || die "Creating new file to write failed : $!";
-	print NEWFILE @lines;
-	close (NEWFILE);
-
-	if(lc($^O) eq lc("linux"))   #If system on which perl script is executing is Linux
-	{
-		system("chmod +x $str_file_name");
-	}
 
 	print "\nCompleted creating and writing build scripts for PostgreSQL database... \n";
 	chdir "../"
@@ -1011,58 +968,14 @@ elsif($bln_is_DB_ORACLE == 1) 		#For Oracle
 		{
 			$line =~ s/{ORDER2DATAFILE_PATH}/$arr_db_file_paths[5]/g;						
 		}	
-	}	
-	$str_file_name = "oracle_ds_create_tablespaces_".$database_size.$database_size_str.".sql";
+	}
+	$str_file_name = "oracle_ds_create_tablespaces.sql";
 	open (NEWFILE, ">", $str_file_name) || die "Creating new file to write failed : $!";
 	print NEWFILE @lines;
 	close (NEWFILE);
 		
-	chdir "../";		#Move to oracle directory to finally edit master shell script
-	
-	#Create new create_all shell script file from template
-	@lines = ();
-	$line = "";	
-	$str_file_name = "";
-	open (FILE, "oracle_ds_create_all_concurrent_generic_template.sh") || die "Can not Open file : $!";	
-	@lines =  <FILE>;
-	close (FILE);
-	foreach $line (@lines)
-	{
-		$str_file_name = "oracle_ds_create_tablespaces_".$database_size.$database_size_str.".sql";
-		$line =~ s/{TBLSPACE_SQLFNAME}/$str_file_name/g;
-		$line =~ s/{POPULAR_MODULO}/$popular_modulo/g;
-	}	
-	$str_file_name = "";
-	$str_file_name = "oracle_ds_create_all_".$database_size.$database_size_str.".sh";
-	open (NEWFILE, ">", $str_file_name) || die "Creating new file to write failed : $!";
-	print NEWFILE @lines;
-	close (NEWFILE);
-	
-	if(lc($^O) eq lc("linux"))   #If system on which perl script is executing is Linux
-	{
-		system("chmod +x $str_file_name");
-	}
+	chdir "../";		#Move to oracle directory
 
-	#Create new create_all bat script file from template
-	@lines = ();
-	$line = "";	
-	$str_file_name = "";
-	open (FILE, "oracle_ds_create_all_concurrent_generic_template.bat") || die "Can not Open file : $!";	
-	@lines =  <FILE>;
-	close (FILE);
-	foreach $line (@lines)
-	{
-		$str_file_name = "oracle_ds_create_tablespaces_".$database_size.$database_size_str.".sql";
-		$line =~ s/{TBLSPACE_SQLFNAME}/$str_file_name/g;
-		$line =~ s/{POPULAR_MODULO}/$popular_modulo/g;
-	}
-	$str_file_name = "";
-	$str_file_name = "oracle_ds_create_all_".$database_size.$database_size_str.".bat";
-	open (NEWFILE, ">", $str_file_name) || die "Creating new file to write failed : $!";
-	print NEWFILE @lines;
-	close (NEWFILE);
-	
-	
 	print "\nCompleted creating and writing build scripts for Oracle database!!\n";
 	chdir "../"
 }
@@ -1099,8 +1012,8 @@ elsif($bln_is_DB_MSSQL == 1) 		#For SQL Server
 		{
 			$line =~ s/{DRIVELETTER}/$str_driveletter/g;
 		}            			
-	}	
-	$str_file_name = "sqlserver_ds_create_all_init_".$database_size.$database_size_str.".sql";
+	}
+	$str_file_name = "sqlserver_ds_create_all_init.sql";
 	open (NEWFILE, ">", $str_file_name) || die "Creating new file to write failed : $!";
 	print NEWFILE @lines;
 	close (NEWFILE);
@@ -1129,71 +1042,32 @@ elsif($bln_is_DB_MSSQL == 1) 		#For SQL Server
 		
 	#Create new create_all_concurrent sql script file from template
 	chdir "../";
-	
-	@lines = ();
-	$line = "";	
-	$str_file_name = "";
-	open (FILE, "sqlserver_ds_create_all_concurrent_generic_template.bat") || die "Can not Open file : $!";	
-	@lines =  <FILE>;
-	close (FILE);
-	$i_Cnt = 0;
-	$i_arrCnt = scalar(@arr_db_file_paths);
-	$i_LastIndex = ($i_arrCnt - 1);
-	foreach $line (@lines)
-	{
-		if($line =~ m/{DB_SIZE}/)
-		{
-			#$arr_db_file_paths[$i_Cnt] =~ s/\\//g;    #Replace all backslashes if exists
-			$line =~ s/{DB_SIZE}/$database_size$database_size_str/g;
-			$i_Cnt = ($i_Cnt + 1);
-		}
-		$line =~ s/{POPULAR_MODULO}/$popular_modulo/g;
-	}
-	$str_file_name = "sqlserver_ds_create_all_concurrent_".$database_size.$database_size_str.".bat";
-	open (NEWFILE, ">", $str_file_name) || die "Creating new file to write failed : $!";
-	print NEWFILE @lines;
-	close (NEWFILE);
-	
-        @lines = ();
-        $line = "";
-        $str_file_name = "";
-        open (FILE, "sqlserver_ds_create_all_concurrent_generic_template.sh") || die "Can not Open file : $!";
-        @lines =  <FILE>;
-        close (FILE);
-        $i_Cnt = 0;
-        $i_arrCnt = scalar(@arr_db_file_paths);
-        $i_LastIndex = ($i_arrCnt - 1);
-        foreach $line (@lines)
-        {
-                if($line =~ m/{DB_SIZE}/)
-                {
-                        $line =~ s/{DB_SIZE}/$database_size$database_size_str/g;
-                        $i_Cnt = ($i_Cnt + 1);
-                }
-                if($line =~ m/4:-0/ && $bln_is_use_vectors == 1)
-                {
-                        $line =~ s/4:-0/4:-1/g;
-                        $i_Cnt = ($i_Cnt + 1);
-                }
-                $line =~ s/{POPULAR_MODULO}/$popular_modulo/g;
-        }
-        $str_file_name = "sqlserver_ds_create_all_concurrent_".$database_size.$database_size_str.".sh";
-        open (NEWFILE, ">", $str_file_name) || die "Creating new file to write failed : $!";
-        print NEWFILE @lines;
-        close (NEWFILE);
 
-	if(lc($^O) eq lc("linux"))   #If system on which perl script is executing is Linux
+	if ($bln_is_use_vectors == 1)
 	{
-		system("chmod +x $str_file_name");
+	   open(my $in,  '<', "sqlserver_ds_create_all.sh") or die "Can't open sqlserver_ds_create_all.sh: $!";
+	   open(my $out, '>', "sqlserver_ds_create_all_vectors.sh") or die "Can't open sqlserver_ds_create_all_vectors.sh: $!";
+
+	   while (my $line = <$in>)
+	   {
+		$line =~ s/VECTORS=\$\{4:-0\}/VECTORS=\$\{4:-1\}/g;
+		print $out $line;
+	   }
+
+	   close($in);
+	   close($out);
+
+	   if(lc($^O) eq lc("linux"))   #If system on which perl script is executing is Linux
+	   {
+	        system("chmod +x sqlserver_ds_create_all_vectors.sh");
+	   }
 	}
 
 	print "\nCompleted creating and writing build scripts for SQL Server database!!\n";
 	chdir "../";
 }
 
-print "\nAll database build scripts(shell and sql) are dumped into their respective folders. \n";
-print "\nThese scripts are created from template files in same folders with '_generic_template' in their name. \n";
-print "\nScripts that are created from template files have the database size ('$database_size$database_size_str') in their name. \n";
+print "\nAll database build scripts(shell and sql) are dumped into their respective folders.\n";
 
 # Save metadata for CreateConfigFile.pl to use as defaults
 open(my $META, ">", ".dvdstore_metadata") || die "Can't write .dvdstore_metadata: $!\n";
@@ -1203,6 +1077,7 @@ print $META "database_type=$database_type\n";
 print $META "products=$i_Prod_Rows\n";
 print $META "customers=$i_Cust_Rows\n";
 print $META "orders=$i_Ord_Rows\n";
+print $META "popular_modulo=$popular_modulo\n";
 close $META;
 print "\nSaved database metadata to .dvdstore_metadata\n";
 

@@ -15,7 +15,7 @@ fi
 
 cd build
 sqlplus "sys/oracle@$TARGET as sysdba" @oracle_ds_drop_tablespaces.sql
-sqlplus -S "sys/oracle@$TARGET as sysdba" @{TBLSPACE_SQLFNAME}
+sqlplus -S "sys/oracle@$TARGET as sysdba" @oracle_ds_create_tablespaces.sql
 perl oracle_ds_perl_create_db_tables_multi.pl $TARGET $STORES
 sqlplus -S "sys/oracle@$TARGET as sysdba" @oracle_ds_create_datatypes.sql
 cd ../load
@@ -29,7 +29,7 @@ perl oracle_ds_perl_create_fulltextindex_multi.pl $TARGET $STORES
 perl oracle_ds_perl_create_sp_multi.pl $TARGET $STORES
 perl oracle_ds_perl_analyze_all_multi.pl $TARGET $STORES
 cd ../validate
-perl oracle_ds_perl_validate_multi.pl $HOSTNAME $STORES post_test generate {POPULAR_MODULO} > generate_post_test.txt
-perl oracle_ds_perl_validate_multi.pl $HOSTNAME $STORES pre_test both {POPULAR_MODULO} > pre_test.txt
+perl oracle_ds_perl_validate_multi.pl $HOSTNAME $STORES post_test generate > generate_post_test.txt
+perl oracle_ds_perl_validate_multi.pl $HOSTNAME $STORES pre_test both > pre_test.txt
 cd ..
 

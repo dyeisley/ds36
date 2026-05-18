@@ -17,8 +17,8 @@ fi
 perl -i -pe 's/"//g' ../data_files/prod/prod.csv
 
 cd build
-echo sqlcmd -C -S $TARGET -U sa -P $PASSWORD -i sqlserver_ds_create_all_init_{DB_SIZE}.sql
-sqlcmd -C -S $TARGET -U sa -P $PASSWORD -i sqlserver_ds_create_all_init_{DB_SIZE}.sql
+echo sqlcmd -C -S $TARGET -U sa -P $PASSWORD -i sqlserver_ds_create_all_init.sql
+sqlcmd -C -S $TARGET -U sa -P $PASSWORD -i sqlserver_ds_create_all_init.sql
 
 echo perl sqlserver_ds_perl_create_db_tables_multi.pl $TARGET $STORES $PASSWORD
 perl sqlserver_ds_perl_create_db_tables_multi.pl $TARGET $STORES $PASSWORD $USEVECTORS
@@ -45,7 +45,7 @@ sqlcmd -C -S $TARGET -U sa -P $PASSWORD -i sqlserver_ds_create_user.sql
 
 cd ../validate
 echo perl sqlserver_ds_perl_validate_multi.pl $TARGET $STORES $PASSWORD pre_test
-perl sqlserver_ds_perl_validate_multi.pl $TARGET $STORES $PASSWORD pre_test both {POPULAR_MODULO} > pre_test.txt
-perl sqlserver_ds_perl_validate_multi.pl $TARGET $STORES $PASSWORD post_test generate {POPULAR_MODULO} > generate_post_test.txt
+perl sqlserver_ds_perl_validate_multi.pl $TARGET $STORES $PASSWORD pre_test both > pre_test.txt
+perl sqlserver_ds_perl_validate_multi.pl $TARGET $STORES $PASSWORD post_test generate > generate_post_test.txt
 
 cd ../

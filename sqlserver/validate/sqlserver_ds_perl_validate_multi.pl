@@ -14,7 +14,23 @@ my $numberofstores = $ARGV[1];
 my $password = $ARGV[2] || 'password';
 my $mode = $ARGV[3];
 my $action = $ARGV[4] || 'both';  # generate, execute, or both (default)
-my $popular_modulo = $ARGV[5] || 10000;  # Optional modulo value, default 10000
+
+# Read popular_modulo from .dvdstore_metadata file if it exists, otherwise default to 10000
+my $popular_modulo = 10000;
+if (-f '../../.dvdstore_metadata') {
+    open(my $META, '<', '../../.dvdstore_metadata');
+    if ($META) {
+        while (my $line = <$META>) {
+            if ($line =~ /^popular_modulo=(\d+)/) {
+                $popular_modulo = $1;
+                last;
+            }
+        }
+        close $META;
+    }
+}
+# Command-line parameter overrides file value
+$popular_modulo = $ARGV[5] if defined $ARGV[5];
 
 # Validate arguments
 if (!defined $sqlservertarget || !defined $numberofstores || !defined $mode) {

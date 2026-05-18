@@ -17,7 +17,23 @@ my $pgsqltarget = $ARGV[0];
 my $numberofstores = $ARGV[1];
 my $mode = $ARGV[2];
 my $action = $ARGV[3] || 'both';  # generate, execute, or both (default)
-my $popular_modulo = $ARGV[4] || 10000;  # Optional modulo value, default 10000
+
+# Read popular_modulo from .dvdstore_metadata file if it exists, otherwise default to 10000
+my $popular_modulo = 10000;
+if (-f '../../.dvdstore_metadata') {
+    open(my $META, '<', '../../.dvdstore_metadata');
+    if ($META) {
+        while (my $line = <$META>) {
+            if ($line =~ /^popular_modulo=(\d+)/) {
+                $popular_modulo = $1;
+                last;
+            }
+        }
+        close $META;
+    }
+}
+# Command-line parameter overrides file value
+$popular_modulo = $ARGV[4] if defined $ARGV[4];
 
 # Validate arguments
 if (!defined $pgsqltarget || !defined $numberofstores || !defined $mode) {

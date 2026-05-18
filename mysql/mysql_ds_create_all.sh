@@ -22,6 +22,6 @@ cd ../build
 perl mysql_ds_perl_create_indexes_multi.pl $TARGET $STORES $VECTORS
 perl mysql_ds_perl_create_trigger_multi.pl $TARGET $STORES $VECTORS
 cd ../validate
-perl mysql_ds_perl_validate_multi.pl $TARGET $STORES pre_test both {POPULAR_MODULO} > validate_pre_test.txt
-perl mysql_ds_perl_validate_multi.pl $TARGET $STORES post_test generate {POPULAR_MODULO} > generate_post_test.txt
+perl mysql_ds_perl_validate_multi.pl $TARGET $STORES pre_test both > validate_pre_test.txt
+perl mysql_ds_perl_validate_multi.pl $TARGET $STORES post_test generate > generate_post_test.txt
 cd ../
