@@ -62,6 +62,26 @@ BEGIN
     WHERE review_id = NEW.review_id;
 END; $$
 
+DROP TRIGGER IF EXISTS DS3.after_helpfulness_update$k;
+CREATE TRIGGER DS3.after_helpfulness_update$k
+AFTER UPDATE ON DS3.REVIEWS_HELPFULNESS$k
+FOR EACH ROW
+BEGIN
+    UPDATE DS3.REVIEWS$k
+    SET total_helpfulness = total_helpfulness - OLD.helpfulness + NEW.helpfulness
+    WHERE review_id = NEW.review_id;
+END; $$
+
+DROP TRIGGER IF EXISTS DS3.after_helpfulness_delete$k;
+CREATE TRIGGER DS3.after_helpfulness_delete$k
+AFTER DELETE ON DS3.REVIEWS_HELPFULNESS$k
+FOR EACH ROW
+BEGIN
+    UPDATE DS3.REVIEWS$k
+    SET total_helpfulness = total_helpfulness - OLD.helpfulness
+    WHERE review_id = OLD.review_id;
+END; $$
+
 UPDATE DS3.REVIEWS$k R
 SET total_helpfulness = (
     SELECT IFNULL(SUM(helpfulness), 0)

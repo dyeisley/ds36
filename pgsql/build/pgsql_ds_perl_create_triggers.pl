@@ -74,16 +74,28 @@ RETURNS TRIGGER
 LANGUAGE plpgsql
 AS \$UPDATEREVIEWHELPFULNESS\$
 BEGIN
-    UPDATE reviews$k
-    SET total_helpfulness = total_helpfulness + NEW.helpfulness
-    WHERE review_id = NEW.review_id;
-
-    RETURN NEW;
+    IF (TG_OP = 'INSERT') THEN
+        UPDATE reviews$k
+        SET total_helpfulness = total_helpfulness + NEW.helpfulness
+        WHERE review_id = NEW.review_id;
+        RETURN NEW;
+    ELSIF (TG_OP = 'UPDATE') THEN
+        UPDATE reviews$k
+        SET total_helpfulness = total_helpfulness - OLD.helpfulness + NEW.helpfulness
+        WHERE review_id = NEW.review_id;
+        RETURN NEW;
+    ELSIF (TG_OP = 'DELETE') THEN
+        UPDATE reviews$k
+        SET total_helpfulness = total_helpfulness - OLD.helpfulness
+        WHERE review_id = OLD.review_id;
+        RETURN OLD;
+    END IF;
+    RETURN NULL;
 END;
 \$UPDATEREVIEWHELPFULNESS\$;
 
 CREATE TRIGGER after_helpfulness_insert$k
-AFTER INSERT ON reviews_helpfulness$k
+AFTER INSERT OR UPDATE OR DELETE ON reviews_helpfulness$k
 FOR EACH ROW
 EXECUTE FUNCTION fn_update_review_helpfulness$k();
 
