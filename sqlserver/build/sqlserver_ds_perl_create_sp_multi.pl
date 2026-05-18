@@ -268,8 +268,63 @@ DECLARE \@customerid_out INT
           ORDER BY CUST_HIST$k.ORDERID DESC) AS derivedtable1$k INNER JOIN
              PRODUCTS$k AS PRODUCTS_1$k ON derivedtable1$k.COMMON_PROD_ID = PRODUCTS_1$k.PROD_ID
     END
-  ELSE 
-    SELECT 0 
+  ELSE
+    SELECT 0
+GO
+
+-- GetMembershipStatus - returns membership level and expiration status
+IF EXISTS (SELECT name FROM sysobjects WHERE name = 'GET_MEMBERSHIP_STATUS$k' AND type = 'P')
+  DROP PROCEDURE GET_MEMBERSHIP_STATUS$k
+GO
+
+CREATE PROCEDURE GET_MEMBERSHIP_STATUS$k
+  (
+  \@customerid_in            INT
+  )
+
+  AS
+DECLARE \@membership_level INT
+DECLARE \@is_expired INT
+
+  -- Get membership info
+  SELECT \@membership_level = MEMBERSHIPTYPE
+  FROM MEMBERSHIP$k
+  WHERE CUSTOMERID = \@customerid_in
+
+  -- If no membership found, return 0
+  IF (\@\@ROWCOUNT = 0)
+    BEGIN
+      SELECT 0 AS membership_level, 0 AS is_expired
+      RETURN
+    END
+
+  -- Check if expired
+  IF EXISTS (SELECT 1 FROM MEMBERSHIP$k
+             WHERE CUSTOMERID = \@customerid_in
+             AND EXPIREDATE < GETDATE())
+    SET \@is_expired = 1
+  ELSE
+    SET \@is_expired = 0
+
+  SELECT \@membership_level AS membership_level, \@is_expired AS is_expired
+GO
+
+-- RenewMembership - extend expiration by 1 year
+IF EXISTS (SELECT name FROM sysobjects WHERE name = 'RENEW_MEMBERSHIP$k' AND type = 'P')
+  DROP PROCEDURE RENEW_MEMBERSHIP$k
+GO
+
+CREATE PROCEDURE RENEW_MEMBERSHIP$k
+  (
+  \@customerid_in            INT
+  )
+
+  AS
+  UPDATE MEMBERSHIP$k
+  SET EXPIREDATE = DATEADD(year, 1, GETDATE())
+  WHERE CUSTOMERID = \@customerid_in
+
+  SELECT \@\@ROWCOUNT AS rows_affected
 GO
 
 IF EXISTS (SELECT name FROM sysobjects WHERE name = 'BROWSE_BY_CATEGORY$k' AND type = 'P')

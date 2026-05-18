@@ -47,6 +47,7 @@ namespace ds2xdriver
     SqlCommand Login, New_Customer, Browse_By_Category, Browse_By_Actor, Browse_By_Vector, Browse_By_Title, Browse_By_Membership, Purchase, New_Product;
     SqlCommand Get_Prod_Reviews, Get_Prod_Reviews_By_Actor, Get_Prod_Reviews_By_Title, Get_Prod_Reviews_By_Date, Get_Prod_Reviews_By_Stars;
     SqlCommand New_Member, New_Prod_Review, New_Review_Helpfulness;
+    SqlCommand Get_Membership_Status, Renew_Membership;
     SqlCommand Remove_Review_By_Product, Remove_Unhelpful_Reviews, Remove_Reviews_By_Date, Adjust_Prices, Bulk_Price_Adjustment, Mark_Specials, Expire_Memberships, Purge_Old_Orders, Upgrade_Membership;
     SqlCommand[] CostQuery = new SqlCommand[11];
 
@@ -138,6 +139,14 @@ namespace ds2xdriver
       Browse_By_Membership.CommandType = CommandType.StoredProcedure;
       Browse_By_Membership.Parameters.Add("@batch_size_in", SqlDbType.Int);
       Browse_By_Membership.Parameters.Add("@membershiptype_in", SqlDbType.Int);
+
+      Get_Membership_Status = new SqlCommand("GET_MEMBERSHIP_STATUS" + target_store_number, objConn);
+      Get_Membership_Status.CommandType = CommandType.StoredProcedure;
+      Get_Membership_Status.Parameters.Add("@customerid_in", SqlDbType.Int);
+
+      Renew_Membership = new SqlCommand("RENEW_MEMBERSHIP" + target_store_number, objConn);
+      Renew_Membership.CommandType = CommandType.StoredProcedure;
+      Renew_Membership.Parameters.Add("@customerid_in", SqlDbType.Int);
 
       Get_Prod_Reviews = new SqlCommand("GET_PROD_REVIEWS" + target_store_number, objConn);
       Get_Prod_Reviews.CommandType = CommandType.StoredProcedure;
@@ -407,8 +416,8 @@ namespace ds2xdriver
       try
       {
         customerid_out = Convert.ToInt32(New_Member.ExecuteScalar().ToString());
-        //    Console.WriteLine("Thread {0}: New_Customer created w/username_in= {1}  region={2}  customerid={3}",
-        //      Thread.CurrentThread.Name, username_in, region_in, customerid_out);
+        //    Console.WriteLine("Thread {0}: New_Member created w/customerid_in = {1}  membershiplevel_in= {2}  customerid= {3}",
+        //      Thread.CurrentThread.Name, customerid_in, membershiplevel_in, customerid_out);
         return (true);
       }
       catch (SqlException e)
@@ -432,9 +441,86 @@ namespace ds2xdriver
     //
     //-------------------------------------------------------------------------------------------------
     //
+    public bool ds2getmembershipstatus(int customerid_in, ref int membership_level_out,
+      ref int is_expired_out, ref double rt)
+    {
+      Get_Membership_Status.Parameters["@customerid_in"].Value = customerid_in;
+
+      Stopwatch timer = Stopwatch.StartNew();
+
+      try
+      {
+        using (SqlDataReader dr = Get_Membership_Status.ExecuteReader())
+        {
+          if (dr.Read())
+          {
+            membership_level_out = Convert.ToInt32(dr["membership_level"]);
+            is_expired_out = Convert.ToInt32(dr["is_expired"]);
+          }
+          else
+          {
+            membership_level_out = 0;
+            is_expired_out = 0;
+          }
+        }
+        return (true);
+      }
+      catch (SqlException e)
+      {
+        Console.WriteLine("Thread {0}: SQL Error {1} in Get_Membership_Status: {2}",
+          Thread.CurrentThread.Name, e.Number, e.Message);
+        return (false);
+      }
+      catch (System.Exception e)
+      {
+        Console.WriteLine("Thread {0}: System Error in Get_Membership_Status: {1}",
+          Thread.CurrentThread.Name, e.Message);
+        return (false);
+      }
+      finally
+      {
+        rt = timer.Elapsed.TotalSeconds;
+      }
+    } // end ds2getmembershipstatus()
+
+    //
+    //-------------------------------------------------------------------------------------------------
+    //
+    public bool ds2renewmembership(int customerid_in, ref int rows_affected_out, ref double rt)
+    {
+      Renew_Membership.Parameters["@customerid_in"].Value = customerid_in;
+
+      Stopwatch timer = Stopwatch.StartNew();
+
+      try
+      {
+        rows_affected_out = Convert.ToInt32(Renew_Membership.ExecuteScalar());
+        return (true);
+      }
+      catch (SqlException e)
+      {
+        Console.WriteLine("Thread {0}: SQL Error {1} in Renew_Membership: {2}",
+          Thread.CurrentThread.Name, e.Number, e.Message);
+        return (false);
+      }
+      catch (System.Exception e)
+      {
+        Console.WriteLine("Thread {0}: System Error in Renew_Membership: {1}",
+          Thread.CurrentThread.Name, e.Message);
+        return (false);
+      }
+      finally
+      {
+        rt = timer.Elapsed.TotalSeconds;
+      }
+    } // end ds2renewmembership()
+
+    //
+    //-------------------------------------------------------------------------------------------------
+    //
     public bool ds2browse(string browse_type_in, string browse_category_in, string browse_actor_in,
-      string browse_title_in, int batch_size_in, int search_depth_in, int customerid_out, ref int rows_returned,
-      ref int[] prod_id_out, ref string[] title_out, ref string[] actor_out, ref decimal[] price_out,
+      string browse_title_in, int batch_size_in, int search_depth_in, int customerid_out, int membership_level_in,
+      ref int rows_returned, ref int[] prod_id_out, ref string[] title_out, ref string[] actor_out, ref decimal[] price_out,
       ref int[] special_out, ref int[] common_prod_id_out, ref double rt)
     {
       // Products table: PROD_ID INT, CATEGORY TINYINT, TITLE VARCHAR(50), ACTOR VARCHAR(50),
@@ -483,8 +569,8 @@ namespace ds2xdriver
           break;
         case "membership":
           Browse_By_Membership.Parameters["@batch_size_in"].Value = batch_size_in;
-          Browse_By_Membership.Parameters["@membershiptype_in"].Value = Random.Shared.Next(1, 4);
-          data_in = "membership level: " + Browse_By_Membership.Parameters["@membershiptype_in"].Value;
+          Browse_By_Membership.Parameters["@membershiptype_in"].Value = membership_level_in;
+          data_in = "membership level: " + membership_level_in;
           break;
       }
 
