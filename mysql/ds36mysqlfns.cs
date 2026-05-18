@@ -41,7 +41,7 @@ namespace ds2xdriver
     {
     int ds2Interfaceid;
     MySqlConnection objConn;
-    MySqlCommand Login, New_Customer, New_Member, Browse, BrowseReviews, GetReviews, New_Review, New_Helpfulness, Purchase;
+    MySqlCommand Login, New_Customer, New_Member, Get_Membership_Status, Renew_Membership, Browse, BrowseReviews, GetReviews, New_Review, New_Helpfulness, Purchase;
     MySqlCommand Remove_Review_By_Product, Remove_Unhelpful_Reviews, Remove_Reviews_By_Date, Adjust_Prices, Mark_Specials, Expire_Memberships, Purge_Old_Orders, Upgrade_Membership;
     MySqlParameter cust_out_param, reviewid_out_param, helpfulnessid_out_param;
     //string conn_str = "Server=" +  Controller.target + ";User ID=web;Password=web;Database=DS2";
@@ -132,6 +132,14 @@ namespace ds2xdriver
       New_Member.Parameters.Add("customerid_in", MySqlDbType.Int32);
       New_Member.Parameters.Add("membershiplevel_in", MySqlDbType.Int32);
       New_Member.Parameters.Add(cust_out_param);
+
+      Get_Membership_Status = new MySqlCommand("GET_MEMBERSHIP_STATUS" + target_store_number, objConn);
+      Get_Membership_Status.CommandType = CommandType.StoredProcedure;
+      Get_Membership_Status.Parameters.Add("customerid_in", MySqlDbType.Int32);
+
+      Renew_Membership = new MySqlCommand("RENEW_MEMBERSHIP" + target_store_number, objConn);
+      Renew_Membership.CommandType = CommandType.StoredProcedure;
+      Renew_Membership.Parameters.Add("customerid_in", MySqlDbType.Int32);
 
       New_Review = new MySqlCommand("NEW_PROD_REVIEW" + target_store_number, objConn);
       New_Review.CommandType = CommandType.StoredProcedure;
@@ -371,15 +379,94 @@ namespace ds2xdriver
       }
     } // end ds2newmember()
 
+    public bool ds2getmembershipstatus(int customerid_in, ref int membership_level_out,
+      ref int is_expired_out, ref double rt)
+    {
+      Get_Membership_Status.Parameters["customerid_in"].Value = customerid_in;
 
+      Stopwatch timer = Stopwatch.StartNew();
+
+      try
+      {
+        using (MySqlDataReader dr = Get_Membership_Status.ExecuteReader())
+        {
+          if (dr.Read())
+          {
+            membership_level_out = dr.GetInt32(0);  // membership_level
+            is_expired_out = dr.GetInt32(1);        // is_expired
+          }
+          else
+          {
+            membership_level_out = 0;
+            is_expired_out = 0;
+          }
+        }
+        return true;
+      }
+      catch (MySqlException e)
+      {
+        Console.WriteLine("Thread {0}: MySql Error {1} in Get_Membership_Status: {2}",
+          Thread.CurrentThread.Name, e.Number, e.Message);
+        return false;
+      }
+      catch (System.Exception e)
+      {
+        Console.WriteLine("Thread {0}: System Error in Get_Membership_Status: {1}",
+          Thread.CurrentThread.Name, e.Message);
+        return false;
+      }
+      finally
+      {
+        rt = timer.Elapsed.TotalSeconds;
+      }
+    } // end ds2getmembershipstatus()
+
+    public bool ds2renewmembership(int customerid_in, ref int rows_affected_out, ref double rt)
+    {
+      Renew_Membership.Parameters["customerid_in"].Value = customerid_in;
+
+      Stopwatch timer = Stopwatch.StartNew();
+
+      try
+      {
+        using (MySqlDataReader dr = Renew_Membership.ExecuteReader())
+        {
+          if (dr.Read())
+          {
+            rows_affected_out = dr.GetInt32(0);  // rows_affected
+          }
+          else
+          {
+            rows_affected_out = 0;
+          }
+        }
+        return true;
+      }
+      catch (MySqlException e)
+      {
+        Console.WriteLine("Thread {0}: MySql Error {1} in Renew_Membership: {2}",
+          Thread.CurrentThread.Name, e.Number, e.Message);
+        return false;
+      }
+      catch (System.Exception e)
+      {
+        Console.WriteLine("Thread {0}: System Error in Renew_Membership: {1}",
+          Thread.CurrentThread.Name, e.Message);
+        return false;
+      }
+      finally
+      {
+        rt = timer.Elapsed.TotalSeconds;
+      }
+    } // end ds2renewmembership()
 
 
 //
 //-------------------------------------------------------------------------------------------------
-// 
+//
     public bool ds2browse(string browse_type_in, string browse_category_in, string browse_actor_in,
-      string browse_title_in, int batch_size_in, int search_depth_in, int customerid_out, ref int rows_returned,
-      ref int[] prod_id_out, ref string[] title_out, ref string[] actor_out, ref decimal[] price_out,
+      string browse_title_in, int batch_size_in, int search_depth_in, int customerid_out, int membership_level_in,
+      ref int rows_returned, ref int[] prod_id_out, ref string[] title_out, ref string[] actor_out, ref decimal[] price_out,
       ref int[] special_out, ref int[] common_prod_id_out, ref double rt)
       {
       // Products table: PROD_ID INT, CATEGORY TINYINT, TITLE VARCHAR(50), ACTOR VARCHAR(50),
@@ -414,9 +501,10 @@ namespace ds2xdriver
           break;
         case "membership":
           query = "SELECT * FROM PRODUCTS" + target_store_number +
-	    " WHERE MEMBERSHIP_ITEM=@membershiptype_in LIMIT @batch_size;
+            " WHERE MEMBERSHIP_ITEM=@membershiptype_in LIMIT @batch_size";
+          Browse = new MySqlCommand(query, objConn);
           Browse.Parameters.AddWithValue("@batch_size", batch_size_in);
-          Browse.Parameters.AddWithValue("@membershiptype_in", Random.Shared.Next(1, 4));
+          Browse.Parameters.AddWithValue("@membershiptype_in", membership_level_in);
           break;
         }
 

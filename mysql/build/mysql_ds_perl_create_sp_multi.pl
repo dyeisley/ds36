@@ -210,6 +210,52 @@ BEGIN
 
 END; $$
 
+DROP PROCEDURE IF EXISTS DS3.GET_MEMBERSHIP_STATUS$k $$
+CREATE PROCEDURE DS3.GET_MEMBERSHIP_STATUS$k
+  (
+  IN customerid_in            INT
+  )
+BEGIN
+  DECLARE membership_level_var INT;
+  DECLARE is_expired_var INT;
+  DECLARE rows_found INT;
+
+  -- Get membership info
+  SELECT MEMBERSHIPTYPE INTO membership_level_var FROM MEMBERSHIP$k WHERE CUSTOMERID = customerid_in;
+  SET rows_found = FOUND_ROWS();
+
+  -- If no membership found, return 0
+  IF (rows_found = 0)
+  THEN
+    SELECT 0 AS membership_level, 0 AS is_expired;
+  ELSE
+    -- Check if expired
+    IF EXISTS (SELECT 1 FROM MEMBERSHIP$k WHERE CUSTOMERID = customerid_in AND EXPIREDATE < NOW())
+    THEN
+      SET is_expired_var = 1;
+    ELSE
+      SET is_expired_var = 0;
+    END IF;
+
+    SELECT membership_level_var AS membership_level, is_expired_var AS is_expired;
+  END IF;
+
+END; $$
+
+DROP PROCEDURE IF EXISTS DS3.RENEW_MEMBERSHIP$k $$
+CREATE PROCEDURE DS3.RENEW_MEMBERSHIP$k
+  (
+  IN customerid_in            INT
+  )
+BEGIN
+  UPDATE MEMBERSHIP$k
+  SET EXPIREDATE = DATE_ADD(NOW(), INTERVAL 1 YEAR)
+  WHERE CUSTOMERID = customerid_in;
+
+  SELECT ROW_COUNT() AS rows_affected;
+
+END; $$
+
 DROP PROCEDURE IF EXISTS DS3.PURCHASE$k $$
 CREATE PROCEDURE DS3.PURCHASE$k
   (
