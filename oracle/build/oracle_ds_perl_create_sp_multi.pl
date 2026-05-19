@@ -266,6 +266,56 @@ BEGIN
   END LOGIN$k;
 /
 
+CREATE OR REPLACE PROCEDURE \"DS3\".\"GET_MEMBERSHIP_STATUS$k\"
+  (
+  p_customerid_in     IN  INTEGER,
+  p_membership_level  OUT INTEGER,
+  p_is_expired        OUT INTEGER
+  )
+AS
+  v_membershiptype INTEGER;
+  v_expiredate DATE;
+BEGIN
+  -- Get membership info
+  BEGIN
+    SELECT MEMBERSHIPTYPE, EXPIREDATE
+    INTO v_membershiptype, v_expiredate
+    FROM MEMBERSHIP$k
+    WHERE CUSTOMERID = p_customerid_in;
+  EXCEPTION
+    WHEN NO_DATA_FOUND THEN
+      p_membership_level := 0;
+      p_is_expired := 0;
+      RETURN;
+  END;
+
+  -- Check if expired
+  p_membership_level := v_membershiptype;
+  IF v_expiredate < SYSDATE THEN
+    p_is_expired := 1;
+  ELSE
+    p_is_expired := 0;
+  END IF;
+
+END GET_MEMBERSHIP_STATUS$k;
+/
+
+CREATE OR REPLACE PROCEDURE \"DS3\".\"RENEW_MEMBERSHIP$k\"
+  (
+  p_customerid_in  IN  INTEGER,
+  p_rows_affected  OUT INTEGER
+  )
+AS
+BEGIN
+  UPDATE MEMBERSHIP$k
+  SET EXPIREDATE = ADD_MONTHS(SYSDATE, 12)
+  WHERE CUSTOMERID = p_customerid_in;
+
+  p_rows_affected := SQL%ROWCOUNT;
+
+END RENEW_MEMBERSHIP$k;
+/
+
 CREATE OR REPLACE PROCEDURE \"DS3\".\"BROWSE_BY_CATEGORY$k\"
   (
   p_category_in  IN  INTEGER,
