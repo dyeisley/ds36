@@ -2808,7 +2808,8 @@ namespace ds2xdriver
             //Console.WriteLine("Checked membership for user: {0}",customerid_out);
 	    //Console.WriteLine("  is_expired_out: {0}  membershiplevel_out: {1}", is_expired_out,membershiplevel_out);
 
-            rt_tot += rt_membership_check;
+            // Assume getting membership status is part of the login process. Don't add the time to the total.
+            //rt_tot += rt_membership_check;
 
             // If expired, maybe renew
             if (is_expired_out == 1)
