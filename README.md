@@ -8,6 +8,7 @@ The web driver (drivers/ds36webfns.cs) and PHP code have not been modified.
 ## What's New in 3.6
 
 - **Manager Thread System**: Background thread with 10 administrative operations (AddProduct, RemoveReviews, AdjustPrices, BulkPriceAdjustment, MarkSpecials, ExpireMemberships, PurgeOldOrders, UpgradeMembership)
+- **Membership Renewal**: Members can renew expired memberships (controlled by pct_renewmember parameter); non-members cannot browse by membership; BROWSE_BY_MEMBERSHIP uses customer's actual membership tier
 - **MERGE/UPSERT Support**: NEW_REVIEW_HELPFULNESS converted to MERGE/UPSERT with audit tracking - prevents duplicate ratings, handles race conditions, and adds database feature coverage (MERGE operations and trigger behavior testing)
 - **Data Generation Improvements**: Linear database scaling (200:10:1 ratio from 4 GB baseline), dynamic popular products modulo for small databases
 - **C# Code Modernization**: Cross-platform compatibility (Stopwatch), resource management (using statements), command pre-compilation, 20%+ code reduction

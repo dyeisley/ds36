@@ -91,6 +91,84 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Tests window functions, CTEs, percentile calculations across all 4 databases
 - Cross-database challenge: different window function syntax and capabilities
 
+### Added - Membership Renewal and Browse Behavior
+
+**Membership Status Checking and Renewal**: After successful LOGIN, driver checks membership status and optionally renews expired memberships.
+
+**New Stored Procedures** (all 4 databases):
+
+**GET_MEMBERSHIP_STATUS**:
+- **SQL Server**: Returns `@membership_level` (0 if no membership), `@is_expired` (1 if expired, 0 if active)
+- **MySQL**: Returns result set with `membership_level` and `is_expired` columns
+- **PostgreSQL**: Returns TABLE with `membership_level` and `is_expired` columns
+- **Oracle**: Returns `p_membership_level` and `p_is_expired` as OUT parameters
+- Checks MEMBERSHIP table for customer, returns 0/0 if not found
+- Date comparison: `EXPIREDATE < GETDATE()` (SQL Server), `EXPIREDATE < NOW()` (MySQL), `EXPIREDATE < CURRENT_DATE` (PostgreSQL), `EXPIREDATE < SYSDATE` (Oracle)
+
+**RENEW_MEMBERSHIP**:
+- **SQL Server**: Returns `@@ROWCOUNT` via `@rows_affected` OUT parameter
+- **MySQL**: Returns result set with `rows_affected` column (via `ROW_COUNT()`)
+- **PostgreSQL**: Returns INTEGER scalar value (via `GET DIAGNOSTICS rows_affected = ROW_COUNT`)
+- **Oracle**: Returns `p_rows_affected` OUT parameter (via `SQL%ROWCOUNT`)
+- Extends EXPIREDATE by 1 year from current date
+- UPDATE statement: `SET EXPIREDATE = <current_date> + <1 year interval>`
+
+**Driver Logic** (ds36xdriver.cs, lines 2767-2828):
+
+1. **After LOGIN**: Call `ds2getmembershipstatus(customerid_out, ref membershiplevel_out, ref is_expired_out, ref rt_membership_check)`
+2. **If member exists AND expired**: Random roll against `pct_renewmember` parameter
+3. **If renewal triggered**: Call `ds2renewmembership(customerid_out, ref rows_affected, ref rt_membership_renew)`
+4. **Tracking**: `n_membershiprenew_overall` counter tracks total renewals across all threads
+
+**New Parameter**:
+- `pct_renewmember` - Percentage of expired members who renew (default: 50, range: 0-100)
+- Example: `--pct_renewmember=75` → 75% of customers with expired memberships will renew
+
+**Browse Behavior Changes** (ds36xdriver.cs, lines 2970-3015):
+
+**Non-members cannot browse by membership**:
+- `validBrowseTypes` list built dynamically per customer
+- Base types: `["category", "actor", "title"]`
+- Membership browse only added if: `!ds2_mode && membershiplevel_out > 0`
+- Non-members (membershiplevel_out = 0) never have "membership" in their browse options
+
+**BROWSE_BY_MEMBERSHIP uses actual customer tier**:
+- **Old behavior**: `Browse_By_Membership.Parameters["membershiptype_in"].Value = Random.Shared.Next(1, 4)`
+- **New behavior**: `Browse_By_Membership.Parameters["membershiptype_in"].Value = membership_level_in`
+- Passed via updated `ds2browse()` signature: added `int membership_level_in` parameter
+- Bronze members (tier 1) → browse MEMBERSHIP_ITEM=1 products
+- Silver members (tier 2) → browse MEMBERSHIP_ITEM=2 products
+- Gold members (tier 3) → browse MEMBERSHIP_ITEM=3 products
+
+**Statistics Output** (lines 2057, 2437):
+- Customer Operations section: `Renew Membership: N operations, avg RT: X.XXX sec`
+- Configuration Summary section: `Renew membership pct: N%`
+
+**Files Modified**:
+
+**SQL Server**:
+- `sqlserver/build/sqlserver_ds_perl_create_sp_multi.pl` (lines 249-301)
+- `sqlserver/ds36sqlserverfns.cs` (lines 42, 125-135, 463-523, 537)
+
+**MySQL**:
+- `mysql/build/mysql_ds_perl_create_sp_multi.pl` (lines 211-252)
+- `mysql/ds36mysqlspfns.cs` (lines 38, 107-121, 382-461, 467-468, 554-555)
+
+**Oracle**:
+- `oracle/build/oracle_ds_perl_create_sp_multi.pl` (lines 266-315)
+- `oracle/ds36oraclefns.cs` (lines 45, 50-51, 119-134, 479-559, 563, 622)
+
+**PostgreSQL**:
+- `pgsql/build/pgsql_ds_perl_create_sp_multi.pl` (lines 383-429)
+- `pgsql/ds36pgsqlfns.cs` (lines 49, 98-108, 419-493, 497, 534)
+
+**Driver**:
+- `drivers/ds36xdriver.cs` (lines 83-84, 2057, 2437, 2767-2828, 2970-3015)
+
+**DS2 Compatibility Mode**:
+- `--ds2_mode=y` (DS 2.0 compatibility): Membership renewal disabled, browse selection excludes "membership" option
+- Only 3 browse types available: category, actor, title (same as DVD Store 2.0)
+
 ### Added - Validation SQL Framework
 
 **New SQL-based validation system**:
