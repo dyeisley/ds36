@@ -381,6 +381,53 @@ CREATE OR REPLACE FUNCTION new_member$k (
  END;
  \$\$;
 
+CREATE OR REPLACE FUNCTION get_membership_status$k (
+  IN customerid_in INT
+  )
+  RETURNS TABLE (membership_level INT, is_expired INT)
+  LANGUAGE plpgsql
+  AS \$\$
+  DECLARE
+    v_membershiptype INT;
+    v_expiredate DATE;
+  BEGIN
+    SELECT MEMBERSHIPTYPE, EXPIREDATE
+    INTO v_membershiptype, v_expiredate
+    FROM MEMBERSHIP$k
+    WHERE CUSTOMERID = customerid_in;
+
+    IF NOT FOUND THEN
+      RETURN QUERY SELECT 0, 0;
+      RETURN;
+    END IF;
+
+    IF v_expiredate < CURRENT_DATE THEN
+      RETURN QUERY SELECT v_membershiptype, 1;
+    ELSE
+      RETURN QUERY SELECT v_membershiptype, 0;
+    END IF;
+    RETURN;
+  END;
+  \$\$;
+
+CREATE OR REPLACE FUNCTION renew_membership$k (
+  IN customerid_in INT
+  )
+  RETURNS INTEGER
+  LANGUAGE plpgsql
+  AS \$\$
+  DECLARE
+    rows_affected INT;
+  BEGIN
+    UPDATE MEMBERSHIP$k
+    SET EXPIREDATE = CURRENT_DATE + INTERVAL '1 year'
+    WHERE CUSTOMERID = customerid_in;
+
+    GET DIAGNOSTICS rows_affected = ROW_COUNT;
+    RETURN rows_affected;
+  END;
+  \$\$;
+
 CREATE OR REPLACE FUNCTION new_prod_review$k
   (
   IN prod_id_in INT,

@@ -46,7 +46,7 @@ namespace ds2xdriver
     int target_store_number = 1; // Added to support multiple stores - default is 1
     NpgsqlConnection objConn;
     NpgsqlCommand Login, New_Customer, Browse_By_Category, Browse_By_Actor, Browse_By_Title, Browse_By_Membership, Purchase;
-    NpgsqlCommand New_Member, New_Prod_Review, New_Review_Helpfulness, New_Product;
+    NpgsqlCommand New_Member, Get_Membership_Status, Renew_Membership, New_Prod_Review, New_Review_Helpfulness, New_Product;
     NpgsqlCommand Get_Prod_Reviews, Get_Prod_Reviews_By_Date, Get_Prod_Reviews_By_Stars, Get_Prod_Reviews_By_Actor, Get_Prod_Reviews_By_Title;
     NpgsqlCommand Remove_Review_By_Product, Remove_Unhelpful_Reviews, Remove_Reviews_By_Date, Adjust_Prices, Bulk_Price_Adjustment, Mark_Specials, Expire_Memberships, Purge_Old_Orders, Upgrade_Membership;
     NpgsqlCommand[] CostQuery = new NpgsqlCommand[11];
@@ -99,6 +99,14 @@ namespace ds2xdriver
       New_Member.CommandType = CommandType.StoredProcedure;
       New_Member.Parameters.Add("customerid_in", NpgsqlDbType.Integer);
       New_Member.Parameters.Add("membershiplevel_in", NpgsqlDbType.Integer);
+
+      Get_Membership_Status = new NpgsqlCommand("GET_MEMBERSHIP_STATUS" + target_store_number, objConn);
+      Get_Membership_Status.CommandType = CommandType.StoredProcedure;
+      Get_Membership_Status.Parameters.Add("customerid_in", NpgsqlDbType.Integer);
+
+      Renew_Membership = new NpgsqlCommand("RENEW_MEMBERSHIP" + target_store_number, objConn);
+      Renew_Membership.CommandType = CommandType.StoredProcedure;
+      Renew_Membership.Parameters.Add("customerid_in", NpgsqlDbType.Integer);
 
       New_Prod_Review = new NpgsqlCommand("NEW_PROD_REVIEW" + target_store_number, objConn);
       New_Prod_Review.CommandType = CommandType.StoredProcedure;
@@ -409,12 +417,88 @@ namespace ds2xdriver
       }
     } // end ds2newmember()
 
+    //
+    //-------------------------------------------------------------------------------------------------
+    //
+    public bool ds2getmembershipstatus(int customerid_in, ref int membership_level_out, ref int is_expired_out, ref double rt)
+    {
+      Get_Membership_Status.Parameters["customerid_in"].Value = customerid_in;
+
+      Stopwatch timer = Stopwatch.StartNew();
+
+      try
+      {
+        using (NpgsqlDataReader reader = Get_Membership_Status.ExecuteReader())
+        {
+          if (reader.Read())
+          {
+            membership_level_out = reader.GetInt32(0);
+            is_expired_out = reader.GetInt32(1);
+          }
+          else
+          {
+            membership_level_out = 0;
+            is_expired_out = 0;
+          }
+        }
+        return true;
+      }
+      catch (PostgresException e)
+      {
+        Console.WriteLine("Thread {0}: PostgreSQL Error in Get_Membership_Status.ExecuteReader(): {1}",
+          Thread.CurrentThread.Name, e.Message);
+        return false;
+      }
+      catch (System.Exception e)
+      {
+        Console.WriteLine("Thread {0}: System Error in Get_Membership_Status.ExecuteReader(): {1}",
+          Thread.CurrentThread.Name, e.Message);
+        return false;
+      }
+      finally
+      {
+        rt = timer.Elapsed.TotalSeconds;
+      }
+    } // end ds2getmembershipstatus()
 
     //
     //-------------------------------------------------------------------------------------------------
-    // 
+    //
+    public bool ds2renewmembership(int customerid_in, ref int rows_affected_out, ref double rt)
+    {
+      Renew_Membership.Parameters["customerid_in"].Value = customerid_in;
+
+      Stopwatch timer = Stopwatch.StartNew();
+
+      try
+      {
+        rows_affected_out = Convert.ToInt32(Renew_Membership.ExecuteScalar().ToString());
+        return true;
+      }
+      catch (PostgresException e)
+      {
+        Console.WriteLine("Thread {0}: PostgreSQL Error in Renew_Membership.ExecuteScalar(): {1}",
+          Thread.CurrentThread.Name, e.Message);
+        return false;
+      }
+      catch (System.Exception e)
+      {
+        Console.WriteLine("Thread {0}: System Error in Renew_Membership.ExecuteScalar(): {1}",
+          Thread.CurrentThread.Name, e.Message);
+        return false;
+      }
+      finally
+      {
+        rt = timer.Elapsed.TotalSeconds;
+      }
+    } // end ds2renewmembership()
+
+
+    //
+    //-------------------------------------------------------------------------------------------------
+    //
     public bool ds2browse(string browse_type_in, string browse_category_in, string browse_actor_in,
-      string browse_title_in, int batch_size_in, int search_depth_in, int customerid_out, ref int rows_returned,
+      string browse_title_in, int batch_size_in, int search_depth_in, int customerid_out, int membership_level_in, ref int rows_returned,
       ref int[] prod_id_out, ref string[] title_out, ref string[] actor_out, ref decimal[] price_out,
       ref int[] special_out, ref int[] common_prod_id_out, ref double rt)
     {
@@ -450,8 +534,8 @@ namespace ds2xdriver
           break;
         case "membership":
           Browse_By_Membership.Parameters["batch_size_in"].Value = batch_size_in;
-          Browse_By_Membership.Parameters["membershiptype_in"].Value = Random.Shared.Next(1, 4);
-          data_in = "membership item: " + Browse_By_Membership.Parameters["membershiptype_in"].Value;
+          Browse_By_Membership.Parameters["membershiptype_in"].Value = membership_level_in;
+          data_in = "membership item: " + membership_level_in;
           break;
         default:
           Console.WriteLine("  Browse type '{0}' unsupported.", browse_type_in);
