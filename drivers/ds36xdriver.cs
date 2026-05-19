@@ -2969,49 +2969,51 @@ namespace ds2xdriver
         {
           batch_size_in = Random.Shared.Next(1, 2 * Controller.search_batch_size); // request avg of search_batch_size lines
 
-          // Build list of valid browse types for this user
-          List<string> validBrowseTypes = new List<string> { "category", "actor", "title" };
-
-          // Add membership browse if user is an active member
-          if (!Controller.ds2_mode && membershiplevel_out > 0)
-            validBrowseTypes.Add("membership");
-
-          // Add vector search if enabled
-          if (Controller.n_vectors > 0)
-            validBrowseTypes.Add("vector");
-
-          // Randomly select a browse type
-          string selectedBrowse = validBrowseTypes[Random.Shared.Next(validBrowseTypes.Count)];
-
           browse_actor_in = "";
           browse_title_in = "";
 
-          switch (selectedBrowse)
+          // Members always browse by membership (creates tier-specific purchase patterns)
+          // Non-members use random browse types
+          if (!Controller.ds2_mode && membershiplevel_out > 0)
           {
-            case "category":
-              browse_type_in = "category";
-              browse_category_in = (Random.Shared.Next(1, GlobalConstants.MAX_CATEGORY + 1)).ToString();
-              browse_criteria = browse_category_in;
-              break;
-            case "actor":
-              browse_type_in = "actor";
-              browse_actor_in = CreateActor();
-              browse_criteria = browse_actor_in;
-              break;
-            case "title":
-              browse_type_in = "title";
-              browse_title_in = CreateTitle();
-              browse_criteria = browse_title_in;
-              break;
-            case "membership":
-              browse_type_in = "membership";
-              browse_criteria = browse_type_in;
-              break;
-            case "vector":
-              browse_type_in = "vector";
-              browse_criteria = browse_type_in;
-              Controller.n_browse_vector++;
-              break;
+            browse_type_in = "membership";
+            browse_criteria = "membership level " + membershiplevel_out;
+          }
+          else
+          {
+            // Build list of valid browse types for non-members
+            List<string> validBrowseTypes = new List<string> { "category", "actor", "title" };
+
+            // Add vector search if enabled
+            if (Controller.n_vectors > 0)
+              validBrowseTypes.Add("vector");
+
+            // Randomly select a browse type
+            string selectedBrowse = validBrowseTypes[Random.Shared.Next(validBrowseTypes.Count)];
+
+            switch (selectedBrowse)
+            {
+              case "category":
+                browse_type_in = "category";
+                browse_category_in = (Random.Shared.Next(1, GlobalConstants.MAX_CATEGORY + 1)).ToString();
+                browse_criteria = browse_category_in;
+                break;
+              case "actor":
+                browse_type_in = "actor";
+                browse_actor_in = CreateActor();
+                browse_criteria = browse_actor_in;
+                break;
+              case "title":
+                browse_type_in = "title";
+                browse_title_in = CreateTitle();
+                browse_criteria = browse_title_in;
+                break;
+              case "vector":
+                browse_type_in = "vector";
+                browse_criteria = browse_type_in;
+                Controller.n_browse_vector++;
+                break;
+            }
           }
 
           failures = 0;
@@ -3258,20 +3260,33 @@ namespace ds2xdriver
         // Randomize number of cart items with average n_line_items
         int cart_items = Random.Shared.Next(1, 2 * Controller.n_line_items);
 
-        //For each cart item take product_id from search results or randomly select
-        //for (i=0; i<cart_items; i++)
-        //  {
-        //  prod_id_in[i] = (rows_returned > i) ? prod_id_out[i] : (1 + Random.Shared.Next(Controller.max_product));
-        //  qty_in[i] = 1 + Random.Shared.Next(3);  // qty (1, 2 or 3)
-        //  }
-
-        // For each cart item randomly select product_id using weighted random Id
+        // Member vs Non-member purchase behavior:
+        // - Members: buy from membership browse results (creates tier-specific purchase patterns)
+        // - Non-members: use skewed distribution (maintains hot-spot testing)
         for (i = 0; i < cart_items; i++)
         {
-          prod_id_in[i] = Controller.GetSkewedProductId(Controller.max_product[target_store]);
+          if (membershiplevel_out > 0)
+          {
+            // Members: buy from browse results
+            if (i < rows_returned)
+            {
+              // Pick randomly from browse results (allows duplicates in cart)
+              int browse_index = Random.Shared.Next(rows_returned);
+              prod_id_in[i] = prod_id_out[browse_index];
+            }
+            else
+            {
+              // Browse didn't return enough products, fill remainder with skewed distribution
+              prod_id_in[i] = Controller.GetSkewedProductId(Controller.max_product[target_store]);
+            }
+          }
+          else
+          {
+            // Non-members: use skewed distribution (existing behavior)
+            prod_id_in[i] = Controller.GetSkewedProductId(Controller.max_product[target_store]);
+          }
+
           qty_in[i] = Random.Shared.Next(1, 4);  // qty (1, 2 or 3)
-                                                 //        Console.WriteLine("Thread {0}: Purchase prod_id_in[{1}] = {2}  qty_in[{1}]= {3}",
-                                                 //          Thread.CurrentThread.Name, i, prod_id_in[i], qty_in[i]);
         }
 
         failures = 0;
