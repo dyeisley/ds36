@@ -2649,7 +2649,7 @@ namespace ds2xdriver
     //
     public void Emulate()
     {
-      int i, customerid_out = 0, neworderid_out = 0, rows_returned = 0, reviewhelpfulnessid_out = 0, newreviewid_out = 0, failures;
+      int i, customerid_out = 0, neworderid_out = 0, browse_rows_returned = 0, rows_returned = 0, reviewhelpfulnessid_out = 0, newreviewid_out = 0, failures;
       int membershiplevel_out = 0;
       bool IsLogin, IsRollback, IsNewMember, IsMembershipRenew, IsNewReview, IsNewHelpfulness;
       double rt = 0, rt_tot, rt_login, rt_newcust, rt_browse, rt_purchase;
@@ -2663,6 +2663,7 @@ namespace ds2xdriver
       decimal[] price_out = new decimal[GlobalConstants.MAX_ROWS];       // Browse
       int[] special_out = new int[GlobalConstants.MAX_ROWS];             // Browse
       int[] common_prod_id_out = new int[GlobalConstants.MAX_ROWS];      // Browse
+      int[] review_prod_id_out = new int[GlobalConstants.MAX_ROWS];      // Browse Reviews, Get Reviews
       int[] prod_id_in = new int[GlobalConstants.MAX_ROWS];              // Purchase
       int[] qty_in = new int[GlobalConstants.MAX_ROWS];                  // Purchase
       int[] review_id_out = new int[GlobalConstants.MAX_ROWS];           // Browse Reviews, Get Reviews
@@ -3018,10 +3019,11 @@ namespace ds2xdriver
 
           failures = 0;
 
+	  browse_rows_returned = 0;
           while (!ds2interfaces[Userid].ds2browse(browse_type_in, browse_category_in, browse_actor_in,
-          browse_title_in, batch_size_in, Controller.search_depth, customerid_out, membershiplevel_out,
-          ref rows_returned, ref prod_id_out, ref title_out, ref actor_out, ref price_out, ref special_out,
-          ref common_prod_id_out, ref rt))
+            browse_title_in, batch_size_in, Controller.search_depth, customerid_out, membershiplevel_out,
+            ref browse_rows_returned, ref prod_id_out, ref title_out, ref actor_out, ref price_out, ref special_out,
+            ref common_prod_id_out, ref rt))
           {
             if (++failures < GlobalConstants.MAX_FAILURES)
             {
@@ -3029,8 +3031,8 @@ namespace ds2xdriver
                Thread.CurrentThread.Name, username_in, failures);
 
               // Assume there's a problem with vector search and disable.
-              // The ds2browse implimentation must set rows_returned = -1
-              if (rows_returned == -1 && Controller.n_vectors == 1)
+              // The ds2browse implimentation must set browse_rows_returned = -1
+              if (browse_rows_returned == -1 && Controller.n_vectors == 1)
               {
                 Console.WriteLine("  Disabling Browse by vector.");
                 Controller.n_vectors = 0;
@@ -3038,7 +3040,7 @@ namespace ds2xdriver
 
               // Browse by category instead of continuing to browse by vector.
               // This allows the test to continue with threads exiting.
-              if (rows_returned == -1)
+              if (browse_rows_returned == -1)
               {
                 browse_type_in = "category";
                 browse_category_in = (Random.Shared.Next(1, GlobalConstants.MAX_CATEGORY + 1)).ToString();
@@ -3109,7 +3111,7 @@ namespace ds2xdriver
             }
             failures = 0;
             while (!ds2interfaces[Userid].ds2browsereview(get_review_type_in, get_review_category_in, get_review_actor_in,
-              get_review_title_in, batch_size_in, Controller.search_depth, customerid_out, ref rows_returned, ref prod_id_out, ref title_out,
+              get_review_title_in, batch_size_in, Controller.search_depth, customerid_out, ref rows_returned, ref review_prod_id_out, ref title_out,
               ref actor_out, ref review_id_out, ref review_date_out, ref review_stars_out, ref review_customerid_out,
               ref review_summary_out, ref review_text_out, ref review_helpfulness_sum_out, ref rt))
             {
@@ -3166,7 +3168,7 @@ namespace ds2xdriver
                 break;
             }
             failures = 0;
-            while (!ds2interfaces[Userid].ds2getreview(get_review_type_in, get_review_prod_in, get_review_stars_in, customerid_out, batch_size_in, ref rows_returned, ref prod_id_out,
+            while (!ds2interfaces[Userid].ds2getreview(get_review_type_in, get_review_prod_in, get_review_stars_in, customerid_out, batch_size_in, ref rows_returned, ref review_prod_id_out,
                ref review_id_out, ref review_date_out, ref review_stars_out, ref review_customerid_out,
                ref review_summary_out, ref review_text_out, ref review_helpfulness_sum_out, ref rt))
             {
@@ -3195,7 +3197,7 @@ namespace ds2xdriver
             new_review_summary_in = CreateReviewData(3);
             new_review_text_in = CreateReviewData(25);
             new_review_stars_in = Random.Shared.Next(1, 6);
-            new_review_prod_id_in = prod_id_out[Random.Shared.Next(0, rows_returned)];
+            new_review_prod_id_in = review_prod_id_out[Random.Shared.Next(0, rows_returned)];
 
             failures = 0;
             while (!ds2interfaces[Userid].ds2newreview(new_review_prod_id_in, new_review_stars_in, customerid_out, new_review_summary_in, new_review_text_in, ref newreviewid_out, ref rt))
@@ -3251,34 +3253,32 @@ namespace ds2xdriver
 
         // Purchase Phase
 
-        for (i = 0; i < GlobalConstants.MAX_ROWS; i++)
+        // Randomize number of cart items with average n_line_items
+        int cart_items = Random.Shared.Next(1, 2 * Controller.n_line_items);
+
+        for (i = 0; i < cart_items ; i++)
         {
           prod_id_in[i] = 0;
           qty_in[i] = 0;
         }
 
-        // Randomize number of cart items with average n_line_items
-        int cart_items = Random.Shared.Next(1, 2 * Controller.n_line_items);
+        // For members, limit cart to browse results + 1 (max 1 spillover item via GetSkewedProductId)
+        //if (membershiplevel_out > 0 && cart_items > browse_rows_returned)
+        //{
+        //  cart_items = browse_rows_returned + 1;
+        //}
 
         // Member vs Non-member purchase behavior:
         // - Members: buy from membership browse results (creates tier-specific purchase patterns)
         // - Non-members: use skewed distribution (maintains hot-spot testing)
         for (i = 0; i < cart_items; i++)
         {
-          if (membershiplevel_out > 0)
+          if (membershiplevel_out > 0 && i < browse_rows_returned)
           {
-            // Members: buy from browse results
-            if (i < rows_returned)
-            {
-              // Pick randomly from browse results (allows duplicates in cart)
-              int browse_index = Random.Shared.Next(rows_returned);
-              prod_id_in[i] = prod_id_out[browse_index];
-            }
-            else
-            {
-              // Browse didn't return enough products, fill remainder with skewed distribution
-              prod_id_in[i] = Controller.GetSkewedProductId(Controller.max_product[target_store]);
-            }
+            // Members: buy from browse results (prod_id_out preserved from Browse Phase)
+            prod_id_in[i] = prod_id_out[i];
+
+            // If Browse didn't return enough products, fill remainder with skewed distribution
           }
           else
           {

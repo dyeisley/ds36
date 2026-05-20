@@ -140,6 +140,55 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Silver members (tier 2) → browse MEMBERSHIP_ITEM=2 products
 - Gold members (tier 3) → browse MEMBERSHIP_ITEM=3 products
 
+**Purchase Behavior Changes** (ds36xdriver.cs, lines 2659-2667, 3064-3074, 3262-3296):
+
+**Members purchase from browse results**:
+- After browsing by membership tier, members add browsed products to cart
+- Purchase loop uses `prod_id_out[]` array populated during Browse Phase
+- Non-members continue using `GetSkewedProductId()` for random product selection
+
+**Array separation for browse/review operations**:
+- **Bug fix**: `prod_id_out[]` was being overwritten by review browse operations
+- **Solution**: Created separate `review_prod_id_out[]` array for review operations
+- Added `browse_rows_returned` variable to preserve browse result count across phases
+- Ensures purchase decisions use original browse results, not review browse results
+
+**Natural spillover behavior**:
+- Cart size: `Random.Shared.Next(1, 2 * n_line_items)` (default: 1-10 items)
+- Members fill cart from browse results first
+- When cart exceeds browse results → spillover to `GetSkewedProductId()` (random products)
+- Simulates realistic shopping: primary focus on tier products, occasional cross-tier purchases
+
+**Purchase patterns** (validated across all 4 databases):
+- **Members**: ~77% purchases from their membership tier
+- **Spillover**: ~7-8% to each of the other three tiers (evenly distributed)
+- **Examples**:
+  - Gold member (tier 3): 77% tier-3 products, 7-8% each tier-0/1/2
+  - Silver member (tier 2): 77% tier-2 products, 7-8% each tier-0/1/3
+  - Bronze member (tier 1): 77% tier-1 products, 7-8% each tier-0/2/3
+
+**Validation SQL - Member-Specific Purchase Behavior**:
+- New validation query analyzes purchase patterns by member tier
+- **EXPIREDATE filter**: Only counts purchases from active members
+  - Oracle: `m.EXPIREDATE > SYSDATE`
+  - SQL Server: `m.EXPIREDATE > GETDATE()`
+  - MySQL: `m.EXPIREDATE > NOW()`
+  - PostgreSQL: `m.EXPIREDATE > CURRENT_TIMESTAMP`
+- Uses `PRODUCTS.MEMBERSHIP_ITEM` to match product tier to customer tier
+- Filters by `ORDERS_COUNT` baseline to only count benchmark orders
+- Reports: member_tier, product_tier, purchase_count, pct_of_tier_purchases
+
+**Statistics tracking**:
+- Existing counters track overall purchase operations
+- Validation SQL provides tier-specific purchase breakdown post-test
+
+**Files Modified**:
+- `drivers/ds36xdriver.cs` (lines 2659-2667, 3064-3074, 3262-3296)
+- `oracle/validate/validate_post_test.sql` (lines 947-983)
+- `sqlserver/validate/validate_post_test.sql` (lines 688-716)
+- `mysql/validate/validate_post_test.sql` (lines 655-682)
+- `pgsql/validate/validate_post_test.sql` (lines 882-912)
+
 **Statistics Output** (lines 2057, 2437):
 - Customer Operations section: `Renew Membership: N operations, avg RT: X.XXX sec`
 - Configuration Summary section: `Renew membership pct: N%`
