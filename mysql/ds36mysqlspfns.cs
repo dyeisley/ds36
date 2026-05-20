@@ -875,6 +875,9 @@ namespace ds2xdriver
     {
       int j;
 
+      //Cap cart_items at 10 for this implementation of stored procedure
+      cart_items = System.Math.Min(10, cart_items);
+
       // Find total cost of purchase
       Decimal netamount_in = 0;
 
