@@ -880,6 +880,39 @@ ORDER BY s.CUSTOMERID
 LIMIT 5);
 
 DO $$
+BEGIN
+    RAISE NOTICE '';
+    RAISE NOTICE '========================================================================';
+    RAISE NOTICE '--- MEMBER-SPECIFIC PURCHASE BEHAVIOR ---';
+    RAISE NOTICE 'Verifying: Members buy primarily from their membership tier';
+    RAISE NOTICE 'Expected: ~85-90%% of purchases match member tier (tier 1->tier 1, etc.)';
+    RAISE NOTICE 'Expected: ~5-6%% spillover to other tiers when cart exceeds browse results';
+    RAISE NOTICE '========================================================================';
+    RAISE NOTICE '';
+END $$;
+
+SELECT
+    member_tier,
+    product_tier,
+    purchase_count,
+    ROUND(purchase_count * 100.0 / tier_total, 2) AS pct_of_tier_purchases
+FROM (
+    SELECT
+        m.MEMBERSHIPTYPE AS member_tier,
+        p.MEMBERSHIP_ITEM AS product_tier,
+        COUNT(*) AS purchase_count,
+        SUM(COUNT(*)) OVER (PARTITION BY m.MEMBERSHIPTYPE) AS tier_total
+    FROM MEMBERSHIP{store_number} m
+    INNER JOIN ORDERS{store_number} o ON m.CUSTOMERID = o.CUSTOMERID
+    INNER JOIN ORDERLINES{store_number} ol ON o.ORDERID = ol.ORDERID
+    INNER JOIN PRODUCTS{store_number} p ON ol.PROD_ID = p.PROD_ID
+    WHERE o.ORDERID > (SELECT metric_value FROM VALIDATION_METRICS_{store_number} WHERE metric_name = 'ORDERS_COUNT')
+      AND m.EXPIREDATE > CURRENT_TIMESTAMP
+    GROUP BY m.MEMBERSHIPTYPE, p.MEMBERSHIP_ITEM
+) AS tier_purchases
+ORDER BY member_tier, product_tier;
+
+DO $$
 DECLARE
     v_customers_before INT;
     v_customers_after INT;

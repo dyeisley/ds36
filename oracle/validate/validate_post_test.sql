@@ -944,6 +944,50 @@ SELECT * FROM (
 )
 WHERE ROWNUM <= 5;
 
+BEGIN
+    DBMS_OUTPUT.PUT_LINE('');
+    DBMS_OUTPUT.PUT_LINE('========================================================================');
+    DBMS_OUTPUT.PUT_LINE('--- MEMBER-SPECIFIC PURCHASE BEHAVIOR ---');
+    DBMS_OUTPUT.PUT_LINE('Verifying: Members buy primarily from their membership tier');
+    DBMS_OUTPUT.PUT_LINE('Expected: ~85-90% of purchases match member tier (tier 1->tier 1, etc.)');
+    DBMS_OUTPUT.PUT_LINE('Expected: ~5-6% spillover to other tiers when cart exceeds browse results');
+    DBMS_OUTPUT.PUT_LINE('========================================================================');
+    DBMS_OUTPUT.PUT_LINE('');
+END;
+/
+
+SET LINESIZE 120
+COLUMN member_tier FORMAT 999 HEADING 'Member|Tier'
+COLUMN product_tier FORMAT 999 HEADING 'Product|Tier'
+COLUMN purchase_count FORMAT 999,999,999 HEADING 'Purchase|Count'
+COLUMN pct_of_tier_purchases FORMAT 990.99 HEADING 'Pct of Tier|Purchases'
+
+SELECT
+    member_tier,
+    product_tier,
+    purchase_count,
+    ROUND(purchase_count * 100.0 / tier_total, 2) AS pct_of_tier_purchases
+FROM (
+    SELECT
+        m.MEMBERSHIPTYPE AS member_tier,
+        p.MEMBERSHIP_ITEM AS product_tier,
+        COUNT(*) AS purchase_count,
+        SUM(COUNT(*)) OVER (PARTITION BY m.MEMBERSHIPTYPE) AS tier_total
+    FROM DS3.MEMBERSHIP{store_number} m
+    INNER JOIN DS3.ORDERS{store_number} o ON m.CUSTOMERID = o.CUSTOMERID
+    INNER JOIN DS3.ORDERLINES{store_number} ol ON o.ORDERID = ol.ORDERID
+    INNER JOIN DS3.PRODUCTS{store_number} p ON ol.PROD_ID = p.PROD_ID
+    WHERE o.ORDERID > (SELECT metric_value FROM VALIDATION_METRICS_{store_number} WHERE metric_name = 'ORDERS_COUNT')
+      AND m.EXPIREDATE > SYSDATE
+    GROUP BY m.MEMBERSHIPTYPE, p.MEMBERSHIP_ITEM
+)
+ORDER BY member_tier, product_tier;
+
+BEGIN
+    DBMS_OUTPUT.PUT_LINE('');
+END;
+/
+
 DECLARE
     v_customers_before NUMBER;
     v_customers_after NUMBER;
@@ -1011,6 +1055,11 @@ BEGIN
     WHERE metric_name = 'MAX_CUSTOMERID';
 END;
 /
+
+COLUMN CUSTOMERID FORMAT 999999999 HEADING 'Customer|ID'
+COLUMN FIRSTNAME FORMAT A20 HEADING 'First|Name'
+COLUMN LASTNAME FORMAT A20 HEADING 'Last|Name'
+COLUMN CITY FORMAT A20 HEADING 'City'
 
 SELECT * FROM (
     SELECT
