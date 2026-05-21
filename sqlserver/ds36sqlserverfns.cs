@@ -48,7 +48,7 @@ namespace ds2xdriver
     SqlCommand Get_Prod_Reviews, Get_Prod_Reviews_By_Actor, Get_Prod_Reviews_By_Title, Get_Prod_Reviews_By_Date, Get_Prod_Reviews_By_Stars;
     SqlCommand New_Member, New_Prod_Review, New_Review_Helpfulness;
     SqlCommand Get_Membership_Status, Renew_Membership;
-    SqlCommand Remove_Review_By_Product, Remove_Unhelpful_Reviews, Remove_Reviews_By_Date, Adjust_Prices, Bulk_Price_Adjustment, Mark_Specials, Expire_Memberships, Purge_Old_Orders, Upgrade_Membership;
+    SqlCommand Remove_Review_By_Product, Remove_Unhelpful_Reviews, Remove_Reviews_By_Date, Adjust_Prices, Bulk_Price_Adjustment, Mark_Specials, Expire_Memberships, Purge_Old_Orders, Upgrade_Membership, Promotional_Membership;
     SqlCommand[] CostQuery = new SqlCommand[11];
 
     //
@@ -262,6 +262,11 @@ namespace ds2xdriver
       Upgrade_Membership = new SqlCommand("UpgradeMembership" + target_store_number, objConn);
       Upgrade_Membership.CommandType = CommandType.StoredProcedure;
       Upgrade_Membership.Parameters.Add("@batch_size", SqlDbType.Int);
+
+      Promotional_Membership = new SqlCommand("PromotionalMembership" + target_store_number, objConn);
+      Promotional_Membership.CommandType = CommandType.StoredProcedure;
+      Promotional_Membership.Parameters.Add("@batch_size", SqlDbType.Int);
+      Promotional_Membership.Parameters.Add("@rows_affected", SqlDbType.Int).Direction = ParameterDirection.Output;
 
       Bulk_Price_Adjustment = new SqlCommand("BulkPriceAdjustment" + target_store_number, objConn);
       Bulk_Price_Adjustment.CommandType = CommandType.StoredProcedure;
@@ -1237,6 +1242,29 @@ namespace ds2xdriver
       catch (Exception e)
       {
         Console.WriteLine($"Thread {Thread.CurrentThread.Name}: ds36upgrademembership error: {e.Message}");
+        return 0;
+      }
+      finally
+      {
+        rt = timer.Elapsed.TotalSeconds;
+      }
+    }
+
+    public int ds36promotionalmembership(int batchSize, ref double rt)
+    {
+      Promotional_Membership.Parameters["@batch_size"].Value = batchSize;
+
+      Stopwatch timer = Stopwatch.StartNew();
+
+      try
+      {
+        Promotional_Membership.ExecuteNonQuery();
+        object result = Promotional_Membership.Parameters["@rows_affected"].Value;
+        return result != null && result != DBNull.Value ? Convert.ToInt32(result.ToString()) : 0;
+      }
+      catch (Exception e)
+      {
+        Console.WriteLine($"Thread {Thread.CurrentThread.Name}: ds36promotionalmembership error: {e.Message}");
         return 0;
       }
       finally

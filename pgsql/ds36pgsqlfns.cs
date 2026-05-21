@@ -48,7 +48,7 @@ namespace ds2xdriver
     NpgsqlCommand Login, New_Customer, Browse_By_Category, Browse_By_Actor, Browse_By_Title, Browse_By_Membership, Purchase;
     NpgsqlCommand New_Member, Get_Membership_Status, Renew_Membership, New_Prod_Review, New_Review_Helpfulness, New_Product;
     NpgsqlCommand Get_Prod_Reviews, Get_Prod_Reviews_By_Date, Get_Prod_Reviews_By_Stars, Get_Prod_Reviews_By_Actor, Get_Prod_Reviews_By_Title;
-    NpgsqlCommand Remove_Review_By_Product, Remove_Unhelpful_Reviews, Remove_Reviews_By_Date, Adjust_Prices, Bulk_Price_Adjustment, Mark_Specials, Expire_Memberships, Purge_Old_Orders, Upgrade_Membership;
+    NpgsqlCommand Remove_Review_By_Product, Remove_Unhelpful_Reviews, Remove_Reviews_By_Date, Adjust_Prices, Bulk_Price_Adjustment, Mark_Specials, Expire_Memberships, Purge_Old_Orders, Upgrade_Membership, Promotional_Membership;
     NpgsqlCommand[] CostQuery = new NpgsqlCommand[11];
 
     //
@@ -259,6 +259,9 @@ namespace ds2xdriver
 
       Upgrade_Membership = new NpgsqlCommand("SELECT rows_upgraded FROM upgrade_membership" + target_store_number + "(@p_batch_size)", objConn);
       Upgrade_Membership.Parameters.Add("p_batch_size", NpgsqlDbType.Integer);
+
+      Promotional_Membership = new NpgsqlCommand("SELECT promotionalmembership" + target_store_number + "(@p_batch_size)", objConn);
+      Promotional_Membership.Parameters.Add("p_batch_size", NpgsqlDbType.Integer);
     }
 
     //
@@ -1201,6 +1204,27 @@ namespace ds2xdriver
       catch (Exception e)
       {
         Console.WriteLine($"Thread {Thread.CurrentThread.Name}: ds36upgrademembership error: {e.Message}");
+        return 0;
+      }
+      finally
+      {
+        rt = timer.Elapsed.TotalSeconds;
+      }
+    }
+
+    public int ds36promotionalmembership(int batchSize, ref double rt)
+    {
+      Promotional_Membership.Parameters["p_batch_size"].Value = batchSize;
+
+      Stopwatch timer = Stopwatch.StartNew();
+      try
+      {
+        object result = Promotional_Membership.ExecuteScalar();
+        return result != null && result != DBNull.Value ? Convert.ToInt32(result) : 0;
+      }
+      catch (Exception e)
+      {
+        Console.WriteLine($"Thread {Thread.CurrentThread.Name}: ds36promotionalmembership error: {e.Message}");
         return 0;
       }
       finally

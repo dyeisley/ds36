@@ -1088,6 +1088,134 @@ WHERE OPERATION = 'UPDATE'
 ORDER BY AUDIT_ID DESC
 LIMIT 5;
 
+
+-- =======================================================================
+-- PROMOTIONAL MEMBERSHIP AUDIT
+-- =======================================================================
+DO $$
+BEGIN
+    RAISE NOTICE '';
+    RAISE NOTICE '========================================================================';
+    RAISE NOTICE '--- PROMOTIONAL MEMBERSHIP AUDIT ---';
+    RAISE NOTICE 'Verifying: PromotionalMembership MERGE operations tracked correctly';
+    RAISE NOTICE 'Expected: INSERT path creates tier 1 with 90-day expiration';
+    RAISE NOTICE 'Expected: UPDATE path shows sequential upgrades (1->2, 2->3) or tier 3 extensions';
+    RAISE NOTICE '========================================================================';
+    RAISE NOTICE '';
+END $$;
+
+-- Operation summary (INSERT vs UPDATE)
+SELECT
+    OPERATION_TYPE,
+    COUNT(*) AS operation_count,
+    ROUND(CAST(AVG(CASE WHEN OLD_TIER IS NULL THEN 0 ELSE 1 END) * 100 AS NUMERIC), 2) AS pct_had_membership
+FROM MEMBERSHIP_PROMO_AUDIT{store_number}
+GROUP BY OPERATION_TYPE;
+
+DO $$ BEGIN RAISE NOTICE ''; END $$;
+
+-- Verify INSERT path: all new memberships are tier 1 with 90-day expiration
+DO $$
+DECLARE
+    new_tier1_90day INT;
+BEGIN
+    SELECT COUNT(*) INTO new_tier1_90day
+    FROM MEMBERSHIP_PROMO_AUDIT{store_number}
+    WHERE OPERATION_TYPE = 'INSERT'
+      AND NEW_TIER = 1
+      AND NEW_EXPIREDATE BETWEEN CURRENT_DATE + INTERVAL '89 days' AND CURRENT_DATE + INTERVAL '91 days';
+
+    RAISE NOTICE 'New memberships (tier 1, 90-day expiration): %', new_tier1_90day;
+END $$;
+
+DO $$ BEGIN RAISE NOTICE ''; END $$;
+
+-- Verify UPDATE path: tier upgrades are sequential (1->2, 2->3)
+SELECT
+    OLD_TIER AS from_tier,
+    NEW_TIER AS to_tier,
+    COUNT(*) AS upgrade_count
+FROM MEMBERSHIP_PROMO_AUDIT{store_number}
+WHERE OPERATION_TYPE = 'UPDATE'
+  AND OLD_TIER < 3
+GROUP BY OLD_TIER, NEW_TIER
+ORDER BY OLD_TIER, NEW_TIER;
+
+DO $$ BEGIN RAISE NOTICE ''; END $$;
+
+-- Verify tier 3 extensions are ~90 days
+DO $$
+DECLARE
+    tier3_extensions INT;
+BEGIN
+    SELECT COUNT(*) INTO tier3_extensions
+    FROM MEMBERSHIP_PROMO_AUDIT{store_number}
+    WHERE OPERATION_TYPE = 'UPDATE'
+      AND OLD_TIER = 3
+      AND NEW_TIER = 3
+      AND (NEW_EXPIREDATE - OLD_EXPIREDATE) BETWEEN 89 AND 91;
+
+    RAISE NOTICE 'Tier 3 extensions (90-day): %', tier3_extensions;
+END $$;
+
+DO $$ BEGIN RAISE NOTICE ''; END $$;
+
+-- Sample operations (3 of each type)
+(SELECT
+    CUSTOMERID,
+    NULL AS old_tier,
+    NEW_TIER AS new_tier,
+    TO_CHAR(NEW_EXPIREDATE, 'YYYY-MM-DD') AS new_expire,
+    OPERATION_TYPE,
+    OPERATION_TIMESTAMP
+FROM MEMBERSHIP_PROMO_AUDIT{store_number}
+WHERE OPERATION_TYPE = 'INSERT'
+LIMIT 3)
+
+UNION ALL
+
+(SELECT
+    CUSTOMERID,
+    OLD_TIER AS old_tier,
+    NEW_TIER AS new_tier,
+    TO_CHAR(NEW_EXPIREDATE, 'YYYY-MM-DD') AS new_expire,
+    'UPDATE (1->2)' AS OPERATION_TYPE,
+    OPERATION_TIMESTAMP
+FROM MEMBERSHIP_PROMO_AUDIT{store_number}
+WHERE OPERATION_TYPE = 'UPDATE' AND OLD_TIER = 1 AND NEW_TIER = 2
+LIMIT 3)
+
+UNION ALL
+
+(SELECT
+    CUSTOMERID,
+    OLD_TIER AS old_tier,
+    NEW_TIER AS new_tier,
+    TO_CHAR(NEW_EXPIREDATE, 'YYYY-MM-DD') AS new_expire,
+    'UPDATE (2->3)' AS OPERATION_TYPE,
+    OPERATION_TIMESTAMP
+FROM MEMBERSHIP_PROMO_AUDIT{store_number}
+WHERE OPERATION_TYPE = 'UPDATE' AND OLD_TIER = 2 AND NEW_TIER = 3
+LIMIT 3)
+
+UNION ALL
+
+(SELECT
+    CUSTOMERID,
+    OLD_TIER AS old_tier,
+    NEW_TIER AS new_tier,
+    TO_CHAR(NEW_EXPIREDATE, 'YYYY-MM-DD') AS new_expire,
+    'UPDATE (3->3 ext)' AS OPERATION_TYPE,
+    OPERATION_TIMESTAMP
+FROM MEMBERSHIP_PROMO_AUDIT{store_number}
+WHERE OPERATION_TYPE = 'UPDATE' AND OLD_TIER = 3 AND NEW_TIER = 3
+LIMIT 3)
+
+ORDER BY OPERATION_TYPE, OPERATION_TIMESTAMP;
+
+DO $$ BEGIN RAISE NOTICE ''; END $$;
+
+
 DO $$
 BEGIN
     RAISE NOTICE '';

@@ -43,7 +43,7 @@ namespace ds2xdriver
     OracleCommand Login, New_Customer, Browse_By_Category, Browse_By_Actor, Browse_By_Title, Browse_By_Membership, New_Product, Purchase;
     OracleCommand Get_Prod_Reviews, Get_Prod_Reviews_By_Actor, Get_Prod_Reviews_By_Title, Get_Prod_Reviews_By_Date, Get_Prod_Reviews_By_Stars;
     OracleCommand New_Member, Get_Membership_Status, Renew_Membership, New_Prod_Review, New_Review_Helpfulness;
-    OracleCommand Remove_Review_By_Product, Remove_Unhelpful_Reviews, Remove_Reviews_By_Date, Adjust_Prices, Bulk_Price_Adjustment, Mark_Specials, Expire_Memberships, Purge_Old_Orders, Upgrade_Membership;
+    OracleCommand Remove_Review_By_Product, Remove_Unhelpful_Reviews, Remove_Reviews_By_Date, Adjust_Prices, Bulk_Price_Adjustment, Mark_Specials, Expire_Memberships, Purge_Old_Orders, Upgrade_Membership, Promotional_Membership;
 
     OracleParameter[] New_Customer_prm = new OracleParameter[20];
     OracleParameter[] Purchase_prm = new OracleParameter[6];
@@ -309,6 +309,11 @@ namespace ds2xdriver
       Upgrade_Membership.Parameters.Add("p_rows_upgraded", OracleDbType.Int32, ParameterDirection.Output);
       Upgrade_Membership.Parameters.Add("p_gold_threshold", OracleDbType.Decimal, ParameterDirection.Output);
       Upgrade_Membership.Parameters.Add("p_silver_threshold", OracleDbType.Decimal, ParameterDirection.Output);
+
+      Promotional_Membership = new OracleCommand("DS3.PromotionalMembership" + target_store_number, objConn);
+      Promotional_Membership.CommandType = CommandType.StoredProcedure;
+      Promotional_Membership.Parameters.Add("p_batch_size", OracleDbType.Int32);
+      Promotional_Membership.Parameters.Add("p_rows_affected", OracleDbType.Int32, ParameterDirection.Output);
     }
 
     //
@@ -1279,6 +1284,28 @@ namespace ds2xdriver
       catch (Exception e)
       {
         Console.WriteLine($"Thread {Thread.CurrentThread.Name}: ds36upgrademembership error: {e.Message}");
+        return 0;
+      }
+      finally
+      {
+        rt = timer.Elapsed.TotalSeconds;
+      }
+    }
+
+    public int ds36promotionalmembership(int batchSize, ref double rt)
+    {
+      Promotional_Membership.Parameters["p_batch_size"].Value = batchSize;
+
+      Stopwatch timer = Stopwatch.StartNew();
+      try
+      {
+        Promotional_Membership.ExecuteNonQuery();
+        object result = Promotional_Membership.Parameters["p_rows_affected"].Value;
+        return result != null && result != DBNull.Value ? Convert.ToInt32(result.ToString()) : 0;
+      }
+      catch (Exception e)
+      {
+        Console.WriteLine($"Thread {Thread.CurrentThread.Name}: ds36promotionalmembership error: {e.Message}");
         return 0;
       }
       finally

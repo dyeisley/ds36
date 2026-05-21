@@ -1135,6 +1135,70 @@ BEGIN
 END
 GO
 
+IF EXISTS (SELECT name FROM sysobjects WHERE name = 'PromotionalMembership$k' AND type = 'P')
+  DROP PROCEDURE PromotionalMembership$k
+GO
+CREATE PROCEDURE PromotionalMembership$k
+  \@batch_size INT,
+  \@rows_affected INT OUTPUT
+AS
+BEGIN
+  SET NOCOUNT ON;
+
+  -- Select random batch of customers
+  DECLARE \@customer_batch TABLE (CUSTOMERID INT);
+
+  INSERT INTO \@customer_batch
+  SELECT TOP (\@batch_size) CUSTOMERID
+  FROM CUSTOMERS$k
+  ORDER BY NEWID();
+
+  -- MERGE with audit tracking
+  MERGE INTO MEMBERSHIP$k AS target
+  USING \@customer_batch AS source
+    ON target.CUSTOMERID = source.CUSTOMERID
+
+  -- Customer already has membership: upgrade tier or extend expiration
+  WHEN MATCHED THEN
+    UPDATE SET
+      MEMBERSHIPTYPE = CASE
+        WHEN target.MEMBERSHIPTYPE = 1 THEN 2
+        WHEN target.MEMBERSHIPTYPE = 2 THEN 3
+        ELSE 3  -- Already tier 3, stay at tier 3
+      END,
+      EXPIREDATE = CASE
+        WHEN target.MEMBERSHIPTYPE = 3 THEN DATEADD(day, 90, target.EXPIREDATE)  -- Extend tier 3
+        ELSE target.EXPIREDATE  -- Keep existing for tier 1→2 and 2→3 upgrades
+      END
+
+  -- Customer doesn't have membership: insert tier 1 with 90-day expiration
+  WHEN NOT MATCHED THEN
+    INSERT (CUSTOMERID, MEMBERSHIPTYPE, EXPIREDATE)
+    VALUES (source.CUSTOMERID, 1, DATEADD(day, 90, GETDATE()))
+
+  -- Capture MERGE operations to audit table
+  OUTPUT
+    COALESCE(deleted.CUSTOMERID, inserted.CUSTOMERID),
+    deleted.MEMBERSHIPTYPE,           -- NULL for INSERT
+    inserted.MEMBERSHIPTYPE,
+    deleted.EXPIREDATE,               -- NULL for INSERT
+    inserted.EXPIREDATE,
+    CASE WHEN deleted.CUSTOMERID IS NULL THEN 'INSERT' ELSE 'UPDATE' END,
+    GETDATE()
+  INTO MEMBERSHIP_PROMO_AUDIT$k (
+    CUSTOMERID,
+    OLD_TIER,
+    NEW_TIER,
+    OLD_EXPIREDATE,
+    NEW_EXPIREDATE,
+    OPERATION_TYPE,
+    OPERATION_TIMESTAMP
+  );
+
+  SET \@rows_affected = \@\@ROWCOUNT;
+END
+GO
+
 \n";
   close $OUT;
 }

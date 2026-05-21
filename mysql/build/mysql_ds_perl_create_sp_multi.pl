@@ -848,6 +848,140 @@ BEGIN
     SELECT ROW_COUNT() AS rows_affected, v_gold_threshold AS gold_threshold, v_silver_threshold AS silver_threshold;
 END $$
 
+DROP PROCEDURE IF EXISTS DS3.PromotionalMembership$k $$
+CREATE PROCEDURE DS3.PromotionalMembership$k
+(
+    IN p_batch_size INT,
+    OUT p_rows_affected INT
+)
+BEGIN
+    DECLARE v_insert_count INT DEFAULT 0;
+    DECLARE v_update_count INT DEFAULT 0;
+    DECLARE done INT DEFAULT FALSE;
+    DECLARE v_customerid INT;
+    DECLARE v_old_tier INT;
+    DECLARE v_new_tier INT;
+    DECLARE v_old_expiredate DATE;
+    DECLARE v_new_expiredate DATE;
+
+    -- Cursor to select random batch of customers
+    DECLARE customer_cursor CURSOR FOR
+        SELECT CUSTOMERID
+        FROM CUSTOMERS$k
+        ORDER BY RAND()
+        LIMIT p_batch_size;
+
+    DECLARE CONTINUE HANDLER FOR NOT FOUND SET done = TRUE;
+
+    -- Create temporary table to track operations
+    CREATE TEMPORARY TABLE IF NOT EXISTS temp_promo_ops (
+        customerid INT,
+        old_tier INT,
+        new_tier INT,
+        old_expiredate DATE,
+        new_expiredate DATE,
+        operation_type VARCHAR(10)
+    );
+
+    TRUNCATE TABLE temp_promo_ops;
+
+    OPEN customer_cursor;
+
+    read_loop: LOOP
+        FETCH customer_cursor INTO v_customerid;
+        IF done THEN
+            LEAVE read_loop;
+        END IF;
+
+        -- Reset variables
+        SET v_old_tier = NULL;
+        SET v_old_expiredate = NULL;
+
+        -- Check if customer has membership (EXISTS avoids NOT FOUND)
+        IF EXISTS (SELECT 1 FROM MEMBERSHIP$k WHERE CUSTOMERID = v_customerid) THEN
+            SELECT MEMBERSHIPTYPE, EXPIREDATE
+            INTO v_old_tier, v_old_expiredate
+            FROM MEMBERSHIP$k
+            WHERE CUSTOMERID = v_customerid;
+        END IF;
+
+        IF v_old_tier IS NULL THEN
+            -- INSERT: New tier 1 membership with 90-day expiration
+            INSERT INTO MEMBERSHIP$k (CUSTOMERID, MEMBERSHIPTYPE, EXPIREDATE)
+            VALUES (v_customerid, 1, DATE_ADD(NOW(), INTERVAL 90 DAY));
+
+            SET v_insert_count = v_insert_count + 1;
+
+            INSERT INTO temp_promo_ops VALUES (
+                v_customerid,
+                NULL,
+                1,
+                NULL,
+                DATE_ADD(NOW(), INTERVAL 90 DAY),
+                'INSERT'
+            );
+        ELSE
+            -- UPDATE: Sequential upgrade or tier 3 extension
+            SET v_new_tier = CASE
+                WHEN v_old_tier = 1 THEN 2
+                WHEN v_old_tier = 2 THEN 3
+                ELSE 3  -- Already tier 3
+            END;
+
+            SET v_new_expiredate = CASE
+                WHEN v_old_tier = 3 THEN DATE_ADD(v_old_expiredate, INTERVAL 90 DAY)
+                ELSE v_old_expiredate  -- Keep existing for tier upgrades
+            END;
+
+            UPDATE MEMBERSHIP$k
+            SET MEMBERSHIPTYPE = v_new_tier,
+                EXPIREDATE = v_new_expiredate
+            WHERE CUSTOMERID = v_customerid;
+
+            SET v_update_count = v_update_count + 1;
+
+            INSERT INTO temp_promo_ops VALUES (
+                v_customerid,
+                v_old_tier,
+                v_new_tier,
+                v_old_expiredate,
+                v_new_expiredate,
+                'UPDATE'
+            );
+        END IF;
+
+        -- Reset for next iteration
+        SET v_old_tier = NULL;
+        SET v_old_expiredate = NULL;
+    END LOOP;
+
+    CLOSE customer_cursor;
+
+    -- Write audit trail
+    INSERT INTO MEMBERSHIP_PROMO_AUDIT$k (
+        CUSTOMERID,
+        OLD_TIER,
+        NEW_TIER,
+        OLD_EXPIREDATE,
+        NEW_EXPIREDATE,
+        OPERATION_TYPE,
+        OPERATION_TIMESTAMP
+    )
+    SELECT
+        customerid,
+        old_tier,
+        new_tier,
+        old_expiredate,
+        new_expiredate,
+        operation_type,
+        NOW()
+    FROM temp_promo_ops;
+
+    DROP TEMPORARY TABLE temp_promo_ops;
+
+    SET p_rows_affected = v_insert_count + v_update_count;
+END $$
+
 \n";
   close $OUT;
   sleep(1);

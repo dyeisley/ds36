@@ -985,6 +985,82 @@ BEGIN
 END;
 \$\$;
 
+CREATE OR REPLACE FUNCTION promotionalmembership$k(p_batch_size INT)
+RETURNS INT AS \$\$
+DECLARE
+    v_customerid INT;
+    v_old_tier INT;
+    v_new_tier INT;
+    v_old_expiredate DATE;
+    v_new_expiredate DATE;
+    v_operation_type VARCHAR(10);
+    rows_affected INT := 0;
+BEGIN
+    -- Process random batch of customers
+    FOR v_customerid IN
+        SELECT customerid
+        FROM customers$k
+        ORDER BY RANDOM()
+        LIMIT p_batch_size
+    LOOP
+        -- Check if customer has membership
+        SELECT membershiptype, expiredate INTO v_old_tier, v_old_expiredate
+        FROM membership$k
+        WHERE customerid = v_customerid;
+
+        IF NOT FOUND THEN
+            -- INSERT: New tier 1 membership with 90-day expiration
+            v_new_tier := 1;
+            v_new_expiredate := CURRENT_DATE + INTERVAL '90 days';
+            v_operation_type := 'INSERT';
+
+            INSERT INTO membership$k (customerid, membershiptype, expiredate)
+            VALUES (v_customerid, v_new_tier, v_new_expiredate);
+
+            -- Audit trail
+            INSERT INTO membership_promo_audit$k (
+                customerid, old_tier, new_tier, old_expiredate, new_expiredate, operation_type
+            ) VALUES (
+                v_customerid, NULL, v_new_tier, NULL, v_new_expiredate, v_operation_type
+            );
+
+            rows_affected := rows_affected + 1;
+        ELSE
+            -- UPDATE: Sequential upgrade or tier 3 extension
+            v_operation_type := 'UPDATE';
+
+            IF v_old_tier = 1 THEN
+                v_new_tier := 2;
+                v_new_expiredate := v_old_expiredate;  -- Keep existing for upgrade
+            ELSIF v_old_tier = 2 THEN
+                v_new_tier := 3;
+                v_new_expiredate := v_old_expiredate;  -- Keep existing for upgrade
+            ELSE  -- tier 3
+                v_new_tier := 3;
+                v_new_expiredate := v_old_expiredate + INTERVAL '90 days';  -- Extend
+            END IF;
+
+            UPDATE membership$k
+            SET membershiptype = v_new_tier,
+                expiredate = v_new_expiredate
+            WHERE customerid = v_customerid;
+
+            -- Audit trail
+            INSERT INTO membership_promo_audit$k (
+                customerid, old_tier, new_tier, old_expiredate, new_expiredate, operation_type
+            ) VALUES (
+                v_customerid, v_old_tier, v_new_tier, v_old_expiredate, v_new_expiredate, v_operation_type
+            );
+
+            rows_affected := rows_affected + 1;
+        END IF;
+    END LOOP;
+
+    RETURN rows_affected;
+END;
+\$\$
+LANGUAGE plpgsql;
+
 \n";
 	close $OUT;
 	sleep(1);

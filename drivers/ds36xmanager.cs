@@ -45,6 +45,7 @@ namespace ds2xdriver
     public int n_expire_memberships = 0;
     public int n_purge_old_orders = 0;
     public int n_upgrade_membership = 0;
+    public int n_promo_membership = 0;
     private bool use_bulk_price_adjustment = false;  // Toggle for alternation
     public int n_bulk_price_adjustments = 0;
     public int n_bulk_products_price_changed = 0;
@@ -57,6 +58,7 @@ namespace ds2xdriver
     public int n_memberships_expired = 0;
     public int n_orders_purged = 0;
     public int n_members_upgraded = 0;
+    public int n_members_promo = 0;
     public double rt_add_product = 0.0;
     public double rt_remove_review_by_product = 0.0;
     public double rt_remove_unhelpful_reviews = 0.0;
@@ -65,6 +67,7 @@ namespace ds2xdriver
     public double rt_bulk_price_adjustments = 0.0;
     public double rt_mark_specials = 0.0;
     public double rt_upgrade_membership = 0.0;
+    public double rt_promo_membership = 0.0;
     public double rt_expire_memberships = 0.0;
     public double rt_purge_old_orders = 0.0;
 
@@ -136,7 +139,7 @@ namespace ds2xdriver
         int total_pct = Controller.manager_add_product_pct + Controller.manager_delete_review_pct +
                         Controller.manager_update_price_pct + Controller.manager_update_special_pct +
                         Controller.manager_expire_memberships_pct + Controller.manager_purge_old_orders_pct +
-                        Controller.manager_upgrade_membership_pct;
+                        Controller.manager_upgrade_membership_pct + Controller.manager_promo_membership_pct;
 
         if (total_pct == 0)
         {
@@ -292,7 +295,10 @@ namespace ds2xdriver
             rt_purge_old_orders += rt;
             //Console.WriteLine("Thread {0}: Purged {1} old orders", Thread.CurrentThread.Name, rows_affected);
           }
-          else
+          else if (roll < Controller.manager_add_product_pct + Controller.manager_delete_review_pct +
+                          Controller.manager_update_price_pct + Controller.manager_update_special_pct +
+                          Controller.manager_expire_memberships_pct + Controller.manager_purge_old_orders_pct +
+                          Controller.manager_upgrade_membership_pct)
           {
             // UpgradeMembership (purchase-based tier upgrade with time-based slicing)
             // Multiply batch_size by 20 since time-based slicing already limits to ~1% of customers
@@ -302,6 +308,16 @@ namespace ds2xdriver
             n_members_upgraded += rows_affected;
             rt_upgrade_membership += rt;
             //Console.WriteLine("Thread {0}: Upgraded {1} memberships", Thread.CurrentThread.Name, rows_affected);
+          }
+          else
+          {
+            // PromotionalMembership (MERGE-based 90-day promotional upgrades)
+            int batch_size = Random.Shared.Next(Controller.manager_batch_size_min, Controller.manager_batch_size_max + 1);
+            rows_affected = ds2interface.ds36promotionalmembership(batch_size, ref rt);
+            n_promo_membership++;
+            n_members_promo += rows_affected;
+            rt_promo_membership += rt;
+            //Console.WriteLine("Thread {0}: Promotional membership affected {1} customers", Thread.CurrentThread.Name, rows_affected);
           }
         }
         catch (Exception e)
@@ -316,7 +332,7 @@ namespace ds2xdriver
       // Print statistics
       int total_operations = n_add_product + n_remove_review_by_product + n_remove_unhelpful_reviews +
                              n_adjust_prices + n_bulk_price_adjustments + n_mark_specials + n_expire_memberships +
-                             n_purge_old_orders + n_upgrade_membership;
+                             n_purge_old_orders + n_upgrade_membership + n_promo_membership;
       int total_review_ops = n_remove_review_by_product + n_remove_unhelpful_reviews;
       double total_review_rt = rt_remove_review_by_product + rt_remove_unhelpful_reviews;
       Console.WriteLine("\n========== Manager Thread {0} Statistics (Store {1}) ==========", ManagerId, target_store);
@@ -355,6 +371,9 @@ namespace ds2xdriver
       Console.WriteLine("  UpgradeMembership:       {0,6} operations, {1,6} members upgraded{2}",
                         n_upgrade_membership, n_members_upgraded,
                         n_upgrade_membership > 0 ? string.Format(", avg RT: {0:F3} sec", rt_upgrade_membership / n_upgrade_membership) : "");
+      Console.WriteLine("  PromotionalMembership:   {0,6} operations, {1,6} members affected{2}",
+                        n_promo_membership, n_members_promo,
+                        n_promo_membership > 0 ? string.Format(", avg RT: {0:F3} sec", rt_promo_membership / n_promo_membership) : "");
       Console.WriteLine("================================================================\n");
 
       Console.WriteLine("Thread {0}: Manager thread exiting", Thread.CurrentThread.Name);

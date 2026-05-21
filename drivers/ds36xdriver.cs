@@ -126,7 +126,7 @@ namespace ds2xdriver
     public static double rt_membershiprenew_overall = 0.0;
     public static double[] rt_tot_lastn = new double[GlobalConstants.LAST_N];
     public static bool Start = false, End = false;
-    public static int max_customer, max_review;
+    public static int max_customer;
     public static string virt_dir = "ds3", page_type = "php";
     public static int[] max_product = new int[GlobalConstants.MAX_STORES+1]; // there is no store 0. We use store number as the index.
 
@@ -172,6 +172,7 @@ namespace ds2xdriver
     public static int manager_expire_memberships_pct = 5;
     public static int manager_purge_old_orders_pct = 5;
     public static int manager_upgrade_membership_pct = 5;
+    public static int manager_promo_membership_pct = 0;
     public static int manager_batch_size_min = 1;
     public static int manager_batch_size_max = 5;
 
@@ -797,6 +798,16 @@ namespace ds2xdriver
         Validator = (value) => ValidateInt(value, min: 0, max: 100)
       };
 
+      // manager_promo_membership_pct - percentage for promotional membership operation
+      definitions["manager_promo_membership_pct"] = new ParameterDefinition
+      {
+        Name = "manager_promo_membership_pct",
+        Description = "Percentage chance of promotional membership upgrades (90-day MERGE-based)",
+        DefaultValue = "5",
+        Type = ParamType.Int,
+        Validator = (value) => ValidateInt(value, min: 0, max: 100)
+      };
+
       // manager_batch_size_min - minimum batch size for manager operations
       definitions["manager_batch_size_min"] = new ParameterDefinition
       {
@@ -1311,6 +1322,7 @@ namespace ds2xdriver
       manager_expire_memberships_pct = parser.GetValue<int>("manager_expire_memberships_pct");
       manager_purge_old_orders_pct = parser.GetValue<int>("manager_purge_old_orders_pct");
       manager_upgrade_membership_pct = parser.GetValue<int>("manager_upgrade_membership_pct");
+      manager_promo_membership_pct = parser.GetValue<int>("manager_promo_membership_pct");
       manager_batch_size_min = parser.GetValue<int>("manager_batch_size_min");
       manager_batch_size_max = parser.GetValue<int>("manager_batch_size_max");
 
@@ -1318,7 +1330,6 @@ namespace ds2xdriver
       DisplayConfiguration();
 
       max_customer = customer_rows;
-      max_review = product_rows * 20;
 
       for (i = 0; i < GlobalConstants.MAX_STORES+1; i++) // we use the store number 1-N for the index. Element 0 not used.
         max_product[i] = product_rows;
@@ -2335,15 +2346,16 @@ namespace ds2xdriver
         writer.WriteLine($"  Manager Threads:        {(enable_managers ? n_stores.ToString() : "disabled")}");
         if (enable_managers)
         {
-          writer.WriteLine($"  manager_interval:       {manager_interval} sec");
-          writer.WriteLine($"  manager_add_product:    {manager_add_product_pct}%");
-          writer.WriteLine($"  manager_delete_review:  {manager_delete_review_pct}%");
-          writer.WriteLine($"  manager_update_price:   {manager_update_price_pct}%");
-          writer.WriteLine($"  manager_update_special: {manager_update_special_pct}%");
-          writer.WriteLine($"  manager_expire_member:  {manager_expire_memberships_pct}%");
-          writer.WriteLine($"  manager_purge_orders:   {manager_purge_old_orders_pct}%");
-          writer.WriteLine($"  manager_upgrade_member: {manager_upgrade_membership_pct}%");
-          writer.WriteLine($"  manager_batch_size:     {manager_batch_size_min}-{manager_batch_size_max}");
+          writer.WriteLine($"  manager_interval:             {manager_interval} sec");
+          writer.WriteLine($"  manager_add_product:          {manager_add_product_pct}%");
+          writer.WriteLine($"  manager_delete_review:        {manager_delete_review_pct}%");
+          writer.WriteLine($"  manager_update_price:         {manager_update_price_pct}%");
+          writer.WriteLine($"  manager_update_special:       {manager_update_special_pct}%");
+          writer.WriteLine($"  manager_expire_member:        {manager_expire_memberships_pct}%");
+          writer.WriteLine($"  manager_purge_orders:         {manager_purge_old_orders_pct}%");
+          writer.WriteLine($"  manager_upgrade_member:       {manager_upgrade_membership_pct}%");
+          writer.WriteLine($"  manager_promo_membership:     {manager_promo_membership_pct}%");
+          writer.WriteLine($"  manager_batch_size:           {manager_batch_size_min}-{manager_batch_size_max}");
         }
         writer.WriteLine($"  Vector Search:          {(n_vectors > 0 ? "enabled" : "disabled")}");
         writer.WriteLine();
@@ -2443,6 +2455,7 @@ namespace ds2xdriver
         Console.WriteLine($"    ExpireMemberships={manager_expire_memberships_pct}%");
         Console.WriteLine($"    PurgeOldOrders={manager_purge_old_orders_pct}%");
         Console.WriteLine($"    UpgradeMembership={manager_upgrade_membership_pct}%");
+        Console.WriteLine($"    PromotionalMembership={manager_promo_membership_pct}%");
         Console.WriteLine($"  Batch size: {manager_batch_size_min}-{manager_batch_size_max}");
       }
       else

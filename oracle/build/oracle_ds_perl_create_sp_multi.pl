@@ -1255,6 +1255,92 @@ EXCEPTION
 END;
 /
 
+CREATE OR REPLACE PROCEDURE DS3.PromotionalMembership$k (
+    p_batch_size    IN  NUMBER,
+    p_rows_affected OUT NUMBER
+) AS
+    v_customerid INT;
+    v_old_tier INT;
+    v_new_tier INT;
+    v_old_expiredate DATE;
+    v_new_expiredate DATE;
+    v_operation_type VARCHAR2(10);
+
+    CURSOR customer_cursor IS
+        SELECT CUSTOMERID
+        FROM DS3.CUSTOMERS$k
+        ORDER BY DBMS_RANDOM.VALUE
+        FETCH FIRST p_batch_size ROWS ONLY;
+BEGIN
+    p_rows_affected := 0;
+
+    FOR customer_rec IN customer_cursor LOOP
+        v_customerid := customer_rec.CUSTOMERID;
+
+        -- Check if customer has membership
+        BEGIN
+            SELECT MEMBERSHIPTYPE, EXPIREDATE INTO v_old_tier, v_old_expiredate
+            FROM DS3.MEMBERSHIP$k
+            WHERE CUSTOMERID = v_customerid;
+
+            -- UPDATE: Sequential upgrade or tier 3 extension
+            v_operation_type := 'UPDATE';
+
+            IF v_old_tier = 1 THEN
+                v_new_tier := 2;
+                v_new_expiredate := v_old_expiredate;  -- Keep existing for upgrade
+            ELSIF v_old_tier = 2 THEN
+                v_new_tier := 3;
+                v_new_expiredate := v_old_expiredate;  -- Keep existing for upgrade
+            ELSE  -- tier 3
+                v_new_tier := 3;
+                v_new_expiredate := v_old_expiredate + 90;  -- Extend by 90 days
+            END IF;
+
+            UPDATE DS3.MEMBERSHIP$k
+            SET MEMBERSHIPTYPE = v_new_tier,
+                EXPIREDATE = v_new_expiredate
+            WHERE CUSTOMERID = v_customerid;
+
+            -- Audit trail
+            INSERT INTO DS3.MEMBERSHIP_PROMO_AUDIT$k (
+                CUSTOMERID, OLD_TIER, NEW_TIER, OLD_EXPIREDATE, NEW_EXPIREDATE, OPERATION_TYPE
+            ) VALUES (
+                v_customerid, v_old_tier, v_new_tier, v_old_expiredate, v_new_expiredate, v_operation_type
+            );
+
+            p_rows_affected := p_rows_affected + 1;
+
+        EXCEPTION
+            WHEN NO_DATA_FOUND THEN
+                -- INSERT: New tier 1 membership with 90-day expiration
+                v_new_tier := 1;
+                v_new_expiredate := SYSDATE + 90;
+                v_operation_type := 'INSERT';
+
+                INSERT INTO DS3.MEMBERSHIP$k (CUSTOMERID, MEMBERSHIPTYPE, EXPIREDATE)
+                VALUES (v_customerid, v_new_tier, v_new_expiredate);
+
+                -- Audit trail
+                INSERT INTO DS3.MEMBERSHIP_PROMO_AUDIT$k (
+                    CUSTOMERID, OLD_TIER, NEW_TIER, OLD_EXPIREDATE, NEW_EXPIREDATE, OPERATION_TYPE
+                ) VALUES (
+                    v_customerid, NULL, v_new_tier, NULL, v_new_expiredate, v_operation_type
+                );
+
+                p_rows_affected := p_rows_affected + 1;
+        END;
+    END LOOP;
+
+    COMMIT;
+
+EXCEPTION
+    WHEN OTHERS THEN
+        ROLLBACK;
+        RAISE;
+END;
+/
+
 CREATE OR REPLACE TRIGGER \"DS3\".\"TRG_HELPFULNESS_SYNC$k\"
 AFTER INSERT OR UPDATE OR DELETE ON \"DS3\".\"REVIEWS_HELPFULNESS$k\"
 FOR EACH ROW

@@ -30,9 +30,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   - `manager_expire_memberships_pct` - probability for ExpireMemberships (default: 5)
   - `manager_purge_old_orders_pct` - probability for PurgeOldOrders (default: 5)
   - `manager_upgrade_membership_pct` - probability for UpgradeMembership (default: 5)
+  - `manager_promo_membership_pct` - probability for PromotionalMembership (default: 5)
   - Note: Percentages are probability thresholds, not strict allocations
 
-### Added - Manager Operations (10 Total)
+### Added - Manager Operations (11 Total)
 
 **1. AddProduct**
 - Adds new inventory products to catalog with random attributes
@@ -90,6 +91,17 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Uses MOD(CUSTOMERID, 100) for stateless partitioning based on current minute
 - Tests window functions, CTEs, percentile calculations across all 4 databases
 - Cross-database challenge: different window function syntax and capabilities
+
+**11. PromotionalMembership** ⭐ NEW
+- MERGE-based 90-day promotional membership upgrades
+- Batch processing: selects random batch of customers
+- INSERT path: Creates tier 1 memberships with 90-day expiration for non-members
+- UPDATE path: Sequential tier upgrades (1→2, 2→3) or tier 3 extensions (+90 days)
+- Audit trail: MEMBERSHIP_PROMO_AUDIT table tracks all MERGE operations
+  - Captures: CUSTOMERID, OLD_TIER, NEW_TIER, OLD_EXPIREDATE, NEW_EXPIREDATE, OPERATION_TYPE, OPERATION_TIMESTAMP
+- Tests MERGE/UPSERT with OUTPUT clause across all 4 databases
+- SQL Server: Single WHEN MATCHED with CASE expressions (multi-WHEN MATCHED not allowed)
+- Cross-database challenge: Different MERGE syntax and OUTPUT clause support
 
 ### Added - Membership Renewal and Browse Behavior
 
