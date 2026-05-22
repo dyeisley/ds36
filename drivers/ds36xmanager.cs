@@ -59,6 +59,11 @@ namespace ds2xdriver
     public int n_orders_purged = 0;
     public int n_members_upgraded = 0;
     public int n_members_promo = 0;
+    public int n_membership_analytics = 0;
+    private DateTime test_start_time;
+    private DateTime last_analytics_print_time;
+    private int manager_elapsed_seconds = 0;
+    private Dictionary<int, (long orders, decimal revenue)> baseline_analytics = new Dictionary<int, (long, decimal)>();
     public double rt_add_product = 0.0;
     public double rt_remove_review_by_product = 0.0;
     public double rt_remove_unhelpful_reviews = 0.0;
@@ -68,6 +73,7 @@ namespace ds2xdriver
     public double rt_mark_specials = 0.0;
     public double rt_upgrade_membership = 0.0;
     public double rt_promo_membership = 0.0;
+    public double rt_membership_analytics = 0.0;
     public double rt_expire_memberships = 0.0;
     public double rt_purge_old_orders = 0.0;
 
@@ -126,6 +132,33 @@ namespace ds2xdriver
 
       // Console.WriteLine("Thread {0}: Manager thread started", Thread.CurrentThread.Name);
 
+      // Record test start time for analytics timing
+      test_start_time = DateTime.Now;
+      last_analytics_print_time = test_start_time;
+
+      // Capture baseline analytics at test start
+      if (Controller.manager_analytics_interval > 0)
+      {
+        try
+        {
+          double rt_baseline = 0.0;
+          var baselineData = ds2interface.ds36getmembershipanalytics(ref rt_baseline);
+          if (baselineData != null && baselineData.Count > 0)
+          {
+            foreach (var row in baselineData)
+            {
+              int tierKey = row.MembershipType ?? -1;  // Use -1 for NULL tier
+              baseline_analytics[tierKey] = (row.TotalOrders, row.TotalRevenue);
+            }
+            Console.WriteLine($"Thread {Thread.CurrentThread.Name}: Membership Analytics baseline captured at test start ({DateTime.Now:HH:mm:ss})");
+          }
+        }
+        catch (Exception e)
+        {
+          Console.WriteLine("Thread {0}: Baseline analytics capture error: {1}", Thread.CurrentThread.Name, e.Message);
+        }
+      }
+
       // Manager loop: run until Controller signals End
       while (!Controller.End)
       {
@@ -135,23 +168,22 @@ namespace ds2xdriver
         if (Controller.End)
           break;
 
+        // Track elapsed time for analytics
+        manager_elapsed_seconds += Controller.manager_interval;
+
         // Randomly select operation based on percentages
         int total_pct = Controller.manager_add_product_pct + Controller.manager_delete_review_pct +
                         Controller.manager_update_price_pct + Controller.manager_update_special_pct +
                         Controller.manager_expire_memberships_pct + Controller.manager_purge_old_orders_pct +
                         Controller.manager_upgrade_membership_pct + Controller.manager_promo_membership_pct;
 
-        if (total_pct == 0)
+        if (total_pct > 0)
         {
-          // No operations configured, just sleep
-          continue;
-        }
+          int roll = Random.Shared.Next(total_pct);
+          double rt = 0.0;
+          int rows_affected = 0;
 
-        int roll = Random.Shared.Next(total_pct);
-        double rt = 0.0;
-        int rows_affected = 0;
-
-        try
+          try
         {
           if (roll < Controller.manager_add_product_pct)
           {
@@ -320,9 +352,72 @@ namespace ds2xdriver
             //Console.WriteLine("Thread {0}: Promotional membership affected {1} customers", Thread.CurrentThread.Name, rows_affected);
           }
         }
-        catch (Exception e)
+          catch (Exception e)
+          {
+            Console.WriteLine("Thread {0}: Manager operation error: {1}", Thread.CurrentThread.Name, e.Message);
+          }
+        }
+
+        // Time-based analytics (independent of probability operations)
+
+        if (Controller.manager_analytics_interval > 0)
         {
-          Console.WriteLine("Thread {0}: Manager operation error: {1}", Thread.CurrentThread.Name, e.Message);
+          int analytics_interval_seconds = Controller.manager_analytics_interval * 60 + 1;
+          double time_since_last_analytics = (DateTime.Now - last_analytics_print_time).TotalSeconds;
+
+          if (time_since_last_analytics >= analytics_interval_seconds)
+          {
+            try
+            {
+              double rt_analytics = 0.0;
+              var analyticsData = ds2interface.ds36getmembershipanalytics(ref rt_analytics);
+
+              if (analyticsData != null && analyticsData.Count > 0)
+              {
+                // Show deltas since baseline
+                Console.WriteLine("\n=====================================================================================================");
+                Console.WriteLine($"Membership Analytics (Store {target_store}) - Delta since baseline");
+                Console.WriteLine("=====================================================================================================");
+                Console.WriteLine("Tier    Active Members    Expired    New Orders  New Revenue     Rev/Order   Rev/Member    Ord/Member");
+                Console.WriteLine("-----   --------------    -------    ----------  -------------   ---------   -----------   ----------");
+
+                // Sort: Tier 3 → 2 → 1 → NULL (descending, NULL last)
+                var sortedData = analyticsData.OrderByDescending(row => row.MembershipType ?? int.MinValue);
+
+                foreach (var row in sortedData)
+                {
+                  string tier = row.MembershipType.HasValue ? row.MembershipType.Value.ToString().PadLeft(4) : " N/A";
+
+                  // Calculate deltas
+                  long deltaOrders = 0;
+                  decimal deltaRevenue = 0;
+                  int tierKey = row.MembershipType ?? -1;  // Use -1 for NULL tier
+                  if (baseline_analytics.TryGetValue(tierKey, out var baseline))
+                  {
+                    deltaOrders = row.TotalOrders - baseline.orders;
+                    deltaRevenue = row.TotalRevenue - baseline.revenue;
+                  }
+
+                  // Calculate derived metrics (from deltas)
+                  decimal revenuePerOrder = deltaOrders > 0 ? deltaRevenue / deltaOrders : 0;
+                  decimal revenuePerMember = row.ActiveMemberCount > 0 ? deltaRevenue / row.ActiveMemberCount : 0;
+                  decimal ordersPerMember = row.ActiveMemberCount > 0 ? (decimal)deltaOrders / row.ActiveMemberCount : 0;
+
+                  Console.WriteLine($"{tier}    {row.ActiveMemberCount,14:N0}    {row.ExpiredMemberCount,7:N0}    {deltaOrders,10:N0}  {deltaRevenue,13:C2}   {revenuePerOrder,9:C2}   {revenuePerMember,11:C2}   {ordersPerMember,10:F2}");
+                }
+
+                Console.WriteLine("=====================================================================================================\n");
+                last_analytics_print_time = DateTime.Now;
+              }
+
+              n_membership_analytics++;
+              rt_membership_analytics += rt_analytics;
+            }
+            catch (Exception e)
+            {
+              Console.WriteLine("Thread {0}: GetMembershipAnalytics error: {1}", Thread.CurrentThread.Name, e.Message);
+            }
+          }
         }
       }
 
@@ -374,6 +469,9 @@ namespace ds2xdriver
       Console.WriteLine("  PromotionalMembership:   {0,6} operations, {1,6} members affected{2}",
                         n_promo_membership, n_members_promo,
                         n_promo_membership > 0 ? string.Format(", avg RT: {0:F3} sec", rt_promo_membership / n_promo_membership) : "");
+      Console.WriteLine("  GetMembershipAnalytics:  {0,6} operations{1}",
+                        n_membership_analytics,
+                        n_membership_analytics > 0 ? string.Format(", avg RT: {0:F3} sec", rt_membership_analytics / n_membership_analytics) : "");
       Console.WriteLine("================================================================\n");
 
       Console.WriteLine("Thread {0}: Manager thread exiting", Thread.CurrentThread.Name);

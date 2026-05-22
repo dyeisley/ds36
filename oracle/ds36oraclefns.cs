@@ -464,7 +464,7 @@ namespace ds2xdriver
     //
     //-------------------------------------------------------------------------------------------------
     //
-    public bool ds2newmember(int customerid_in, int membershiplevel_in, ref int customerid_out, ref double rt)
+    public bool ds2newmember(int customerid_in, int membershiplevel_in, ref double rt)
     {
       New_Member_prm[0].Value = customerid_in;
       New_Member_prm[1].Value = membershiplevel_in;
@@ -474,7 +474,13 @@ namespace ds2xdriver
       try
       {
         New_Member.ExecuteNonQuery();
-        customerid_out = Convert.ToInt32(New_Member_prm[2].Value.ToString());
+
+        // Check OUT parameter - if 0/NULL, stored procedure failed
+        if (New_Member_prm[2].Value == null || New_Member_prm[2].Value == DBNull.Value || Convert.ToInt32(New_Member_prm[2].Value.ToString()) == 0)
+        {
+          return false;
+        }
+
         return (true);
       }
       catch (OracleException e)

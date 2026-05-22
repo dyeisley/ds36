@@ -173,6 +173,7 @@ namespace ds2xdriver
     public static int manager_purge_old_orders_pct = 5;
     public static int manager_upgrade_membership_pct = 5;
     public static int manager_promo_membership_pct = 0;
+    public static int manager_analytics_interval = 0;
     public static int manager_batch_size_min = 1;
     public static int manager_batch_size_max = 5;
 
@@ -808,6 +809,16 @@ namespace ds2xdriver
         Validator = (value) => ValidateInt(value, min: 0, max: 100)
       };
 
+      // manager_analytics_interval - minutes between membership analytics queries
+      definitions["manager_analytics_interval"] = new ParameterDefinition
+      {
+        Name = "manager_analytics_interval",
+        Description = "Minutes between membership analytics queries (0 = disabled)",
+        DefaultValue = "0",
+        Type = ParamType.Int,
+        Validator = (value) => ValidateInt(value, min: 0, max: 60)
+      };
+
       // manager_batch_size_min - minimum batch size for manager operations
       definitions["manager_batch_size_min"] = new ParameterDefinition
       {
@@ -1323,6 +1334,7 @@ namespace ds2xdriver
       manager_purge_old_orders_pct = parser.GetValue<int>("manager_purge_old_orders_pct");
       manager_upgrade_membership_pct = parser.GetValue<int>("manager_upgrade_membership_pct");
       manager_promo_membership_pct = parser.GetValue<int>("manager_promo_membership_pct");
+      manager_analytics_interval = parser.GetValue<int>("manager_analytics_interval");
       manager_batch_size_min = parser.GetValue<int>("manager_batch_size_min");
       manager_batch_size_max = parser.GetValue<int>("manager_batch_size_max");
 
@@ -2456,6 +2468,7 @@ namespace ds2xdriver
         Console.WriteLine($"    PurgeOldOrders={manager_purge_old_orders_pct}%");
         Console.WriteLine($"    UpgradeMembership={manager_upgrade_membership_pct}%");
         Console.WriteLine($"    PromotionalMembership={manager_promo_membership_pct}%");
+        Console.WriteLine($"  Analytics: {(manager_analytics_interval > 0 ? $"every {manager_analytics_interval} min" : "DISABLED")}");
         Console.WriteLine($"  Batch size: {manager_batch_size_min}-{manager_batch_size_max}");
       }
       else
@@ -2664,6 +2677,7 @@ namespace ds2xdriver
     {
       int i, customerid_out = 0, neworderid_out = 0, browse_rows_returned = 0, rows_returned = 0, reviewhelpfulnessid_out = 0, newreviewid_out = 0, failures;
       int membershiplevel_out = 0;
+      int is_expired_out = 0;
       bool IsLogin, IsRollback, IsNewMember, IsMembershipRenew, IsNewReview, IsNewHelpfulness;
       double rt = 0, rt_tot, rt_login, rt_newcust, rt_browse, rt_purchase;
       double rt_newmember, rt_reviewbrowse, rt_newreview, rt_newhelpfulness;
@@ -2800,8 +2814,6 @@ namespace ds2xdriver
           // Check membership status and renew if expired
           if (!Controller.ds2_mode)
           {
-            int is_expired_out = 0;
-
             // Check membership status
             failures = 0;
             while (!ds2interfaces[Userid].ds2getmembershipstatus(customerid_out, ref membershiplevel_out,
@@ -2914,7 +2926,8 @@ namespace ds2xdriver
         // Begin New Member Phase
 
         // use result from checking membership and only do this if customer isn't a current member.
-        if ((user_type <= Controller.pct_newmember / 100.0) && (membershiplevel_out == 0) && (!Controller.ds2_mode)) // If this is true we have a customer that wants to join membership program
+        // Skip if member is expired - they should renew, not create new membership
+        if ((user_type <= Controller.pct_newmember / 100.0) && (membershiplevel_out == 0) && (is_expired_out == 0) && (!Controller.ds2_mode)) // If this is true we have a customer that wants to join membership program
         {
           IsNewMember = true;
           customerid_in = customerid_out;
@@ -2935,7 +2948,7 @@ namespace ds2xdriver
           }
 
           failures = 0;
-          while (!ds2interfaces[Userid].ds2newmember(customerid_in, membershiplevel_in, ref customerid_out, ref rt))
+          while (!ds2interfaces[Userid].ds2newmember(customerid_in, membershiplevel_in, ref rt))
           {
             if (++failures < GlobalConstants.MAX_FAILURES)
             {
@@ -2951,10 +2964,8 @@ namespace ds2xdriver
           }
 
           // Update membership level for browse selection
-          if (customerid_out > 0)
-          {
-            membershiplevel_out = membershiplevel_in;
-          }
+          // (ds2newmember succeeded, customer now has membership)
+          membershiplevel_out = membershiplevel_in;
 
           rt_newmember = rt;
           rt_tot += rt;
@@ -3267,7 +3278,7 @@ namespace ds2xdriver
         // Purchase Phase
 
         // Randomize number of cart items with average n_line_items
-        int cart_items = Random.Shared.Next(1, 2 * Controller.n_line_items);
+        int cart_items = Random.Shared.Next(1, 2 * Controller.n_line_items) + membershiplevel_out;
 
         for (i = 0; i < cart_items ; i++)
         {

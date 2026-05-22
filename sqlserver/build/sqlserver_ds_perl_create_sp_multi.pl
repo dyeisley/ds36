@@ -1199,6 +1199,50 @@ BEGIN
 END
 GO
 
+IF EXISTS (SELECT name FROM sysobjects WHERE name = 'GetMembershipAnalytics$k' AND type = 'P')
+  DROP PROCEDURE GetMembershipAnalytics$k
+GO
+CREATE PROCEDURE GetMembershipAnalytics$k
+AS
+BEGIN
+  SET NOCOUNT ON;
+
+  WITH CustomerPurchases AS (
+    SELECT
+      CUSTOMERID,
+      COUNT(DISTINCT ORDERID) AS order_count
+    FROM CUST_HIST$k
+    GROUP BY CUSTOMERID
+  ),
+  CustomerRevenue AS (
+    SELECT
+      CUSTOMERID,
+      SUM(TOTALAMOUNT) AS total_revenue
+    FROM ORDERS$k
+    GROUP BY CUSTOMERID
+  )
+  SELECT
+    m.MEMBERSHIPTYPE AS membership_tier,
+    CAST(COUNT(DISTINCT CASE
+      WHEN m.MEMBERSHIPTYPE IS NULL THEN c.CUSTOMERID  -- non-members, count all
+      WHEN m.EXPIREDATE >= GETDATE() THEN c.CUSTOMERID  -- active members only
+      ELSE NULL  -- expired members, don't count
+    END) AS BIGINT) AS active_member_count,
+    CAST(COUNT(DISTINCT CASE
+      WHEN m.MEMBERSHIPTYPE IS NOT NULL AND m.EXPIREDATE < GETDATE() THEN c.CUSTOMERID
+      ELSE NULL
+    END) AS BIGINT) AS expired_member_count,
+    CAST(ISNULL(SUM(cp.order_count), 0) AS BIGINT) AS total_orders,
+    ROUND(ISNULL(SUM(cr.total_revenue), 0), 2) AS total_revenue
+  FROM CUSTOMERS$k c
+  LEFT JOIN MEMBERSHIP$k m ON c.CUSTOMERID = m.CUSTOMERID
+  LEFT JOIN CustomerPurchases cp ON c.CUSTOMERID = cp.CUSTOMERID
+  LEFT JOIN CustomerRevenue cr ON c.CUSTOMERID = cr.CUSTOMERID
+  GROUP BY m.MEMBERSHIPTYPE
+  ORDER BY CASE WHEN m.MEMBERSHIPTYPE IS NULL THEN 999 ELSE m.MEMBERSHIPTYPE END;
+END
+GO
+
 \n";
   close $OUT;
 }

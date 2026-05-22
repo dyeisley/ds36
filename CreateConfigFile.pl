@@ -46,6 +46,7 @@ my $manager_expire_memberships_pct = 0;			#Percentage chance for ExpireMembershi
 my $manager_purge_old_orders_pct = 0;			#Percentage chance for PurgeOldOrders operation default = 0
 my $manager_upgrade_membership_pct = 0;			#Percentage chance for UpgradeMembership operation default = 0
 my $manager_promo_membership_pct = 0;			#Percentage chance for PromotionalMembership operation default = 0
+my $manager_analytics_interval = 0;			#Manager analytics interval in minutes (0 = disabled) default = 0
 my $ds2_mode = "N";					#DS2 compatibility mode (3 browse types only) default = N
 my $validate_post_test = "Y";				#Run validation SQL after benchmark completes default = Y
 
@@ -162,6 +163,9 @@ $manager_upgrade_membership_pct ||= 0;
 print "Manager PromotionalMembership percentage (0-100) [0] : ";
 chomp($manager_promo_membership_pct = <STDIN>);
 $manager_promo_membership_pct ||= 0;
+print "Manager analytics interval in minutes (0 = disabled) [0] : ";
+chomp($manager_analytics_interval = <STDIN>);
+$manager_analytics_interval ||= 0;
 print "Manager PurgeOldOrders percentage (0-100) [0] : ";
 chomp($manager_purge_old_orders_pct = <STDIN>);
 $manager_purge_old_orders_pct ||= 0;
@@ -263,6 +267,9 @@ $line = "manager_upgrade_membership_pct=".$manager_upgrade_membership_pct;
 print NEWFILE $line;
 print NEWFILE $end_line;
 $line = "manager_promo_membership_pct=".$manager_promo_membership_pct;
+print NEWFILE $line;
+print NEWFILE $end_line;
+$line = "manager_analytics_interval=".$manager_analytics_interval;
 print NEWFILE $line;
 print NEWFILE $end_line;
 $line = "ds2_mode=".$ds2_mode;

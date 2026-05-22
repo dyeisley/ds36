@@ -35,6 +35,15 @@ using Microsoft.Data.SqlTypes;
 
 namespace ds2xdriver
 {
+  public class MembershipAnalyticsRow
+  {
+    public int? MembershipType { get; set; }
+    public long ActiveMemberCount { get; set; }
+    public long ExpiredMemberCount { get; set; }
+    public long TotalOrders { get; set; }
+    public decimal TotalRevenue { get; set; }
+  }
+
   /// <summary>
   /// ds3sqlserverfns.cs: DVD Store 3 SQL Server Functions
   /// </summary>
@@ -48,7 +57,7 @@ namespace ds2xdriver
     SqlCommand Get_Prod_Reviews, Get_Prod_Reviews_By_Actor, Get_Prod_Reviews_By_Title, Get_Prod_Reviews_By_Date, Get_Prod_Reviews_By_Stars;
     SqlCommand New_Member, New_Prod_Review, New_Review_Helpfulness;
     SqlCommand Get_Membership_Status, Renew_Membership;
-    SqlCommand Remove_Review_By_Product, Remove_Unhelpful_Reviews, Remove_Reviews_By_Date, Adjust_Prices, Bulk_Price_Adjustment, Mark_Specials, Expire_Memberships, Purge_Old_Orders, Upgrade_Membership, Promotional_Membership;
+    SqlCommand Remove_Review_By_Product, Remove_Unhelpful_Reviews, Remove_Reviews_By_Date, Adjust_Prices, Bulk_Price_Adjustment, Mark_Specials, Expire_Memberships, Purge_Old_Orders, Upgrade_Membership, Promotional_Membership, Get_Membership_Analytics;
     SqlCommand[] CostQuery = new SqlCommand[11];
 
     //
@@ -268,6 +277,9 @@ namespace ds2xdriver
       Promotional_Membership.Parameters.Add("@batch_size", SqlDbType.Int);
       Promotional_Membership.Parameters.Add("@rows_affected", SqlDbType.Int).Direction = ParameterDirection.Output;
 
+      Get_Membership_Analytics = new SqlCommand("GetMembershipAnalytics" + target_store_number, objConn);
+      Get_Membership_Analytics.CommandType = CommandType.StoredProcedure;
+
       Bulk_Price_Adjustment = new SqlCommand("BulkPriceAdjustment" + target_store_number, objConn);
       Bulk_Price_Adjustment.CommandType = CommandType.StoredProcedure;
       Bulk_Price_Adjustment.Parameters.Add("@batch_size", SqlDbType.Int);
@@ -411,7 +423,7 @@ namespace ds2xdriver
     //
     //-------------------------------------------------------------------------------------------------
     //
-    public bool ds2newmember(int customerid_in, int membershiplevel_in, ref int customerid_out, ref double rt)
+    public bool ds2newmember(int customerid_in, int membershiplevel_in, ref double rt)
     {
       New_Member.Parameters["@customerid_in"].Value = customerid_in;
       New_Member.Parameters["@membershiplevel_in"].Value = membershiplevel_in;
@@ -420,9 +432,15 @@ namespace ds2xdriver
 
       try
       {
-        customerid_out = Convert.ToInt32(New_Member.ExecuteScalar().ToString());
-        //    Console.WriteLine("Thread {0}: New_Member created w/customerid_in = {1}  membershiplevel_in= {2}  customerid= {3}",
-        //      Thread.CurrentThread.Name, customerid_in, membershiplevel_in, customerid_out);
+        object result = New_Member.ExecuteScalar();
+        //    Console.WriteLine("Thread {0}: New_Member created w/customerid_in = {1}  membershiplevel_in= {2}",
+        //      Thread.CurrentThread.Name, customerid_in, membershiplevel_in);
+
+        // If stored procedure returns NULL (customer already has membership or doesn't exist), return false
+        if (result == null || result == DBNull.Value || Convert.ToInt32(result) == 0)
+        {
+          return false;
+        }
         return (true);
       }
       catch (SqlException e)
@@ -1294,6 +1312,43 @@ namespace ds2xdriver
       {
         rt = timer.Elapsed.TotalSeconds;
       }
+    }
+
+    //
+    //-------------------------------------------------------------------------------------------------
+    //
+    public List<MembershipAnalyticsRow> ds36getmembershipanalytics(ref double rt)
+    {
+      var result = new List<MembershipAnalyticsRow>();
+      Stopwatch timer = Stopwatch.StartNew();
+
+      try
+      {
+        using (SqlDataReader reader = Get_Membership_Analytics.ExecuteReader())
+        {
+          while (reader.Read())
+          {
+            result.Add(new MembershipAnalyticsRow
+            {
+              MembershipType = reader.IsDBNull(0) ? null : reader.GetInt32(0),
+              ActiveMemberCount = reader.GetInt64(1),
+              ExpiredMemberCount = reader.GetInt64(2),
+              TotalOrders = reader.GetInt64(3),
+              TotalRevenue = reader.GetDecimal(4)
+            });
+          }
+        }
+      }
+      catch (Exception e)
+      {
+        Console.WriteLine($"Thread {Thread.CurrentThread.Name}: ds36getmembershipanalytics error: {e.Message}");
+      }
+      finally
+      {
+        rt = timer.Elapsed.TotalSeconds;
+      }
+
+      return result;
     }
 
     //

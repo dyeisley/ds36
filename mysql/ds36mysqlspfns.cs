@@ -410,7 +410,7 @@ namespace ds2xdriver
     //
     //-------------------------------------------------------------------------------------------------
     // 
-    public bool ds2newmember(int customerid_in, int membershiplevel_in, ref int customerid_out, ref double rt)
+    public bool ds2newmember(int customerid_in, int membershiplevel_in, ref double rt)
     {
       New_Member.Parameters["customerid_in"].Value = customerid_in;
       New_Member.Parameters["membershiplevel_in"].Value = membershiplevel_in;
@@ -420,10 +420,15 @@ namespace ds2xdriver
       try
       {
         New_Member.ExecuteNonQuery();
-        customerid_out = (int)member_out_param.Value;
 
-        //    Console.WriteLine("Thread {0}: New_Customer created w/username_in= {1}  region={2}  customerid={3}",
-        //      Thread.CurrentThread.Name, username_in, region_in, customerid_out);
+        // Check OUT parameter - if 0/NULL, stored procedure failed
+        if (member_out_param.Value == null || member_out_param.Value == DBNull.Value || Convert.ToInt32(member_out_param.Value) == 0)
+        {
+          return false;
+        }
+
+        //    Console.WriteLine("Thread {0}: New_Member created w/customerid_in= {1}  membershiplevel_in={2}",
+        //      Thread.CurrentThread.Name, customerid_in, membershiplevel_in);
 
         return true;
       }
