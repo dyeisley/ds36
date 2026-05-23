@@ -982,6 +982,40 @@ BEGIN
     SET p_rows_affected = v_insert_count + v_update_count;
 END $$
 
+DROP PROCEDURE IF EXISTS DS3.GetMembershipAnalytics$k $$
+CREATE PROCEDURE DS3.GetMembershipAnalytics$k()
+BEGIN
+  -- Use READ UNCOMMITTED to avoid locking MEMBERSHIP table (analytics is read-only, dirty reads acceptable)
+  SET SESSION TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
+
+  WITH CustomerOrders AS (
+    SELECT
+      CUSTOMERID,
+      COUNT(*) AS order_count,
+      SUM(TOTALAMOUNT) AS total_revenue
+    FROM ORDERS$k
+    GROUP BY CUSTOMERID
+  )
+  SELECT
+    m.MEMBERSHIPTYPE AS membership_tier,
+    CAST(COUNT(DISTINCT CASE
+      WHEN m.MEMBERSHIPTYPE IS NULL THEN c.CUSTOMERID  -- non-members, count all
+      WHEN m.EXPIREDATE >= NOW() THEN c.CUSTOMERID  -- active members only
+      ELSE NULL  -- expired members, don't count
+    END) AS UNSIGNED) AS active_member_count,
+    CAST(COUNT(DISTINCT CASE
+      WHEN m.MEMBERSHIPTYPE IS NOT NULL AND m.EXPIREDATE < NOW() THEN c.CUSTOMERID
+      ELSE NULL
+    END) AS UNSIGNED) AS expired_member_count,
+    CAST(IFNULL(SUM(co.order_count), 0) AS UNSIGNED) AS total_orders,
+    ROUND(IFNULL(SUM(co.total_revenue), 0), 2) AS total_revenue
+  FROM CUSTOMERS$k c
+  LEFT JOIN MEMBERSHIP$k m ON c.CUSTOMERID = m.CUSTOMERID
+  LEFT JOIN CustomerOrders co ON c.CUSTOMERID = co.CUSTOMERID
+  GROUP BY m.MEMBERSHIPTYPE
+  ORDER BY CASE WHEN m.MEMBERSHIPTYPE IS NULL THEN -1 ELSE m.MEMBERSHIPTYPE END DESC;
+END $$
+
 \n";
   close $OUT;
   sleep(1);
