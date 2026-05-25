@@ -403,7 +403,14 @@ namespace ds2xdriver
                   decimal revenuePerMember = row.ActiveMemberCount > 0 ? deltaRevenue / row.ActiveMemberCount : 0;
                   decimal ordersPerMember = row.ActiveMemberCount > 0 ? (decimal)deltaOrders / row.ActiveMemberCount : 0;
 
-                  Console.WriteLine($"{tier}    {row.ActiveMemberCount,14:N0}    {row.ExpiredMemberCount,7:N0}    {deltaOrders,10:N0}  {deltaRevenue,13:C2}   {revenuePerOrder,9:C2}   {revenuePerMember,11:C2}   {ordersPerMember,10:F2}");
+                  // Format output
+                  string ordersStr = $"{deltaOrders,10:N0}";
+                  string revenueStr = $"{deltaRevenue,13:C2}";
+                  string revPerOrderStr = $"{revenuePerOrder,9:C2}";
+                  string revPerMemberStr = $"{revenuePerMember,11:C2}";
+                  string ordPerMemberStr = $"{ordersPerMember,10:F2}";
+
+                  Console.WriteLine($"{tier}    {row.ActiveMemberCount,14:N0}    {row.ExpiredMemberCount,7:N0}    {ordersStr}  {revenueStr}   {revPerOrderStr}   {revPerMemberStr}   {ordPerMemberStr}");
                 }
 
                 Console.WriteLine("=====================================================================================================\n");

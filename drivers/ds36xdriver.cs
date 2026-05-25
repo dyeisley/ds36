@@ -174,8 +174,8 @@ namespace ds2xdriver
     public static int manager_upgrade_membership_pct = 5;
     public static int manager_promo_membership_pct = 0;
     public static int manager_analytics_interval = 0;
-    public static int manager_batch_size_min = 1;
-    public static int manager_batch_size_max = 5;
+    public static int manager_batch_size_min = 10;
+    public static int manager_batch_size_max = 100;
 
     // Variables needed within Controller class
     // Added new Parameter db_size by GSK
@@ -826,7 +826,7 @@ namespace ds2xdriver
         Description = "Minimum batch size for manager operations (reviews, memberships)",
         DefaultValue = "1",
         Type = ParamType.Int,
-        Validator = (value) => ValidateInt(value, min: 1, max: 100)
+        Validator = (value) => ValidateInt(value, min: 1, max: 1000)
       };
 
       // manager_batch_size_max - maximum batch size for manager operations
@@ -836,7 +836,7 @@ namespace ds2xdriver
         Description = "Maximum batch size for manager operations (reviews, memberships)",
         DefaultValue = "20",
         Type = ParamType.Int,
-        Validator = (value) => ValidateInt(value, min: 1, max: 100)
+        Validator = (value) => ValidateInt(value, min: 1, max: 1000)
       };
 
       // validate_post_test - run validation SQL after benchmark completes
