@@ -1127,7 +1127,10 @@ BEGIN
     UPDATE m
     SET
         MEMBERSHIPTYPE = cp.new_level,
-        EXPIREDATE = DATEADD(DAY, 180, m.EXPIREDATE)
+        EXPIREDATE = CASE
+            WHEN m.EXPIREDATE > GETDATE() THEN DATEADD(DAY, 180, m.EXPIREDATE)  -- Active: extend from current
+            ELSE DATEADD(DAY, 180, GETDATE())  -- Expired: reactivate from today
+        END
     FROM MEMBERSHIP$k m
     INNER JOIN CustomerPurchases cp ON m.CUSTOMERID = cp.CUSTOMERID;
 
@@ -1168,7 +1171,7 @@ BEGIN
       END,
       EXPIREDATE = CASE
         WHEN target.MEMBERSHIPTYPE = 3 THEN DATEADD(day, 90, target.EXPIREDATE)  -- Extend tier 3
-        ELSE target.EXPIREDATE  -- Keep existing for tier 1→2 and 2→3 upgrades
+        ELSE DATEADD(day, 90, GETDATE())  -- Reactivate for tier 1→2 and 2→3 upgrades
       END
 
   -- Customer doesn't have membership: insert tier 1 with 90-day expiration
@@ -1207,16 +1210,10 @@ AS
 BEGIN
   SET NOCOUNT ON;
 
-  WITH CustomerPurchases AS (
+  WITH CustomerOrders AS (
     SELECT
       CUSTOMERID,
-      COUNT(DISTINCT ORDERID) AS order_count
-    FROM CUST_HIST$k
-    GROUP BY CUSTOMERID
-  ),
-  CustomerRevenue AS (
-    SELECT
-      CUSTOMERID,
+      COUNT(*) AS order_count,
       SUM(TOTALAMOUNT) AS total_revenue
     FROM ORDERS$k
     GROUP BY CUSTOMERID
@@ -1232,14 +1229,13 @@ BEGIN
       WHEN m.MEMBERSHIPTYPE IS NOT NULL AND m.EXPIREDATE < GETDATE() THEN c.CUSTOMERID
       ELSE NULL
     END) AS BIGINT) AS expired_member_count,
-    CAST(ISNULL(SUM(cp.order_count), 0) AS BIGINT) AS total_orders,
-    ROUND(ISNULL(SUM(cr.total_revenue), 0), 2) AS total_revenue
+    CAST(ISNULL(SUM(co.order_count), 0) AS BIGINT) AS total_orders,
+    ROUND(ISNULL(SUM(co.total_revenue), 0), 2) AS total_revenue
   FROM CUSTOMERS$k c
   LEFT JOIN MEMBERSHIP$k m ON c.CUSTOMERID = m.CUSTOMERID
-  LEFT JOIN CustomerPurchases cp ON c.CUSTOMERID = cp.CUSTOMERID
-  LEFT JOIN CustomerRevenue cr ON c.CUSTOMERID = cr.CUSTOMERID
+  LEFT JOIN CustomerOrders co ON c.CUSTOMERID = co.CUSTOMERID
   GROUP BY m.MEMBERSHIPTYPE
-  ORDER BY CASE WHEN m.MEMBERSHIPTYPE IS NULL THEN 999 ELSE m.MEMBERSHIPTYPE END;
+  ORDER BY CASE WHEN m.MEMBERSHIPTYPE IS NULL THEN -1 ELSE m.MEMBERSHIPTYPE END DESC;
 END
 GO
 

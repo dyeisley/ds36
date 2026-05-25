@@ -843,7 +843,10 @@ BEGIN
     ) AS upgrades ON m.CUSTOMERID = upgrades.CUSTOMERID
     SET
         m.MEMBERSHIPTYPE = upgrades.new_level,
-        m.EXPIREDATE = DATE_ADD(m.EXPIREDATE, INTERVAL 180 DAY);
+        m.EXPIREDATE = CASE
+            WHEN m.EXPIREDATE > NOW() THEN DATE_ADD(m.EXPIREDATE, INTERVAL 180 DAY)  -- Active: extend from current
+            ELSE DATE_ADD(NOW(), INTERVAL 180 DAY)  -- Expired: reactivate from today
+        END;
 
     SELECT ROW_COUNT() AS rows_affected, v_gold_threshold AS gold_threshold, v_silver_threshold AS silver_threshold;
 END $$
@@ -930,7 +933,7 @@ BEGIN
 
             SET v_new_expiredate = CASE
                 WHEN v_old_tier = 3 THEN DATE_ADD(v_old_expiredate, INTERVAL 90 DAY)
-                ELSE v_old_expiredate  -- Keep existing for tier upgrades
+                ELSE DATE_ADD(NOW(), INTERVAL 90 DAY)  -- Reactivate for tier upgrades
             END;
 
             UPDATE MEMBERSHIP$k
