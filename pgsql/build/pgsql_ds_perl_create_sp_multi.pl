@@ -977,7 +977,10 @@ BEGIN
     UPDATE membership$k m
     SET
         membershiptype = cp.new_level,
-        expiredate = m.expiredate + INTERVAL '180 days'
+        expiredate = CASE
+            WHEN m.expiredate > CURRENT_DATE THEN m.expiredate + INTERVAL '180 days'  -- Active: extend from current
+            ELSE CURRENT_DATE + INTERVAL '180 days'  -- Expired: reactivate from today
+        END
     FROM customer_purchases cp
     WHERE m.customerid = cp.customerid;
 
@@ -1031,10 +1034,10 @@ BEGIN
 
             IF v_old_tier = 1 THEN
                 v_new_tier := 2;
-                v_new_expiredate := v_old_expiredate;  -- Keep existing for upgrade
+                v_new_expiredate := CURRENT_DATE + INTERVAL '90 days';  -- Reactivate for upgrade
             ELSIF v_old_tier = 2 THEN
                 v_new_tier := 3;
-                v_new_expiredate := v_old_expiredate;  -- Keep existing for upgrade
+                v_new_expiredate := CURRENT_DATE + INTERVAL '90 days';  -- Reactivate for upgrade
             ELSE  -- tier 3
                 v_new_tier := 3;
                 v_new_expiredate := v_old_expiredate + INTERVAL '90 days';  -- Extend
@@ -1057,6 +1060,46 @@ BEGIN
     END LOOP;
 
     RETURN rows_affected;
+END;
+\$\$
+LANGUAGE plpgsql;
+
+CREATE OR REPLACE FUNCTION getmembershipanalytics$k()
+RETURNS TABLE (
+    membership_tier INT,
+    active_member_count BIGINT,
+    expired_member_count BIGINT,
+    total_orders BIGINT,
+    total_revenue NUMERIC(12,2)
+) AS \$\$
+BEGIN
+    RETURN QUERY
+    WITH CustomerOrders AS (
+        SELECT
+            customerid,
+            COUNT(*) AS order_count,
+            SUM(totalamount) AS total_revenue
+        FROM orders$k
+        GROUP BY customerid
+    )
+    SELECT
+        m.membershiptype AS membership_tier,
+        COUNT(DISTINCT CASE
+            WHEN m.membershiptype IS NULL THEN c.customerid
+            WHEN m.expiredate >= CURRENT_DATE THEN c.customerid
+            ELSE NULL
+        END) AS active_member_count,
+        COUNT(DISTINCT CASE
+            WHEN m.membershiptype IS NOT NULL AND m.expiredate < CURRENT_DATE THEN c.customerid
+            ELSE NULL
+        END) AS expired_member_count,
+        COALESCE(SUM(co.order_count), 0)::BIGINT AS total_orders,
+        ROUND(COALESCE(SUM(co.total_revenue), 0), 2) AS total_revenue
+    FROM customers$k c
+    LEFT JOIN membership$k m ON c.customerid = m.customerid
+    LEFT JOIN CustomerOrders co ON c.customerid = co.customerid
+    GROUP BY m.membershiptype
+    ORDER BY CASE WHEN m.membershiptype IS NULL THEN -1 ELSE m.membershiptype END DESC;
 END;
 \$\$
 LANGUAGE plpgsql;
