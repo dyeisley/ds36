@@ -103,6 +103,69 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - SQL Server: Single WHEN MATCHED with CASE expressions (multi-WHEN MATCHED not allowed)
 - Cross-database challenge: Different MERGE syntax and OUTPUT clause support
 
+### Added - Analytics System
+
+**GetMembershipAnalytics** ⭐ NEW - Membership tier analytics with baseline and delta tracking
+
+- **What it tracks**: Active/Expired member counts, Orders, Revenue per membership tier
+- **Baseline capture**: Metrics captured at test start to establish starting point
+- **Delta tracking**: Analytics show changes since baseline (new orders, new revenue, etc.)
+- **Time-based execution**: Runs on `manager_analytics_interval` parameter (minutes, 0=disabled)
+- **Metrics displayed**:
+  - Active Members / Expired Members per tier
+  - New Orders / New Revenue (deltas since baseline)
+  - Revenue per Order / Revenue per Member / Orders per Member (calculated ratios)
+  - Tier ordering: 3 (Gold) → 2 (Silver) → 1 (Bronze) → N/A (Non-members)
+- **Blocking behavior**: ⚠️ Analytics runs in manager thread, blocking other operations during execution (8-96s depending on database/load)
+
+**Database Implementation Status**:
+- **SQL Server**: ✓ Complete - Fast performance (1-2s at 4GB), no special configuration required
+- **Oracle**: ✓ Complete - Excellent performance (~9.7s at 4GB), no special configuration required
+- **PostgreSQL**: ✓ Complete - Good performance (~31s at 4GB), no special configuration required
+- **MySQL**: ✓ Complete - Requires buffer tuning and isolation level configuration (80-96s at 4GB, see below)
+
+**MySQL-Specific Requirements** (CRITICAL):
+
+1. **Buffer Tuning** (required for acceptable performance):
+   ```ini
+   # /etc/my.cnf
+   [mysqld]
+   tmp_table_size = 256M
+   max_heap_table_size = 256M
+   ```
+   - Without tuning: 1m16s at 1GB (unacceptable)
+   - With tuning: 8.6s at 1GB isolated, 80-96s at 4GB under load (acceptable)
+   - Default 16MB buffers cause spill-to-disk for large aggregations
+
+2. **Isolation Level** (prevents table locking):
+   - Stored procedure uses READ UNCOMMITTED to prevent MEMBERSHIP table locks
+   - Prevents deadlocks with Renew_Membership operations during long-running queries
+   - Dirty reads acceptable for analytics (approximate counts/sums)
+
+**Performance Characteristics**:
+- **Isolated query**: 1-2s (SQL Server), 8.6s at 1GB (MySQL with tuning), 46s at 4GB (MySQL)
+- **Under load**: 2-3x slower than isolated (competing for CPU/I/O/cache)
+- **Blocking impact**: With 1-minute interval at 4GB, analytics consumes 53-65% of manager time
+- **Recommendation**: Use longer intervals (5-15 minutes) for large databases
+
+**Configuration Parameters**:
+- `manager_analytics_interval` - minutes between analytics runs (default: 0 = disabled)
+- Interval guidelines: Small DBs (<1GB) = 1-5 min, Large DBs (4GB+) = 5-15 min
+
+**Thread Optimization**:
+- Run with N-1 customer threads to dedicate one CPU to manager thread
+- Example (16-CPU system): Use 15 customer threads for best analytics performance
+- Manager gets dedicated CPU during long analytics queries
+
+**Future Enhancement**: Two-thread architecture to separate operations and analytics threads, eliminating blocking issue
+
+**Documentation**: See `ANALYTICS.md` for comprehensive guide including:
+- Detailed metrics explanation
+- Database-specific configuration
+- Performance tuning guide
+- Troubleshooting
+- Future analytics features (Product, Review)
+
 ### Added - Membership Renewal and Browse Behavior
 
 **Membership Status Checking and Renewal**: After successful LOGIN, driver checks membership status and optionally renews expired memberships.
