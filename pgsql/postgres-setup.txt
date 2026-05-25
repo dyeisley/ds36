@@ -57,6 +57,7 @@ Guide for downloading/setting up postgresql on CentOS:
 	
 	- add to top of TYPE DATABASE	 USER	ADDRESS		METHOD section:
 		- 	host	all	all	0.0.0.0/0	md5
+		-       host    all     all     ::/0            md5
 	- change method of host	all	all 127.0.0.1/0	scram-sha-256 to md5
 		- should be: host all  all 127.0.0.1/0 md5
 	- save and close	

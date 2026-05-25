@@ -210,6 +210,52 @@ BEGIN
 
 END; $$
 
+DROP PROCEDURE IF EXISTS DS3.GET_MEMBERSHIP_STATUS$k $$
+CREATE PROCEDURE DS3.GET_MEMBERSHIP_STATUS$k
+  (
+  IN customerid_in            INT
+  )
+BEGIN
+  DECLARE membership_level_var INT;
+  DECLARE is_expired_var INT;
+  DECLARE rows_found INT;
+
+  -- Get membership info
+  SELECT MEMBERSHIPTYPE INTO membership_level_var FROM MEMBERSHIP$k WHERE CUSTOMERID = customerid_in;
+  SET rows_found = FOUND_ROWS();
+
+  -- If no membership found, return 0
+  IF (rows_found = 0)
+  THEN
+    SELECT 0 AS membership_level, 0 AS is_expired;
+  ELSE
+    -- Check if expired
+    IF EXISTS (SELECT 1 FROM MEMBERSHIP$k WHERE CUSTOMERID = customerid_in AND EXPIREDATE < NOW())
+    THEN
+      SET is_expired_var = 1;
+    ELSE
+      SET is_expired_var = 0;
+    END IF;
+
+    SELECT membership_level_var AS membership_level, is_expired_var AS is_expired;
+  END IF;
+
+END; $$
+
+DROP PROCEDURE IF EXISTS DS3.RENEW_MEMBERSHIP$k $$
+CREATE PROCEDURE DS3.RENEW_MEMBERSHIP$k
+  (
+  IN customerid_in            INT
+  )
+BEGIN
+  UPDATE MEMBERSHIP$k
+  SET EXPIREDATE = DATE_ADD(NOW(), INTERVAL 1 YEAR)
+  WHERE CUSTOMERID = customerid_in;
+
+  SELECT ROW_COUNT() AS rows_affected;
+
+END; $$
+
 DROP PROCEDURE IF EXISTS DS3.PURCHASE$k $$
 CREATE PROCEDURE DS3.PURCHASE$k
   (
@@ -797,9 +843,180 @@ BEGIN
     ) AS upgrades ON m.CUSTOMERID = upgrades.CUSTOMERID
     SET
         m.MEMBERSHIPTYPE = upgrades.new_level,
-        m.EXPIREDATE = DATE_ADD(m.EXPIREDATE, INTERVAL 180 DAY);
+        m.EXPIREDATE = CASE
+            WHEN m.EXPIREDATE > NOW() THEN DATE_ADD(m.EXPIREDATE, INTERVAL 180 DAY)  -- Active: extend from current
+            ELSE DATE_ADD(NOW(), INTERVAL 180 DAY)  -- Expired: reactivate from today
+        END;
 
     SELECT ROW_COUNT() AS rows_affected, v_gold_threshold AS gold_threshold, v_silver_threshold AS silver_threshold;
+END $$
+
+DROP PROCEDURE IF EXISTS DS3.PromotionalMembership$k $$
+CREATE PROCEDURE DS3.PromotionalMembership$k
+(
+    IN p_batch_size INT,
+    OUT p_rows_affected INT
+)
+BEGIN
+    DECLARE v_insert_count INT DEFAULT 0;
+    DECLARE v_update_count INT DEFAULT 0;
+    DECLARE done INT DEFAULT FALSE;
+    DECLARE v_customerid INT;
+    DECLARE v_old_tier INT;
+    DECLARE v_new_tier INT;
+    DECLARE v_old_expiredate DATE;
+    DECLARE v_new_expiredate DATE;
+
+    -- Cursor to select random batch of customers
+    DECLARE customer_cursor CURSOR FOR
+        SELECT CUSTOMERID
+        FROM CUSTOMERS$k
+        ORDER BY RAND()
+        LIMIT p_batch_size;
+
+    DECLARE CONTINUE HANDLER FOR NOT FOUND SET done = TRUE;
+
+    -- Create temporary table to track operations
+    CREATE TEMPORARY TABLE IF NOT EXISTS temp_promo_ops (
+        customerid INT,
+        old_tier INT,
+        new_tier INT,
+        old_expiredate DATE,
+        new_expiredate DATE,
+        operation_type VARCHAR(10)
+    );
+
+    TRUNCATE TABLE temp_promo_ops;
+
+    OPEN customer_cursor;
+
+    read_loop: LOOP
+        FETCH customer_cursor INTO v_customerid;
+        IF done THEN
+            LEAVE read_loop;
+        END IF;
+
+        -- Reset variables
+        SET v_old_tier = NULL;
+        SET v_old_expiredate = NULL;
+
+        -- Check if customer has membership (EXISTS avoids NOT FOUND)
+        IF EXISTS (SELECT 1 FROM MEMBERSHIP$k WHERE CUSTOMERID = v_customerid) THEN
+            SELECT MEMBERSHIPTYPE, EXPIREDATE
+            INTO v_old_tier, v_old_expiredate
+            FROM MEMBERSHIP$k
+            WHERE CUSTOMERID = v_customerid;
+        END IF;
+
+        IF v_old_tier IS NULL THEN
+            -- INSERT: New tier 1 membership with 90-day expiration
+            INSERT INTO MEMBERSHIP$k (CUSTOMERID, MEMBERSHIPTYPE, EXPIREDATE)
+            VALUES (v_customerid, 1, DATE_ADD(NOW(), INTERVAL 90 DAY));
+
+            SET v_insert_count = v_insert_count + 1;
+
+            INSERT INTO temp_promo_ops VALUES (
+                v_customerid,
+                NULL,
+                1,
+                NULL,
+                DATE_ADD(NOW(), INTERVAL 90 DAY),
+                'INSERT'
+            );
+        ELSE
+            -- UPDATE: Sequential upgrade or tier 3 extension
+            SET v_new_tier = CASE
+                WHEN v_old_tier = 1 THEN 2
+                WHEN v_old_tier = 2 THEN 3
+                ELSE 3  -- Already tier 3
+            END;
+
+            SET v_new_expiredate = CASE
+                WHEN v_old_tier = 3 THEN DATE_ADD(v_old_expiredate, INTERVAL 90 DAY)
+                ELSE DATE_ADD(NOW(), INTERVAL 90 DAY)  -- Reactivate for tier upgrades
+            END;
+
+            UPDATE MEMBERSHIP$k
+            SET MEMBERSHIPTYPE = v_new_tier,
+                EXPIREDATE = v_new_expiredate
+            WHERE CUSTOMERID = v_customerid;
+
+            SET v_update_count = v_update_count + 1;
+
+            INSERT INTO temp_promo_ops VALUES (
+                v_customerid,
+                v_old_tier,
+                v_new_tier,
+                v_old_expiredate,
+                v_new_expiredate,
+                'UPDATE'
+            );
+        END IF;
+
+        -- Reset for next iteration
+        SET v_old_tier = NULL;
+        SET v_old_expiredate = NULL;
+    END LOOP;
+
+    CLOSE customer_cursor;
+
+    -- Write audit trail
+    INSERT INTO MEMBERSHIP_PROMO_AUDIT$k (
+        CUSTOMERID,
+        OLD_TIER,
+        NEW_TIER,
+        OLD_EXPIREDATE,
+        NEW_EXPIREDATE,
+        OPERATION_TYPE,
+        OPERATION_TIMESTAMP
+    )
+    SELECT
+        customerid,
+        old_tier,
+        new_tier,
+        old_expiredate,
+        new_expiredate,
+        operation_type,
+        NOW()
+    FROM temp_promo_ops;
+
+    DROP TEMPORARY TABLE temp_promo_ops;
+
+    SET p_rows_affected = v_insert_count + v_update_count;
+END $$
+
+DROP PROCEDURE IF EXISTS DS3.GetMembershipAnalytics$k $$
+CREATE PROCEDURE DS3.GetMembershipAnalytics$k()
+BEGIN
+  -- Use READ UNCOMMITTED to avoid locking MEMBERSHIP table (analytics is read-only, dirty reads acceptable)
+  SET SESSION TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
+
+  WITH CustomerOrders AS (
+    SELECT
+      CUSTOMERID,
+      COUNT(*) AS order_count,
+      SUM(TOTALAMOUNT) AS total_revenue
+    FROM ORDERS$k
+    GROUP BY CUSTOMERID
+  )
+  SELECT
+    m.MEMBERSHIPTYPE AS membership_tier,
+    CAST(COUNT(DISTINCT CASE
+      WHEN m.MEMBERSHIPTYPE IS NULL THEN c.CUSTOMERID  -- non-members, count all
+      WHEN m.EXPIREDATE >= NOW() THEN c.CUSTOMERID  -- active members only
+      ELSE NULL  -- expired members, don't count
+    END) AS UNSIGNED) AS active_member_count,
+    CAST(COUNT(DISTINCT CASE
+      WHEN m.MEMBERSHIPTYPE IS NOT NULL AND m.EXPIREDATE < NOW() THEN c.CUSTOMERID
+      ELSE NULL
+    END) AS UNSIGNED) AS expired_member_count,
+    CAST(IFNULL(SUM(co.order_count), 0) AS UNSIGNED) AS total_orders,
+    ROUND(IFNULL(SUM(co.total_revenue), 0), 2) AS total_revenue
+  FROM CUSTOMERS$k c
+  LEFT JOIN MEMBERSHIP$k m ON c.CUSTOMERID = m.CUSTOMERID
+  LEFT JOIN CustomerOrders co ON c.CUSTOMERID = co.CUSTOMERID
+  GROUP BY m.MEMBERSHIPTYPE
+  ORDER BY CASE WHEN m.MEMBERSHIPTYPE IS NULL THEN -1 ELSE m.MEMBERSHIPTYPE END DESC;
 END $$
 
 \n";

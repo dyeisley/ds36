@@ -944,6 +944,50 @@ SELECT * FROM (
 )
 WHERE ROWNUM <= 5;
 
+BEGIN
+    DBMS_OUTPUT.PUT_LINE('');
+    DBMS_OUTPUT.PUT_LINE('========================================================================');
+    DBMS_OUTPUT.PUT_LINE('--- MEMBER-SPECIFIC PURCHASE BEHAVIOR ---');
+    DBMS_OUTPUT.PUT_LINE('Verifying: Members buy primarily from their membership tier');
+    DBMS_OUTPUT.PUT_LINE('Expected: ~85-90% of purchases match member tier (tier 1->tier 1, etc.)');
+    DBMS_OUTPUT.PUT_LINE('Expected: ~5-6% spillover to other tiers when cart exceeds browse results');
+    DBMS_OUTPUT.PUT_LINE('========================================================================');
+    DBMS_OUTPUT.PUT_LINE('');
+END;
+/
+
+SET LINESIZE 120
+COLUMN member_tier FORMAT 999 HEADING 'Member|Tier'
+COLUMN product_tier FORMAT 999 HEADING 'Product|Tier'
+COLUMN purchase_count FORMAT 999,999,999 HEADING 'Purchase|Count'
+COLUMN pct_of_tier_purchases FORMAT 990.99 HEADING 'Pct of Tier|Purchases'
+
+SELECT
+    member_tier,
+    product_tier,
+    purchase_count,
+    ROUND(purchase_count * 100.0 / tier_total, 2) AS pct_of_tier_purchases
+FROM (
+    SELECT
+        m.MEMBERSHIPTYPE AS member_tier,
+        p.MEMBERSHIP_ITEM AS product_tier,
+        COUNT(*) AS purchase_count,
+        SUM(COUNT(*)) OVER (PARTITION BY m.MEMBERSHIPTYPE) AS tier_total
+    FROM DS3.MEMBERSHIP{store_number} m
+    INNER JOIN DS3.ORDERS{store_number} o ON m.CUSTOMERID = o.CUSTOMERID
+    INNER JOIN DS3.ORDERLINES{store_number} ol ON o.ORDERID = ol.ORDERID
+    INNER JOIN DS3.PRODUCTS{store_number} p ON ol.PROD_ID = p.PROD_ID
+    WHERE o.ORDERID > (SELECT metric_value FROM VALIDATION_METRICS_{store_number} WHERE metric_name = 'ORDERS_COUNT')
+      AND m.EXPIREDATE > SYSDATE
+    GROUP BY m.MEMBERSHIPTYPE, p.MEMBERSHIP_ITEM
+)
+ORDER BY member_tier, product_tier;
+
+BEGIN
+    DBMS_OUTPUT.PUT_LINE('');
+END;
+/
+
 DECLARE
     v_customers_before NUMBER;
     v_customers_after NUMBER;
@@ -1011,6 +1055,11 @@ BEGIN
     WHERE metric_name = 'MAX_CUSTOMERID';
 END;
 /
+
+COLUMN CUSTOMERID FORMAT 999999999 HEADING 'Customer|ID'
+COLUMN FIRSTNAME FORMAT A20 HEADING 'First|Name'
+COLUMN LASTNAME FORMAT A20 HEADING 'Last|Name'
+COLUMN CITY FORMAT A20 HEADING 'City'
 
 SELECT * FROM (
     SELECT
@@ -1148,6 +1197,129 @@ FROM (
     ORDER BY AUDIT_ID DESC
 )
 WHERE ROWNUM <= 5;
+
+
+-- =======================================================================
+-- PROMOTIONAL MEMBERSHIP AUDIT
+-- =======================================================================
+BEGIN
+    DBMS_OUTPUT.PUT_LINE('');
+    DBMS_OUTPUT.PUT_LINE('========================================================================');
+    DBMS_OUTPUT.PUT_LINE('--- PROMOTIONAL MEMBERSHIP AUDIT ---');
+    DBMS_OUTPUT.PUT_LINE('Verifying: PromotionalMembership MERGE operations tracked correctly');
+    DBMS_OUTPUT.PUT_LINE('Expected: INSERT path creates tier 1 with 90-day expiration');
+    DBMS_OUTPUT.PUT_LINE('Expected: UPDATE path shows sequential upgrades (1->2, 2->3) or tier 3 extensions');
+    DBMS_OUTPUT.PUT_LINE('========================================================================');
+    DBMS_OUTPUT.PUT_LINE('');
+END;
+/
+
+-- Operation summary (INSERT vs UPDATE)
+SELECT
+    OPERATION_TYPE,
+    COUNT(*) AS operation_count,
+    ROUND(CAST(AVG(CASE WHEN OLD_TIER IS NULL THEN 0 ELSE 1 END) * 100 AS NUMBER), 2) AS pct_had_membership
+FROM DS3.MEMBERSHIP_PROMO_AUDIT{store_number}
+GROUP BY OPERATION_TYPE;
+
+BEGIN DBMS_OUTPUT.PUT_LINE(''); END;
+/
+
+-- Verify INSERT path: all new memberships are tier 1 with 90-day expiration
+DECLARE
+    new_tier1_90day NUMBER;
+BEGIN
+    SELECT COUNT(*) INTO new_tier1_90day
+    FROM DS3.MEMBERSHIP_PROMO_AUDIT{store_number}
+    WHERE OPERATION_TYPE = 'INSERT'
+      AND NEW_TIER = 1
+      AND NEW_EXPIREDATE BETWEEN SYSDATE + 89 AND SYSDATE + 91;
+
+    DBMS_OUTPUT.PUT_LINE('New memberships (tier 1, 90-day expiration): ' || new_tier1_90day);
+END;
+/
+
+BEGIN DBMS_OUTPUT.PUT_LINE(''); END;
+/
+
+-- Verify UPDATE path: tier upgrades are sequential (1->2, 2->3)
+SELECT
+    OLD_TIER AS from_tier,
+    NEW_TIER AS to_tier,
+    COUNT(*) AS upgrade_count
+FROM DS3.MEMBERSHIP_PROMO_AUDIT{store_number}
+WHERE OPERATION_TYPE = 'UPDATE'
+  AND OLD_TIER < 3
+GROUP BY OLD_TIER, NEW_TIER
+ORDER BY OLD_TIER, NEW_TIER;
+
+BEGIN DBMS_OUTPUT.PUT_LINE(''); END;
+/
+
+-- Verify tier 3 extensions are ~90 days
+DECLARE
+    tier3_extensions NUMBER;
+BEGIN
+    SELECT COUNT(*) INTO tier3_extensions
+    FROM DS3.MEMBERSHIP_PROMO_AUDIT{store_number}
+    WHERE OPERATION_TYPE = 'UPDATE'
+      AND OLD_TIER = 3
+      AND NEW_TIER = 3
+      AND (NEW_EXPIREDATE - OLD_EXPIREDATE) BETWEEN 89 AND 91;
+
+    DBMS_OUTPUT.PUT_LINE('Tier 3 extensions (90-day): ' || tier3_extensions);
+END;
+/
+
+BEGIN DBMS_OUTPUT.PUT_LINE(''); END;
+/
+
+-- Sample operations (3 of each type)
+COLUMN CUSTOMERID FORMAT 9999999999
+COLUMN OLD_TIER FORMAT 99
+COLUMN NEW_TIER FORMAT 99
+COLUMN NEW_EXPIRE FORMAT A10
+COLUMN OPERATION_TYPE FORMAT A17
+COLUMN OPERATION_TIMESTAMP FORMAT A30
+
+SELECT * FROM (
+    SELECT CUSTOMERID, NULL AS old_tier, NEW_TIER AS new_tier, TO_CHAR(NEW_EXPIREDATE, 'YYYY-MM-DD') AS new_expire, OPERATION_TYPE, OPERATION_TIMESTAMP
+    FROM (
+        SELECT CUSTOMERID, NEW_TIER, NEW_EXPIREDATE, OPERATION_TYPE, OPERATION_TIMESTAMP
+        FROM DS3.MEMBERSHIP_PROMO_AUDIT{store_number}
+        WHERE OPERATION_TYPE = 'INSERT'
+        ORDER BY OPERATION_TIMESTAMP
+    ) WHERE ROWNUM <= 3
+    UNION ALL
+    SELECT CUSTOMERID, OLD_TIER, NEW_TIER, TO_CHAR(NEW_EXPIREDATE, 'YYYY-MM-DD') AS new_expire, 'UPDATE (1->2)' AS OPERATION_TYPE, OPERATION_TIMESTAMP
+    FROM (
+        SELECT CUSTOMERID, OLD_TIER, NEW_TIER, NEW_EXPIREDATE, OPERATION_TIMESTAMP
+        FROM DS3.MEMBERSHIP_PROMO_AUDIT{store_number}
+        WHERE OPERATION_TYPE = 'UPDATE' AND OLD_TIER = 1 AND NEW_TIER = 2
+        ORDER BY OPERATION_TIMESTAMP
+    ) WHERE ROWNUM <= 3
+    UNION ALL
+    SELECT CUSTOMERID, OLD_TIER, NEW_TIER, TO_CHAR(NEW_EXPIREDATE, 'YYYY-MM-DD') AS new_expire, 'UPDATE (2->3)' AS OPERATION_TYPE, OPERATION_TIMESTAMP
+    FROM (
+        SELECT CUSTOMERID, OLD_TIER, NEW_TIER, NEW_EXPIREDATE, OPERATION_TIMESTAMP
+        FROM DS3.MEMBERSHIP_PROMO_AUDIT{store_number}
+        WHERE OPERATION_TYPE = 'UPDATE' AND OLD_TIER = 2 AND NEW_TIER = 3
+        ORDER BY OPERATION_TIMESTAMP
+    ) WHERE ROWNUM <= 3
+    UNION ALL
+    SELECT CUSTOMERID, OLD_TIER, NEW_TIER, TO_CHAR(NEW_EXPIREDATE, 'YYYY-MM-DD') AS new_expire, 'UPDATE (3->3 ext)' AS OPERATION_TYPE, OPERATION_TIMESTAMP
+    FROM (
+        SELECT CUSTOMERID, OLD_TIER, NEW_TIER, NEW_EXPIREDATE, OPERATION_TIMESTAMP
+        FROM DS3.MEMBERSHIP_PROMO_AUDIT{store_number}
+        WHERE OPERATION_TYPE = 'UPDATE' AND OLD_TIER = 3 AND NEW_TIER = 3
+        ORDER BY OPERATION_TIMESTAMP
+    ) WHERE ROWNUM <= 3
+)
+ORDER BY OPERATION_TYPE, OPERATION_TIMESTAMP;
+
+BEGIN DBMS_OUTPUT.PUT_LINE(''); END;
+/
+
 
 BEGIN
     DBMS_OUTPUT.PUT_LINE('');

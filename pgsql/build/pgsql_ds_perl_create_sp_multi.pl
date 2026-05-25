@@ -381,6 +381,53 @@ CREATE OR REPLACE FUNCTION new_member$k (
  END;
  \$\$;
 
+CREATE OR REPLACE FUNCTION get_membership_status$k (
+  IN customerid_in INT
+  )
+  RETURNS TABLE (membership_level INT, is_expired INT)
+  LANGUAGE plpgsql
+  AS \$\$
+  DECLARE
+    v_membershiptype INT;
+    v_expiredate DATE;
+  BEGIN
+    SELECT MEMBERSHIPTYPE, EXPIREDATE
+    INTO v_membershiptype, v_expiredate
+    FROM MEMBERSHIP$k
+    WHERE CUSTOMERID = customerid_in;
+
+    IF NOT FOUND THEN
+      RETURN QUERY SELECT 0, 0;
+      RETURN;
+    END IF;
+
+    IF v_expiredate < CURRENT_DATE THEN
+      RETURN QUERY SELECT v_membershiptype, 1;
+    ELSE
+      RETURN QUERY SELECT v_membershiptype, 0;
+    END IF;
+    RETURN;
+  END;
+  \$\$;
+
+CREATE OR REPLACE FUNCTION renew_membership$k (
+  IN customerid_in INT
+  )
+  RETURNS INTEGER
+  LANGUAGE plpgsql
+  AS \$\$
+  DECLARE
+    rows_affected INT;
+  BEGIN
+    UPDATE MEMBERSHIP$k
+    SET EXPIREDATE = CURRENT_DATE + INTERVAL '1 year'
+    WHERE CUSTOMERID = customerid_in;
+
+    GET DIAGNOSTICS rows_affected = ROW_COUNT;
+    RETURN rows_affected;
+  END;
+  \$\$;
+
 CREATE OR REPLACE FUNCTION new_prod_review$k
   (
   IN prod_id_in INT,
@@ -930,13 +977,132 @@ BEGIN
     UPDATE membership$k m
     SET
         membershiptype = cp.new_level,
-        expiredate = m.expiredate + INTERVAL '180 days'
+        expiredate = CASE
+            WHEN m.expiredate > CURRENT_DATE THEN m.expiredate + INTERVAL '180 days'  -- Active: extend from current
+            ELSE CURRENT_DATE + INTERVAL '180 days'  -- Expired: reactivate from today
+        END
     FROM customer_purchases cp
     WHERE m.customerid = cp.customerid;
 
     GET DIAGNOSTICS rows_upgraded = ROW_COUNT;
 END;
 \$\$;
+
+CREATE OR REPLACE FUNCTION promotionalmembership$k(p_batch_size INT)
+RETURNS INT AS \$\$
+DECLARE
+    v_customerid INT;
+    v_old_tier INT;
+    v_new_tier INT;
+    v_old_expiredate DATE;
+    v_new_expiredate DATE;
+    v_operation_type VARCHAR(10);
+    rows_affected INT := 0;
+BEGIN
+    -- Process random batch of customers
+    FOR v_customerid IN
+        SELECT customerid
+        FROM customers$k
+        ORDER BY RANDOM()
+        LIMIT p_batch_size
+    LOOP
+        -- Check if customer has membership
+        SELECT membershiptype, expiredate INTO v_old_tier, v_old_expiredate
+        FROM membership$k
+        WHERE customerid = v_customerid;
+
+        IF NOT FOUND THEN
+            -- INSERT: New tier 1 membership with 90-day expiration
+            v_new_tier := 1;
+            v_new_expiredate := CURRENT_DATE + INTERVAL '90 days';
+            v_operation_type := 'INSERT';
+
+            INSERT INTO membership$k (customerid, membershiptype, expiredate)
+            VALUES (v_customerid, v_new_tier, v_new_expiredate);
+
+            -- Audit trail
+            INSERT INTO membership_promo_audit$k (
+                customerid, old_tier, new_tier, old_expiredate, new_expiredate, operation_type
+            ) VALUES (
+                v_customerid, NULL, v_new_tier, NULL, v_new_expiredate, v_operation_type
+            );
+
+            rows_affected := rows_affected + 1;
+        ELSE
+            -- UPDATE: Sequential upgrade or tier 3 extension
+            v_operation_type := 'UPDATE';
+
+            IF v_old_tier = 1 THEN
+                v_new_tier := 2;
+                v_new_expiredate := CURRENT_DATE + INTERVAL '90 days';  -- Reactivate for upgrade
+            ELSIF v_old_tier = 2 THEN
+                v_new_tier := 3;
+                v_new_expiredate := CURRENT_DATE + INTERVAL '90 days';  -- Reactivate for upgrade
+            ELSE  -- tier 3
+                v_new_tier := 3;
+                v_new_expiredate := v_old_expiredate + INTERVAL '90 days';  -- Extend
+            END IF;
+
+            UPDATE membership$k
+            SET membershiptype = v_new_tier,
+                expiredate = v_new_expiredate
+            WHERE customerid = v_customerid;
+
+            -- Audit trail
+            INSERT INTO membership_promo_audit$k (
+                customerid, old_tier, new_tier, old_expiredate, new_expiredate, operation_type
+            ) VALUES (
+                v_customerid, v_old_tier, v_new_tier, v_old_expiredate, v_new_expiredate, v_operation_type
+            );
+
+            rows_affected := rows_affected + 1;
+        END IF;
+    END LOOP;
+
+    RETURN rows_affected;
+END;
+\$\$
+LANGUAGE plpgsql;
+
+CREATE OR REPLACE FUNCTION getmembershipanalytics$k()
+RETURNS TABLE (
+    membership_tier INT,
+    active_member_count BIGINT,
+    expired_member_count BIGINT,
+    total_orders BIGINT,
+    total_revenue NUMERIC(12,2)
+) AS \$\$
+BEGIN
+    RETURN QUERY
+    WITH CustomerOrders AS (
+        SELECT
+            customerid,
+            COUNT(*) AS order_count,
+            SUM(totalamount) AS total_revenue
+        FROM orders$k
+        GROUP BY customerid
+    )
+    SELECT
+        m.membershiptype AS membership_tier,
+        COUNT(DISTINCT CASE
+            WHEN m.membershiptype IS NULL THEN c.customerid
+            WHEN m.expiredate >= CURRENT_DATE THEN c.customerid
+            ELSE NULL
+        END) AS active_member_count,
+        COUNT(DISTINCT CASE
+            WHEN m.membershiptype IS NOT NULL AND m.expiredate < CURRENT_DATE THEN c.customerid
+            ELSE NULL
+        END) AS expired_member_count,
+        COALESCE(SUM(co.order_count), 0)::BIGINT AS total_orders,
+        ROUND(COALESCE(SUM(co.total_revenue), 0), 2) AS total_revenue
+    FROM customers$k c
+    LEFT JOIN membership$k m ON c.customerid = m.customerid
+    LEFT JOIN CustomerOrders co ON c.customerid = co.customerid
+    GROUP BY m.membershiptype
+    ORDER BY CASE WHEN m.membershiptype IS NULL THEN -1 ELSE m.membershiptype END DESC;
+END;
+\$\$
+LANGUAGE plpgsql;
 
 \n";
 	close $OUT;

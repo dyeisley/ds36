@@ -45,7 +45,10 @@ my $manager_update_special_pct = 0;			#Percentage chance for MarkSpecials operat
 my $manager_expire_memberships_pct = 0;			#Percentage chance for ExpireMemberships operation default = 0
 my $manager_purge_old_orders_pct = 0;			#Percentage chance for PurgeOldOrders operation default = 0
 my $manager_upgrade_membership_pct = 0;			#Percentage chance for UpgradeMembership operation default = 0
+my $manager_promo_membership_pct = 0;			#Percentage chance for PromotionalMembership operation default = 0
+my $manager_analytics_interval = 0;			#Manager analytics interval in minutes (0 = disabled) default = 0
 my $ds2_mode = "N";					#DS2 compatibility mode (3 browse types only) default = N
+my $validate_post_test = "Y";				#Run validation SQL after benchmark completes default = Y
 
 my $line = "";
 my $end_line = "";					#End of line character
@@ -102,14 +105,26 @@ $detailed_view ||= "N";
 
 if(lc($^O) eq lc("linux"))
 {
-print "Enable vector search ( Y / N ) [N] : ";
-chomp($use_vectors = <STDIN>);
-$use_vectors ||= "N";
+  # Only MySQL and SQL Server support vector search
+  if (defined $saved_db_type && (lc($saved_db_type) eq "MYSQL" || lc($saved_db_type) eq "MSSQL"))
+  {
+    print "Enable vector search ( Y / N ) [N] : ";
+    chomp($use_vectors = <STDIN>);
+    $use_vectors ||= "N";
+  }
+  else
+  {
+    $use_vectors = "N";  # PostgreSQL and Oracle don't support vectors yet
+  }
 }
 
 print "DS2 compatibility mode - 3 browse types only, no review browse ( Y / N ) [N] : ";
 chomp($ds2_mode = <STDIN>);
 $ds2_mode ||= "N";
+
+print "Run validation SQL after benchmark completes ( Y / N ) [Y] : ";
+chomp($validate_post_test = <STDIN>);
+$validate_post_test ||= "Y";
 
 print "Enable manager operations ( Y / N ) [N] : ";
 chomp($enable_managers = <STDIN>);
@@ -145,6 +160,12 @@ $manager_expire_memberships_pct ||= 0;
 print "Manager UpgradeMembership percentage (0-100) [0] : ";
 chomp($manager_upgrade_membership_pct = <STDIN>);
 $manager_upgrade_membership_pct ||= 0;
+print "Manager PromotionalMembership percentage (0-100) [0] : ";
+chomp($manager_promo_membership_pct = <STDIN>);
+$manager_promo_membership_pct ||= 0;
+print "Manager analytics interval in minutes (0 = disabled) [0] : ";
+chomp($manager_analytics_interval = <STDIN>);
+$manager_analytics_interval ||= 0;
 print "Manager PurgeOldOrders percentage (0-100) [0] : ";
 chomp($manager_purge_old_orders_pct = <STDIN>);
 $manager_purge_old_orders_pct ||= 0;
@@ -245,7 +266,16 @@ print NEWFILE $end_line;
 $line = "manager_upgrade_membership_pct=".$manager_upgrade_membership_pct;
 print NEWFILE $line;
 print NEWFILE $end_line;
+$line = "manager_promo_membership_pct=".$manager_promo_membership_pct;
+print NEWFILE $line;
+print NEWFILE $end_line;
+$line = "manager_analytics_interval=".$manager_analytics_interval;
+print NEWFILE $line;
+print NEWFILE $end_line;
 $line = "ds2_mode=".$ds2_mode;
+print NEWFILE $line;
+print NEWFILE $end_line;
+$line = "validate_post_test=".$validate_post_test;
 print NEWFILE $line;
 print NEWFILE $end_line;
 

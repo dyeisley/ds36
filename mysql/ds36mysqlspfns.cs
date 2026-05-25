@@ -25,6 +25,15 @@ using MySql.Data.MySqlClient;
 
 namespace ds2xdriver
 {
+  public class MembershipAnalyticsRow
+  {
+    public int? MembershipType { get; set; }
+    public long ActiveMemberCount { get; set; }
+    public long ExpiredMemberCount { get; set; }
+    public long TotalOrders { get; set; }
+    public decimal TotalRevenue { get; set; }
+  }
+
   /// <summary>
   /// ds35mysqlspfns.cs: DVD Store 3.5 MySql Functions
   /// </summary>
@@ -36,10 +45,10 @@ namespace ds2xdriver
     string target_server_name;
     int target_store_number = 1; //Added to support Multiple stores - default is 1
 
-    MySqlCommand Login, New_Customer, New_Member, New_Review, New_Helpfulness, New_Product, Purchase;
+    MySqlCommand Login, New_Customer, New_Member, Get_Membership_Status, Renew_Membership, New_Review, New_Helpfulness, New_Product, Purchase;
     MySqlCommand BrowseReviews_by_title, BrowseReviews_by_actor, Get_Prod_Reviews, Get_Reviews_by_stars;
     MySqlCommand Get_Reviews_by_date, Browse_by_title, Browse_by_actor, Browse_by_category, Browse_by_membership, Browse_by_vector;
-    MySqlCommand Remove_Review_By_Product, Remove_Unhelpful_Reviews, Remove_Reviews_By_Date, Adjust_Prices, Bulk_Price_Adjustment, Mark_Specials, Expire_Memberships, Purge_Old_Orders, Upgrade_Membership;
+    MySqlCommand Remove_Review_By_Product, Remove_Unhelpful_Reviews, Remove_Reviews_By_Date, Adjust_Prices, Bulk_Price_Adjustment, Mark_Specials, Expire_Memberships, Purge_Old_Orders, Upgrade_Membership, Promotional_Membership, Get_Membership_Analytics;
     MySqlParameter cust_out_param, member_out_param, reviewid_out_param, helpfulnessid_out_param, neworder_out_param;
     MySqlCommand[] CostQuery = new MySqlCommand[11];
 
@@ -109,6 +118,14 @@ namespace ds2xdriver
       New_Member.Parameters.Add("customerid_in", MySqlDbType.Int32);
       New_Member.Parameters.Add("membershiplevel_in", MySqlDbType.Int32);
       New_Member.Parameters.Add(member_out_param);
+
+      Get_Membership_Status = new MySqlCommand("GET_MEMBERSHIP_STATUS" + target_store_number, objConn);
+      Get_Membership_Status.CommandType = CommandType.StoredProcedure;
+      Get_Membership_Status.Parameters.Add("customerid_in", MySqlDbType.Int32);
+
+      Renew_Membership = new MySqlCommand("RENEW_MEMBERSHIP" + target_store_number, objConn);
+      Renew_Membership.CommandType = CommandType.StoredProcedure;
+      Renew_Membership.Parameters.Add("customerid_in", MySqlDbType.Int32);
 
       New_Review = new MySqlCommand("NEW_PROD_REVIEW" + target_store_number, objConn);
       New_Review.CommandType = CommandType.StoredProcedure;
@@ -272,6 +289,14 @@ namespace ds2xdriver
       Upgrade_Membership = new MySqlCommand("DS3.UpgradeMembership" + target_store_number, objConn);
       Upgrade_Membership.CommandType = CommandType.StoredProcedure;
       Upgrade_Membership.Parameters.Add("p_batch_size", MySqlDbType.Int32);
+
+      Promotional_Membership = new MySqlCommand("DS3.PromotionalMembership" + target_store_number, objConn);
+      Promotional_Membership.CommandType = CommandType.StoredProcedure;
+      Promotional_Membership.Parameters.Add("p_batch_size", MySqlDbType.Int32);
+      Promotional_Membership.Parameters.Add("p_rows_affected", MySqlDbType.Int32).Direction = ParameterDirection.Output;
+
+      Get_Membership_Analytics = new MySqlCommand("DS3.GetMembershipAnalytics" + target_store_number, objConn);
+      Get_Membership_Analytics.CommandType = CommandType.StoredProcedure;
     }
 
     //
@@ -397,7 +422,7 @@ namespace ds2xdriver
     //
     //-------------------------------------------------------------------------------------------------
     // 
-    public bool ds2newmember(int customerid_in, int membershiplevel_in, ref int customerid_out, ref double rt)
+    public bool ds2newmember(int customerid_in, int membershiplevel_in, ref double rt)
     {
       New_Member.Parameters["customerid_in"].Value = customerid_in;
       New_Member.Parameters["membershiplevel_in"].Value = membershiplevel_in;
@@ -407,10 +432,15 @@ namespace ds2xdriver
       try
       {
         New_Member.ExecuteNonQuery();
-        customerid_out = (int)member_out_param.Value;
 
-        //    Console.WriteLine("Thread {0}: New_Customer created w/username_in= {1}  region={2}  customerid={3}",
-        //      Thread.CurrentThread.Name, username_in, region_in, customerid_out);
+        // Check OUT parameter - if 0/NULL, stored procedure failed
+        if (member_out_param.Value == null || member_out_param.Value == DBNull.Value || Convert.ToInt32(member_out_param.Value) == 0)
+        {
+          return false;
+        }
+
+        //    Console.WriteLine("Thread {0}: New_Member created w/customerid_in= {1}  membershiplevel_in={2}",
+        //      Thread.CurrentThread.Name, customerid_in, membershiplevel_in);
 
         return true;
       }
@@ -426,12 +456,93 @@ namespace ds2xdriver
       }
     } // end ds2newmember()
 
+    public bool ds2getmembershipstatus(int customerid_in, ref int membership_level_out,
+      ref int is_expired_out, ref double rt)
+    {
+      Get_Membership_Status.Parameters["customerid_in"].Value = customerid_in;
+
+      Stopwatch timer = Stopwatch.StartNew();
+
+      try
+      {
+        using (MySqlDataReader dr = Get_Membership_Status.ExecuteReader())
+        {
+          if (dr.Read())
+          {
+            membership_level_out = dr.GetInt32(0);  // membership_level
+            is_expired_out = dr.GetInt32(1);        // is_expired
+          }
+          else
+          {
+            membership_level_out = 0;
+            is_expired_out = 0;
+          }
+        }
+        return true;
+      }
+      catch (MySqlException e)
+      {
+        Console.WriteLine("Thread {0}: MySql Error {1} in Get_Membership_Status: {2}",
+          Thread.CurrentThread.Name, e.Number, e.Message);
+        return false;
+      }
+      catch (System.Exception e)
+      {
+        Console.WriteLine("Thread {0}: System Error in Get_Membership_Status: {1}",
+          Thread.CurrentThread.Name, e.Message);
+        return false;
+      }
+      finally
+      {
+        rt = timer.Elapsed.TotalSeconds;
+      }
+    } // end ds2getmembershipstatus()
+
+    public bool ds2renewmembership(int customerid_in, ref int rows_affected_out, ref double rt)
+    {
+      Renew_Membership.Parameters["customerid_in"].Value = customerid_in;
+
+      Stopwatch timer = Stopwatch.StartNew();
+
+      try
+      {
+        using (MySqlDataReader dr = Renew_Membership.ExecuteReader())
+        {
+          if (dr.Read())
+          {
+            rows_affected_out = dr.GetInt32(0);  // rows_affected
+          }
+          else
+          {
+            rows_affected_out = 0;
+          }
+        }
+        return true;
+      }
+      catch (MySqlException e)
+      {
+        Console.WriteLine("Thread {0}: MySql Error {1} in Renew_Membership: {2}",
+          Thread.CurrentThread.Name, e.Number, e.Message);
+        return false;
+      }
+      catch (System.Exception e)
+      {
+        Console.WriteLine("Thread {0}: System Error in Renew_Membership: {1}",
+          Thread.CurrentThread.Name, e.Message);
+        return false;
+      }
+      finally
+      {
+        rt = timer.Elapsed.TotalSeconds;
+      }
+    } // end ds2renewmembership()
+
     //
     //-------------------------------------------------------------------------------------------------
-    // 
+    //
     public bool ds2browse(string browse_type_in, string browse_category_in, string browse_actor_in,
-      string browse_title_in, int batch_size_in, int search_depth_in, int customerid_out, ref int rows_returned,
-      ref int[] prod_id_out, ref string[] title_out, ref string[] actor_out, ref decimal[] price_out,
+      string browse_title_in, int batch_size_in, int search_depth_in, int customerid_out, int membership_level_in,
+      ref int rows_returned, ref int[] prod_id_out, ref string[] title_out, ref string[] actor_out, ref decimal[] price_out,
       ref int[] special_out, ref int[] common_prod_id_out, ref double rt)
     {
       int special = 0;
@@ -463,7 +574,7 @@ namespace ds2xdriver
       Browse_by_category.Parameters["special_in"].Value = special;
 
       Browse_by_membership.Parameters["batch_size_in"].Value = batch_size_in;
-      Browse_by_membership.Parameters["membershiptype_in"].Value = Random.Shared.Next(1, 4);
+      Browse_by_membership.Parameters["membershiptype_in"].Value = membership_level_in;
 
       if (browse_type_in == "vector")
       {
@@ -786,6 +897,9 @@ namespace ds2xdriver
     {
       int j;
 
+      //Cap cart_items at 10 for this implementation of stored procedure
+      cart_items = System.Math.Min(10, cart_items);
+
       // Find total cost of purchase
       Decimal netamount_in = 0;
 
@@ -1106,6 +1220,28 @@ namespace ds2xdriver
       }
     }
 
+    public int ds36promotionalmembership(int batchSize, ref double rt)
+    {
+      Promotional_Membership.Parameters["p_batch_size"].Value = batchSize;
+
+      Stopwatch timer = Stopwatch.StartNew();
+      try
+      {
+        Promotional_Membership.ExecuteNonQuery();
+        object result = Promotional_Membership.Parameters["p_rows_affected"].Value;
+        return result != null && result != DBNull.Value ? Convert.ToInt32(result.ToString()) : 0;
+      }
+      catch (Exception e)
+      {
+        Console.WriteLine($"Thread {Thread.CurrentThread.Name}: ds36promotionalmembership error: {e.Message}");
+        return 0;
+      }
+      finally
+      {
+        rt = timer.Elapsed.TotalSeconds;
+      }
+    }
+
     //
     //-------------------------------------------------------------------------------------------------
     //
@@ -1163,6 +1299,43 @@ namespace ds2xdriver
       }
 
       return value.ToString() ?? "";
+    }
+
+    //
+    //-------------------------------------------------------------------------------------------------
+    //
+    public List<MembershipAnalyticsRow> ds36getmembershipanalytics(ref double rt)
+    {
+      var result = new List<MembershipAnalyticsRow>();
+      Stopwatch timer = Stopwatch.StartNew();
+
+      try
+      {
+        using (MySqlDataReader reader = Get_Membership_Analytics.ExecuteReader())
+        {
+          while (reader.Read())
+          {
+            result.Add(new MembershipAnalyticsRow
+            {
+              MembershipType = reader.IsDBNull(0) ? null : reader.GetInt32(0),
+              ActiveMemberCount = reader.GetInt64(1),
+              ExpiredMemberCount = reader.GetInt64(2),
+              TotalOrders = reader.GetInt64(3),
+              TotalRevenue = reader.GetDecimal(4)
+            });
+          }
+        }
+      }
+      catch (Exception e)
+      {
+        Console.WriteLine($"Thread {Thread.CurrentThread.Name}: ds36getmembershipanalytics error: {e.Message}");
+      }
+      finally
+      {
+        rt = timer.Elapsed.TotalSeconds;
+      }
+
+      return result;
     }
 
     //

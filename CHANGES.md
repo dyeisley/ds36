@@ -30,9 +30,10 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   - `manager_expire_memberships_pct` - probability for ExpireMemberships (default: 5)
   - `manager_purge_old_orders_pct` - probability for PurgeOldOrders (default: 5)
   - `manager_upgrade_membership_pct` - probability for UpgradeMembership (default: 5)
+  - `manager_promo_membership_pct` - probability for PromotionalMembership (default: 5)
   - Note: Percentages are probability thresholds, not strict allocations
 
-### Added - Manager Operations (10 Total)
+### Added - Manager Operations (11 Total)
 
 **1. AddProduct**
 - Adds new inventory products to catalog with random attributes
@@ -90,6 +91,207 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Uses MOD(CUSTOMERID, 100) for stateless partitioning based on current minute
 - Tests window functions, CTEs, percentile calculations across all 4 databases
 - Cross-database challenge: different window function syntax and capabilities
+
+**11. PromotionalMembership** ⭐ NEW
+- MERGE-based 90-day promotional membership upgrades
+- Batch processing: selects random batch of customers
+- INSERT path: Creates tier 1 memberships with 90-day expiration for non-members
+- UPDATE path: Sequential tier upgrades (1→2, 2→3) or tier 3 extensions (+90 days)
+- Audit trail: MEMBERSHIP_PROMO_AUDIT table tracks all MERGE operations
+  - Captures: CUSTOMERID, OLD_TIER, NEW_TIER, OLD_EXPIREDATE, NEW_EXPIREDATE, OPERATION_TYPE, OPERATION_TIMESTAMP
+- Tests MERGE/UPSERT with OUTPUT clause across all 4 databases
+- SQL Server: Single WHEN MATCHED with CASE expressions (multi-WHEN MATCHED not allowed)
+- Cross-database challenge: Different MERGE syntax and OUTPUT clause support
+
+### Added - Analytics System
+
+**GetMembershipAnalytics** ⭐ NEW - Membership tier analytics with baseline and delta tracking
+
+- **What it tracks**: Active/Expired member counts, Orders, Revenue per membership tier
+- **Baseline capture**: Metrics captured at test start to establish starting point
+- **Delta tracking**: Analytics show changes since baseline (new orders, new revenue, etc.)
+- **Time-based execution**: Runs on `manager_analytics_interval` parameter (minutes, 0=disabled)
+- **Metrics displayed**:
+  - Active Members / Expired Members per tier
+  - New Orders / New Revenue (deltas since baseline)
+  - Revenue per Order / Revenue per Member / Orders per Member (calculated ratios)
+  - Tier ordering: 3 (Gold) → 2 (Silver) → 1 (Bronze) → N/A (Non-members)
+- **Blocking behavior**: ⚠️ Analytics runs in manager thread, blocking other operations during execution (8-96s depending on database/load)
+
+**Database Implementation Status**:
+- **SQL Server**: ✓ Complete - Fast performance (1-2s at 4GB), no special configuration required
+- **Oracle**: ✓ Complete - Excellent performance (~9.7s at 4GB), no special configuration required
+- **PostgreSQL**: ✓ Complete - Good performance (~31s at 4GB), no special configuration required
+- **MySQL**: ✓ Complete - Requires buffer tuning and isolation level configuration (80-96s at 4GB, see below)
+
+**MySQL-Specific Requirements** (CRITICAL):
+
+1. **Buffer Tuning** (required for acceptable performance):
+   ```ini
+   # /etc/my.cnf
+   [mysqld]
+   tmp_table_size = 256M
+   max_heap_table_size = 256M
+   ```
+   - Without tuning: 1m16s at 1GB (unacceptable)
+   - With tuning: 8.6s at 1GB isolated, 80-96s at 4GB under load (acceptable)
+   - Default 16MB buffers cause spill-to-disk for large aggregations
+
+2. **Isolation Level** (prevents table locking):
+   - Stored procedure uses READ UNCOMMITTED to prevent MEMBERSHIP table locks
+   - Prevents deadlocks with Renew_Membership operations during long-running queries
+   - Dirty reads acceptable for analytics (approximate counts/sums)
+
+**Performance Characteristics**:
+- **Isolated query**: 1-2s (SQL Server), 8.6s at 1GB (MySQL with tuning), 46s at 4GB (MySQL)
+- **Under load**: 2-3x slower than isolated (competing for CPU/I/O/cache)
+- **Blocking impact**: With 1-minute interval at 4GB, analytics consumes 53-65% of manager time
+- **Recommendation**: Use longer intervals (5-15 minutes) for large databases
+
+**Configuration Parameters**:
+- `manager_analytics_interval` - minutes between analytics runs (default: 0 = disabled)
+- Interval guidelines: Small DBs (<1GB) = 1-5 min, Large DBs (4GB+) = 5-15 min
+
+**Thread Optimization**:
+- Run with N-1 customer threads to dedicate one CPU to manager thread
+- Example (16-CPU system): Use 15 customer threads for best analytics performance
+- Manager gets dedicated CPU during long analytics queries
+
+**Future Enhancement**: Two-thread architecture to separate operations and analytics threads, eliminating blocking issue
+
+**Documentation**: See `ANALYTICS.md` for comprehensive guide including:
+- Detailed metrics explanation
+- Database-specific configuration
+- Performance tuning guide
+- Troubleshooting
+- Future analytics features (Product, Review)
+
+### Added - Membership Renewal and Browse Behavior
+
+**Membership Status Checking and Renewal**: After successful LOGIN, driver checks membership status and optionally renews expired memberships.
+
+**New Stored Procedures** (all 4 databases):
+
+**GET_MEMBERSHIP_STATUS**:
+- **SQL Server**: Returns `@membership_level` (0 if no membership), `@is_expired` (1 if expired, 0 if active)
+- **MySQL**: Returns result set with `membership_level` and `is_expired` columns
+- **PostgreSQL**: Returns TABLE with `membership_level` and `is_expired` columns
+- **Oracle**: Returns `p_membership_level` and `p_is_expired` as OUT parameters
+- Checks MEMBERSHIP table for customer, returns 0/0 if not found
+- Date comparison: `EXPIREDATE < GETDATE()` (SQL Server), `EXPIREDATE < NOW()` (MySQL), `EXPIREDATE < CURRENT_DATE` (PostgreSQL), `EXPIREDATE < SYSDATE` (Oracle)
+
+**RENEW_MEMBERSHIP**:
+- **SQL Server**: Returns `@@ROWCOUNT` via `@rows_affected` OUT parameter
+- **MySQL**: Returns result set with `rows_affected` column (via `ROW_COUNT()`)
+- **PostgreSQL**: Returns INTEGER scalar value (via `GET DIAGNOSTICS rows_affected = ROW_COUNT`)
+- **Oracle**: Returns `p_rows_affected` OUT parameter (via `SQL%ROWCOUNT`)
+- Extends EXPIREDATE by 1 year from current date
+- UPDATE statement: `SET EXPIREDATE = <current_date> + <1 year interval>`
+
+**Driver Logic** (ds36xdriver.cs, lines 2767-2828):
+
+1. **After LOGIN**: Call `ds2getmembershipstatus(customerid_out, ref membershiplevel_out, ref is_expired_out, ref rt_membership_check)`
+2. **If member exists AND expired**: Random roll against `pct_renewmember` parameter
+3. **If renewal triggered**: Call `ds2renewmembership(customerid_out, ref rows_affected, ref rt_membership_renew)`
+4. **Tracking**: `n_membershiprenew_overall` counter tracks total renewals across all threads
+
+**New Parameter**:
+- `pct_renewmember` - Percentage of expired members who renew (default: 50, range: 0-100)
+- Example: `--pct_renewmember=75` → 75% of customers with expired memberships will renew
+
+**Browse Behavior Changes** (ds36xdriver.cs, lines 2970-3015):
+
+**Non-members cannot browse by membership**:
+- `validBrowseTypes` list built dynamically per customer
+- Base types: `["category", "actor", "title"]`
+- Membership browse only added if: `!ds2_mode && membershiplevel_out > 0`
+- Non-members (membershiplevel_out = 0) never have "membership" in their browse options
+
+**BROWSE_BY_MEMBERSHIP uses actual customer tier**:
+- **Old behavior**: `Browse_By_Membership.Parameters["membershiptype_in"].Value = Random.Shared.Next(1, 4)`
+- **New behavior**: `Browse_By_Membership.Parameters["membershiptype_in"].Value = membership_level_in`
+- Passed via updated `ds2browse()` signature: added `int membership_level_in` parameter
+- Bronze members (tier 1) → browse MEMBERSHIP_ITEM=1 products
+- Silver members (tier 2) → browse MEMBERSHIP_ITEM=2 products
+- Gold members (tier 3) → browse MEMBERSHIP_ITEM=3 products
+
+**Purchase Behavior Changes** (ds36xdriver.cs, lines 2659-2667, 3064-3074, 3262-3296):
+
+**Members purchase from browse results**:
+- After browsing by membership tier, members add browsed products to cart
+- Purchase loop uses `prod_id_out[]` array populated during Browse Phase
+- Non-members continue using `GetSkewedProductId()` for random product selection
+
+**Array separation for browse/review operations**:
+- **Bug fix**: `prod_id_out[]` was being overwritten by review browse operations
+- **Solution**: Created separate `review_prod_id_out[]` array for review operations
+- Added `browse_rows_returned` variable to preserve browse result count across phases
+- Ensures purchase decisions use original browse results, not review browse results
+
+**Natural spillover behavior**:
+- Cart size: `Random.Shared.Next(1, 2 * n_line_items)` (default: 1-10 items)
+- Members fill cart from browse results first
+- When cart exceeds browse results → spillover to `GetSkewedProductId()` (random products)
+- Simulates realistic shopping: primary focus on tier products, occasional cross-tier purchases
+
+**Purchase patterns** (validated across all 4 databases):
+- **Members**: ~77% purchases from their membership tier
+- **Spillover**: ~7-8% to each of the other three tiers (evenly distributed)
+- **Examples**:
+  - Gold member (tier 3): 77% tier-3 products, 7-8% each tier-0/1/2
+  - Silver member (tier 2): 77% tier-2 products, 7-8% each tier-0/1/3
+  - Bronze member (tier 1): 77% tier-1 products, 7-8% each tier-0/2/3
+
+**Validation SQL - Member-Specific Purchase Behavior**:
+- New validation query analyzes purchase patterns by member tier
+- **EXPIREDATE filter**: Only counts purchases from active members
+  - Oracle: `m.EXPIREDATE > SYSDATE`
+  - SQL Server: `m.EXPIREDATE > GETDATE()`
+  - MySQL: `m.EXPIREDATE > NOW()`
+  - PostgreSQL: `m.EXPIREDATE > CURRENT_TIMESTAMP`
+- Uses `PRODUCTS.MEMBERSHIP_ITEM` to match product tier to customer tier
+- Filters by `ORDERS_COUNT` baseline to only count benchmark orders
+- Reports: member_tier, product_tier, purchase_count, pct_of_tier_purchases
+
+**Statistics tracking**:
+- Existing counters track overall purchase operations
+- Validation SQL provides tier-specific purchase breakdown post-test
+
+**Files Modified**:
+- `drivers/ds36xdriver.cs` (lines 2659-2667, 3064-3074, 3262-3296)
+- `oracle/validate/validate_post_test.sql` (lines 947-983)
+- `sqlserver/validate/validate_post_test.sql` (lines 688-716)
+- `mysql/validate/validate_post_test.sql` (lines 655-682)
+- `pgsql/validate/validate_post_test.sql` (lines 882-912)
+
+**Statistics Output** (lines 2057, 2437):
+- Customer Operations section: `Renew Membership: N operations, avg RT: X.XXX sec`
+- Configuration Summary section: `Renew membership pct: N%`
+
+**Files Modified**:
+
+**SQL Server**:
+- `sqlserver/build/sqlserver_ds_perl_create_sp_multi.pl` (lines 249-301)
+- `sqlserver/ds36sqlserverfns.cs` (lines 42, 125-135, 463-523, 537)
+
+**MySQL**:
+- `mysql/build/mysql_ds_perl_create_sp_multi.pl` (lines 211-252)
+- `mysql/ds36mysqlspfns.cs` (lines 38, 107-121, 382-461, 467-468, 554-555)
+
+**Oracle**:
+- `oracle/build/oracle_ds_perl_create_sp_multi.pl` (lines 266-315)
+- `oracle/ds36oraclefns.cs` (lines 45, 50-51, 119-134, 479-559, 563, 622)
+
+**PostgreSQL**:
+- `pgsql/build/pgsql_ds_perl_create_sp_multi.pl` (lines 383-429)
+- `pgsql/ds36pgsqlfns.cs` (lines 49, 98-108, 419-493, 497, 534)
+
+**Driver**:
+- `drivers/ds36xdriver.cs` (lines 83-84, 2057, 2437, 2767-2828, 2970-3015)
+
+**DS2 Compatibility Mode**:
+- `--ds2_mode=y` (DS 2.0 compatibility): Membership renewal disabled, browse selection excludes "membership" option
+- Only 3 browse types available: category, actor, title (same as DVD Store 2.0)
 
 ### Added - Validation SQL Framework
 

@@ -687,6 +687,147 @@ SELECT * FROM (
 ) AS extended_only;
 
 PRINT '';
+PRINT '========================================================================';
+PRINT '--- MEMBER-SPECIFIC PURCHASE BEHAVIOR ---';
+PRINT 'Verifying: Members buy primarily from their membership tier';
+PRINT 'Expected: ~85-90% of purchases match member tier (tier 1->tier 1, etc.)';
+PRINT 'Expected: ~5-6% spillover to other tiers when cart exceeds browse results';
+PRINT '========================================================================';
+PRINT '';
+
+SELECT
+    member_tier,
+    product_tier,
+    purchase_count,
+    CAST(ROUND(purchase_count * 100.0 / tier_total, 2) AS DECIMAL(10,2)) AS pct_of_tier_purchases
+FROM (
+    SELECT
+        m.MEMBERSHIPTYPE AS member_tier,
+        p.MEMBERSHIP_ITEM AS product_tier,
+        COUNT(*) AS purchase_count,
+        SUM(COUNT(*)) OVER (PARTITION BY m.MEMBERSHIPTYPE) AS tier_total
+    FROM MEMBERSHIP{store_number} m
+    INNER JOIN ORDERS{store_number} o ON m.CUSTOMERID = o.CUSTOMERID
+    INNER JOIN ORDERLINES{store_number} ol ON o.ORDERID = ol.ORDERID
+    INNER JOIN PRODUCTS{store_number} p ON ol.PROD_ID = p.PROD_ID
+    WHERE o.ORDERID > (SELECT metric_value FROM VALIDATION_METRICS_{store_number} WHERE metric_name = 'ORDERS_COUNT')
+      AND m.EXPIREDATE > GETDATE()
+    GROUP BY m.MEMBERSHIPTYPE, p.MEMBERSHIP_ITEM
+) AS tier_purchases
+ORDER BY member_tier, product_tier;
+
+PRINT '';
+
+-- =======================================================================
+-- PROMOTIONAL MEMBERSHIP AUDIT
+-- =======================================================================
+PRINT '';
+PRINT '========================================================================';
+PRINT '--- PROMOTIONAL MEMBERSHIP AUDIT ---';
+PRINT 'Verifying: PromotionalMembership MERGE operations tracked correctly';
+PRINT 'Expected: INSERT path creates tier 1 with 90-day expiration';
+PRINT 'Expected: UPDATE path shows sequential upgrades (1->2, 2->3) or tier 3 extensions';
+PRINT '========================================================================';
+PRINT '';
+
+-- Operation summary (INSERT vs UPDATE)
+SELECT
+    OPERATION_TYPE,
+    COUNT(*) AS operation_count,
+    CAST(AVG(CASE WHEN OLD_TIER IS NULL THEN 0 ELSE 1 END) * 100 AS DECIMAL(5,2)) AS pct_had_membership
+FROM MEMBERSHIP_PROMO_AUDIT{store_number}
+GROUP BY OPERATION_TYPE;
+
+PRINT '';
+
+-- Verify INSERT path: all new memberships are tier 1 with 90-day expiration
+DECLARE @new_tier1_90day INT;
+SELECT @new_tier1_90day = COUNT(*)
+FROM MEMBERSHIP_PROMO_AUDIT{store_number}
+WHERE OPERATION_TYPE = 'INSERT'
+  AND NEW_TIER = 1
+  AND NEW_EXPIREDATE BETWEEN DATEADD(day, 89, GETDATE()) AND DATEADD(day, 91, GETDATE());
+
+PRINT 'New memberships (tier 1, 90-day expiration): ' + CAST(@new_tier1_90day AS VARCHAR);
+
+PRINT '';
+
+-- Verify UPDATE path: tier upgrades are sequential (1->2, 2->3)
+SELECT
+    OLD_TIER AS from_tier,
+    NEW_TIER AS to_tier,
+    COUNT(*) AS upgrade_count
+FROM MEMBERSHIP_PROMO_AUDIT{store_number}
+WHERE OPERATION_TYPE = 'UPDATE'
+  AND OLD_TIER < 3
+GROUP BY OLD_TIER, NEW_TIER
+ORDER BY OLD_TIER, NEW_TIER;
+
+PRINT '';
+
+-- Verify tier 3 extensions are ~90 days
+DECLARE @tier3_extensions INT;
+SELECT @tier3_extensions = COUNT(*)
+FROM MEMBERSHIP_PROMO_AUDIT{store_number}
+WHERE OPERATION_TYPE = 'UPDATE'
+  AND OLD_TIER = 3
+  AND NEW_TIER = 3
+  AND DATEDIFF(day, OLD_EXPIREDATE, NEW_EXPIREDATE) BETWEEN 89 AND 91;
+
+PRINT 'Tier 3 extensions (90-day): ' + CAST(@tier3_extensions AS VARCHAR);
+
+PRINT '';
+
+-- Sample operations (3 of each type)
+SELECT TOP 3
+    CUSTOMERID,
+    NULL AS old_tier,
+    NEW_TIER AS new_tier,
+    CONVERT(VARCHAR(10), NEW_EXPIREDATE, 120) AS new_expire,
+    OPERATION_TYPE,
+    OPERATION_TIMESTAMP
+FROM MEMBERSHIP_PROMO_AUDIT{store_number}
+WHERE OPERATION_TYPE = 'INSERT'
+
+UNION ALL
+
+SELECT TOP 3
+    CUSTOMERID,
+    OLD_TIER AS old_tier,
+    NEW_TIER AS new_tier,
+    CONVERT(VARCHAR(10), NEW_EXPIREDATE, 120) AS new_expire,
+    'UPDATE (1->2)' AS OPERATION_TYPE,
+    OPERATION_TIMESTAMP
+FROM MEMBERSHIP_PROMO_AUDIT{store_number}
+WHERE OPERATION_TYPE = 'UPDATE' AND OLD_TIER = 1 AND NEW_TIER = 2
+
+UNION ALL
+
+SELECT TOP 3
+    CUSTOMERID,
+    OLD_TIER AS old_tier,
+    NEW_TIER AS new_tier,
+    CONVERT(VARCHAR(10), NEW_EXPIREDATE, 120) AS new_expire,
+    'UPDATE (2->3)' AS OPERATION_TYPE,
+    OPERATION_TIMESTAMP
+FROM MEMBERSHIP_PROMO_AUDIT{store_number}
+WHERE OPERATION_TYPE = 'UPDATE' AND OLD_TIER = 2 AND NEW_TIER = 3
+
+UNION ALL
+
+SELECT TOP 3
+    CUSTOMERID,
+    OLD_TIER AS old_tier,
+    NEW_TIER AS new_tier,
+    CONVERT(VARCHAR(10), NEW_EXPIREDATE, 120) AS new_expire,
+    'UPDATE (3->3 ext)' AS OPERATION_TYPE,
+    OPERATION_TIMESTAMP
+FROM MEMBERSHIP_PROMO_AUDIT{store_number}
+WHERE OPERATION_TYPE = 'UPDATE' AND OLD_TIER = 3 AND NEW_TIER = 3
+
+ORDER BY OPERATION_TYPE, OPERATION_TIMESTAMP;
+
+PRINT '';
 
 -- =======================================================================
 -- NEW RECORDS CREATED DURING BENCHMARK

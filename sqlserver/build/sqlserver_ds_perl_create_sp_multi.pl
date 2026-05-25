@@ -268,8 +268,63 @@ DECLARE \@customerid_out INT
           ORDER BY CUST_HIST$k.ORDERID DESC) AS derivedtable1$k INNER JOIN
              PRODUCTS$k AS PRODUCTS_1$k ON derivedtable1$k.COMMON_PROD_ID = PRODUCTS_1$k.PROD_ID
     END
-  ELSE 
-    SELECT 0 
+  ELSE
+    SELECT 0
+GO
+
+-- GetMembershipStatus - returns membership level and expiration status
+IF EXISTS (SELECT name FROM sysobjects WHERE name = 'GET_MEMBERSHIP_STATUS$k' AND type = 'P')
+  DROP PROCEDURE GET_MEMBERSHIP_STATUS$k
+GO
+
+CREATE PROCEDURE GET_MEMBERSHIP_STATUS$k
+  (
+  \@customerid_in            INT
+  )
+
+  AS
+DECLARE \@membership_level INT
+DECLARE \@is_expired INT
+
+  -- Get membership info
+  SELECT \@membership_level = MEMBERSHIPTYPE
+  FROM MEMBERSHIP$k
+  WHERE CUSTOMERID = \@customerid_in
+
+  -- If no membership found, return 0
+  IF (\@\@ROWCOUNT = 0)
+    BEGIN
+      SELECT 0 AS membership_level, 0 AS is_expired
+      RETURN
+    END
+
+  -- Check if expired
+  IF EXISTS (SELECT 1 FROM MEMBERSHIP$k
+             WHERE CUSTOMERID = \@customerid_in
+             AND EXPIREDATE < GETDATE())
+    SET \@is_expired = 1
+  ELSE
+    SET \@is_expired = 0
+
+  SELECT \@membership_level AS membership_level, \@is_expired AS is_expired
+GO
+
+-- RenewMembership - extend expiration by 1 year
+IF EXISTS (SELECT name FROM sysobjects WHERE name = 'RENEW_MEMBERSHIP$k' AND type = 'P')
+  DROP PROCEDURE RENEW_MEMBERSHIP$k
+GO
+
+CREATE PROCEDURE RENEW_MEMBERSHIP$k
+  (
+  \@customerid_in            INT
+  )
+
+  AS
+  UPDATE MEMBERSHIP$k
+  SET EXPIREDATE = DATEADD(year, 1, GETDATE())
+  WHERE CUSTOMERID = \@customerid_in
+
+  SELECT \@\@ROWCOUNT AS rows_affected
 GO
 
 IF EXISTS (SELECT name FROM sysobjects WHERE name = 'BROWSE_BY_CATEGORY$k' AND type = 'P')
@@ -1072,11 +1127,115 @@ BEGIN
     UPDATE m
     SET
         MEMBERSHIPTYPE = cp.new_level,
-        EXPIREDATE = DATEADD(DAY, 180, m.EXPIREDATE)
+        EXPIREDATE = CASE
+            WHEN m.EXPIREDATE > GETDATE() THEN DATEADD(DAY, 180, m.EXPIREDATE)  -- Active: extend from current
+            ELSE DATEADD(DAY, 180, GETDATE())  -- Expired: reactivate from today
+        END
     FROM MEMBERSHIP$k m
     INNER JOIN CustomerPurchases cp ON m.CUSTOMERID = cp.CUSTOMERID;
 
     SELECT \@\@ROWCOUNT AS rows_updated, \@gold_threshold AS gold_threshold, \@silver_threshold AS silver_threshold;
+END
+GO
+
+IF EXISTS (SELECT name FROM sysobjects WHERE name = 'PromotionalMembership$k' AND type = 'P')
+  DROP PROCEDURE PromotionalMembership$k
+GO
+CREATE PROCEDURE PromotionalMembership$k
+  \@batch_size INT,
+  \@rows_affected INT OUTPUT
+AS
+BEGIN
+  SET NOCOUNT ON;
+
+  -- Select random batch of customers
+  DECLARE \@customer_batch TABLE (CUSTOMERID INT);
+
+  INSERT INTO \@customer_batch
+  SELECT TOP (\@batch_size) CUSTOMERID
+  FROM CUSTOMERS$k
+  ORDER BY NEWID();
+
+  -- MERGE with audit tracking
+  MERGE INTO MEMBERSHIP$k AS target
+  USING \@customer_batch AS source
+    ON target.CUSTOMERID = source.CUSTOMERID
+
+  -- Customer already has membership: upgrade tier or extend expiration
+  WHEN MATCHED THEN
+    UPDATE SET
+      MEMBERSHIPTYPE = CASE
+        WHEN target.MEMBERSHIPTYPE = 1 THEN 2
+        WHEN target.MEMBERSHIPTYPE = 2 THEN 3
+        ELSE 3  -- Already tier 3, stay at tier 3
+      END,
+      EXPIREDATE = CASE
+        WHEN target.MEMBERSHIPTYPE = 3 THEN DATEADD(day, 90, target.EXPIREDATE)  -- Extend tier 3
+        ELSE DATEADD(day, 90, GETDATE())  -- Reactivate for tier 1→2 and 2→3 upgrades
+      END
+
+  -- Customer doesn't have membership: insert tier 1 with 90-day expiration
+  WHEN NOT MATCHED THEN
+    INSERT (CUSTOMERID, MEMBERSHIPTYPE, EXPIREDATE)
+    VALUES (source.CUSTOMERID, 1, DATEADD(day, 90, GETDATE()))
+
+  -- Capture MERGE operations to audit table
+  OUTPUT
+    COALESCE(deleted.CUSTOMERID, inserted.CUSTOMERID),
+    deleted.MEMBERSHIPTYPE,           -- NULL for INSERT
+    inserted.MEMBERSHIPTYPE,
+    deleted.EXPIREDATE,               -- NULL for INSERT
+    inserted.EXPIREDATE,
+    CASE WHEN deleted.CUSTOMERID IS NULL THEN 'INSERT' ELSE 'UPDATE' END,
+    GETDATE()
+  INTO MEMBERSHIP_PROMO_AUDIT$k (
+    CUSTOMERID,
+    OLD_TIER,
+    NEW_TIER,
+    OLD_EXPIREDATE,
+    NEW_EXPIREDATE,
+    OPERATION_TYPE,
+    OPERATION_TIMESTAMP
+  );
+
+  SET \@rows_affected = \@\@ROWCOUNT;
+END
+GO
+
+IF EXISTS (SELECT name FROM sysobjects WHERE name = 'GetMembershipAnalytics$k' AND type = 'P')
+  DROP PROCEDURE GetMembershipAnalytics$k
+GO
+CREATE PROCEDURE GetMembershipAnalytics$k
+AS
+BEGIN
+  SET NOCOUNT ON;
+
+  WITH CustomerOrders AS (
+    SELECT
+      CUSTOMERID,
+      COUNT(*) AS order_count,
+      SUM(TOTALAMOUNT) AS total_revenue
+    FROM ORDERS$k
+    GROUP BY CUSTOMERID
+  )
+  SELECT
+    m.MEMBERSHIPTYPE AS membership_tier,
+    CAST(COUNT(DISTINCT CASE
+      WHEN m.MEMBERSHIPTYPE IS NULL THEN c.CUSTOMERID  -- non-members, count all
+      WHEN m.EXPIREDATE >= GETDATE() THEN c.CUSTOMERID  -- active members only
+      ELSE NULL  -- expired members, don't count
+    END) AS BIGINT) AS active_member_count,
+    CAST(COUNT(DISTINCT CASE
+      WHEN m.MEMBERSHIPTYPE IS NOT NULL AND m.EXPIREDATE < GETDATE() THEN c.CUSTOMERID
+      ELSE NULL
+    END) AS BIGINT) AS expired_member_count,
+    CAST(ISNULL(SUM(co.order_count), 0) AS BIGINT) AS total_orders,
+    ROUND(ISNULL(SUM(co.total_revenue), 0), 2) AS total_revenue
+  FROM CUSTOMERS$k c
+  LEFT JOIN MEMBERSHIP$k m ON c.CUSTOMERID = m.CUSTOMERID
+  LEFT JOIN CustomerOrders co ON c.CUSTOMERID = co.CUSTOMERID
+  GROUP BY m.MEMBERSHIPTYPE
+  ORDER BY CASE WHEN m.MEMBERSHIPTYPE IS NULL THEN -1 ELSE m.MEMBERSHIPTYPE END DESC;
 END
 GO
 

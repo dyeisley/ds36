@@ -5,7 +5,7 @@
 The validation system provides automated verification of benchmark correctness by capturing database state before and after test runs. It validates:
 
 - **Data volume changes** - Table row counts (CUSTOMERS, ORDERS, REVIEWS, etc.)
-- **Manager operations** - Product additions, review deletions, price adjustments, membership upgrades
+- **Manager operations** - Product additions, review deletions, price adjustments, membership upgrades/expirations/promotions
 - **Data integrity** - Foreign key cascades, trigger behavior, referential constraints
 - **Workload distribution** - Popular product skewing, purchase history growth
 
@@ -96,6 +96,27 @@ Prevent new memberships and expirations from interfering with tier changes:
 - New memberships add members
 - Expiring memberships removes rows (changes membership snapshot comparison)
 
+### Testing PromotionalMembership
+
+Prevent new memberships, renewals, and other manager operations from interfering with promotional upgrades:
+
+```bash
+./sqlserver_ds --target=localhost --run_time=60 \
+  --enable_managers=Y \
+  --pct_newmember=0 \
+  --pct_renewmember=0 \
+  --manager_expire_memberships_pct=0 \
+  --manager_upgrade_membership_pct=0 \
+  --manager_promo_membership_pct=100 \
+  --validate_post_test=Y
+```
+
+**Why:**
+- New memberships (`pct_newmember`) would create tier 1 members (same as promotional INSERTs)
+- Renewals (`pct_renewmember`) would extend expirations (confuses tier 3 extension tracking)
+- ExpireMemberships would delete rows (affects audit counts)
+- UpgradeMembership would upgrade tiers (overlaps with promotional upgrades)
+
 
 ### Testing RemoveReviews Operations
 
@@ -178,6 +199,12 @@ MEMBERSHIP      6000            5973            -27
 - Tier transitions: Bronze→Silver, Silver→Gold, Bronze→Gold
 - Percentile-based thresholds (90th percentile → Gold, 75th percentile → Silver)
 - Time-sliced processing (1% of customers per minute, 100-minute full cycle)
+
+**PromotionalMembership:**
+- MERGE-based 90-day promotional upgrades
+- INSERT path: New tier 1 memberships with 90-day expiration
+- UPDATE path: Sequential tier upgrades (1→2, 2→3) or tier 3 extensions (90 days)
+- Audit trail in MEMBERSHIP_PROMO_AUDIT table (operation type, tier changes, dates)
 
 **RemoveReviews (3 operations):**
 - RemoveReviewByProduct: All reviews for random products deleted

@@ -266,6 +266,56 @@ BEGIN
   END LOGIN$k;
 /
 
+CREATE OR REPLACE PROCEDURE \"DS3\".\"GET_MEMBERSHIP_STATUS$k\"
+  (
+  p_customerid_in     IN  INTEGER,
+  p_membership_level  OUT INTEGER,
+  p_is_expired        OUT INTEGER
+  )
+AS
+  v_membershiptype INTEGER;
+  v_expiredate DATE;
+BEGIN
+  -- Get membership info
+  BEGIN
+    SELECT MEMBERSHIPTYPE, EXPIREDATE
+    INTO v_membershiptype, v_expiredate
+    FROM MEMBERSHIP$k
+    WHERE CUSTOMERID = p_customerid_in;
+  EXCEPTION
+    WHEN NO_DATA_FOUND THEN
+      p_membership_level := 0;
+      p_is_expired := 0;
+      RETURN;
+  END;
+
+  -- Check if expired
+  p_membership_level := v_membershiptype;
+  IF v_expiredate < SYSDATE THEN
+    p_is_expired := 1;
+  ELSE
+    p_is_expired := 0;
+  END IF;
+
+END GET_MEMBERSHIP_STATUS$k;
+/
+
+CREATE OR REPLACE PROCEDURE \"DS3\".\"RENEW_MEMBERSHIP$k\"
+  (
+  p_customerid_in  IN  INTEGER,
+  p_rows_affected  OUT INTEGER
+  )
+AS
+BEGIN
+  UPDATE MEMBERSHIP$k
+  SET EXPIREDATE = ADD_MONTHS(SYSDATE, 12)
+  WHERE CUSTOMERID = p_customerid_in;
+
+  p_rows_affected := SQL%ROWCOUNT;
+
+END RENEW_MEMBERSHIP$k;
+/
+
 CREATE OR REPLACE PROCEDURE \"DS3\".\"BROWSE_BY_CATEGORY$k\"
   (
   p_category_in  IN  INTEGER,
@@ -1192,7 +1242,10 @@ BEGIN
     WHEN MATCHED THEN
         UPDATE SET
             m.MEMBERSHIPTYPE = upgrades.new_level,
-            m.EXPIREDATE = m.EXPIREDATE + 180;
+            m.EXPIREDATE = CASE
+                WHEN m.EXPIREDATE > TRUNC(SYSDATE) THEN m.EXPIREDATE + 180  -- Active: extend from current
+                ELSE TRUNC(SYSDATE) + 180  -- Expired: reactivate from today
+            END;
 
     p_rows_upgraded := SQL%ROWCOUNT;
 
@@ -1202,6 +1255,127 @@ EXCEPTION
     WHEN OTHERS THEN
         ROLLBACK;
         RAISE;
+END;
+/
+
+CREATE OR REPLACE PROCEDURE DS3.PromotionalMembership$k (
+    p_batch_size    IN  NUMBER,
+    p_rows_affected OUT NUMBER
+) AS
+    v_customerid INT;
+    v_old_tier INT;
+    v_new_tier INT;
+    v_old_expiredate DATE;
+    v_new_expiredate DATE;
+    v_operation_type VARCHAR2(10);
+
+    CURSOR customer_cursor IS
+        SELECT CUSTOMERID
+        FROM DS3.CUSTOMERS$k
+        ORDER BY DBMS_RANDOM.VALUE
+        FETCH FIRST p_batch_size ROWS ONLY;
+BEGIN
+    p_rows_affected := 0;
+
+    FOR customer_rec IN customer_cursor LOOP
+        v_customerid := customer_rec.CUSTOMERID;
+
+        -- Check if customer has membership
+        BEGIN
+            SELECT MEMBERSHIPTYPE, EXPIREDATE INTO v_old_tier, v_old_expiredate
+            FROM DS3.MEMBERSHIP$k
+            WHERE CUSTOMERID = v_customerid;
+
+            -- UPDATE: Sequential upgrade or tier 3 extension
+            v_operation_type := 'UPDATE';
+
+            IF v_old_tier = 1 THEN
+                v_new_tier := 2;
+                v_new_expiredate := SYSDATE + 90;  -- Reactivate for upgrade
+            ELSIF v_old_tier = 2 THEN
+                v_new_tier := 3;
+                v_new_expiredate := SYSDATE + 90;  -- Reactivate for upgrade
+            ELSE  -- tier 3
+                v_new_tier := 3;
+                v_new_expiredate := v_old_expiredate + 90;  -- Extend by 90 days
+            END IF;
+
+            UPDATE DS3.MEMBERSHIP$k
+            SET MEMBERSHIPTYPE = v_new_tier,
+                EXPIREDATE = v_new_expiredate
+            WHERE CUSTOMERID = v_customerid;
+
+            -- Audit trail
+            INSERT INTO DS3.MEMBERSHIP_PROMO_AUDIT$k (
+                CUSTOMERID, OLD_TIER, NEW_TIER, OLD_EXPIREDATE, NEW_EXPIREDATE, OPERATION_TYPE
+            ) VALUES (
+                v_customerid, v_old_tier, v_new_tier, v_old_expiredate, v_new_expiredate, v_operation_type
+            );
+
+            p_rows_affected := p_rows_affected + 1;
+
+        EXCEPTION
+            WHEN NO_DATA_FOUND THEN
+                -- INSERT: New tier 1 membership with 90-day expiration
+                v_new_tier := 1;
+                v_new_expiredate := SYSDATE + 90;
+                v_operation_type := 'INSERT';
+
+                INSERT INTO DS3.MEMBERSHIP$k (CUSTOMERID, MEMBERSHIPTYPE, EXPIREDATE)
+                VALUES (v_customerid, v_new_tier, v_new_expiredate);
+
+                -- Audit trail
+                INSERT INTO DS3.MEMBERSHIP_PROMO_AUDIT$k (
+                    CUSTOMERID, OLD_TIER, NEW_TIER, OLD_EXPIREDATE, NEW_EXPIREDATE, OPERATION_TYPE
+                ) VALUES (
+                    v_customerid, NULL, v_new_tier, NULL, v_new_expiredate, v_operation_type
+                );
+
+                p_rows_affected := p_rows_affected + 1;
+        END;
+    END LOOP;
+
+    COMMIT;
+
+EXCEPTION
+    WHEN OTHERS THEN
+        ROLLBACK;
+        RAISE;
+END;
+/
+
+CREATE OR REPLACE PROCEDURE DS3.GetMembershipAnalytics$k (
+    p_cursor OUT SYS_REFCURSOR
+)
+AS
+BEGIN
+    OPEN p_cursor FOR
+    WITH CustomerOrders AS (
+        SELECT
+            CUSTOMERID,
+            COUNT(*) AS order_count,
+            SUM(TOTALAMOUNT) AS total_revenue
+        FROM DS3.ORDERS$k
+        GROUP BY CUSTOMERID
+    )
+    SELECT
+        m.MEMBERSHIPTYPE AS membership_tier,
+        COUNT(DISTINCT CASE
+            WHEN m.MEMBERSHIPTYPE IS NULL THEN c.CUSTOMERID
+            WHEN m.EXPIREDATE >= TRUNC(SYSDATE) THEN c.CUSTOMERID
+            ELSE NULL
+        END) AS active_member_count,
+        COUNT(DISTINCT CASE
+            WHEN m.MEMBERSHIPTYPE IS NOT NULL AND m.EXPIREDATE < TRUNC(SYSDATE) THEN c.CUSTOMERID
+            ELSE NULL
+        END) AS expired_member_count,
+        NVL(SUM(co.order_count), 0) AS total_orders,
+        ROUND(NVL(SUM(co.total_revenue), 0), 2) AS total_revenue
+    FROM DS3.CUSTOMERS$k c
+    LEFT JOIN DS3.MEMBERSHIP$k m ON c.CUSTOMERID = m.CUSTOMERID
+    LEFT JOIN CustomerOrders co ON c.CUSTOMERID = co.CUSTOMERID
+    GROUP BY m.MEMBERSHIPTYPE
+    ORDER BY CASE WHEN m.MEMBERSHIPTYPE IS NULL THEN -1 ELSE m.MEMBERSHIPTYPE END DESC;
 END;
 /
 

@@ -81,6 +81,7 @@ namespace ds2xdriver
     public static int n_overall = 0, n_login_overall = 0, n_newcust_overall = 0, n_browse_overall = 0,
       n_purchase_overall = 0, n_rollbacks_overall = 0, n_rollbacks_from_start = 0, n_purchase_from_start = 0, n_cpu_pct_samples = 0;
     public static int n_reviewbrowse_overall = 0, n_newreview_overall = 0, n_newhelpfulness_overall = 0, n_newmember_overall = 0, n_browse_vector = 0;
+    public static int n_membershiprenew_overall = 0;
     public static double pct_rollbacks;
     public static int run_time = 0, warmup_time = 1, log_freq = 1;
 
@@ -110,6 +111,8 @@ namespace ds2xdriver
     public static double[] arr_rt_newhelpfulness_overall = new double[n_target_servers];
     public static int[] arr_n_newmember_overall = new int[n_target_servers];
     public static double[] arr_rt_newmember_overall = new double[n_target_servers];
+    public static int[] arr_n_membershiprenew_overall = new int[n_target_servers];
+    public static double[] arr_rt_membershiprenew_overall = new double[n_target_servers];
 
     public static int pct_newcustomers = 0, n_searches, search_batch_size, search_depth, n_line_items, ramp_rate;
     public static int pct_newreviews = 0, n_reviews;
@@ -120,9 +123,10 @@ namespace ds2xdriver
         rt_browse_overall = 0.0, rt_purchase_overall = 0.0, cpu_pct_tot = 0.0;
     public static double rt_reviewbrowse_overall = 0.0, rt_newreview_overall = 0.0, rt_newhelpfulness_overall = 0.0,
         rt_newmember_overall = 0.0;
+    public static double rt_membershiprenew_overall = 0.0;
     public static double[] rt_tot_lastn = new double[GlobalConstants.LAST_N];
     public static bool Start = false, End = false;
-    public static int max_customer, max_review;
+    public static int max_customer;
     public static string virt_dir = "ds3", page_type = "php";
     public static int[] max_product = new int[GlobalConstants.MAX_STORES+1]; // there is no store 0. We use store number as the index.
 
@@ -168,8 +172,10 @@ namespace ds2xdriver
     public static int manager_expire_memberships_pct = 5;
     public static int manager_purge_old_orders_pct = 5;
     public static int manager_upgrade_membership_pct = 5;
-    public static int manager_batch_size_min = 1;
-    public static int manager_batch_size_max = 5;
+    public static int manager_promo_membership_pct = 0;
+    public static int manager_analytics_interval = 0;
+    public static int manager_batch_size_min = 10;
+    public static int manager_batch_size_max = 100;
 
     // Variables needed within Controller class
     // Added new Parameter db_size by GSK
@@ -793,6 +799,26 @@ namespace ds2xdriver
         Validator = (value) => ValidateInt(value, min: 0, max: 100)
       };
 
+      // manager_promo_membership_pct - percentage for promotional membership operation
+      definitions["manager_promo_membership_pct"] = new ParameterDefinition
+      {
+        Name = "manager_promo_membership_pct",
+        Description = "Percentage chance of promotional membership upgrades (90-day MERGE-based)",
+        DefaultValue = "5",
+        Type = ParamType.Int,
+        Validator = (value) => ValidateInt(value, min: 0, max: 100)
+      };
+
+      // manager_analytics_interval - minutes between membership analytics queries
+      definitions["manager_analytics_interval"] = new ParameterDefinition
+      {
+        Name = "manager_analytics_interval",
+        Description = "Minutes between membership analytics queries (0 = disabled)",
+        DefaultValue = "0",
+        Type = ParamType.Int,
+        Validator = (value) => ValidateInt(value, min: 0, max: 60)
+      };
+
       // manager_batch_size_min - minimum batch size for manager operations
       definitions["manager_batch_size_min"] = new ParameterDefinition
       {
@@ -800,7 +826,7 @@ namespace ds2xdriver
         Description = "Minimum batch size for manager operations (reviews, memberships)",
         DefaultValue = "1",
         Type = ParamType.Int,
-        Validator = (value) => ValidateInt(value, min: 1, max: 100)
+        Validator = (value) => ValidateInt(value, min: 1, max: 1000)
       };
 
       // manager_batch_size_max - maximum batch size for manager operations
@@ -810,7 +836,7 @@ namespace ds2xdriver
         Description = "Maximum batch size for manager operations (reviews, memberships)",
         DefaultValue = "20",
         Type = ParamType.Int,
-        Validator = (value) => ValidateInt(value, min: 1, max: 100)
+        Validator = (value) => ValidateInt(value, min: 1, max: 1000)
       };
 
       // validate_post_test - run validation SQL after benchmark completes
@@ -1142,6 +1168,8 @@ namespace ds2xdriver
       arr_rt_newhelpfulness_overall = new double[n_target_servers];
       arr_n_newmember_overall = new int[n_target_servers];
       arr_rt_newmember_overall = new double[n_target_servers];
+      arr_n_membershiprenew_overall = new int[n_target_servers];
+      arr_rt_membershiprenew_overall = new double[n_target_servers];
       arr_n_purchase_overall = new int[n_target_servers];
       arr_rt_purchase_overall = new double[n_target_servers];
       arr_n_rollbacks_overall = new int[n_target_servers];
@@ -1305,6 +1333,8 @@ namespace ds2xdriver
       manager_expire_memberships_pct = parser.GetValue<int>("manager_expire_memberships_pct");
       manager_purge_old_orders_pct = parser.GetValue<int>("manager_purge_old_orders_pct");
       manager_upgrade_membership_pct = parser.GetValue<int>("manager_upgrade_membership_pct");
+      manager_promo_membership_pct = parser.GetValue<int>("manager_promo_membership_pct");
+      manager_analytics_interval = parser.GetValue<int>("manager_analytics_interval");
       manager_batch_size_min = parser.GetValue<int>("manager_batch_size_min");
       manager_batch_size_max = parser.GetValue<int>("manager_batch_size_max");
 
@@ -1312,7 +1342,6 @@ namespace ds2xdriver
       DisplayConfiguration();
 
       max_customer = customer_rows;
-      max_review = product_rows * 20;
 
       for (i = 0; i < GlobalConstants.MAX_STORES+1; i++) // we use the store number 1-N for the index. Element 0 not used.
         max_product[i] = product_rows;
@@ -1348,6 +1377,7 @@ namespace ds2xdriver
       int opm, rt_login_avg_msec, rt_newcust_avg_msec, rt_browse_avg_msec, rt_purchase_avg_msec,
         rt_tot_lastn_max_msec, rt_tot_avg_msec;
       int rt_reviewbrowse_avg_msec, rt_newreview_avg_msec, rt_newhelpfulness_avg_msec, rt_newmember_avg_msec;
+      int rt_membershiprenew_avg_msec;
       double rt_tot_lastn_max;
 
       //Added by GSK
@@ -1371,6 +1401,7 @@ namespace ds2xdriver
       int[] arr_rt_newreview_avg_msec;
       int[] arr_rt_newhelpfulness_avg_msec;
       int[] arr_rt_newmember_avg_msec;
+      int[] arr_rt_membershiprenew_avg_msec;
       int[] arr_rt_purchase_avg_msec;
       int[] arr_rt_tot_lastn_max_msec;
       int[] arr_rt_tot_avg_msec;
@@ -1384,6 +1415,7 @@ namespace ds2xdriver
       arr_rt_newreview_avg_msec = new int[n_target_servers];
       arr_rt_newhelpfulness_avg_msec = new int[n_target_servers];
       arr_rt_newmember_avg_msec = new int[n_target_servers];
+      arr_rt_membershiprenew_avg_msec = new int[n_target_servers];
       arr_rt_purchase_avg_msec = new int[n_target_servers];
       arr_rt_tot_lastn_max_msec = new int[n_target_servers];
       arr_rt_tot_avg_msec = new int[n_target_servers];
@@ -1941,10 +1973,12 @@ namespace ds2xdriver
             arr_n_newreview_overall[i] = 0;
             arr_n_newhelpfulness_overall[i] = 0;
             arr_n_newmember_overall[i] = 0;
+            arr_n_membershiprenew_overall[i] = 0;
             arr_rt_reviewbrowse_overall[i] = 0.0;
             arr_rt_newreview_overall[i] = 0.0;
             arr_rt_newhelpfulness_overall[i] = 0.0;
             arr_rt_newmember_overall[i] = 0.0;
+            arr_rt_membershiprenew_overall[i] = 0.0;
 
             //Added on 8/8/2010
             arr_old_n_overall[i] = 0;
@@ -1991,6 +2025,7 @@ namespace ds2xdriver
       rt_newreview_avg_msec = (int)Math.Floor(1000 * rt_newreview_overall / n_newreview_overall);
       rt_newhelpfulness_avg_msec = (int)Math.Floor(1000 * rt_newhelpfulness_overall / n_newhelpfulness_overall);
       rt_newmember_avg_msec = (int)Math.Floor(1000 * rt_newmember_overall / n_newmember_overall);
+      rt_membershiprenew_avg_msec = (int)Math.Floor(1000 * rt_membershiprenew_overall / n_membershiprenew_overall);
       rt_purchase_avg_msec = (int)Math.Floor(1000 * rt_purchase_overall / n_purchase_overall);
       rt_tot_lastn_max = 0.0;
       for (int j = 0; j < GlobalConstants.LAST_N; j++)
@@ -2010,6 +2045,7 @@ namespace ds2xdriver
         arr_rt_newreview_avg_msec[i] = (int)Math.Floor(1000 * arr_rt_newreview_overall[i] / arr_n_newreview_overall[i]);
         arr_rt_newhelpfulness_avg_msec[i] = (int)Math.Floor(1000 * arr_rt_newhelpfulness_overall[i] / arr_n_newhelpfulness_overall[i]);
         arr_rt_newmember_avg_msec[i] = (int)Math.Floor(1000 * arr_rt_newmember_overall[i] / arr_n_newmember_overall[i]);
+        arr_rt_membershiprenew_avg_msec[i] = (int)Math.Floor(1000 * arr_rt_membershiprenew_overall[i] / arr_n_membershiprenew_overall[i]);
         arr_rt_purchase_avg_msec[i] = (int)Math.Floor(1000 * arr_rt_purchase_overall[i] / arr_n_purchase_overall[i]);
         arr_rt_tot_lastn_max = 0.0;
         for (int p = 0; p < GlobalConstants.LAST_N; p++)
@@ -2038,6 +2074,7 @@ namespace ds2xdriver
       Console.WriteLine("Customer Operations:");
       Console.WriteLine("  Login:                {0,7} operations, avg RT: {1:F3} sec", n_login_overall, rt_login_avg_msec / 1000.0);
       Console.WriteLine("  New Customer:         {0,7} operations, avg RT: {1:F3} sec", n_newcust_overall, rt_newcust_avg_msec / 1000.0);
+      Console.WriteLine("  Renew Membership:     {0,7} operations, avg RT: {1:F3} sec", n_membershiprenew_overall, rt_membershiprenew_avg_msec / 1000.0);
       Console.WriteLine("  New Member:           {0,7} operations, avg RT: {1:F3} sec", n_newmember_overall, rt_newmember_avg_msec / 1000.0);
       Console.WriteLine("  Browse:               {0,7} operations, avg RT: {1:F3} sec", n_browse_overall, rt_browse_avg_msec / 1000.0);
       if (n_vectors == 1)
@@ -2143,14 +2180,14 @@ namespace ds2xdriver
           //Changed on 8/8/2010
           // Changed again on 3/17/2015
           Console.WriteLine("Final: et={0,7:F1} n_overall={1} opm={2} rt_tot_lastn_max={3} rt_tot_avg={4} " +
-            "n_login_overall={5} n_newcust_overall={6} n_newmember_overall={7} n_browse_overall={8} " +
-            "n_reviewbrowse_overall={9} n_newreview_overall={10} n_newhelpfulnes_overall={11} n_purchase_overall={12} " +
-            "rt_login_avg_msec={13} rt_newcust_avg_msec={14} rt_newmember_avg_msec={15} rt_browse_avg_msec={16} " +
-            "rt_reviewbrowse_avg_msec={17} rt_newreview_avg_msec={18} rt_newhelpfulness_avg_msec={19} rt_purchase_avg_msec={20} " +
-            "rt_tot_sampled={21} n_rollbacks_overall={22} rollback_rate = {23,2:F1}%  ",
+            "n_login_overall={5} n_newcust_overall={6} n_newmember_overall={7} n_membershiprenew_overall={8} n_browse_overall={9} " +
+            "n_reviewbrowse_overall={10} n_newreview_overall={11} n_newhelpfulnes_overall={12} n_purchase_overall={13} " +
+            "rt_login_avg_msec={14} rt_newcust_avg_msec={15} rt_newmember_avg_msec={16} rt_membershiprenew_avg_msec={17} rt_browse_avg_msec={18} " +
+            "rt_reviewbrowse_avg_msec={19} rt_newreview_avg_msec={20} rt_newhelpfulness_avg_msec={21} rt_purchase_avg_msec={22} " +
+            "rt_tot_sampled={23} n_rollbacks_overall={24} rollback_rate = {25,2:F1}%  ",
             et, arr_n_overall[i], arr_opm[i], arr_rt_tot_lastn_max_msec[i], arr_rt_tot_avg_msec[i], arr_n_login_overall[i], arr_n_newcust_overall[i],
-            arr_n_newmember_overall[i], arr_n_browse_overall[i], arr_n_reviewbrowse_overall[i], arr_n_newreview_overall[i], arr_n_newhelpfulness_overall[i],
-            arr_n_purchase_overall[i], arr_rt_login_avg_msec[i], arr_rt_newcust_avg_msec[i], arr_rt_newmember_avg_msec[i], arr_rt_browse_avg_msec[i],
+            arr_n_newmember_overall[i], arr_n_membershiprenew_overall[i], arr_n_browse_overall[i], arr_n_reviewbrowse_overall[i], arr_n_newreview_overall[i], arr_n_newhelpfulness_overall[i],
+            arr_n_purchase_overall[i], arr_rt_login_avg_msec[i], arr_rt_newcust_avg_msec[i], arr_rt_newmember_avg_msec[i], arr_rt_membershiprenew_avg_msec[i], arr_rt_browse_avg_msec[i],
             arr_rt_reviewbrowse_avg_msec[i], arr_rt_newreview_avg_msec[i], arr_rt_newhelpfulness_avg_msec[i], arr_rt_purchase_avg_msec[i], arr_rt_tot_sampled[i],
             arr_n_rollbacks_overall[i], (100.0 * arr_n_rollbacks_overall[i]) / arr_n_overall[i]
             );
@@ -2313,6 +2350,7 @@ namespace ds2xdriver
         writer.WriteLine($"  n_searches:             {n_searches}");
         writer.WriteLine($"  search_batch_size:      {search_batch_size}");
         writer.WriteLine($"  pct_newcustomers:       {pct_newcustomers}%");
+        writer.WriteLine($"  pct_renewmember:        {pct_renewmember}%");
         writer.WriteLine($"  pct_newmember:          {pct_newmember}%");
         writer.WriteLine($"  pct_newreviews:         {pct_newreviews}%");
         writer.WriteLine($"  pct_newhelpfulness:     {pct_newhelpfulness}%");
@@ -2320,15 +2358,16 @@ namespace ds2xdriver
         writer.WriteLine($"  Manager Threads:        {(enable_managers ? n_stores.ToString() : "disabled")}");
         if (enable_managers)
         {
-          writer.WriteLine($"  manager_interval:       {manager_interval} sec");
-          writer.WriteLine($"  manager_add_product:    {manager_add_product_pct}%");
-          writer.WriteLine($"  manager_delete_review:  {manager_delete_review_pct}%");
-          writer.WriteLine($"  manager_update_price:   {manager_update_price_pct}%");
-          writer.WriteLine($"  manager_update_special: {manager_update_special_pct}%");
-          writer.WriteLine($"  manager_expire_member:  {manager_expire_memberships_pct}%");
-          writer.WriteLine($"  manager_purge_orders:   {manager_purge_old_orders_pct}%");
-          writer.WriteLine($"  manager_upgrade_member: {manager_upgrade_membership_pct}%");
-          writer.WriteLine($"  manager_batch_size:     {manager_batch_size_min}-{manager_batch_size_max}");
+          writer.WriteLine($"  manager_interval:             {manager_interval} sec");
+          writer.WriteLine($"  manager_add_product:          {manager_add_product_pct}%");
+          writer.WriteLine($"  manager_delete_review:        {manager_delete_review_pct}%");
+          writer.WriteLine($"  manager_update_price:         {manager_update_price_pct}%");
+          writer.WriteLine($"  manager_update_special:       {manager_update_special_pct}%");
+          writer.WriteLine($"  manager_expire_member:        {manager_expire_memberships_pct}%");
+          writer.WriteLine($"  manager_purge_orders:         {manager_purge_old_orders_pct}%");
+          writer.WriteLine($"  manager_upgrade_member:       {manager_upgrade_membership_pct}%");
+          writer.WriteLine($"  manager_promo_membership:     {manager_promo_membership_pct}%");
+          writer.WriteLine($"  manager_batch_size:           {manager_batch_size_min}-{manager_batch_size_max}");
         }
         writer.WriteLine($"  Vector Search:          {(n_vectors > 0 ? "enabled" : "disabled")}");
         writer.WriteLine();
@@ -2407,6 +2446,7 @@ namespace ds2xdriver
       if (!ds2_mode)
       {
         Console.WriteLine($"  New members: {pct_newmember}%");
+        Console.WriteLine($"  Renew expired memberships: {pct_renewmember}%");
         Console.WriteLine($"  New reviews: {pct_newreviews}%");
         Console.WriteLine($"  Review helpfulness ratings: {pct_newhelpfulness}%");
       }
@@ -2427,6 +2467,8 @@ namespace ds2xdriver
         Console.WriteLine($"    ExpireMemberships={manager_expire_memberships_pct}%");
         Console.WriteLine($"    PurgeOldOrders={manager_purge_old_orders_pct}%");
         Console.WriteLine($"    UpgradeMembership={manager_upgrade_membership_pct}%");
+        Console.WriteLine($"    PromotionalMembership={manager_promo_membership_pct}%");
+        Console.WriteLine($"  Analytics: {(manager_analytics_interval > 0 ? $"every {manager_analytics_interval} min" : "DISABLED")}");
         Console.WriteLine($"  Batch size: {manager_batch_size_min}-{manager_batch_size_max}");
       }
       else
@@ -2633,10 +2675,13 @@ namespace ds2xdriver
     //
     public void Emulate()
     {
-      int i, customerid_out = 0, neworderid_out = 0, rows_returned = 0, reviewhelpfulnessid_out = 0, newreviewid_out = 0, failures;
-      bool IsLogin, IsRollback, IsNewMember, IsNewReview, IsNewHelpfulness;
+      int i, customerid_out = 0, neworderid_out = 0, browse_rows_returned = 0, rows_returned = 0, reviewhelpfulnessid_out = 0, newreviewid_out = 0, failures;
+      int membershiplevel_out = 0;
+      int is_expired_out = 0;
+      bool IsLogin, IsRollback, IsNewMember, IsMembershipRenew, IsNewReview, IsNewHelpfulness;
       double rt = 0, rt_tot, rt_login, rt_newcust, rt_browse, rt_purchase;
       double rt_newmember, rt_reviewbrowse, rt_newreview, rt_newhelpfulness;
+      double rt_membership_check, rt_membership_renew;
 
       string[] title_out = new string[GlobalConstants.MAX_ROWS];         // Login, Browse
       string[] actor_out = new string[GlobalConstants.MAX_ROWS];         // Login, Browse
@@ -2645,6 +2690,7 @@ namespace ds2xdriver
       decimal[] price_out = new decimal[GlobalConstants.MAX_ROWS];       // Browse
       int[] special_out = new int[GlobalConstants.MAX_ROWS];             // Browse
       int[] common_prod_id_out = new int[GlobalConstants.MAX_ROWS];      // Browse
+      int[] review_prod_id_out = new int[GlobalConstants.MAX_ROWS];      // Browse Reviews, Get Reviews
       int[] prod_id_in = new int[GlobalConstants.MAX_ROWS];              // Purchase
       int[] qty_in = new int[GlobalConstants.MAX_ROWS];                  // Purchase
       int[] review_id_out = new int[GlobalConstants.MAX_ROWS];           // Browse Reviews, Get Reviews
@@ -2708,10 +2754,13 @@ namespace ds2xdriver
         rt_newreview = 0.0;  // total response time for new reviews created in this emulation loop
         rt_newhelpfulness = 0.0;  // total response time for new helpfulness ratings of reviews in this emulation loop
         rt_purchase = 0.0;  //  response time for purchase in this emulation loop
+	rt_membership_renew = 0.0;
+	rt_membership_check = 0.0;
 
         IsLogin = false;
         IsRollback = false;
         IsNewMember = false;
+        IsMembershipRenew = false;
         IsNewReview = false;
         IsNewHelpfulness = false;
 
@@ -2762,10 +2811,65 @@ namespace ds2xdriver
           rt_login = rt;
           rt_tot += rt;
 
-          // DPY Placeholder for checking membership status and renewing membership using customerid_out as input.
+          // Check membership status and renew if expired
           if (!Controller.ds2_mode)
           {
+            // Check membership status
+            failures = 0;
+            while (!ds2interfaces[Userid].ds2getmembershipstatus(customerid_out, ref membershiplevel_out,
+              ref is_expired_out, ref rt_membership_check))
+            {
+              if (++failures < GlobalConstants.MAX_FAILURES)
+              {
+                Console.WriteLine("Thread {0}: Error in Get_Membership_Status for customerid {1}, failure {2}, retrying",
+                  Thread.CurrentThread.Name, customerid_out, failures);
+              }
+              else
+              {
+                Console.WriteLine("Thread {0}: Error in Get_Membership_Status for customerid {1}, failure {2}, exiting",
+                  Thread.CurrentThread.Name, customerid_out, failures);
+                return;
+              }
+            }
+            //Console.WriteLine("Checked membership for user: {0}",customerid_out);
+	    //Console.WriteLine("  is_expired_out: {0}  membershiplevel_out: {1}", is_expired_out,membershiplevel_out);
 
+            // Assume getting membership status is part of the login process. Don't add the time to the total.
+            //rt_tot += rt_membership_check;
+
+            // If expired, maybe renew
+            if (is_expired_out == 1)
+            {
+              if (Random.Shared.Next(100) < Controller.pct_renewmember)
+              {
+                // Renew membership
+                int rows_affected = 0;
+                failures = 0;
+	        //Console.WriteLine("Renew memebership for: {0}", customerid_out);
+                while (!ds2interfaces[Userid].ds2renewmembership(customerid_out, ref rows_affected, ref rt_membership_renew))
+                {
+                  if (++failures < GlobalConstants.MAX_FAILURES)
+                  {
+                    Console.WriteLine("Thread {0}: Error in Renew_Membership for customerid {1}, failure {2}, retrying",
+                      Thread.CurrentThread.Name, customerid_out, failures);
+                  }
+                  else
+                  {
+                    Console.WriteLine("Thread {0}: Error in Renew_Membership for customerid {1}, failure {2}, exiting",
+                      Thread.CurrentThread.Name, customerid_out, failures);
+                    return;
+                  }
+                }
+                IsMembershipRenew = true;
+                rt_tot += rt_membership_renew;
+                // Keep membership level (not expired anymore)
+              }
+              else
+              {
+                // Didn't renew - treat as no membership
+                membershiplevel_out = 0;
+              }
+            }
           }
         }  // end returning customer
 
@@ -2821,52 +2925,49 @@ namespace ds2xdriver
 
         // Begin New Member Phase
 
-        // DPY: use result from checking membership and only do this if customer isn't a current member.
-        if ((user_type <= Controller.pct_newmember / 100.0) && (!Controller.ds2_mode)) // If this is true we have a customer that wants to join membership program
+        // use result from checking membership and only do this if customer isn't a current member.
+        // Skip if member is expired - they should renew, not create new membership
+        if ((user_type <= Controller.pct_newmember / 100.0) && (membershiplevel_out == 0) && (is_expired_out == 0) && (!Controller.ds2_mode)) // If this is true we have a customer that wants to join membership program
         {
           IsNewMember = true;
-          do  // Try newmember until find a userid that doesn't exist
-          {
-            customerid_in = Random.Shared.Next(1, Controller.max_customer + 1); // DPY: This should use returning customer id [customerid_out] from above.
+          customerid_in = customerid_out;
 
-            // Pyramid distribution: 60% Bronze, 30% Silver, 10% Gold
-            membershiplevel_in = Random.Shared.Next(1, 100);
-            if (membershiplevel_in <= 60)
+          // Pyramid distribution: 60% Bronze, 30% Silver, 10% Gold
+          membershiplevel_in = Random.Shared.Next(1, 100);
+          if (membershiplevel_in <= 60)
+          {
+            membershiplevel_in = 1;
+          }
+          else if (membershiplevel_in <= 90)
+          {
+            membershiplevel_in = 2;
+          }
+          else
+          {
+            membershiplevel_in = 3;
+          }
+
+          failures = 0;
+          while (!ds2interfaces[Userid].ds2newmember(customerid_in, membershiplevel_in, ref rt))
+          {
+            if (++failures < GlobalConstants.MAX_FAILURES)
             {
-              membershiplevel_in = 1;
-            }
-            else if (membershiplevel_in <= 90)
-            {
-              membershiplevel_in = 2;
+              Console.WriteLine("Thread {0}: Error in New Member for User {1}, failure {2}, retrying",
+                Thread.CurrentThread.Name, username_in, failures);
             }
             else
             {
-              membershiplevel_in = 3;
+              Console.WriteLine("Thread {0}: Error in New Member for User {1}, failure {2}, exiting",
+                Thread.CurrentThread.Name, username_in, failures);
+              return;
             }
+          }
 
-            failures = 0;
-            while (!ds2interfaces[Userid].ds2newmember(customerid_in, membershiplevel_in, ref customerid_out, ref rt))
-            {
-              if (++failures < GlobalConstants.MAX_FAILURES)
-              {
-                Console.WriteLine("Thread {0}: Error in New Member for User {1}, failure {2}, retrying",
-                  Thread.CurrentThread.Name, username_in, failures);
-              }
-              else
-              {
-                Console.WriteLine("Thread {0}: Error in New Member for User {1}, failure {2}, exiting",
-                  Thread.CurrentThread.Name, username_in, failures);
-                return;
-              }
-            }
+          // Update membership level for browse selection
+          // (ds2newmember succeeded, customer now has membership)
+          membershiplevel_out = membershiplevel_in;
 
-            // if ( customerid_out == 0 ) Console.WriteLine ( "Customer {0} is already a member" , customerid_in );
-          } while (customerid_out == 0); // end of do/while try newcustomer
-
-          //        Console.WriteLine("Thread {0}: New user {1} logged in, customerid = {2}, RT= {3,10:F3}",
-          //           Thread.CurrentThread.Name, username_in, customerid_out, rt);
-
-          rt_newmember = rt;  // Just count last iteration if had to retry username
+          rt_newmember = rt;
           rt_tot += rt;
 
         } //End of IF
@@ -2882,7 +2983,7 @@ namespace ds2xdriver
         // Browse by Membership:  with membership level of the customer.
 
         // Browse by vector: Experimental. Doesn't make sense in the context of a dvd store, but you can do it anyway.
-        // DPY: Only search by Category, Actor, Title if --ds2_mode=y
+        // Only search by Category, Actor, Title if --ds2_mode=y
 
         string browse_type_in = "", browse_category_in = "", browse_actor_in = "", browse_title_in = "";
         string browse_criteria = "";
@@ -2892,44 +2993,61 @@ namespace ds2xdriver
         for (int ib = 0; ib < n_browse; ib++)
         {
           batch_size_in = Random.Shared.Next(1, 2 * Controller.search_batch_size); // request avg of search_batch_size lines
-          int search_type = Random.Shared.Next(4 + Controller.n_vectors); // randomly select search type
 
           browse_actor_in = "";
           browse_title_in = "";
 
-          switch (search_type)
+          // Members always browse by membership (creates tier-specific purchase patterns)
+          // Non-members use random browse types
+          if (!Controller.ds2_mode && membershiplevel_out > 0)
           {
-            case 0:  // Search by Category
-              browse_type_in = "category";
-              browse_category_in = (Random.Shared.Next(1, GlobalConstants.MAX_CATEGORY + 1)).ToString();
-              browse_criteria = browse_category_in;
-              break;
-            case 1:  // Search by Actor
-              browse_type_in = "actor";
-              browse_actor_in = CreateActor();
-              browse_criteria = browse_actor_in;
-              break;
-            case 2:  // Search by Title
-              browse_type_in = "title";
-              browse_title_in = CreateTitle();
-              browse_criteria = browse_title_in;
-              break;
-            case 3: // Membership search
-              browse_type_in = "membership";
-              browse_criteria = browse_type_in;
-              break;
-            case 4: // Vector search
-              browse_type_in = "vector";
-              browse_criteria = browse_type_in;
-              Controller.n_browse_vector++;
-              break;
+            browse_type_in = "membership";
+            browse_criteria = "membership level " + membershiplevel_out;
+          }
+          else
+          {
+            // Build list of valid browse types for non-members
+            List<string> validBrowseTypes = new List<string> { "category", "actor", "title" };
+
+            // Add vector search if enabled
+            if (Controller.n_vectors > 0)
+              validBrowseTypes.Add("vector");
+
+            // Randomly select a browse type
+            string selectedBrowse = validBrowseTypes[Random.Shared.Next(validBrowseTypes.Count)];
+
+            switch (selectedBrowse)
+            {
+              case "category":
+                browse_type_in = "category";
+                browse_category_in = (Random.Shared.Next(1, GlobalConstants.MAX_CATEGORY + 1)).ToString();
+                browse_criteria = browse_category_in;
+                break;
+              case "actor":
+                browse_type_in = "actor";
+                browse_actor_in = CreateActor();
+                browse_criteria = browse_actor_in;
+                break;
+              case "title":
+                browse_type_in = "title";
+                browse_title_in = CreateTitle();
+                browse_criteria = browse_title_in;
+                break;
+              case "vector":
+                browse_type_in = "vector";
+                browse_criteria = browse_type_in;
+                Controller.n_browse_vector++;
+                break;
+            }
           }
 
           failures = 0;
-          //DPY: need to pass membership level or 0 parameter.
+
+	  browse_rows_returned = 0;
           while (!ds2interfaces[Userid].ds2browse(browse_type_in, browse_category_in, browse_actor_in,
-          browse_title_in, batch_size_in, Controller.search_depth, customerid_out, ref rows_returned, ref prod_id_out, ref title_out,
-          ref actor_out, ref price_out, ref special_out, ref common_prod_id_out, ref rt))
+            browse_title_in, batch_size_in, Controller.search_depth, customerid_out, membershiplevel_out,
+            ref browse_rows_returned, ref prod_id_out, ref title_out, ref actor_out, ref price_out, ref special_out,
+            ref common_prod_id_out, ref rt))
           {
             if (++failures < GlobalConstants.MAX_FAILURES)
             {
@@ -2937,8 +3055,8 @@ namespace ds2xdriver
                Thread.CurrentThread.Name, username_in, failures);
 
               // Assume there's a problem with vector search and disable.
-              // The ds2browse implimentation must set rows_returned = -1
-              if (rows_returned == -1 && Controller.n_vectors == 1)
+              // The ds2browse implimentation must set browse_rows_returned = -1
+              if (browse_rows_returned == -1 && Controller.n_vectors == 1)
               {
                 Console.WriteLine("  Disabling Browse by vector.");
                 Controller.n_vectors = 0;
@@ -2946,7 +3064,7 @@ namespace ds2xdriver
 
               // Browse by category instead of continuing to browse by vector.
               // This allows the test to continue with threads exiting.
-              if (rows_returned == -1)
+              if (browse_rows_returned == -1)
               {
                 browse_type_in = "category";
                 browse_category_in = (Random.Shared.Next(1, GlobalConstants.MAX_CATEGORY + 1)).ToString();
@@ -3017,7 +3135,7 @@ namespace ds2xdriver
             }
             failures = 0;
             while (!ds2interfaces[Userid].ds2browsereview(get_review_type_in, get_review_category_in, get_review_actor_in,
-              get_review_title_in, batch_size_in, Controller.search_depth, customerid_out, ref rows_returned, ref prod_id_out, ref title_out,
+              get_review_title_in, batch_size_in, Controller.search_depth, customerid_out, ref rows_returned, ref review_prod_id_out, ref title_out,
               ref actor_out, ref review_id_out, ref review_date_out, ref review_stars_out, ref review_customerid_out,
               ref review_summary_out, ref review_text_out, ref review_helpfulness_sum_out, ref rt))
             {
@@ -3074,7 +3192,7 @@ namespace ds2xdriver
                 break;
             }
             failures = 0;
-            while (!ds2interfaces[Userid].ds2getreview(get_review_type_in, get_review_prod_in, get_review_stars_in, customerid_out, batch_size_in, ref rows_returned, ref prod_id_out,
+            while (!ds2interfaces[Userid].ds2getreview(get_review_type_in, get_review_prod_in, get_review_stars_in, customerid_out, batch_size_in, ref rows_returned, ref review_prod_id_out,
                ref review_id_out, ref review_date_out, ref review_stars_out, ref review_customerid_out,
                ref review_summary_out, ref review_text_out, ref review_helpfulness_sum_out, ref rt))
             {
@@ -3103,7 +3221,7 @@ namespace ds2xdriver
             new_review_summary_in = CreateReviewData(3);
             new_review_text_in = CreateReviewData(25);
             new_review_stars_in = Random.Shared.Next(1, 6);
-            new_review_prod_id_in = prod_id_out[Random.Shared.Next(0, rows_returned)];
+            new_review_prod_id_in = review_prod_id_out[Random.Shared.Next(0, rows_returned)];
 
             failures = 0;
             while (!ds2interfaces[Userid].ds2newreview(new_review_prod_id_in, new_review_stars_in, customerid_out, new_review_summary_in, new_review_text_in, ref newreviewid_out, ref rt))
@@ -3159,29 +3277,40 @@ namespace ds2xdriver
 
         // Purchase Phase
 
-        for (i = 0; i < GlobalConstants.MAX_ROWS; i++)
+        // Randomize number of cart items with average n_line_items
+        int cart_items = Random.Shared.Next(1, 2 * Controller.n_line_items) + membershiplevel_out;
+
+        for (i = 0; i < cart_items ; i++)
         {
           prod_id_in[i] = 0;
           qty_in[i] = 0;
         }
 
-        // Randomize number of cart items with average n_line_items
-        int cart_items = Random.Shared.Next(1, 2 * Controller.n_line_items);
+        // For members, limit cart to browse results + 1 (max 1 spillover item via GetSkewedProductId)
+        //if (membershiplevel_out > 0 && cart_items > browse_rows_returned)
+        //{
+        //  cart_items = browse_rows_returned + 1;
+        //}
 
-        //For each cart item take product_id from search results or randomly select
-        //for (i=0; i<cart_items; i++)
-        //  {
-        //  prod_id_in[i] = (rows_returned > i) ? prod_id_out[i] : (1 + Random.Shared.Next(Controller.max_product));
-        //  qty_in[i] = 1 + Random.Shared.Next(3);  // qty (1, 2 or 3)
-        //  }
-
-        // For each cart item randomly select product_id using weighted random Id
+        // Member vs Non-member purchase behavior:
+        // - Members: buy from membership browse results (creates tier-specific purchase patterns)
+        // - Non-members: use skewed distribution (maintains hot-spot testing)
         for (i = 0; i < cart_items; i++)
         {
-          prod_id_in[i] = Controller.GetSkewedProductId(Controller.max_product[target_store]);
+          if (membershiplevel_out > 0 && i < browse_rows_returned)
+          {
+            // Members: buy from browse results (prod_id_out preserved from Browse Phase)
+            prod_id_in[i] = prod_id_out[i];
+
+            // If Browse didn't return enough products, fill remainder with skewed distribution
+          }
+          else
+          {
+            // Non-members: use skewed distribution (existing behavior)
+            prod_id_in[i] = Controller.GetSkewedProductId(Controller.max_product[target_store]);
+          }
+
           qty_in[i] = Random.Shared.Next(1, 4);  // qty (1, 2 or 3)
-                                                 //        Console.WriteLine("Thread {0}: Purchase prod_id_in[{1}] = {2}  qty_in[{1}]= {3}",
-                                                 //          Thread.CurrentThread.Name, i, prod_id_in[i], qty_in[i]);
         }
 
         failures = 0;
@@ -3232,6 +3361,13 @@ namespace ds2xdriver
           ++Controller.arr_n_newmember_overall[target_server_id];
           Controller.rt_newmember_overall += rt_newmember;
           Controller.arr_rt_newmember_overall[target_server_id] += rt_newmember;
+        }
+        if (IsMembershipRenew)
+        {
+          ++Controller.n_membershiprenew_overall;
+          ++Controller.arr_n_membershiprenew_overall[target_server_id];
+          Controller.rt_membershiprenew_overall += rt_membership_renew;
+          Controller.arr_rt_membershiprenew_overall[target_server_id] += rt_membership_renew;
         }
         Controller.n_browse_overall += n_browse;
         Controller.arr_n_browse_overall[target_server_id] += n_browse;

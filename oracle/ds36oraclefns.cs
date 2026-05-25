@@ -33,6 +33,15 @@ using Oracle.ManagedDataAccess.Client;
 
 namespace ds2xdriver
 {
+  public class MembershipAnalyticsRow
+  {
+    public int? MembershipType { get; set; }
+    public long ActiveMemberCount { get; set; }
+    public long ExpiredMemberCount { get; set; }
+    public long TotalOrders { get; set; }
+    public decimal TotalRevenue { get; set; }
+  }
+
   /// <summary>
   /// ds2oraclefns.cs: DVD Store 3 Oracle Functions
   /// </summary>
@@ -42,12 +51,14 @@ namespace ds2xdriver
     OracleConnection objConn;
     OracleCommand Login, New_Customer, Browse_By_Category, Browse_By_Actor, Browse_By_Title, Browse_By_Membership, New_Product, Purchase;
     OracleCommand Get_Prod_Reviews, Get_Prod_Reviews_By_Actor, Get_Prod_Reviews_By_Title, Get_Prod_Reviews_By_Date, Get_Prod_Reviews_By_Stars;
-    OracleCommand New_Member, New_Prod_Review, New_Review_Helpfulness;
-    OracleCommand Remove_Review_By_Product, Remove_Unhelpful_Reviews, Remove_Reviews_By_Date, Adjust_Prices, Bulk_Price_Adjustment, Mark_Specials, Expire_Memberships, Purge_Old_Orders, Upgrade_Membership;
+    OracleCommand New_Member, Get_Membership_Status, Renew_Membership, New_Prod_Review, New_Review_Helpfulness;
+    OracleCommand Remove_Review_By_Product, Remove_Unhelpful_Reviews, Remove_Reviews_By_Date, Adjust_Prices, Bulk_Price_Adjustment, Mark_Specials, Expire_Memberships, Purge_Old_Orders, Upgrade_Membership, Promotional_Membership, Get_Membership_Analytics;
 
     OracleParameter[] New_Customer_prm = new OracleParameter[20];
     OracleParameter[] Purchase_prm = new OracleParameter[6];
     OracleParameter[] New_Member_prm = new OracleParameter[3];
+    OracleParameter[] Get_Membership_Status_prm = new OracleParameter[3];
+    OracleParameter[] Renew_Membership_prm = new OracleParameter[2];
     OracleParameter[] New_Prod_Review_prm = new OracleParameter[6];
     OracleParameter[] New_Review_Helpfulness_prm = new OracleParameter[4];
 
@@ -116,6 +127,21 @@ namespace ds2xdriver
       New_Member_prm[0] = New_Member.Parameters.Add("customerid_in", OracleDbType.Int32, ParameterDirection.Input);
       New_Member_prm[1] = New_Member.Parameters.Add("membershiplevel_in", OracleDbType.Int32, ParameterDirection.Input);
       New_Member_prm[2] = New_Member.Parameters.Add("customerid_out", OracleDbType.Int32, ParameterDirection.Output);
+
+      //Get_Membership_Status
+      Get_Membership_Status = new OracleCommand("", objConn);
+      Get_Membership_Status.CommandText = "GET_MEMBERSHIP_STATUS" + target_store_number;
+      Get_Membership_Status.CommandType = CommandType.StoredProcedure;
+      Get_Membership_Status_prm[0] = Get_Membership_Status.Parameters.Add("p_customerid_in", OracleDbType.Int32, ParameterDirection.Input);
+      Get_Membership_Status_prm[1] = Get_Membership_Status.Parameters.Add("p_membership_level", OracleDbType.Int32, ParameterDirection.Output);
+      Get_Membership_Status_prm[2] = Get_Membership_Status.Parameters.Add("p_is_expired", OracleDbType.Int32, ParameterDirection.Output);
+
+      //Renew_Membership
+      Renew_Membership = new OracleCommand("", objConn);
+      Renew_Membership.CommandText = "RENEW_MEMBERSHIP" + target_store_number;
+      Renew_Membership.CommandType = CommandType.StoredProcedure;
+      Renew_Membership_prm[0] = Renew_Membership.Parameters.Add("p_customerid_in", OracleDbType.Int32, ParameterDirection.Input);
+      Renew_Membership_prm[1] = Renew_Membership.Parameters.Add("p_rows_affected", OracleDbType.Int32, ParameterDirection.Output);
 
       //Browse_By_Category
       Browse_By_Category = new OracleCommand("Browse_By_Category" + target_store_number, objConn);
@@ -292,6 +318,15 @@ namespace ds2xdriver
       Upgrade_Membership.Parameters.Add("p_rows_upgraded", OracleDbType.Int32, ParameterDirection.Output);
       Upgrade_Membership.Parameters.Add("p_gold_threshold", OracleDbType.Decimal, ParameterDirection.Output);
       Upgrade_Membership.Parameters.Add("p_silver_threshold", OracleDbType.Decimal, ParameterDirection.Output);
+
+      Promotional_Membership = new OracleCommand("DS3.PromotionalMembership" + target_store_number, objConn);
+      Promotional_Membership.CommandType = CommandType.StoredProcedure;
+      Promotional_Membership.Parameters.Add("p_batch_size", OracleDbType.Int32);
+      Promotional_Membership.Parameters.Add("p_rows_affected", OracleDbType.Int32, ParameterDirection.Output);
+
+      Get_Membership_Analytics = new OracleCommand("DS3.GetMembershipAnalytics" + target_store_number, objConn);
+      Get_Membership_Analytics.CommandType = CommandType.StoredProcedure;
+      Get_Membership_Analytics.Parameters.Add("p_cursor", OracleDbType.RefCursor, ParameterDirection.Output);
     }
 
     //
@@ -442,7 +477,7 @@ namespace ds2xdriver
     //
     //-------------------------------------------------------------------------------------------------
     //
-    public bool ds2newmember(int customerid_in, int membershiplevel_in, ref int customerid_out, ref double rt)
+    public bool ds2newmember(int customerid_in, int membershiplevel_in, ref double rt)
     {
       New_Member_prm[0].Value = customerid_in;
       New_Member_prm[1].Value = membershiplevel_in;
@@ -452,7 +487,13 @@ namespace ds2xdriver
       try
       {
         New_Member.ExecuteNonQuery();
-        customerid_out = Convert.ToInt32(New_Member_prm[2].Value.ToString());
+
+        // Check OUT parameter - if 0/NULL, stored procedure failed
+        if (New_Member_prm[2].Value == null || New_Member_prm[2].Value == DBNull.Value || Convert.ToInt32(New_Member_prm[2].Value.ToString()) == 0)
+        {
+          return false;
+        }
+
         return (true);
       }
       catch (OracleException e)
@@ -477,12 +518,79 @@ namespace ds2xdriver
 
     } // end ds2newmember()
 
+    //
+    //-------------------------------------------------------------------------------------------------
+    //
+    public bool ds2getmembershipstatus(int customerid_in, ref int membership_level_out, ref int is_expired_out, ref double rt)
+    {
+      Get_Membership_Status_prm[0].Value = customerid_in;
+
+      Stopwatch timer = Stopwatch.StartNew();
+
+      try
+      {
+        Get_Membership_Status.ExecuteNonQuery();
+        membership_level_out = Convert.ToInt32(Get_Membership_Status_prm[1].Value.ToString());
+        is_expired_out = Convert.ToInt32(Get_Membership_Status_prm[2].Value.ToString());
+        return true;
+      }
+      catch (OracleException e)
+      {
+        Console.WriteLine("Thread {0}: Oracle Error in Get_Membership_Status.ExecuteNonQuery(): {1}",
+          Thread.CurrentThread.Name, e.Message);
+        return false;
+      }
+      catch (System.Exception e)
+      {
+        Console.WriteLine("Thread {0}: System Error in Get_Membership_Status.ExecuteNonQuery(): {1}",
+          Thread.CurrentThread.Name, e.Message);
+        return false;
+      }
+      finally
+      {
+        rt = timer.Elapsed.TotalSeconds;
+      }
+    } // end ds2getmembershipstatus()
+
+    //
+    //-------------------------------------------------------------------------------------------------
+    //
+    public bool ds2renewmembership(int customerid_in, ref int rows_affected_out, ref double rt)
+    {
+      Renew_Membership_prm[0].Value = customerid_in;
+
+      Stopwatch timer = Stopwatch.StartNew();
+
+      try
+      {
+        Renew_Membership.ExecuteNonQuery();
+        rows_affected_out = Convert.ToInt32(Renew_Membership_prm[1].Value.ToString());
+        return true;
+      }
+      catch (OracleException e)
+      {
+        Console.WriteLine("Thread {0}: Oracle Error in Renew_Membership.ExecuteNonQuery(): {1}",
+          Thread.CurrentThread.Name, e.Message);
+        return false;
+      }
+      catch (System.Exception e)
+      {
+        Console.WriteLine("Thread {0}: System Error in Renew_Membership.ExecuteNonQuery(): {1}",
+          Thread.CurrentThread.Name, e.Message);
+        return false;
+      }
+      finally
+      {
+        rt = timer.Elapsed.TotalSeconds;
+      }
+    } // end ds2renewmembership()
+
 
     //
     //-------------------------------------------------------------------------------------------------
     //
     public bool ds2browse(string browse_type_in, string browse_category_in, string browse_actor_in,
-      string browse_title_in, int batch_size_in, int search_depth_in, int customerid_out, ref int rows_returned,
+      string browse_title_in, int batch_size_in, int search_depth_in, int customerid_out, int membership_level_in, ref int rows_returned,
       ref int[] prod_id_out, ref string[] title_out, ref string[] actor_out, ref decimal[] price_out,
       ref int[] special_out, ref int[] common_prod_id_out, ref double rt)
     {
@@ -520,8 +628,8 @@ namespace ds2xdriver
           break;
         case "membership":
           Browse_By_Membership.Parameters["p_batch_size"].Value = batch_size_in;
-          Browse_By_Membership.Parameters["p_membershiptype_in"].Value = Random.Shared.Next(1, 4);
-          data_in = "membership level: " + Browse_By_Membership.Parameters["p_membershiptype_in"].Value;
+          Browse_By_Membership.Parameters["p_membershiptype_in"].Value = membership_level_in;
+          data_in = "membership level: " + membership_level_in;
           break;
         default:
           Console.WriteLine("  Browse type '{0}' unsupported.", browse_type_in);
@@ -1201,6 +1309,61 @@ namespace ds2xdriver
       {
         rt = timer.Elapsed.TotalSeconds;
       }
+    }
+
+    public int ds36promotionalmembership(int batchSize, ref double rt)
+    {
+      Promotional_Membership.Parameters["p_batch_size"].Value = batchSize;
+
+      Stopwatch timer = Stopwatch.StartNew();
+      try
+      {
+        Promotional_Membership.ExecuteNonQuery();
+        object result = Promotional_Membership.Parameters["p_rows_affected"].Value;
+        return result != null && result != DBNull.Value ? Convert.ToInt32(result.ToString()) : 0;
+      }
+      catch (Exception e)
+      {
+        Console.WriteLine($"Thread {Thread.CurrentThread.Name}: ds36promotionalmembership error: {e.Message}");
+        return 0;
+      }
+      finally
+      {
+        rt = timer.Elapsed.TotalSeconds;
+      }
+    }
+
+    public List<MembershipAnalyticsRow> ds36getmembershipanalytics(ref double rt)
+    {
+      var results = new List<MembershipAnalyticsRow>();
+      Stopwatch timer = Stopwatch.StartNew();
+      try
+      {
+        Get_Membership_Analytics.ExecuteNonQuery();
+        using (OracleDataReader reader = ((Oracle.ManagedDataAccess.Types.OracleRefCursor)Get_Membership_Analytics.Parameters["p_cursor"].Value).GetDataReader())
+        {
+          while (reader.Read())
+          {
+            results.Add(new MembershipAnalyticsRow
+            {
+              MembershipType = reader.IsDBNull(0) ? (int?)null : reader.GetInt32(0),
+              ActiveMemberCount = reader.GetInt64(1),
+              ExpiredMemberCount = reader.GetInt64(2),
+              TotalOrders = reader.GetInt64(3),
+              TotalRevenue = reader.GetDecimal(4)
+            });
+          }
+        }
+      }
+      catch (Exception e)
+      {
+        Console.WriteLine($"Thread {Thread.CurrentThread.Name}: ds36getmembershipanalytics error: {e.Message}");
+      }
+      finally
+      {
+        rt = timer.Elapsed.TotalSeconds;
+      }
+      return results;
     }
 
     //
