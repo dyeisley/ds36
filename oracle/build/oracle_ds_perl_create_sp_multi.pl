@@ -1242,7 +1242,10 @@ BEGIN
     WHEN MATCHED THEN
         UPDATE SET
             m.MEMBERSHIPTYPE = upgrades.new_level,
-            m.EXPIREDATE = m.EXPIREDATE + 180;
+            m.EXPIREDATE = CASE
+                WHEN m.EXPIREDATE > TRUNC(SYSDATE) THEN m.EXPIREDATE + 180  -- Active: extend from current
+                ELSE TRUNC(SYSDATE) + 180  -- Expired: reactivate from today
+            END;
 
     p_rows_upgraded := SQL%ROWCOUNT;
 
@@ -1288,10 +1291,10 @@ BEGIN
 
             IF v_old_tier = 1 THEN
                 v_new_tier := 2;
-                v_new_expiredate := v_old_expiredate;  -- Keep existing for upgrade
+                v_new_expiredate := SYSDATE + 90;  -- Reactivate for upgrade
             ELSIF v_old_tier = 2 THEN
                 v_new_tier := 3;
-                v_new_expiredate := v_old_expiredate;  -- Keep existing for upgrade
+                v_new_expiredate := SYSDATE + 90;  -- Reactivate for upgrade
             ELSE  -- tier 3
                 v_new_tier := 3;
                 v_new_expiredate := v_old_expiredate + 90;  -- Extend by 90 days
@@ -1338,6 +1341,41 @@ EXCEPTION
     WHEN OTHERS THEN
         ROLLBACK;
         RAISE;
+END;
+/
+
+CREATE OR REPLACE PROCEDURE DS3.GetMembershipAnalytics$k (
+    p_cursor OUT SYS_REFCURSOR
+)
+AS
+BEGIN
+    OPEN p_cursor FOR
+    WITH CustomerOrders AS (
+        SELECT
+            CUSTOMERID,
+            COUNT(*) AS order_count,
+            SUM(TOTALAMOUNT) AS total_revenue
+        FROM DS3.ORDERS$k
+        GROUP BY CUSTOMERID
+    )
+    SELECT
+        m.MEMBERSHIPTYPE AS membership_tier,
+        COUNT(DISTINCT CASE
+            WHEN m.MEMBERSHIPTYPE IS NULL THEN c.CUSTOMERID
+            WHEN m.EXPIREDATE >= TRUNC(SYSDATE) THEN c.CUSTOMERID
+            ELSE NULL
+        END) AS active_member_count,
+        COUNT(DISTINCT CASE
+            WHEN m.MEMBERSHIPTYPE IS NOT NULL AND m.EXPIREDATE < TRUNC(SYSDATE) THEN c.CUSTOMERID
+            ELSE NULL
+        END) AS expired_member_count,
+        NVL(SUM(co.order_count), 0) AS total_orders,
+        ROUND(NVL(SUM(co.total_revenue), 0), 2) AS total_revenue
+    FROM DS3.CUSTOMERS$k c
+    LEFT JOIN DS3.MEMBERSHIP$k m ON c.CUSTOMERID = m.CUSTOMERID
+    LEFT JOIN CustomerOrders co ON c.CUSTOMERID = co.CUSTOMERID
+    GROUP BY m.MEMBERSHIPTYPE
+    ORDER BY CASE WHEN m.MEMBERSHIPTYPE IS NULL THEN -1 ELSE m.MEMBERSHIPTYPE END DESC;
 END;
 /
 
