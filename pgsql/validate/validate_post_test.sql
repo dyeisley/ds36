@@ -1215,6 +1215,95 @@ ORDER BY OPERATION_TYPE, OPERATION_TIMESTAMP;
 
 DO $$ BEGIN RAISE NOTICE ''; END $$;
 
+-- =======================================================================
+-- NEW CUSTOMER LOGIN VERIFICATION
+-- Purpose: Verify new customers (created during test) can log in again
+-- Expected: Some new customers should have multiple orders
+-- =======================================================================
+DO $$
+BEGIN
+    RAISE NOTICE '--- NEW CUSTOMER LOGIN VERIFICATION (Returning New Customers) ---';
+    RAISE NOTICE 'Verifying: New customers created during test make multiple purchases';
+    RAISE NOTICE '';
+END $$;
+
+DO $$
+DECLARE
+    customers_baseline BIGINT;
+    new_customers_created INT;
+    new_customers_with_multiple_orders INT;
+    new_customers_total_orders INT;
+BEGIN
+    SELECT metric_value INTO customers_baseline
+    FROM VALIDATION_METRICS_{store_number}
+    WHERE metric_name = 'CUSTOMERS_COUNT';
+
+    SELECT COUNT(DISTINCT CUSTOMERID) INTO new_customers_created
+    FROM CUSTOMERS{store_number}
+    WHERE CUSTOMERID > customers_baseline;
+
+    SELECT COUNT(DISTINCT CUSTOMERID) INTO new_customers_with_multiple_orders
+    FROM (
+        SELECT CUSTOMERID, COUNT(*) as order_count
+        FROM ORDERS{store_number}
+        WHERE CUSTOMERID > customers_baseline
+        GROUP BY CUSTOMERID
+        HAVING COUNT(*) > 1
+    ) subq;
+
+    SELECT COUNT(*) INTO new_customers_total_orders
+    FROM ORDERS{store_number}
+    WHERE CUSTOMERID > customers_baseline;
+
+    RAISE NOTICE 'New Customers Created:                 %', new_customers_created;
+    RAISE NOTICE 'New Customers with Multiple Orders:    %', new_customers_with_multiple_orders;
+    RAISE NOTICE 'Total Orders from New Customers:       %', new_customers_total_orders;
+    RAISE NOTICE '';
+END $$;
+
+DO $$
+BEGIN
+    RAISE NOTICE 'Order Distribution for New Customers:';
+END $$;
+
+SELECT
+    CASE
+        WHEN order_count = 1 THEN '1 order'
+        WHEN order_count = 2 THEN '2 orders'
+        WHEN order_count = 3 THEN '3 orders'
+        WHEN order_count >= 4 THEN '4+ orders'
+    END as order_bucket,
+    COUNT(*) as customer_count,
+    ROUND(COUNT(*) * 100.0 / SUM(COUNT(*)) OVER(), 2) as percentage
+FROM (
+    SELECT CUSTOMERID, COUNT(*) as order_count
+    FROM ORDERS{store_number}
+    WHERE CUSTOMERID > (SELECT metric_value FROM VALIDATION_METRICS_{store_number} WHERE metric_name = 'CUSTOMERS_COUNT')
+    GROUP BY CUSTOMERID
+) subq
+GROUP BY order_bucket
+ORDER BY order_bucket;
+
+DO $$
+BEGIN
+    RAISE NOTICE '';
+    RAISE NOTICE 'Top 10 New Customers by Order Count:';
+END $$;
+
+SELECT
+    CUSTOMERID,
+    COUNT(*) as order_count,
+    SUM(TOTALAMOUNT) as total_revenue,
+    MIN(ORDERDATE) as first_order,
+    MAX(ORDERDATE) as last_order
+FROM ORDERS{store_number}
+WHERE CUSTOMERID > (SELECT metric_value FROM VALIDATION_METRICS_{store_number} WHERE metric_name = 'CUSTOMERS_COUNT')
+GROUP BY CUSTOMERID
+ORDER BY order_count DESC, total_revenue DESC
+LIMIT 10;
+
+DO $$ BEGIN RAISE NOTICE ''; END $$;
+
 
 DO $$
 BEGIN

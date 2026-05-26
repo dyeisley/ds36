@@ -1320,6 +1320,104 @@ ORDER BY OPERATION_TYPE, OPERATION_TIMESTAMP;
 BEGIN DBMS_OUTPUT.PUT_LINE(''); END;
 /
 
+-- =======================================================================
+-- NEW CUSTOMER LOGIN VERIFICATION
+-- Purpose: Verify new customers (created during test) can log in again
+-- Expected: Some new customers should have multiple orders
+-- =======================================================================
+BEGIN
+    DBMS_OUTPUT.PUT_LINE('--- NEW CUSTOMER LOGIN VERIFICATION (Returning New Customers) ---');
+    DBMS_OUTPUT.PUT_LINE('Verifying: New customers created during test make multiple purchases');
+    DBMS_OUTPUT.PUT_LINE('');
+END;
+/
+
+DECLARE
+    customers_baseline NUMBER;
+    new_customers_created NUMBER;
+    new_customers_with_multiple_orders NUMBER;
+    new_customers_total_orders NUMBER;
+BEGIN
+    SELECT metric_value INTO customers_baseline
+    FROM VALIDATION_METRICS_{store_number}
+    WHERE metric_name = 'CUSTOMERS_COUNT';
+
+    SELECT COUNT(DISTINCT CUSTOMERID) INTO new_customers_created
+    FROM DS3.CUSTOMERS{store_number}
+    WHERE CUSTOMERID > customers_baseline;
+
+    SELECT COUNT(DISTINCT CUSTOMERID) INTO new_customers_with_multiple_orders
+    FROM (
+        SELECT CUSTOMERID, COUNT(*) as order_count
+        FROM DS3.ORDERS{store_number}
+        WHERE CUSTOMERID > customers_baseline
+        GROUP BY CUSTOMERID
+        HAVING COUNT(*) > 1
+    );
+
+    SELECT COUNT(*) INTO new_customers_total_orders
+    FROM DS3.ORDERS{store_number}
+    WHERE CUSTOMERID > customers_baseline;
+
+    DBMS_OUTPUT.PUT_LINE('New Customers Created:                 ' || new_customers_created);
+    DBMS_OUTPUT.PUT_LINE('New Customers with Multiple Orders:    ' || new_customers_with_multiple_orders);
+    DBMS_OUTPUT.PUT_LINE('Total Orders from New Customers:       ' || new_customers_total_orders);
+    DBMS_OUTPUT.PUT_LINE('');
+END;
+/
+
+BEGIN
+    DBMS_OUTPUT.PUT_LINE('Order Distribution for New Customers:');
+END;
+/
+
+SELECT
+    CASE
+        WHEN order_count = 1 THEN '1 order'
+        WHEN order_count = 2 THEN '2 orders'
+        WHEN order_count = 3 THEN '3 orders'
+        WHEN order_count >= 4 THEN '4+ orders'
+    END as order_bucket,
+    COUNT(*) as customer_count,
+    ROUND(COUNT(*) * 100.0 / SUM(COUNT(*)) OVER(), 2) as percentage
+FROM (
+    SELECT CUSTOMERID, COUNT(*) as order_count
+    FROM DS3.ORDERS{store_number}
+    WHERE CUSTOMERID > (SELECT metric_value FROM VALIDATION_METRICS_{store_number} WHERE metric_name = 'CUSTOMERS_COUNT')
+    GROUP BY CUSTOMERID
+)
+GROUP BY
+    CASE
+        WHEN order_count = 1 THEN '1 order'
+        WHEN order_count = 2 THEN '2 orders'
+        WHEN order_count = 3 THEN '3 orders'
+        WHEN order_count >= 4 THEN '4+ orders'
+    END
+ORDER BY order_bucket;
+
+BEGIN
+    DBMS_OUTPUT.PUT_LINE('');
+    DBMS_OUTPUT.PUT_LINE('Top 10 New Customers by Order Count:');
+END;
+/
+
+SELECT * FROM (
+    SELECT
+        CUSTOMERID,
+        COUNT(*) as order_count,
+        SUM(TOTALAMOUNT) as total_revenue,
+        MIN(ORDERDATE) as first_order,
+        MAX(ORDERDATE) as last_order
+    FROM DS3.ORDERS{store_number}
+    WHERE CUSTOMERID > (SELECT metric_value FROM VALIDATION_METRICS_{store_number} WHERE metric_name = 'CUSTOMERS_COUNT')
+    GROUP BY CUSTOMERID
+    ORDER BY order_count DESC, total_revenue DESC
+)
+WHERE ROWNUM <= 10;
+
+BEGIN DBMS_OUTPUT.PUT_LINE(''); END;
+/
+
 
 BEGIN
     DBMS_OUTPUT.PUT_LINE('');

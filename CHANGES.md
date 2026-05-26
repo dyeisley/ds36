@@ -293,6 +293,89 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - `--ds2_mode=y` (DS 2.0 compatibility): Membership renewal disabled, browse selection excludes "membership" option
 - Only 3 browse types available: category, actor, title (same as DVD Store 2.0)
 
+### Added - New Customer Re-Login Support
+
+**New customers can now log in again and make repeat purchases**: Previously, customers created via NEWCUSTOMER operation would make one purchase and never return. LOGIN only selected from the initial customer pool, and new customers used "newuser" prefix that LOGIN never selected.
+
+**Driver Changes** (ds36xdriver.cs):
+
+**1. Per-store max_customer tracking**:
+- **Old**: `public static int max_customer` (single value, never incremented)
+- **New**: `public static int[] max_customer = new int[GlobalConstants.MAX_STORES+1]` (per-store array)
+- Initialized at startup: `max_customer[i] = customer_rows` for each store (line 1347)
+- LOGIN uses: `Random.Shared.Next(1, Controller.max_customer[target_store] + 1)` (line 2776)
+
+**2. Thread-safe customer ID allocation**:
+- **Old approach**: `int i_user = Random.Shared.Next(1, max_customer + 1); username = "newuser" + i_user`
+  - Random selection caused username collisions
+  - "newuser" prefix meant LOGIN could never find them
+- **New approach**: `int new_customer_id = Interlocked.Increment(ref Controller.max_customer[target_store])` (line 2885)
+  - Pre-allocates next customer ID atomically (thread-safe)
+  - Username: `"user" + new_customer_id` (matches LOGIN username pattern)
+  - Eliminates collisions, allows LOGIN to find new customers
+
+**3. Retry loop for existing customers**:
+- do-while loop preserved to handle customers from previous test runs
+- If username exists (from previous run), increment and try next ID
+- Loop condition: `while (customerid_out < 1)` (line 2916)
+  - `customerid_out == 0`: Username already exists
+  - `customerid_out == -1`: Database error
+  - `customerid_out > 0`: Success
+
+**Validation SQL** (all 4 databases):
+
+**Pre-test**: Captures baseline customer count
+- Uses existing `VALIDATION_METRICS_{store_number}` table
+- Metric: `CUSTOMERS_COUNT` (initial customer rows)
+
+**Post-test**: Analyzes new customer re-login behavior
+- **New customers identified**: `WHERE CUSTOMERID > CUSTOMERS_COUNT`
+- **Summary metrics**:
+  - New customers created
+  - New customers with multiple orders (proves re-login)
+  - Total orders from new customers
+- **Distribution table**:
+  - 1 order vs 2 orders vs 3 orders vs 4+ orders
+  - Percentage breakdown
+- **Top 10 new customers**: By order count and revenue
+
+**Test Results** (pct_newcustomers=30, 10-20 minute tests):
+
+**1GB database, single store**:
+- PostgreSQL: 16.04% of new customers made 2+ orders
+- MySQL: 13.75% of new customers made 2+ orders
+
+**1GB database, 2 stores** (workload split):
+- SQL Server Store 1: 5.59% of new customers made 2+ orders
+- SQL Server Store 2: 4.93% of new customers made 2+ orders
+- Lower percentage due to fewer new customers created per store (threads split)
+
+**Why percentages vary by database size**:
+- 1GB = 5,000,000 initial customers per store
+- 4GB = 20,000,000 initial customers per store
+- New customers created (10 min test): ~100,000 regardless of size
+- At 1GB: New customers = 2% of pool → high LOGIN selection probability
+- At 4GB: New customers = 0.5% of pool → low LOGIN selection probability
+
+**Files Modified**:
+
+**Driver**:
+- `drivers/ds36xdriver.cs` (lines 129, 1347, 2776, 2885-2886, 2916)
+
+**Validation SQL**:
+- `sqlserver/validate/validate_pre_test.sql` (line 883: uses CUSTOMERS_COUNT)
+- `sqlserver/validate/validate_post_test.sql` (lines 1071-1143: new customer verification)
+- `mysql/validate/validate_post_test.sql` (lines 970-1049: new customer verification)
+- `pgsql/validate/validate_post_test.sql` (lines 1217-1291: new customer verification)
+- `oracle/validate/validate_post_test.sql` (lines 1320-1410: new customer verification)
+
+**Benefits**:
+- More realistic customer behavior (customers return for repeat purchases)
+- Eliminates username collisions (no more retry loops under normal operation)
+- Thread-safe with Interlocked.Increment (no locks needed)
+- Per-store tracking matches max_product pattern
+- Validates multi-purchase behavior via validation SQL
+
 ### Added - Validation SQL Framework
 
 **New SQL-based validation system**:

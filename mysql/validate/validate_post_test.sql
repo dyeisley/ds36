@@ -968,6 +968,81 @@ ORDER BY AUDIT_ID DESC
 LIMIT 5;
 
 SELECT '';
+SELECT '';
+
+-- =======================================================================
+-- NEW CUSTOMER LOGIN VERIFICATION
+-- Purpose: Verify new customers (created during test) can log in again
+-- Expected: Some new customers should have multiple orders
+-- =======================================================================
+SELECT '--- NEW CUSTOMER LOGIN VERIFICATION (Returning New Customers) ---';
+SELECT 'Verifying: New customers created during test make multiple purchases';
+SELECT '';
+
+SET @CustomersBaseline = (SELECT metric_value FROM VALIDATION_METRICS_{store_number} WHERE metric_name = 'CUSTOMERS_COUNT');
+
+SET @NewCustomersCreated = (
+    SELECT COUNT(DISTINCT CUSTOMERID)
+    FROM CUSTOMERS{store_number}
+    WHERE CUSTOMERID > @CustomersBaseline
+);
+
+SET @NewCustomersWithMultipleOrders = (
+    SELECT COUNT(DISTINCT CUSTOMERID)
+    FROM (
+        SELECT CUSTOMERID, COUNT(*) as order_count
+        FROM ORDERS{store_number}
+        WHERE CUSTOMERID > @CustomersBaseline
+        GROUP BY CUSTOMERID
+        HAVING COUNT(*) > 1
+    ) subq
+);
+
+SET @NewCustomersTotalOrders = (
+    SELECT COUNT(*)
+    FROM ORDERS{store_number}
+    WHERE CUSTOMERID > @CustomersBaseline
+);
+
+SELECT CONCAT('New Customers Created:                 ', @NewCustomersCreated);
+SELECT CONCAT('New Customers with Multiple Orders:    ', @NewCustomersWithMultipleOrders);
+SELECT CONCAT('Total Orders from New Customers:       ', @NewCustomersTotalOrders);
+SELECT '';
+
+SELECT 'Order Distribution for New Customers:';
+SELECT
+    CASE
+        WHEN order_count = 1 THEN '1 order'
+        WHEN order_count = 2 THEN '2 orders'
+        WHEN order_count = 3 THEN '3 orders'
+        WHEN order_count >= 4 THEN '4+ orders'
+    END as Order_Bucket,
+    COUNT(*) as Customer_Count,
+    CAST(COUNT(*) * 100.0 / SUM(COUNT(*)) OVER() AS DECIMAL(5,2)) as Percentage
+FROM (
+    SELECT CUSTOMERID, COUNT(*) as order_count
+    FROM ORDERS{store_number}
+    WHERE CUSTOMERID > @CustomersBaseline
+    GROUP BY CUSTOMERID
+) subq
+GROUP BY Order_Bucket
+ORDER BY Order_Bucket;
+
+SELECT '';
+SELECT 'Top 10 New Customers by Order Count:';
+SELECT
+    CUSTOMERID,
+    COUNT(*) as Order_Count,
+    SUM(TOTALAMOUNT) as Total_Revenue,
+    MIN(ORDERDATE) as First_Order,
+    MAX(ORDERDATE) as Last_Order
+FROM ORDERS{store_number}
+WHERE CUSTOMERID > @CustomersBaseline
+GROUP BY CUSTOMERID
+ORDER BY Order_Count DESC, Total_Revenue DESC
+LIMIT 10;
+
+SELECT '';
 SELECT '========================================================================';
 SELECT 'Post-Test Validation Complete';
 SELECT 'Compare these results with validate_before.sql to verify:';

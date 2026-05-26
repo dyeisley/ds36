@@ -880,10 +880,10 @@ PRINT '';
 PRINT '--- TOP 10 NEW CUSTOMERS (Created During Benchmark) ---';
 PRINT '';
 
-DECLARE @MaxCustomerIDPre INT;
-SELECT @MaxCustomerIDPre = metric_value
+DECLARE @CustomersBaseline BIGINT;
+SELECT @CustomersBaseline = metric_value
 FROM VALIDATION_METRICS_{store_number}
-WHERE metric_name = 'MAX_CUSTOMERID';
+WHERE metric_name = 'CUSTOMERS_COUNT';
 
 SELECT TOP 10
     RIGHT(REPLICATE(' ', 10) + CAST(CUSTOMERID AS VARCHAR), 10) AS [CustomerID],
@@ -891,7 +891,7 @@ SELECT TOP 10
     LEFT(LASTNAME + REPLICATE(' ', 20), 20) AS [LastName],
     LEFT(CITY + REPLICATE(' ', 20), 20) AS [City]
 FROM CUSTOMERS{store_number}
-WHERE CUSTOMERID > @MaxCustomerIDPre
+WHERE CUSTOMERID > @CustomersBaseline
 ORDER BY CUSTOMERID;
 
 PRINT '';
@@ -1059,6 +1059,84 @@ BEGIN
 END
 ELSE
     PRINT 'INFO: No MERGE operations recorded (pct_newhelpfulness may be 0 or disabled)';
+
+PRINT '';
+PRINT '';
+
+-- =======================================================================
+-- NEW CUSTOMER LOGIN VERIFICATION
+-- Purpose: Verify new customers (created during test) can log in again
+-- Expected: Some new customers should have multiple orders
+-- =======================================================================
+PRINT '--- NEW CUSTOMER LOGIN VERIFICATION (Returning New Customers) ---';
+PRINT 'Verifying: New customers created during test make multiple purchases';
+PRINT '';
+
+-- Reuse @CustomersBaseline from earlier section
+DECLARE @NewCustomersCreated INT;
+DECLARE @NewCustomersWithMultipleOrders INT;
+DECLARE @NewCustomersTotalOrders INT;
+
+SELECT @NewCustomersCreated = COUNT(DISTINCT CUSTOMERID)
+FROM CUSTOMERS{store_number}
+WHERE CUSTOMERID > @CustomersBaseline;
+
+SELECT @NewCustomersWithMultipleOrders = COUNT(DISTINCT CUSTOMERID)
+FROM (
+    SELECT CUSTOMERID, COUNT(*) as order_count
+    FROM ORDERS{store_number}
+    WHERE CUSTOMERID > @CustomersBaseline
+    GROUP BY CUSTOMERID
+    HAVING COUNT(*) > 1
+) subq;
+
+SELECT @NewCustomersTotalOrders = COUNT(*)
+FROM ORDERS{store_number}
+WHERE CUSTOMERID > @CustomersBaseline;
+
+PRINT 'New Customers Created:                 ' + CAST(@NewCustomersCreated AS VARCHAR);
+PRINT 'New Customers with Multiple Orders:    ' + CAST(@NewCustomersWithMultipleOrders AS VARCHAR);
+PRINT 'Total Orders from New Customers:       ' + CAST(@NewCustomersTotalOrders AS VARCHAR);
+PRINT '';
+
+-- Distribution of orders per new customer
+PRINT 'Order Distribution for New Customers:';
+SELECT
+    CASE
+        WHEN order_count = 1 THEN '1 order'
+        WHEN order_count = 2 THEN '2 orders'
+        WHEN order_count = 3 THEN '3 orders'
+        WHEN order_count >= 4 THEN '4+ orders'
+    END as Order_Bucket,
+    COUNT(*) as Customer_Count,
+    CAST(COUNT(*) * 100.0 / SUM(COUNT(*)) OVER() AS DECIMAL(5,2)) as Percentage
+FROM (
+    SELECT CUSTOMERID, COUNT(*) as order_count
+    FROM ORDERS{store_number}
+    WHERE CUSTOMERID > @CustomersBaseline
+    GROUP BY CUSTOMERID
+) subq
+GROUP BY
+    CASE
+        WHEN order_count = 1 THEN '1 order'
+        WHEN order_count = 2 THEN '2 orders'
+        WHEN order_count = 3 THEN '3 orders'
+        WHEN order_count >= 4 THEN '4+ orders'
+    END
+ORDER BY Order_Bucket;
+
+PRINT '';
+PRINT 'Top 10 New Customers by Order Count:';
+SELECT TOP 10
+    CUSTOMERID,
+    COUNT(*) as Order_Count,
+    SUM(TOTALAMOUNT) as Total_Revenue,
+    CONVERT(VARCHAR(10), MIN(ORDERDATE), 101) as First_Order,
+    CONVERT(VARCHAR(10), MAX(ORDERDATE), 101) as Last_Order
+FROM ORDERS{store_number}
+WHERE CUSTOMERID > @CustomersBaseline
+GROUP BY CUSTOMERID
+ORDER BY COUNT(*) DESC, Total_Revenue DESC;
 
 PRINT '';
 PRINT '========================================================================';

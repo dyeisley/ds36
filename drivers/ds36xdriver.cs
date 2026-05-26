@@ -126,8 +126,8 @@ namespace ds2xdriver
     public static double rt_membershiprenew_overall = 0.0;
     public static double[] rt_tot_lastn = new double[GlobalConstants.LAST_N];
     public static bool Start = false, End = false;
-    public static int max_customer;
     public static string virt_dir = "ds3", page_type = "php";
+    public static int[] max_customer = new int[GlobalConstants.MAX_STORES+1]; // there is no store 0. We use store number as the index.;
     public static int[] max_product = new int[GlobalConstants.MAX_STORES+1]; // there is no store 0. We use store number as the index.
 
     //Added new parameter database_custom_size and new variables by GSK
@@ -1341,10 +1341,11 @@ namespace ds2xdriver
       // Display configuration summary
       DisplayConfiguration();
 
-      max_customer = customer_rows;
-
       for (i = 0; i < GlobalConstants.MAX_STORES+1; i++) // we use the store number 1-N for the index. Element 0 not used.
+      {
         max_product[i] = product_rows;
+        max_customer[i] = customer_rows;
+      }
 
       //Changed by GSK (size of array prod_array = number of rows in product table + (10000 * 10)
       //Reason : Every 10000th product will be popular and will have 10 entries in list
@@ -2772,7 +2773,7 @@ namespace ds2xdriver
         {
           IsLogin = true;
           //Returning user with randomized username
-          int i_user = Random.Shared.Next(1, Controller.max_customer + 1);
+          int i_user = Random.Shared.Next(1, Controller.max_customer[target_store] + 1);
           username_in = "user" + i_user;
           password_in = "password";
           rows_returned = 0;
@@ -2880,8 +2881,9 @@ namespace ds2xdriver
           CreateUserData();
           do  // Try newcustomer until find a userid that doesn't exist
           {
-            int i_user = Random.Shared.Next(1, Controller.max_customer + 1);
-            username_in = "newuser" + i_user;
+            //int i_user = Random.Shared.Next(1, Controller.max_customer[target_store] + 1);
+            int new_customer_id = Interlocked.Increment(ref Controller.max_customer[target_store]);
+            username_in = "user" + new_customer_id;
             password_in = "password";
 
             failures = 0;
