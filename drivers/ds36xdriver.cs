@@ -2637,6 +2637,29 @@ namespace ds2xdriver
       }
     }
 
+    //
+    //-------------------------------------------------------------------------------------------------
+    // GetSkewedCustomerId: Returns customer ID with probabilistic skewing
+    // 20% probability: Select from top 10% of customer IDs (most recent customers)
+    // 80% probability: Select from entire customer range (uniform distribution)
+    // Favors new customers created during test via sliding window approach
+    //-------------------------------------------------------------------------------------------------
+    //
+    public static int GetSkewedCustomerId(int max_customer)
+    {
+      if (Random.Shared.Next(100) < 20)  // 20% of the time
+      {
+        // Select from top 10% of customer IDs (most recent)
+        int bottom_of_range = max_customer * 9 / 10;
+        return Random.Shared.Next(bottom_of_range, max_customer);
+      }
+      else  // 80% of the time
+      {
+        // Select from entire customer range (uniform distribution)
+        return Random.Shared.Next(1, max_customer);
+      }
+    }
+
   } // End of class Controller
 
   //
@@ -2772,8 +2795,8 @@ namespace ds2xdriver
         if (user_type >= Controller.pct_newcustomers / 100.0) // If this is true we have a returning customer
         {
           IsLogin = true;
-          //Returning user with randomized username
-          int i_user = Random.Shared.Next(1, Controller.max_customer[target_store] + 1);
+          //Returning user with skewed customer ID selection (20% from top 10%, 80% uniform)
+          int i_user = Controller.GetSkewedCustomerId(Controller.max_customer[target_store]);
           username_in = "user" + i_user;
           password_in = "password";
           rows_returned = 0;
