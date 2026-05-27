@@ -103,68 +103,67 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - SQL Server: Single WHEN MATCHED with CASE expressions (multi-WHEN MATCHED not allowed)
 - Cross-database challenge: Different MERGE syntax and OUTPUT clause support
 
-### Added - Analytics System
+### Added - Analytics System Infrastructure
 
-**GetMembershipAnalytics** ⭐ NEW - Membership tier analytics with baseline and delta tracking
+**Two-thread architecture for manager operations and analytics queries:**
 
-- **What it tracks**: Active/Expired member counts, Orders, Revenue per membership tier
-- **Baseline capture**: Metrics captured at test start to establish starting point
-- **Delta tracking**: Analytics show changes since baseline (new orders, new revenue, etc.)
-- **Time-based execution**: Runs on `manager_analytics_interval` parameter (minutes, 0=disabled)
-- **Metrics displayed**:
-  - Active Members / Expired Members per tier
-  - New Orders / New Revenue (deltas since baseline)
-  - Revenue per Order / Revenue per Member / Orders per Member (calculated ratios)
-  - Tier ordering: 3 (Gold) → 2 (Silver) → 1 (Bronze) → N/A (Non-members)
-- **Blocking behavior**: ⚠️ Analytics runs in manager thread, blocking other operations during execution (8-96s depending on database/load)
+- **New Analytics Thread** (`drivers/ds36xanalytics.cs`):
+  - Separate thread runs analytics queries independently from manager operations
+  - Independent database connection (ID offset +20000)
+  - Per-store analytics threads (one thread per store, like manager threads)
+  - Baseline capture at test start for delta tracking
+  - Periodic execution on configurable interval (minutes)
+  
+- **Refactored Manager Thread** (`drivers/ds36xmanager.cs`):
+  - All analytics code removed (moved to analytics thread)
+  - Focus on operations only (AddProduct, AdjustPrices, etc.)
+  - No longer blocked by long-running analytics queries
 
-**Database Implementation Status**:
-- **SQL Server**: ✓ Complete - Fast performance (1-2s at 4GB), no special configuration required
-- **Oracle**: ✓ Complete - Excellent performance (~9.7s at 4GB), no special configuration required
-- **PostgreSQL**: ✓ Complete - Good performance (~31s at 4GB), no special configuration required
-- **MySQL**: ✓ Complete - Requires buffer tuning and isolation level configuration (80-96s at 4GB, see below)
+**Why Two Threads:**
+- **Before:** Analytics blocked manager operations during 8-80 second queries (53-65% manager time on MySQL)
+- **After:** Operations and analytics run concurrently without blocking
+- **Impact:** Expected 120+ operations + 10 analytics in 10-minute test (vs 36 operations + 4 analytics single-thread)
 
-**MySQL-Specific Requirements** (CRITICAL):
+**New Parameters:**
+- `analytics_interval` - Minutes between analytics runs (default: 0 = disabled)
+  - Renamed from `manager_analytics_interval`
+  - Interval is minimum time between runs (slow queries extend interval automatically)
+- `enable_membership_analytics` - Enable/disable membership analytics (default: Y)
+  - Boolean parameter following ds2_mode pattern
 
-1. **Buffer Tuning** (required for acceptable performance):
-   ```ini
-   # /etc/my.cnf
-   [mysqld]
-   tmp_table_size = 256M
-   max_heap_table_size = 256M
-   ```
-   - Without tuning: 1m16s at 1GB (unacceptable)
-   - With tuning: 8.6s at 1GB isolated, 80-96s at 4GB under load (acceptable)
-   - Default 16MB buffers cause spill-to-disk for large aggregations
+**Fatal Error Handling:**
+- Database exceptions now propagate to thread level (`throw;` added to all catch blocks)
+- Threads detect fatal connection errors and exit cleanly
+- Safe connection cleanup prevents cascading exceptions
+- Baseline capture failures exit immediately (no point continuing without baseline)
 
-2. **Isolation Level** (prevents table locking):
-   - Stored procedure uses READ UNCOMMITTED to prevent MEMBERSHIP table locks
-   - Prevents deadlocks with Renew_Membership operations during long-running queries
-   - Dirty reads acceptable for analytics (approximate counts/sums)
+**Output Ordering:**
+- User operation statistics
+- Manager operation statistics
+- Analytics statistics
 
-**Performance Characteristics**:
-- **Isolated query**: 1-2s (SQL Server), 8.6s at 1GB (MySQL with tuning), 46s at 4GB (MySQL)
-- **Under load**: 2-3x slower than isolated (competing for CPU/I/O/cache)
-- **Blocking impact**: With 1-minute interval at 4GB, analytics consumes 53-65% of manager time
-- **Recommendation**: Use longer intervals (5-15 minutes) for large databases
+**Files Modified:**
+- **New:** `drivers/ds36xanalytics.cs` - Analytics thread class
+- **Modified:** `drivers/ds36xmanager.cs` - Analytics code removed
+- **Modified:** `drivers/ds36xdriver.cs` - Spawn/manage analytics threads
+- **Modified:** `CreateConfigFile.pl` - Add enable_membership_analytics parameter
+- **Modified:** All 4 database interfaces (sqlserver, mysql, pgsql, oracle):
+  - Exception propagation in analytics methods
+  - Safe ds2close() with connection state check
+- **Modified:** All 4 .csproj files - Include ds36xanalytics.cs
 
-**Configuration Parameters**:
-- `manager_analytics_interval` - minutes between analytics runs (default: 0 = disabled)
-- Interval guidelines: Small DBs (<1GB) = 1-5 min, Large DBs (4GB+) = 5-15 min
+**Breaking Changes:**
+- `manager_analytics_interval` → `analytics_interval` (parameter renamed)
 
-**Thread Optimization**:
-- Run with N-1 customer threads to dedicate one CPU to manager thread
-- Example (16-CPU system): Use 15 customer threads for best analytics performance
-- Manager gets dedicated CPU during long analytics queries
+**Implemented Analytics:**
+- **GetMembershipAnalytics** - Tracks membership tier distribution, orders, and revenue with delta tracking since baseline (SQL Server ✓, MySQL ✓, PostgreSQL ✓, Oracle ✓)
+  - MySQL requires 256MB buffer tuning (tmp_table_size, max_heap_table_size)
+  - See `ANALYTICS.md` for complete documentation
 
-**Future Enhancement**: Two-thread architecture to separate operations and analytics threads, eliminating blocking issue
-
-**Documentation**: See `ANALYTICS.md` for comprehensive guide including:
-- Detailed metrics explanation
-- Database-specific configuration
-- Performance tuning guide
-- Troubleshooting
-- Future analytics features (Product, Review)
+**Documentation:**
+- See `ANALYTICS.md` for complete analytics system documentation
+- Configuration, performance tuning, troubleshooting
+- Detailed documentation of each analytics operation
 
 ### Added - Membership Renewal and Browse Behavior
 

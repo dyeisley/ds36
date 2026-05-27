@@ -1342,6 +1342,7 @@ namespace ds2xdriver
       catch (Exception e)
       {
         Console.WriteLine($"Thread {Thread.CurrentThread.Name}: ds36getmembershipanalytics error: {e.Message}");
+        throw;
       }
       finally
       {
@@ -1496,7 +1497,10 @@ namespace ds2xdriver
     //
     public bool ds2close()
     {
-      objConn.Close();
+      if (objConn != null && objConn.State == ConnectionState.Open)
+      {
+        objConn.Close();
+      }
       return (true);
     } // end ds2close()
   } // end Class ds2Interface

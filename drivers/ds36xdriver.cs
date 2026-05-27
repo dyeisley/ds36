@@ -173,7 +173,8 @@ namespace ds2xdriver
     public static int manager_purge_old_orders_pct = 5;
     public static int manager_upgrade_membership_pct = 5;
     public static int manager_promo_membership_pct = 0;
-    public static int manager_analytics_interval = 0;
+    public static int analytics_interval = 0;
+    public static bool enable_membership_analytics = true;
     public static int manager_batch_size_min = 10;
     public static int manager_batch_size_max = 100;
 
@@ -809,14 +810,24 @@ namespace ds2xdriver
         Validator = (value) => ValidateInt(value, min: 0, max: 100)
       };
 
-      // manager_analytics_interval - minutes between membership analytics queries
-      definitions["manager_analytics_interval"] = new ParameterDefinition
+      // analytics_interval - minutes between analytics queries
+      definitions["analytics_interval"] = new ParameterDefinition
       {
-        Name = "manager_analytics_interval",
+        Name = "analytics_interval",
         Description = "Minutes between membership analytics queries (0 = disabled)",
         DefaultValue = "0",
         Type = ParamType.Int,
         Validator = (value) => ValidateInt(value, min: 0, max: 60)
+      };
+
+      // enable_membership_analytics - enable membership analytics
+      definitions["enable_membership_analytics"] = new ParameterDefinition
+      {
+        Name = "enable_membership_analytics",
+        Description = "Enable membership analytics (y/n)",
+        DefaultValue = "Y",
+        Type = ParamType.Boolean,
+        Validator = ValidateYesNo
       };
 
       // manager_batch_size_min - minimum batch size for manager operations
@@ -1334,7 +1345,8 @@ namespace ds2xdriver
       manager_purge_old_orders_pct = parser.GetValue<int>("manager_purge_old_orders_pct");
       manager_upgrade_membership_pct = parser.GetValue<int>("manager_upgrade_membership_pct");
       manager_promo_membership_pct = parser.GetValue<int>("manager_promo_membership_pct");
-      manager_analytics_interval = parser.GetValue<int>("manager_analytics_interval");
+      analytics_interval = parser.GetValue<int>("analytics_interval");
+      enable_membership_analytics = parser.GetValue<bool>("enable_membership_analytics");
       manager_batch_size_min = parser.GetValue<int>("manager_batch_size_min");
       manager_batch_size_max = parser.GetValue<int>("manager_batch_size_max");
 
@@ -1631,6 +1643,26 @@ namespace ds2xdriver
           Thread.Sleep(500);
           return;
         }
+      }
+
+      // Create and start analytics threads if enabled (one per store)
+      Analytics[] analytics = new Analytics[GlobalConstants.MAX_STORES];
+      Thread[] analytics_threads = new Thread[GlobalConstants.MAX_STORES];
+      if (analytics_interval > 0)
+      {
+        Console.WriteLine("Controller ({0}): creating analytics threads", DateTime.Now);
+        for (i = 0, server_id = 0; i < n_stores; i++)
+        {
+          analytics[i] = new Analytics(i, server_id, i + 1);
+          analytics_threads[i] = new Thread(new ThreadStart(analytics[i].RunAnalytics));
+          analytics_threads[i].Start();
+
+          // Round-robin across servers
+          server_id++;
+          if (server_id >= n_target_servers)
+            server_id = 0;
+        }
+        Console.WriteLine("Controller ({0}): {1} analytics thread(s) started", DateTime.Now, n_stores);
       }
 
       Console.WriteLine("Controller ({0}): all threads connected - issuing Start", DateTime.Now);
@@ -2065,6 +2097,7 @@ namespace ds2xdriver
       //  "rt_login_avg_msec={9} rt_newcust_avg_msec={10} rt_browse_avg_msec={11} rt_purchase_avg_msec={12} " +
       //  "n_rollbacks_overall={13} rollback_rate = {14,5:F1}%  ",
       // Print final statistics
+      /*
       Console.WriteLine("\n========================================================================");
       Console.WriteLine("                    FINAL RESULTS - {0}", DateTime.Now);
       Console.WriteLine("========================================================================");
@@ -2092,6 +2125,7 @@ namespace ds2xdriver
       Console.WriteLine("  Total (max last {0}): {1,7:F3} sec", GlobalConstants.LAST_N, rt_tot_lastn_max_msec / 1000.0);
       Console.WriteLine("  Total (sampled):      {0,7:F3} sec", rt_tot_sampled);
       Console.WriteLine("========================================================================\n");
+      */
 
       if (outfilename != string.Empty)
       {
@@ -2237,6 +2271,34 @@ namespace ds2xdriver
       }
       Console.WriteLine("Controller ({0}): all user threads completed", DateTime.Now);
 
+      Console.WriteLine("\n========================================================================");
+      Console.WriteLine("                    FINAL RESULTS - {0}", DateTime.Now);
+      Console.WriteLine("========================================================================");
+      Console.WriteLine("Elapsed Time:           {0,7:F1} sec", et);
+      Console.WriteLine("Total Orders:           {0,7}", n_overall);
+      Console.WriteLine("Orders Per Minute:      {0,7} OPM", opm);
+      Console.WriteLine();
+      Console.WriteLine("Customer Operations:");
+      Console.WriteLine("  Login:                {0,7} operations, avg RT: {1:F3} sec", n_login_overall, rt_login_avg_msec / 1000.0);
+      Console.WriteLine("  New Customer:         {0,7} operations, avg RT: {1:F3} sec", n_newcust_overall, rt_newcust_avg_msec / 1000.0);
+      Console.WriteLine("  Renew Membership:     {0,7} operations, avg RT: {1:F3} sec", n_membershiprenew_overall, rt_membershiprenew_avg_msec / 1000.0);
+      Console.WriteLine("  New Member:           {0,7} operations, avg RT: {1:F3} sec", n_newmember_overall, rt_newmember_avg_msec / 1000.0);
+      Console.WriteLine("  Browse:               {0,7} operations, avg RT: {1:F3} sec", n_browse_overall, rt_browse_avg_msec / 1000.0);
+      if (n_vectors == 1)
+      {
+        Console.WriteLine("  Browse (vector):      {0,7} operations", n_browse_vector);
+      }
+      Console.WriteLine("  Review Browse:        {0,7} operations, avg RT: {1:F3} sec", n_reviewbrowse_overall, rt_reviewbrowse_avg_msec / 1000.0);
+      Console.WriteLine("  New Review:           {0,7} operations, avg RT: {1:F3} sec", n_newreview_overall, rt_newreview_avg_msec / 1000.0);
+      Console.WriteLine("  New Helpfulness:      {0,7} operations, avg RT: {1:F3} sec", n_newhelpfulness_overall, rt_newhelpfulness_avg_msec / 1000.0);
+      Console.WriteLine("  Purchase:             {0,7} operations, avg RT: {1:F3} sec", n_purchase_overall, rt_purchase_avg_msec / 1000.0);
+      Console.WriteLine("  Rollbacks:            {0,7} ({1,4:F1}%)", n_rollbacks_overall, (100.0 * n_rollbacks_overall) / n_overall);
+      Console.WriteLine();
+      Console.WriteLine("  Total (avg):          {0,7:F3} sec", rt_tot_avg_msec / 1000.0);
+      Console.WriteLine("  Total (max last {0}): {1,7:F3} sec", GlobalConstants.LAST_N, rt_tot_lastn_max_msec / 1000.0);
+      Console.WriteLine("  Total (sampled):      {0,7:F3} sec", rt_tot_sampled);
+      Console.WriteLine("========================================================================\n");
+
       // Wait for all manager threads to complete
       if (enable_managers)
       {
@@ -2249,6 +2311,20 @@ namespace ds2xdriver
           }
         }
         Console.WriteLine("Controller ({0}): all manager threads completed", DateTime.Now);
+      }
+
+      // Wait for all analytics threads to complete
+      if (analytics_interval > 0)
+      {
+        Console.WriteLine("Controller ({0}): waiting for analytics threads to complete...", DateTime.Now);
+        for (i = 0; i < n_stores; i++)
+        {
+          if (analytics_threads[i] != null && analytics_threads[i].IsAlive)
+          {
+            analytics_threads[i].Join();
+          }
+        }
+        Console.WriteLine("Controller ({0}): all analytics threads completed", DateTime.Now);
       }
 
       Console.WriteLine("Controller ({0}): all threads stopped, exiting", DateTime.Now);
@@ -2301,7 +2377,7 @@ namespace ds2xdriver
           Console.WriteLine($"  Validation output saved to: {validationOutputFile}");
         }
 
-        Console.WriteLine("Validation complete.");
+        Console.WriteLine("Validation complete.\n");
       }
 
       Console.WriteLine("n_purchase_from_start= {0} n_rollbacks_from_start= {1}", n_purchase_from_start, n_rollbacks_from_start);
@@ -2469,12 +2545,21 @@ namespace ds2xdriver
         Console.WriteLine($"    PurgeOldOrders={manager_purge_old_orders_pct}%");
         Console.WriteLine($"    UpgradeMembership={manager_upgrade_membership_pct}%");
         Console.WriteLine($"    PromotionalMembership={manager_promo_membership_pct}%");
-        Console.WriteLine($"  Analytics: {(manager_analytics_interval > 0 ? $"every {manager_analytics_interval} min" : "DISABLED")}");
         Console.WriteLine($"  Batch size: {manager_batch_size_min}-{manager_batch_size_max}");
       }
       else
       {
         Console.WriteLine($"Manager threads: DISABLED");
+      }
+      if (analytics_interval > 0)
+      {
+        Console.WriteLine($"Analytics: ENABLED");
+        Console.WriteLine($"  Interval: {analytics_interval} minutes");
+        Console.WriteLine($"  Membership analytics: {(enable_membership_analytics ? "ENABLED" : "DISABLED")}");
+      }
+      else
+      {
+        Console.WriteLine($"Analytics: DISABLED");
       }
       Console.WriteLine("============================\n");
     }
