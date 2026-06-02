@@ -1355,6 +1355,29 @@ namespace ds2xdriver
     //
     //-------------------------------------------------------------------------------------------------
     //
+    public long ds2getrowcount(string tablename)
+    {
+      long count = 0;
+      try
+      {
+        // SQL Server: dbo.PRODUCTS1
+        string sqlTable = "dbo." + tablename;
+        using (SqlCommand cmd = new SqlCommand($"SELECT COUNT(*) FROM {sqlTable}", objConn))
+        {
+          count = Convert.ToInt64(cmd.ExecuteScalar());
+        }
+      }
+      catch (Exception e)
+      {
+        Console.WriteLine($"Thread {Thread.CurrentThread.Name}: ds2getrowcount({tablename}) error: {e.Message}");
+        throw;
+      }
+      return count;
+    }
+
+    //
+    //-------------------------------------------------------------------------------------------------
+    //
     public static string GetDatabaseType()
     {
       return "sqlserver";

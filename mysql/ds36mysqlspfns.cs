@@ -1342,6 +1342,28 @@ namespace ds2xdriver
     //
     //-------------------------------------------------------------------------------------------------
     //
+    public long ds2getrowcount(string tablename)
+    {
+      long count = 0;
+      try
+      {
+        // MySQL: PRODUCTS1 (no schema prefix)
+        using (MySqlCommand cmd = new MySqlCommand($"SELECT COUNT(*) FROM {tablename}", objConn))
+        {
+          count = Convert.ToInt64(cmd.ExecuteScalar());
+        }
+      }
+      catch (Exception e)
+      {
+        Console.WriteLine($"Thread {Thread.CurrentThread.Name}: ds2getrowcount({tablename}) error: {e.Message}");
+        throw;
+      }
+      return count;
+    }
+
+    //
+    //-------------------------------------------------------------------------------------------------
+    //
     public static string GetDatabaseType()
     {
       return "mysql";

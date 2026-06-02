@@ -1353,11 +1353,13 @@ namespace ds2xdriver
       // Display configuration summary
       DisplayConfiguration();
 
+      /*
       for (i = 0; i < GlobalConstants.MAX_STORES+1; i++) // we use the store number 1-N for the index. Element 0 not used.
       {
         max_product[i] = product_rows;
         max_customer[i] = customer_rows;
       }
+      */
 
       //Changed by GSK (size of array prod_array = number of rows in product table + (10000 * 10)
       //Reason : Every 10000th product will be popular and will have 10 entries in list
@@ -2839,6 +2841,16 @@ namespace ds2xdriver
       //Console.WriteLine ( "Thread {0}: connected to {1}" , Thread.CurrentThread.Name , Controller.target );
       //Changed by GSK
       Console.WriteLine("Thread {0}: connected to {1}", Thread.CurrentThread.Name, Controller.target_servers[target_server_id].ToString());
+
+      if (Userid == 0)
+      {
+        for (i = 1; i <= Controller.n_stores; i++) // we use the store number 1-N for the index. Element 0 not used.
+        {
+          Controller.max_product[i] = (int)ds2interfaces[Userid].ds2getrowcount("PRODUCTS" + i) ;
+          Controller.max_customer[i] = (int)ds2interfaces[Userid].ds2getrowcount("CUSTOMERS" + i) ;
+          // Console.WriteLine("Store {0}\n  Customers: {1}\n  Products: {2}", i, Controller.max_customer[i], Controller.max_product[i] ); 
+        }
+      }
 
       lock (typeof(User))  // Only allow one instance of User to access this code at a time
       {
