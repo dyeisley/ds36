@@ -44,6 +44,14 @@ namespace ds2xdriver
     public decimal TotalRevenue { get; set; }
   }
 
+  public class NewCustomerAnalyticsRow
+  {
+    public long Created { get; set; }
+    public long TwoPlus { get; set; }
+    public long ThreePlus { get; set; }
+    public long TotalOrders { get; set; }
+  }
+
   /// <summary>
   /// ds2pgsqlfns.cs: DVD Store 3 postgreSQL Functions
   /// </summary>
@@ -57,7 +65,7 @@ namespace ds2xdriver
     NpgsqlCommand Login, New_Customer, Browse_By_Category, Browse_By_Actor, Browse_By_Title, Browse_By_Membership, Purchase;
     NpgsqlCommand New_Member, Get_Membership_Status, Renew_Membership, New_Prod_Review, New_Review_Helpfulness, New_Product;
     NpgsqlCommand Get_Prod_Reviews, Get_Prod_Reviews_By_Date, Get_Prod_Reviews_By_Stars, Get_Prod_Reviews_By_Actor, Get_Prod_Reviews_By_Title;
-    NpgsqlCommand Remove_Review_By_Product, Remove_Unhelpful_Reviews, Remove_Reviews_By_Date, Adjust_Prices, Bulk_Price_Adjustment, Mark_Specials, Expire_Memberships, Purge_Old_Orders, Upgrade_Membership, Promotional_Membership, Get_Membership_Analytics;
+    NpgsqlCommand Remove_Review_By_Product, Remove_Unhelpful_Reviews, Remove_Reviews_By_Date, Adjust_Prices, Bulk_Price_Adjustment, Mark_Specials, Expire_Memberships, Purge_Old_Orders, Upgrade_Membership, Promotional_Membership, Get_Membership_Analytics, Get_New_Customer_Analytics;
     NpgsqlCommand[] CostQuery = new NpgsqlCommand[11];
 
     //
@@ -273,6 +281,9 @@ namespace ds2xdriver
       Promotional_Membership.Parameters.Add("p_batch_size", NpgsqlDbType.Integer);
 
       Get_Membership_Analytics = new NpgsqlCommand("SELECT * FROM getmembershipanalytics" + target_store_number + "()", objConn);
+
+      Get_New_Customer_Analytics = new NpgsqlCommand("SELECT * FROM getnewcustomeranalytics" + target_store_number + "(@customers_baseline)", objConn);
+      Get_New_Customer_Analytics.Parameters.Add("customers_baseline", NpgsqlDbType.Bigint);
     }
 
     //
@@ -1281,6 +1292,45 @@ namespace ds2xdriver
         rt = timer.Elapsed.TotalSeconds;
       }
       return results;
+    }
+
+    //
+    //-------------------------------------------------------------------------------------------------
+    //
+    public NewCustomerAnalyticsRow ds36getnewcustomeranalytics(long customers_baseline, ref double rt)
+    {
+      NewCustomerAnalyticsRow result = null;
+      Stopwatch timer = Stopwatch.StartNew();
+
+      try
+      {
+        Get_New_Customer_Analytics.Parameters["customers_baseline"].Value = customers_baseline;
+
+        using (NpgsqlDataReader reader = Get_New_Customer_Analytics.ExecuteReader())
+        {
+          if (reader.Read())
+          {
+            result = new NewCustomerAnalyticsRow
+            {
+              Created = reader.GetInt64(0),
+              TwoPlus = reader.GetInt64(1),
+              ThreePlus = reader.GetInt64(2),
+              TotalOrders = reader.GetInt64(3)
+            };
+          }
+        }
+      }
+      catch (Exception e)
+      {
+        Console.WriteLine($"Thread {Thread.CurrentThread.Name}: ds36getnewcustomeranalytics error: {e.Message}");
+        throw;
+      }
+      finally
+      {
+        rt = timer.Elapsed.TotalSeconds;
+      }
+
+      return result;
     }
 
     //

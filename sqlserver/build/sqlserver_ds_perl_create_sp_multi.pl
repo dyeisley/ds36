@@ -1239,6 +1239,36 @@ BEGIN
 END
 GO
 
+IF EXISTS (SELECT name FROM sysobjects WHERE name = 'GetNewCustomerAnalytics$k' AND type = 'P')
+  DROP PROCEDURE GetNewCustomerAnalytics$k
+GO
+CREATE PROCEDURE GetNewCustomerAnalytics$k
+  \@customers_baseline BIGINT
+AS
+BEGIN
+  SET NOCOUNT ON;
+
+  WITH NewCustomerStats AS (
+    SELECT
+      CAST(COUNT(DISTINCT c.CUSTOMERID) AS BIGINT) AS Created,
+      CAST(COUNT(DISTINCT CASE WHEN o.OrderCount >= 2 THEN c.CUSTOMERID END) AS BIGINT) AS TwoPlus,
+      CAST(COUNT(DISTINCT CASE WHEN o.OrderCount > 2 THEN c.CUSTOMERID END) AS BIGINT) AS ThreePlus,
+      CAST(ISNULL(SUM(o.OrderCount), 0) AS BIGINT) AS TotalOrders
+    FROM CUSTOMERS$k c
+    LEFT JOIN (
+      SELECT CUSTOMERID,
+             COUNT(*) AS OrderCount
+      FROM ORDERS$k
+      WHERE CUSTOMERID > \@customers_baseline
+      GROUP BY CUSTOMERID
+    ) o ON c.CUSTOMERID = o.CUSTOMERID
+    WHERE c.CUSTOMERID > \@customers_baseline
+  )
+  SELECT Created, TwoPlus, ThreePlus, TotalOrders
+  FROM NewCustomerStats;
+END
+GO
+
 \n";
   close $OUT;
 }

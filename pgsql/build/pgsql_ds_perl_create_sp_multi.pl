@@ -1104,6 +1104,39 @@ END;
 \$\$
 LANGUAGE plpgsql;
 
+CREATE OR REPLACE FUNCTION getnewcustomeranalytics$k(
+  customers_baseline BIGINT
+)
+RETURNS TABLE (
+  Created BIGINT,
+  TwoPlus BIGINT,
+  ThreePlus BIGINT,
+  TotalOrders BIGINT
+) AS \$\$
+BEGIN
+  RETURN QUERY
+  WITH NewCustomerStats AS (
+    SELECT
+      COUNT(DISTINCT c.customerid) AS Created,
+      COUNT(DISTINCT CASE WHEN o.OrderCount >= 2 THEN c.customerid END) AS TwoPlus,
+      COUNT(DISTINCT CASE WHEN o.OrderCount > 2 THEN c.customerid END) AS ThreePlus,
+      COALESCE(SUM(o.OrderCount), 0) AS TotalOrders
+    FROM customers$k c
+    LEFT JOIN (
+      SELECT customerid,
+             COUNT(*) AS OrderCount
+      FROM orders$k
+      WHERE customerid > customers_baseline
+      GROUP BY customerid
+    ) o ON c.customerid = o.customerid
+    WHERE c.customerid > customers_baseline
+  )
+  SELECT ncs.Created::BIGINT, ncs.TwoPlus::BIGINT, ncs.ThreePlus::BIGINT, ncs.TotalOrders::BIGINT
+  FROM NewCustomerStats ncs;
+END;
+\$\$
+LANGUAGE plpgsql;
+
 \n";
 	close $OUT;
 	sleep(1);

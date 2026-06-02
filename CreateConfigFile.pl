@@ -48,6 +48,7 @@ my $manager_upgrade_membership_pct = 0;			#Percentage chance for UpgradeMembersh
 my $manager_promo_membership_pct = 0;			#Percentage chance for PromotionalMembership operation default = 0
 my $analytics_interval = 0;				#Analytics interval in minutes (0 = disabled) default = 0
 my $enable_membership_analytics = "Y";			#Enable membership analytics (Y/N) default = Y
+my $enable_newcustomer_analytics = "Y";			#Enable new customer analytics (Y/N) default = Y
 my $ds2_mode = "N";					#DS2 compatibility mode (3 browse types only) default = N
 my $validate_post_test = "Y";				#Run validation SQL after benchmark completes default = Y
 
@@ -136,6 +137,10 @@ if ($analytics_interval > 0)
 print "Enable membership analytics ( Y / N ) [Y] : ";
 chomp($enable_membership_analytics = <STDIN>);
 $enable_membership_analytics ||= "Y";
+
+print "Enable new customer analytics ( Y / N ) [Y] : ";
+chomp($enable_newcustomer_analytics = <STDIN>);
+$enable_newcustomer_analytics ||= "Y";
 }
 
 print "Enable manager operations ( Y / N ) [N] : ";
@@ -282,6 +287,9 @@ $line = "analytics_interval=".$analytics_interval;
 print NEWFILE $line;
 print NEWFILE $end_line;
 $line = "enable_membership_analytics=".$enable_membership_analytics;
+print NEWFILE $line;
+print NEWFILE $end_line;
+$line = "enable_newcustomer_analytics=".$enable_newcustomer_analytics;
 print NEWFILE $line;
 print NEWFILE $end_line;
 $line = "ds2_mode=".$ds2_mode;

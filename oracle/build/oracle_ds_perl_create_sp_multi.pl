@@ -1379,6 +1379,34 @@ BEGIN
 END;
 /
 
+CREATE OR REPLACE PROCEDURE DS3.GetNewCustomerAnalytics$k (
+    p_customers_baseline IN NUMBER,
+    p_cursor OUT SYS_REFCURSOR
+)
+AS
+BEGIN
+    OPEN p_cursor FOR
+    WITH NewCustomerStats AS (
+        SELECT
+            COUNT(DISTINCT c.CUSTOMERID) AS Created,
+            COUNT(DISTINCT CASE WHEN o.OrderCount >= 2 THEN c.CUSTOMERID END) AS TwoPlus,
+            COUNT(DISTINCT CASE WHEN o.OrderCount > 2 THEN c.CUSTOMERID END) AS ThreePlus,
+            NVL(SUM(o.OrderCount), 0) AS TotalOrders
+        FROM DS3.CUSTOMERS$k c
+        LEFT JOIN (
+            SELECT CUSTOMERID,
+                   COUNT(*) AS OrderCount
+            FROM DS3.ORDERS$k
+            WHERE CUSTOMERID > p_customers_baseline
+            GROUP BY CUSTOMERID
+        ) o ON c.CUSTOMERID = o.CUSTOMERID
+        WHERE c.CUSTOMERID > p_customers_baseline
+    )
+    SELECT Created, TwoPlus, ThreePlus, TotalOrders
+    FROM NewCustomerStats;
+END;
+/
+
 CREATE OR REPLACE TRIGGER \"DS3\".\"TRG_HELPFULNESS_SYNC$k\"
 AFTER INSERT OR UPDATE OR DELETE ON \"DS3\".\"REVIEWS_HELPFULNESS$k\"
 FOR EACH ROW

@@ -44,6 +44,14 @@ namespace ds2xdriver
     public decimal TotalRevenue { get; set; }
   }
 
+  public class NewCustomerAnalyticsRow
+  {
+    public long Created { get; set; }
+    public long TwoPlus { get; set; }
+    public long ThreePlus { get; set; }
+    public long TotalOrders { get; set; }
+  }
+
   /// <summary>
   /// ds3sqlserverfns.cs: DVD Store 3 SQL Server Functions
   /// </summary>
@@ -57,7 +65,7 @@ namespace ds2xdriver
     SqlCommand Get_Prod_Reviews, Get_Prod_Reviews_By_Actor, Get_Prod_Reviews_By_Title, Get_Prod_Reviews_By_Date, Get_Prod_Reviews_By_Stars;
     SqlCommand New_Member, New_Prod_Review, New_Review_Helpfulness;
     SqlCommand Get_Membership_Status, Renew_Membership;
-    SqlCommand Remove_Review_By_Product, Remove_Unhelpful_Reviews, Remove_Reviews_By_Date, Adjust_Prices, Bulk_Price_Adjustment, Mark_Specials, Expire_Memberships, Purge_Old_Orders, Upgrade_Membership, Promotional_Membership, Get_Membership_Analytics;
+    SqlCommand Remove_Review_By_Product, Remove_Unhelpful_Reviews, Remove_Reviews_By_Date, Adjust_Prices, Bulk_Price_Adjustment, Mark_Specials, Expire_Memberships, Purge_Old_Orders, Upgrade_Membership, Promotional_Membership, Get_Membership_Analytics, Get_New_Customer_Analytics;
     SqlCommand[] CostQuery = new SqlCommand[11];
 
     //
@@ -279,6 +287,10 @@ namespace ds2xdriver
 
       Get_Membership_Analytics = new SqlCommand("GetMembershipAnalytics" + target_store_number, objConn);
       Get_Membership_Analytics.CommandType = CommandType.StoredProcedure;
+
+      Get_New_Customer_Analytics = new SqlCommand("GetNewCustomerAnalytics" + target_store_number, objConn);
+      Get_New_Customer_Analytics.CommandType = CommandType.StoredProcedure;
+      Get_New_Customer_Analytics.Parameters.Add("@customers_baseline", SqlDbType.BigInt);
 
       Bulk_Price_Adjustment = new SqlCommand("BulkPriceAdjustment" + target_store_number, objConn);
       Bulk_Price_Adjustment.CommandType = CommandType.StoredProcedure;
@@ -1342,6 +1354,45 @@ namespace ds2xdriver
       catch (Exception e)
       {
         Console.WriteLine($"Thread {Thread.CurrentThread.Name}: ds36getmembershipanalytics error: {e.Message}");
+        throw;
+      }
+      finally
+      {
+        rt = timer.Elapsed.TotalSeconds;
+      }
+
+      return result;
+    }
+
+    //
+    //-------------------------------------------------------------------------------------------------
+    //
+    public NewCustomerAnalyticsRow ds36getnewcustomeranalytics(long customers_baseline, ref double rt)
+    {
+      NewCustomerAnalyticsRow result = null;
+      Stopwatch timer = Stopwatch.StartNew();
+
+      try
+      {
+        Get_New_Customer_Analytics.Parameters["@customers_baseline"].Value = customers_baseline;
+
+        using (SqlDataReader reader = Get_New_Customer_Analytics.ExecuteReader())
+        {
+          if (reader.Read())
+          {
+            result = new NewCustomerAnalyticsRow
+            {
+              Created = reader.GetInt64(0),
+              TwoPlus = reader.GetInt64(1),
+              ThreePlus = reader.GetInt64(2),
+              TotalOrders = reader.GetInt64(3)
+            };
+          }
+        }
+      }
+      catch (Exception e)
+      {
+        Console.WriteLine($"Thread {Thread.CurrentThread.Name}: ds36getnewcustomeranalytics error: {e.Message}");
         throw;
       }
       finally

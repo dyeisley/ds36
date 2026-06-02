@@ -175,6 +175,7 @@ namespace ds2xdriver
     public static int manager_promo_membership_pct = 0;
     public static int analytics_interval = 0;
     public static bool enable_membership_analytics = true;
+    public static bool enable_newcustomer_analytics = true;
     public static int manager_batch_size_min = 10;
     public static int manager_batch_size_max = 100;
 
@@ -830,6 +831,16 @@ namespace ds2xdriver
         Validator = ValidateYesNo
       };
 
+      // enable_newcustomer_analytics - enable new customer analytics
+      definitions["enable_newcustomer_analytics"] = new ParameterDefinition
+      {
+        Name = "enable_newcustomer_analytics",
+        Description = "Enable new customer analytics (y/n)",
+        DefaultValue = "Y",
+        Type = ParamType.Boolean,
+        Validator = ValidateYesNo
+      };
+
       // manager_batch_size_min - minimum batch size for manager operations
       definitions["manager_batch_size_min"] = new ParameterDefinition
       {
@@ -1347,6 +1358,7 @@ namespace ds2xdriver
       manager_promo_membership_pct = parser.GetValue<int>("manager_promo_membership_pct");
       analytics_interval = parser.GetValue<int>("analytics_interval");
       enable_membership_analytics = parser.GetValue<bool>("enable_membership_analytics");
+      enable_newcustomer_analytics = parser.GetValue<bool>("enable_newcustomer_analytics");
       manager_batch_size_min = parser.GetValue<int>("manager_batch_size_min");
       manager_batch_size_max = parser.GetValue<int>("manager_batch_size_max");
 
@@ -2558,6 +2570,7 @@ namespace ds2xdriver
         Console.WriteLine($"Analytics: ENABLED");
         Console.WriteLine($"  Interval: {analytics_interval} minutes");
         Console.WriteLine($"  Membership analytics: {(enable_membership_analytics ? "ENABLED" : "DISABLED")}");
+        Console.WriteLine($"  New customer analytics: {(enable_newcustomer_analytics ? "ENABLED" : "DISABLED")}");
       }
       else
       {

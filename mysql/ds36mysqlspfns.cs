@@ -34,6 +34,14 @@ namespace ds2xdriver
     public decimal TotalRevenue { get; set; }
   }
 
+  public class NewCustomerAnalyticsRow
+  {
+    public long Created { get; set; }
+    public long TwoPlus { get; set; }
+    public long ThreePlus { get; set; }
+    public long TotalOrders { get; set; }
+  }
+
   /// <summary>
   /// ds35mysqlspfns.cs: DVD Store 3.5 MySql Functions
   /// </summary>
@@ -48,7 +56,7 @@ namespace ds2xdriver
     MySqlCommand Login, New_Customer, New_Member, Get_Membership_Status, Renew_Membership, New_Review, New_Helpfulness, New_Product, Purchase;
     MySqlCommand BrowseReviews_by_title, BrowseReviews_by_actor, Get_Prod_Reviews, Get_Reviews_by_stars;
     MySqlCommand Get_Reviews_by_date, Browse_by_title, Browse_by_actor, Browse_by_category, Browse_by_membership, Browse_by_vector;
-    MySqlCommand Remove_Review_By_Product, Remove_Unhelpful_Reviews, Remove_Reviews_By_Date, Adjust_Prices, Bulk_Price_Adjustment, Mark_Specials, Expire_Memberships, Purge_Old_Orders, Upgrade_Membership, Promotional_Membership, Get_Membership_Analytics;
+    MySqlCommand Remove_Review_By_Product, Remove_Unhelpful_Reviews, Remove_Reviews_By_Date, Adjust_Prices, Bulk_Price_Adjustment, Mark_Specials, Expire_Memberships, Purge_Old_Orders, Upgrade_Membership, Promotional_Membership, Get_Membership_Analytics, Get_New_Customer_Analytics;
     MySqlParameter cust_out_param, member_out_param, reviewid_out_param, helpfulnessid_out_param, neworder_out_param;
     MySqlCommand[] CostQuery = new MySqlCommand[11];
 
@@ -297,6 +305,10 @@ namespace ds2xdriver
 
       Get_Membership_Analytics = new MySqlCommand("DS3.GetMembershipAnalytics" + target_store_number, objConn);
       Get_Membership_Analytics.CommandType = CommandType.StoredProcedure;
+
+      Get_New_Customer_Analytics = new MySqlCommand("DS3.GetNewCustomerAnalytics" + target_store_number, objConn);
+      Get_New_Customer_Analytics.CommandType = CommandType.StoredProcedure;
+      Get_New_Customer_Analytics.Parameters.Add("customers_baseline", MySqlDbType.Int64);
     }
 
     //
@@ -1329,6 +1341,45 @@ namespace ds2xdriver
       catch (Exception e)
       {
         Console.WriteLine($"Thread {Thread.CurrentThread.Name}: ds36getmembershipanalytics error: {e.Message}");
+        throw;
+      }
+      finally
+      {
+        rt = timer.Elapsed.TotalSeconds;
+      }
+
+      return result;
+    }
+
+    //
+    //-------------------------------------------------------------------------------------------------
+    //
+    public NewCustomerAnalyticsRow ds36getnewcustomeranalytics(long customers_baseline, ref double rt)
+    {
+      NewCustomerAnalyticsRow result = null;
+      Stopwatch timer = Stopwatch.StartNew();
+
+      try
+      {
+        Get_New_Customer_Analytics.Parameters["customers_baseline"].Value = customers_baseline;
+
+        using (MySqlDataReader reader = Get_New_Customer_Analytics.ExecuteReader())
+        {
+          if (reader.Read())
+          {
+            result = new NewCustomerAnalyticsRow
+            {
+              Created = reader.GetInt64(0),
+              TwoPlus = reader.GetInt64(1),
+              ThreePlus = reader.GetInt64(2),
+              TotalOrders = reader.GetInt64(3)
+            };
+          }
+        }
+      }
+      catch (Exception e)
+      {
+        Console.WriteLine($"Thread {Thread.CurrentThread.Name}: ds36getnewcustomeranalytics error: {e.Message}");
         throw;
       }
       finally

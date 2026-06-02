@@ -1019,6 +1019,34 @@ BEGIN
   ORDER BY CASE WHEN m.MEMBERSHIPTYPE IS NULL THEN -1 ELSE m.MEMBERSHIPTYPE END DESC;
 END $$
 
+DROP PROCEDURE IF EXISTS DS3.GetNewCustomerAnalytics$k $$
+CREATE PROCEDURE DS3.GetNewCustomerAnalytics$k(
+  IN customers_baseline BIGINT UNSIGNED
+)
+BEGIN
+  -- Use READ UNCOMMITTED to avoid locking CUSTOMERS table (analytics is read-only, dirty reads acceptable)
+  SET SESSION TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
+
+  WITH NewCustomerStats AS (
+    SELECT
+      COUNT(DISTINCT c.CUSTOMERID) AS Created,
+      COUNT(DISTINCT CASE WHEN o.OrderCount >= 2 THEN c.CUSTOMERID END) AS TwoPlus,
+      COUNT(DISTINCT CASE WHEN o.OrderCount > 2 THEN c.CUSTOMERID END) AS ThreePlus,
+      IFNULL(SUM(o.OrderCount), 0) AS TotalOrders
+    FROM CUSTOMERS$k c
+    LEFT JOIN (
+      SELECT CUSTOMERID,
+             COUNT(*) AS OrderCount
+      FROM ORDERS$k
+      WHERE CUSTOMERID > customers_baseline
+      GROUP BY CUSTOMERID
+    ) o ON c.CUSTOMERID = o.CUSTOMERID
+    WHERE c.CUSTOMERID > customers_baseline
+  )
+  SELECT Created, TwoPlus, ThreePlus, TotalOrders
+  FROM NewCustomerStats;
+END $$
+
 \n";
   close $OUT;
   sleep(1);
