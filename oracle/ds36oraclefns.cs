@@ -50,6 +50,16 @@ namespace ds2xdriver
     public long TotalOrders { get; set; }
   }
 
+  public class ReviewAnalyticsRow
+  {
+    public int Stars { get; set; }
+    public long Reviews { get; set; }
+    public long Added { get; set; }
+    public decimal AvgHelp { get; set; }
+    public long HighHelp { get; set; }
+    public long LowHelp { get; set; }
+  }
+
   /// <summary>
   /// ds2oraclefns.cs: DVD Store 3 Oracle Functions
   /// </summary>
@@ -60,7 +70,7 @@ namespace ds2xdriver
     OracleCommand Login, New_Customer, Browse_By_Category, Browse_By_Actor, Browse_By_Title, Browse_By_Membership, New_Product, Purchase;
     OracleCommand Get_Prod_Reviews, Get_Prod_Reviews_By_Actor, Get_Prod_Reviews_By_Title, Get_Prod_Reviews_By_Date, Get_Prod_Reviews_By_Stars;
     OracleCommand New_Member, Get_Membership_Status, Renew_Membership, New_Prod_Review, New_Review_Helpfulness;
-    OracleCommand Remove_Review_By_Product, Remove_Unhelpful_Reviews, Remove_Reviews_By_Date, Adjust_Prices, Bulk_Price_Adjustment, Mark_Specials, Expire_Memberships, Purge_Old_Orders, Upgrade_Membership, Promotional_Membership, Get_Membership_Analytics, Get_New_Customer_Analytics;
+    OracleCommand Remove_Review_By_Product, Remove_Unhelpful_Reviews, Remove_Reviews_By_Date, Adjust_Prices, Bulk_Price_Adjustment, Mark_Specials, Expire_Memberships, Purge_Old_Orders, Upgrade_Membership, Promotional_Membership, Get_Membership_Analytics, Get_New_Customer_Analytics, Get_Review_Analytics;
 
     OracleParameter[] New_Customer_prm = new OracleParameter[20];
     OracleParameter[] Purchase_prm = new OracleParameter[6];
@@ -340,6 +350,11 @@ namespace ds2xdriver
       Get_New_Customer_Analytics.CommandType = CommandType.StoredProcedure;
       Get_New_Customer_Analytics.Parameters.Add("p_customers_baseline", OracleDbType.Int64);
       Get_New_Customer_Analytics.Parameters.Add("p_cursor", OracleDbType.RefCursor, ParameterDirection.Output);
+
+      Get_Review_Analytics = new OracleCommand("DS3.GetReviewAnalytics" + target_store_number, objConn);
+      Get_Review_Analytics.CommandType = CommandType.StoredProcedure;
+      Get_Review_Analytics.Parameters.Add("p_reviewid_baseline", OracleDbType.Int64);
+      Get_Review_Analytics.Parameters.Add("p_cursor", OracleDbType.RefCursor, ParameterDirection.Output);
     }
 
     //
@@ -1423,6 +1438,48 @@ namespace ds2xdriver
     //
     //-------------------------------------------------------------------------------------------------
     //
+    public List<ReviewAnalyticsRow> ds36getreviewanalytics(long reviewid_baseline, ref double rt)
+    {
+      var result = new List<ReviewAnalyticsRow>();
+      Stopwatch timer = Stopwatch.StartNew();
+
+      try
+      {
+        Get_Review_Analytics.Parameters["p_reviewid_baseline"].Value = reviewid_baseline;
+
+        Get_Review_Analytics.ExecuteNonQuery();
+        using (OracleDataReader reader = ((Oracle.ManagedDataAccess.Types.OracleRefCursor)Get_Review_Analytics.Parameters["p_cursor"].Value).GetDataReader())
+        {
+          while (reader.Read())
+          {
+            result.Add(new ReviewAnalyticsRow
+            {
+              Stars = reader.GetInt32(0),
+              Reviews = reader.GetInt64(1),
+              Added = reader.GetInt64(2),
+              AvgHelp = reader.GetDecimal(3),
+              HighHelp = reader.GetInt64(4),
+              LowHelp = reader.GetInt64(5)
+            });
+          }
+        }
+      }
+      catch (Exception e)
+      {
+        Console.WriteLine($"Thread {Thread.CurrentThread.Name}: ds36getreviewanalytics error: {e.Message}");
+        throw;
+      }
+      finally
+      {
+        rt = timer.Elapsed.TotalSeconds;
+      }
+
+      return result;
+    }
+
+    //
+    //-------------------------------------------------------------------------------------------------
+    //
     public long ds2getrowcount(string tablename)
     {
       long count = 0;
@@ -1441,6 +1498,29 @@ namespace ds2xdriver
         throw;
       }
       return count;
+    }
+
+    //
+    //-------------------------------------------------------------------------------------------------
+    //
+    public long ds2getmaxid(string tablename, string columnname)
+    {
+      long maxid = 0;
+      try
+      {
+        // Oracle: DS3.REVIEWS1, REVIEW_ID
+        string oracleTable = "DS3." + tablename;
+        using (OracleCommand cmd = new OracleCommand($"SELECT NVL(MAX({columnname}), 0) FROM {oracleTable}", objConn))
+        {
+          maxid = Convert.ToInt64(cmd.ExecuteScalar());
+        }
+      }
+      catch (Exception e)
+      {
+        Console.WriteLine($"Thread {Thread.CurrentThread.Name}: ds2getmaxid({tablename}, {columnname}) error: {e.Message}");
+        throw;
+      }
+      return maxid;
     }
 
     //

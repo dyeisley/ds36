@@ -42,6 +42,16 @@ namespace ds2xdriver
     public long TotalOrders { get; set; }
   }
 
+  public class ReviewAnalyticsRow
+  {
+    public int Stars { get; set; }
+    public long Reviews { get; set; }
+    public long Added { get; set; }
+    public decimal AvgHelp { get; set; }
+    public long HighHelp { get; set; }
+    public long LowHelp { get; set; }
+  }
+
   /// <summary>
   /// ds35mysqlspfns.cs: DVD Store 3.5 MySql Functions
   /// </summary>
@@ -56,7 +66,7 @@ namespace ds2xdriver
     MySqlCommand Login, New_Customer, New_Member, Get_Membership_Status, Renew_Membership, New_Review, New_Helpfulness, New_Product, Purchase;
     MySqlCommand BrowseReviews_by_title, BrowseReviews_by_actor, Get_Prod_Reviews, Get_Reviews_by_stars;
     MySqlCommand Get_Reviews_by_date, Browse_by_title, Browse_by_actor, Browse_by_category, Browse_by_membership, Browse_by_vector;
-    MySqlCommand Remove_Review_By_Product, Remove_Unhelpful_Reviews, Remove_Reviews_By_Date, Adjust_Prices, Bulk_Price_Adjustment, Mark_Specials, Expire_Memberships, Purge_Old_Orders, Upgrade_Membership, Promotional_Membership, Get_Membership_Analytics, Get_New_Customer_Analytics;
+    MySqlCommand Remove_Review_By_Product, Remove_Unhelpful_Reviews, Remove_Reviews_By_Date, Adjust_Prices, Bulk_Price_Adjustment, Mark_Specials, Expire_Memberships, Purge_Old_Orders, Upgrade_Membership, Promotional_Membership, Get_Membership_Analytics, Get_New_Customer_Analytics, Get_Review_Analytics;
     MySqlParameter cust_out_param, member_out_param, reviewid_out_param, helpfulnessid_out_param, neworder_out_param;
     MySqlCommand[] CostQuery = new MySqlCommand[11];
 
@@ -309,6 +319,10 @@ namespace ds2xdriver
       Get_New_Customer_Analytics = new MySqlCommand("DS3.GetNewCustomerAnalytics" + target_store_number, objConn);
       Get_New_Customer_Analytics.CommandType = CommandType.StoredProcedure;
       Get_New_Customer_Analytics.Parameters.Add("customers_baseline", MySqlDbType.Int64);
+
+      Get_Review_Analytics = new MySqlCommand("DS3.GetReviewAnalytics" + target_store_number, objConn);
+      Get_Review_Analytics.CommandType = CommandType.StoredProcedure;
+      Get_Review_Analytics.Parameters.Add("reviewid_baseline", MySqlDbType.Int64);
     }
 
     //
@@ -1393,6 +1407,47 @@ namespace ds2xdriver
     //
     //-------------------------------------------------------------------------------------------------
     //
+    public List<ReviewAnalyticsRow> ds36getreviewanalytics(long reviewid_baseline, ref double rt)
+    {
+      var result = new List<ReviewAnalyticsRow>();
+      Stopwatch timer = Stopwatch.StartNew();
+
+      try
+      {
+        Get_Review_Analytics.Parameters["reviewid_baseline"].Value = reviewid_baseline;
+
+        using (MySqlDataReader reader = Get_Review_Analytics.ExecuteReader())
+        {
+          while (reader.Read())
+          {
+            result.Add(new ReviewAnalyticsRow
+            {
+              Stars = reader.GetInt32(0),
+              Reviews = reader.GetInt64(1),
+              Added = reader.GetInt64(2),
+              AvgHelp = reader.GetDecimal(3),
+              HighHelp = reader.GetInt64(4),
+              LowHelp = reader.GetInt64(5)
+            });
+          }
+        }
+      }
+      catch (Exception e)
+      {
+        Console.WriteLine($"Thread {Thread.CurrentThread.Name}: ds36getreviewanalytics error: {e.Message}");
+        throw;
+      }
+      finally
+      {
+        rt = timer.Elapsed.TotalSeconds;
+      }
+
+      return result;
+    }
+
+    //
+    //-------------------------------------------------------------------------------------------------
+    //
     public long ds2getrowcount(string tablename)
     {
       long count = 0;
@@ -1521,7 +1576,29 @@ namespace ds2xdriver
     //
     //-------------------------------------------------------------------------------------------------
     //
-    public bool ds2close()
+        //
+    //-------------------------------------------------------------------------------------------------
+    //
+    public long ds2getmaxid(string tablename, string columnname)
+    {
+      long maxid = 0;
+      try
+      {
+        // MySQL: REVIEWS1, REVIEWID (no schema prefix)
+        using (MySqlCommand cmd = new MySqlCommand($"SELECT IFNULL(MAX({columnname}), 0) FROM {tablename}", objConn))
+        {
+          maxid = Convert.ToInt64(cmd.ExecuteScalar());
+        }
+      }
+      catch (Exception e)
+      {
+        Console.WriteLine($"Thread {Thread.CurrentThread.Name}: ds2getmaxid({tablename}, {columnname}) error: {e.Message}");
+        throw;
+      }
+      return maxid;
+    }
+
+public bool ds2close()
     {
       if (objConn != null && objConn.State == ConnectionState.Open)
       {

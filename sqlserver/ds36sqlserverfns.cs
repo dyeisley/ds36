@@ -52,6 +52,16 @@ namespace ds2xdriver
     public long TotalOrders { get; set; }
   }
 
+  public class ReviewAnalyticsRow
+  {
+    public int Stars { get; set; }
+    public long Reviews { get; set; }
+    public long Added { get; set; }
+    public decimal AvgHelp { get; set; }
+    public long HighHelp { get; set; }
+    public long LowHelp { get; set; }
+  }
+
   /// <summary>
   /// ds3sqlserverfns.cs: DVD Store 3 SQL Server Functions
   /// </summary>
@@ -65,7 +75,8 @@ namespace ds2xdriver
     SqlCommand Get_Prod_Reviews, Get_Prod_Reviews_By_Actor, Get_Prod_Reviews_By_Title, Get_Prod_Reviews_By_Date, Get_Prod_Reviews_By_Stars;
     SqlCommand New_Member, New_Prod_Review, New_Review_Helpfulness;
     SqlCommand Get_Membership_Status, Renew_Membership;
-    SqlCommand Remove_Review_By_Product, Remove_Unhelpful_Reviews, Remove_Reviews_By_Date, Adjust_Prices, Bulk_Price_Adjustment, Mark_Specials, Expire_Memberships, Purge_Old_Orders, Upgrade_Membership, Promotional_Membership, Get_Membership_Analytics, Get_New_Customer_Analytics;
+    SqlCommand Remove_Review_By_Product, Remove_Unhelpful_Reviews, Remove_Reviews_By_Date, Adjust_Prices, Bulk_Price_Adjustment, Mark_Specials, Expire_Memberships, Purge_Old_Orders, Upgrade_Membership, Promotional_Membership;
+    SqlCommand Get_Membership_Analytics, Get_New_Customer_Analytics, Get_Review_Analytics;
     SqlCommand[] CostQuery = new SqlCommand[11];
 
     //
@@ -291,6 +302,10 @@ namespace ds2xdriver
       Get_New_Customer_Analytics = new SqlCommand("GetNewCustomerAnalytics" + target_store_number, objConn);
       Get_New_Customer_Analytics.CommandType = CommandType.StoredProcedure;
       Get_New_Customer_Analytics.Parameters.Add("@customers_baseline", SqlDbType.BigInt);
+
+      Get_Review_Analytics = new SqlCommand("GetReviewAnalytics" + target_store_number, objConn);
+      Get_Review_Analytics.CommandType = CommandType.StoredProcedure;
+      Get_Review_Analytics.Parameters.Add("@reviewid_baseline", SqlDbType.BigInt);
 
       Bulk_Price_Adjustment = new SqlCommand("BulkPriceAdjustment" + target_store_number, objConn);
       Bulk_Price_Adjustment.CommandType = CommandType.StoredProcedure;
@@ -1406,6 +1421,47 @@ namespace ds2xdriver
     //
     //-------------------------------------------------------------------------------------------------
     //
+    public List<ReviewAnalyticsRow> ds36getreviewanalytics(long reviewid_baseline, ref double rt)
+    {
+      var result = new List<ReviewAnalyticsRow>();
+      Stopwatch timer = Stopwatch.StartNew();
+
+      try
+      {
+        Get_Review_Analytics.Parameters["@reviewid_baseline"].Value = reviewid_baseline;
+
+        using (SqlDataReader reader = Get_Review_Analytics.ExecuteReader())
+        {
+          while (reader.Read())
+          {
+            result.Add(new ReviewAnalyticsRow
+            {
+              Stars = reader.GetInt32(0),
+              Reviews = reader.GetInt64(1),
+              Added = reader.GetInt64(2),
+              AvgHelp = reader.GetDecimal(3),
+              HighHelp = reader.GetInt64(4),
+              LowHelp = reader.GetInt64(5)
+            });
+          }
+        }
+      }
+      catch (Exception e)
+      {
+        Console.WriteLine($"Thread {Thread.CurrentThread.Name}: ds36getreviewanalytics error: {e.Message}");
+        throw;
+      }
+      finally
+      {
+        rt = timer.Elapsed.TotalSeconds;
+      }
+
+      return result;
+    }
+
+    //
+    //-------------------------------------------------------------------------------------------------
+    //
     public long ds2getrowcount(string tablename)
     {
       long count = 0;
@@ -1424,6 +1480,29 @@ namespace ds2xdriver
         throw;
       }
       return count;
+    }
+
+    //
+    //-------------------------------------------------------------------------------------------------
+    //
+    public long ds2getmaxid(string tablename, string columnname)
+    {
+      long maxid = 0;
+      try
+      {
+        // SQL Server: dbo.REVIEWS1, REVIEW_ID
+        string sqlTable = "dbo." + tablename;
+        using (SqlCommand cmd = new SqlCommand($"SELECT ISNULL(MAX({columnname}), 0) FROM {sqlTable}", objConn))
+        {
+          maxid = Convert.ToInt64(cmd.ExecuteScalar());
+        }
+      }
+      catch (Exception e)
+      {
+        Console.WriteLine($"Thread {Thread.CurrentThread.Name}: ds2getmaxid({tablename}, {columnname}) error: {e.Message}");
+        throw;
+      }
+      return maxid;
     }
 
     //

@@ -42,6 +42,8 @@ namespace ds2xdriver
     public double rt_membership_analytics = 0.0;
     public int n_newcustomer_analytics = 0;
     public double rt_newcustomer_analytics = 0.0;
+    public int n_review_analytics = 0;
+    public double rt_review_analytics = 0.0;
 
     // Analytics timing
     private DateTime test_start_time;
@@ -51,6 +53,8 @@ namespace ds2xdriver
     private Dictionary<int, (long orders, decimal revenue)> baseline_analytics = new Dictionary<int, (long, decimal)>();
     private long baseline_customer_count = 0;
     private long baseline_orders_count = 0;
+    private Dictionary<int, long> baseline_review_counts = new Dictionary<int, long>();  // Star level -> count
+    private long baseline_reviewid_max = 0;
 
     //
     //-------------------------------------------------------------------------------------------------
@@ -83,15 +87,10 @@ namespace ds2xdriver
       }
       Console.WriteLine("Thread {0}: connected to {1}", Thread.CurrentThread.Name, Controller.target_servers[target_server_id]);
 
-      // Wait for Controller to signal start
-      while (!Controller.Start)
-        Thread.Sleep(100);
+      // Capture ALL baselines BEFORE Controller.Start = true (while customer threads are still blocked)
+      // This ensures no customer activity interferes with baseline capture
 
-      // Record test start time for analytics timing
-      test_start_time = DateTime.Now;
-      last_analytics_print_time = test_start_time;
-
-      // Capture baseline analytics at test start (if membership analytics enabled)
+      // Capture baseline analytics (if membership analytics enabled)
       if (Controller.analytics_interval > 0 && Controller.enable_membership_analytics)
       {
         try
@@ -142,6 +141,49 @@ namespace ds2xdriver
           }
         }
       }
+
+      // Capture baseline for review analytics (if enabled)
+      if (Controller.analytics_interval > 0 && Controller.enable_review_analytics)
+      {
+        try
+        {
+          double rt_baseline = 0.0;
+
+          // First get MAX(REVIEW_ID)
+          baseline_reviewid_max = ds2interface.ds2getmaxid("REVIEWS" + target_store, "REVIEW_ID");
+
+          // Then immediately get review counts using that same MAX value as baseline
+          var baselineData = ds2interface.ds36getreviewanalytics(baseline_reviewid_max, ref rt_baseline);
+          if (baselineData != null && baselineData.Count > 0)
+          {
+            foreach (var row in baselineData)
+            {
+              // Store current counts; Added column should be 0 since we're using current MAX(REVIEW_ID)
+              baseline_review_counts[row.Stars] = row.Reviews;
+            }
+            Console.WriteLine($"Thread {Thread.CurrentThread.Name}: Review Analytics baseline captured: MAX(REVIEW_ID)={baseline_reviewid_max:N0} ({DateTime.Now:HH:mm:ss})");
+          }
+        }
+        catch (Exception e)
+        {
+          Console.WriteLine("Thread {0}: Baseline review analytics capture error: {1}", Thread.CurrentThread.Name, e.Message);
+          if (e.Message.Contains("Fatal error") || e.Message.Contains("Connection must be valid and open"))
+          {
+            Console.WriteLine("Thread {0}: Fatal connection error during baseline capture, exiting analytics thread", Thread.CurrentThread.Name);
+            ds2interface.ds2close();
+            Console.WriteLine("Thread {0}: Analytics thread exiting", Thread.CurrentThread.Name);
+            return;
+          }
+        }
+      }
+
+      // Wait for Controller to signal start
+      while (!Controller.Start)
+        Thread.Sleep(100);
+
+      // Record test start time for analytics timing
+      test_start_time = DateTime.Now;
+      last_analytics_print_time = test_start_time;
 
       // Analytics loop: run until Controller signals End
       while (!Controller.End)
@@ -265,6 +307,67 @@ namespace ds2xdriver
                 }
               }
             }
+
+            // Run review analytics if enabled
+            if (Controller.enable_review_analytics)
+            {
+              try
+              {
+                double rt_analytics = 0.0;
+                var analyticsData = ds2interface.ds36getreviewanalytics(baseline_reviewid_max, ref rt_analytics);
+
+                if (analyticsData != null && analyticsData.Count > 0)
+                {
+                  // Calculate total reviews and products with reviews for summary
+                  long totalReviews = analyticsData.Sum(r => r.Reviews);
+                  long totalAdded = analyticsData.Sum(r => r.Added);
+
+                  Console.WriteLine("\n============================================================================================================");
+                  Console.WriteLine($"Review Analytics (Store {target_store}) - Delta since baseline");
+                  Console.WriteLine("============================================================================================================");
+                  Console.WriteLine("Stars      Reviews      Added    Removed    Net Change    Avg Help     High Help      Low Help    % of Total");
+                  Console.WriteLine("-----      -------      -----    -------    ----------    --------     ---------      --------    ----------");
+
+                  // Calculate weighted averages for summary
+                  decimal totalStarWeight = 0;
+                  decimal totalHelpWeight = 0;
+                  foreach (var row in analyticsData)
+                  {
+                    totalStarWeight += row.Stars * row.Reviews;
+                    totalHelpWeight += row.AvgHelp * row.Reviews;
+                  }
+                  decimal avgStars = totalReviews > 0 ? totalStarWeight / totalReviews : 0;
+                  decimal avgHelpfulness = totalReviews > 0 ? totalHelpWeight / totalReviews : 0;
+
+                  foreach (var row in analyticsData)
+                  {
+                    // Calculate deltas
+                    long baselineCount = baseline_review_counts.ContainsKey(row.Stars) ? baseline_review_counts[row.Stars] : 0;
+                    long netChange = row.Reviews - baselineCount;
+                    long removed = row.Added - netChange;
+                    decimal pctOfTotal = totalReviews > 0 ? (decimal)row.Reviews / totalReviews * 100 : 0;
+
+                    Console.WriteLine($"   {row.Stars}    {row.Reviews,9:N0}    {row.Added,7:N0}    {removed,7:N0}    {netChange,10:N0}    {row.AvgHelp,8:F1}    {row.HighHelp,11:N0}    {row.LowHelp,10:N0}    {pctOfTotal,9:F1}%");
+                  }
+
+                  Console.WriteLine("============================================================================================================");
+                  Console.WriteLine($"Total: {totalReviews:N0} reviews    Avg: {avgStars:F2} stars, {avgHelpfulness:F1} helpfulness");
+                  Console.WriteLine("============================================================================================================\n");
+                }
+
+                n_review_analytics++;
+                rt_review_analytics += rt_analytics;
+              }
+              catch (Exception e)
+              {
+                Console.WriteLine("Thread {0}: GetReviewAnalytics error: {1}", Thread.CurrentThread.Name, e.Message);
+                if (e.Message.Contains("Fatal error") || e.Message.Contains("Connection must be valid and open"))
+                {
+                  Console.WriteLine("Thread {0}: Fatal connection error detected, exiting analytics thread", Thread.CurrentThread.Name);
+                  break;
+                }
+              }
+            }
           }
         }
       }
@@ -273,7 +376,7 @@ namespace ds2xdriver
       ds2interface.ds2close();
 
       // Print statistics
-      if (n_membership_analytics > 0 || n_newcustomer_analytics > 0)
+      if (n_membership_analytics > 0 || n_newcustomer_analytics > 0 || n_review_analytics > 0)
       {
         Console.WriteLine("\n========== Analytics Statistics (Store {0}) ==========", target_store);
         if (n_membership_analytics > 0)
@@ -285,6 +388,11 @@ namespace ds2xdriver
         {
           Console.WriteLine("  GetNewCustomerAnalytics: {0,6} operations, avg RT: {1:F3} sec",
                             n_newcustomer_analytics, rt_newcustomer_analytics / n_newcustomer_analytics);
+        }
+        if (n_review_analytics > 0)
+        {
+          Console.WriteLine("  GetReviewAnalytics:      {0,6} operations, avg RT: {1:F3} sec",
+                            n_review_analytics, rt_review_analytics / n_review_analytics);
         }
         Console.WriteLine("=======================================================\n");
       }

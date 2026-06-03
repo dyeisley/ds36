@@ -176,6 +176,7 @@ namespace ds2xdriver
     public static int analytics_interval = 0;
     public static bool enable_membership_analytics = true;
     public static bool enable_newcustomer_analytics = true;
+    public static bool enable_review_analytics = true;
     public static int manager_batch_size_min = 10;
     public static int manager_batch_size_max = 100;
 
@@ -841,6 +842,16 @@ namespace ds2xdriver
         Validator = ValidateYesNo
       };
 
+      // enable_review_analytics - enable review analytics
+      definitions["enable_review_analytics"] = new ParameterDefinition
+      {
+        Name = "enable_review_analytics",
+        Description = "Enable review analytics (y/n)",
+        DefaultValue = "Y",
+        Type = ParamType.Boolean,
+        Validator = ValidateYesNo
+      };
+
       // manager_batch_size_min - minimum batch size for manager operations
       definitions["manager_batch_size_min"] = new ParameterDefinition
       {
@@ -1359,6 +1370,7 @@ namespace ds2xdriver
       analytics_interval = parser.GetValue<int>("analytics_interval");
       enable_membership_analytics = parser.GetValue<bool>("enable_membership_analytics");
       enable_newcustomer_analytics = parser.GetValue<bool>("enable_newcustomer_analytics");
+      enable_review_analytics = parser.GetValue<bool>("enable_review_analytics");
       manager_batch_size_min = parser.GetValue<int>("manager_batch_size_min");
       manager_batch_size_max = parser.GetValue<int>("manager_batch_size_max");
 
@@ -1542,6 +1554,29 @@ namespace ds2xdriver
       Console.WriteLine("Not generating Windows Performance Monitor Counters");
 #endif
 
+      // Create and start analytics threads FIRST (if enabled) so they can capture baselines before customer threads start
+      Analytics[] analytics = new Analytics[GlobalConstants.MAX_STORES];
+      Thread[] analytics_threads = new Thread[GlobalConstants.MAX_STORES];
+      if (analytics_interval > 0)
+      {
+        Console.WriteLine("Controller ({0}): creating analytics threads", DateTime.Now);
+        for (i = 0, server_id = 0; i < n_stores; i++)
+        {
+          analytics[i] = new Analytics(i, server_id, i + 1);
+          analytics_threads[i] = new Thread(new ThreadStart(analytics[i].RunAnalytics));
+          analytics_threads[i].Start();
+
+          // Round-robin across servers
+          server_id++;
+          if (server_id >= n_target_servers)
+            server_id = 0;
+        }
+        Console.WriteLine("Controller ({0}): {1} analytics thread(s) started", DateTime.Now, n_stores);
+
+        // Give analytics threads time to connect and capture baselines
+        Thread.Sleep(2000);
+      }
+
       for (i = 0, server_id = 0; i < n_threads; i++) // Create User objects; associate each with new Thread running Emulate method
       {
 
@@ -1657,26 +1692,6 @@ namespace ds2xdriver
           Thread.Sleep(500);
           return;
         }
-      }
-
-      // Create and start analytics threads if enabled (one per store)
-      Analytics[] analytics = new Analytics[GlobalConstants.MAX_STORES];
-      Thread[] analytics_threads = new Thread[GlobalConstants.MAX_STORES];
-      if (analytics_interval > 0)
-      {
-        Console.WriteLine("Controller ({0}): creating analytics threads", DateTime.Now);
-        for (i = 0, server_id = 0; i < n_stores; i++)
-        {
-          analytics[i] = new Analytics(i, server_id, i + 1);
-          analytics_threads[i] = new Thread(new ThreadStart(analytics[i].RunAnalytics));
-          analytics_threads[i].Start();
-
-          // Round-robin across servers
-          server_id++;
-          if (server_id >= n_target_servers)
-            server_id = 0;
-        }
-        Console.WriteLine("Controller ({0}): {1} analytics thread(s) started", DateTime.Now, n_stores);
       }
 
       Console.WriteLine("Controller ({0}): all threads connected - issuing Start", DateTime.Now);
@@ -2571,6 +2586,7 @@ namespace ds2xdriver
         Console.WriteLine($"  Interval: {analytics_interval} minutes");
         Console.WriteLine($"  Membership analytics: {(enable_membership_analytics ? "ENABLED" : "DISABLED")}");
         Console.WriteLine($"  New customer analytics: {(enable_newcustomer_analytics ? "ENABLED" : "DISABLED")}");
+        Console.WriteLine($"  Review analytics: {(enable_review_analytics ? "ENABLED" : "DISABLED")}");
       }
       else
       {
@@ -2735,6 +2751,26 @@ namespace ds2xdriver
         int rawId = (int)(blockCount * popularInterval + offsetInBlock) + 1;
         return rawId > maxProduct ? maxProduct : rawId;
       }
+    }
+
+    //
+    //---------------------------------------------------------------------------------------------------
+    // GetSkewedReviewStars - Skewed positive: 5% 1-star, 16% 2-star, 40% 3-star, 24% 4-star, 15% 5-star
+    //---------------------------------------------------------------------------------------------------
+    public static int GetSkewedReviewStars()
+    {
+      int stars = 0;
+      int roll = Random.Shared.Next(100);
+
+      if (roll < 5) return 1;  // 0-4 (5%)
+
+      if (roll < 21) return 2; // 5-20 (16%)
+
+      if (roll < 61) return 3; // 21-60 (40%)
+
+      if (roll < 85) return 4; // 61-84 (24%)
+
+      return 5; // 85-99 (15%)
     }
 
     //
@@ -3355,7 +3391,7 @@ namespace ds2xdriver
 
             new_review_summary_in = CreateReviewData(3);
             new_review_text_in = CreateReviewData(25);
-            new_review_stars_in = Random.Shared.Next(1, 6);
+            new_review_stars_in = Controller.GetSkewedReviewStars(); // Random.Shared.Next(1+membershiplevel_out, 6);
             new_review_prod_id_in = review_prod_id_out[Random.Shared.Next(0, rows_returned)];
 
             failures = 0;
@@ -3384,7 +3420,7 @@ namespace ds2xdriver
           {
             IsNewHelpfulness = true;
             reviewid_in = review_id_out[Random.Shared.Next(0, rows_returned)];
-            reviewhelpfulness_in = Random.Shared.Next(1, 11);
+            reviewhelpfulness_in = Random.Shared.Next(1+membershiplevel_out, 11);
 
             failures = 0;
             while (!ds2interfaces[Userid].ds2newreviewhelpfulness(reviewid_in, customerid_out, reviewhelpfulness_in, ref reviewhelpfulnessid_out, ref rt))
