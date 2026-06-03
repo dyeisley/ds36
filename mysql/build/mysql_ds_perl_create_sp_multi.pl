@@ -1047,6 +1047,37 @@ BEGIN
   FROM NewCustomerStats;
 END $$
 
+DELIMITER ;
+DROP PROCEDURE IF EXISTS DS3.GetReviewAnalytics$k;
+DELIMITER $$
+CREATE PROCEDURE DS3.GetReviewAnalytics$k(
+  IN reviewid_baseline BIGINT UNSIGNED
+)
+BEGIN
+  SET SESSION TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
+
+  WITH ReviewStats AS (
+    SELECT
+      STARS,
+      COUNT(*) AS Reviews,
+      SUM(CASE WHEN REVIEW_ID > reviewid_baseline THEN 1 ELSE 0 END) AS Added,
+      IFNULL(AVG(TOTAL_HELPFULNESS), 0) AS AvgHelp,
+      SUM(CASE WHEN TOTAL_HELPFULNESS >= 20 THEN 1 ELSE 0 END) AS HighHelp,
+      SUM(CASE WHEN TOTAL_HELPFULNESS < 5 THEN 1 ELSE 0 END) AS LowHelp
+    FROM REVIEWS$k
+    GROUP BY STARS
+  )
+  SELECT
+    STARS,
+    Reviews,
+    Added,
+    CAST(AvgHelp AS DECIMAL(10,1)) AS AvgHelp,
+    HighHelp,
+    LowHelp
+  FROM ReviewStats
+  ORDER BY STARS DESC;
+END $$
+
 \n";
   close $OUT;
   sleep(1);

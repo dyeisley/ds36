@@ -1269,6 +1269,38 @@ BEGIN
 END
 GO
 
+IF EXISTS (SELECT name FROM sysobjects WHERE name = 'GetReviewAnalytics$k' AND type = 'P')
+  DROP PROCEDURE GetReviewAnalytics$k
+GO
+CREATE PROCEDURE GetReviewAnalytics$k
+  \@reviewid_baseline BIGINT
+AS
+BEGIN
+  SET NOCOUNT ON;
+
+  WITH ReviewStats AS (
+    SELECT
+      STARS,
+      COUNT(*) AS Reviews,
+      SUM(CASE WHEN REVIEW_ID > \@reviewid_baseline THEN 1 ELSE 0 END) AS Added,
+      ISNULL(AVG(CAST(TOTAL_HELPFULNESS AS DECIMAL(10,1))), 0) AS AvgHelp,
+      SUM(CASE WHEN TOTAL_HELPFULNESS >= 20 THEN 1 ELSE 0 END) AS HighHelp,
+      SUM(CASE WHEN TOTAL_HELPFULNESS < 5 THEN 1 ELSE 0 END) AS LowHelp
+    FROM REVIEWS$k
+    GROUP BY STARS
+  )
+  SELECT
+    STARS,
+    CAST(Reviews AS BIGINT) AS Reviews,
+    CAST(Added AS BIGINT) AS Added,
+    CAST(AvgHelp AS DECIMAL(10,1)) AS AvgHelp,
+    CAST(HighHelp AS BIGINT) AS HighHelp,
+    CAST(LowHelp AS BIGINT) AS LowHelp
+  FROM ReviewStats
+  ORDER BY STARS DESC;
+END
+GO
+
 \n";
   close $OUT;
 }

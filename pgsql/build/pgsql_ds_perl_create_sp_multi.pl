@@ -1137,6 +1137,43 @@ END;
 \$\$
 LANGUAGE plpgsql;
 
+CREATE OR REPLACE FUNCTION getreviewanalytics$k(
+  reviewid_baseline BIGINT
+)
+RETURNS TABLE (
+  Stars INT,
+  Reviews BIGINT,
+  Added BIGINT,
+  AvgHelp NUMERIC(10,1),
+  HighHelp BIGINT,
+  LowHelp BIGINT
+) AS \$\$
+BEGIN
+  RETURN QUERY
+  WITH ReviewStats AS (
+    SELECT
+      r.stars,
+      COUNT(*) AS Reviews,
+      SUM(CASE WHEN r.review_id > reviewid_baseline THEN 1 ELSE 0 END) AS Added,
+      COALESCE(AVG(r.total_helpfulness), 0) AS AvgHelp,
+      SUM(CASE WHEN r.total_helpfulness >= 20 THEN 1 ELSE 0 END) AS HighHelp,
+      SUM(CASE WHEN r.total_helpfulness < 5 THEN 1 ELSE 0 END) AS LowHelp
+    FROM reviews$k r
+    GROUP BY r.stars
+  )
+  SELECT
+    rs.stars::INT,
+    rs.Reviews::BIGINT,
+    rs.Added::BIGINT,
+    rs.AvgHelp::NUMERIC(10,1),
+    rs.HighHelp::BIGINT,
+    rs.LowHelp::BIGINT
+  FROM ReviewStats rs
+  ORDER BY rs.stars DESC;
+END;
+\$\$
+LANGUAGE plpgsql;
+
 \n";
 	close $OUT;
 	sleep(1);

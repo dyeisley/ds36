@@ -1407,6 +1407,36 @@ BEGIN
 END;
 /
 
+CREATE OR REPLACE PROCEDURE DS3.GetReviewAnalytics$k (
+    p_reviewid_baseline IN NUMBER,
+    p_cursor OUT SYS_REFCURSOR
+)
+AS
+BEGIN
+    OPEN p_cursor FOR
+    WITH ReviewStats AS (
+        SELECT
+            STARS,
+            COUNT(*) AS Reviews,
+            SUM(CASE WHEN REVIEW_ID > p_reviewid_baseline THEN 1 ELSE 0 END) AS Added,
+            NVL(AVG(TOTAL_HELPFULNESS), 0) AS AvgHelp,
+            SUM(CASE WHEN TOTAL_HELPFULNESS >= 20 THEN 1 ELSE 0 END) AS HighHelp,
+            SUM(CASE WHEN TOTAL_HELPFULNESS < 5 THEN 1 ELSE 0 END) AS LowHelp
+        FROM DS3.REVIEWS$k
+        GROUP BY STARS
+    )
+    SELECT
+        STARS,
+        Reviews,
+        Added,
+        CAST(AvgHelp AS NUMBER(10,1)) AS AvgHelp,
+        HighHelp,
+        LowHelp
+    FROM ReviewStats
+    ORDER BY STARS DESC;
+END;
+/
+
 CREATE OR REPLACE TRIGGER \"DS3\".\"TRG_HELPFULNESS_SYNC$k\"
 AFTER INSERT OR UPDATE OR DELETE ON \"DS3\".\"REVIEWS_HELPFULNESS$k\"
 FOR EACH ROW
