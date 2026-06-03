@@ -109,7 +109,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 - **New Analytics Thread** (`drivers/ds36xanalytics.cs`):
   - Separate thread runs analytics queries independently from manager operations
-  - Independent database connection (ID offset +20000)
+  - Independent database connection
   - Per-store analytics threads (one thread per store, like manager threads)
   - Baseline capture at test start for delta tracking
   - Periodic execution on configurable interval (minutes)
@@ -129,7 +129,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
   - Renamed from `manager_analytics_interval`
   - Interval is minimum time between runs (slow queries extend interval automatically)
 - `enable_membership_analytics` - Enable/disable membership analytics (default: Y)
-  - Boolean parameter following ds2_mode pattern
+- `enable_newcustomer_analytics` - Enable/disable new customer analytics (default: Y)
+- `enable_review_analytics` - Enable/disable review analytics (default: Y)
+  - All analytics share same `analytics_interval` but can be individually enabled/disabled
 
 **Fatal Error Handling:**
 - Database exceptions now propagate to thread level (`throw;` added to all catch blocks)
@@ -158,6 +160,9 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 **Implemented Analytics:**
 - **GetMembershipAnalytics** - Tracks membership tier distribution, orders, and revenue with delta tracking since baseline (SQL Server ✓, MySQL ✓, PostgreSQL ✓, Oracle ✓)
   - MySQL requires 256MB buffer tuning (tmp_table_size, max_heap_table_size)
+- **GetNewCustomerAnalytics** - Tracks new customer acquisition and engagement (created, 2+ orders, 3+ orders, conversion rates) (SQL Server ✓, MySQL ✓, PostgreSQL ✓, Oracle ✓)
+- **GetReviewAnalytics** - Tracks review activity (star distribution, helpfulness metrics, added/removed reviews) (SQL Server ✓, MySQL ✓, PostgreSQL ✓, Oracle ✓)
+  - Star distribution: 5% / 16% / 40% / 24% / 15% (skewed positive)
   - See `ANALYTICS.md` for complete documentation
 
 **Documentation:**
