@@ -44,6 +44,10 @@ namespace ds2xdriver
     public double rt_newcustomer_analytics = 0.0;
     public int n_review_analytics = 0;
     public double rt_review_analytics = 0.0;
+    public int n_pricepoint_analytics = 0;
+    public double rt_pricepoint_analytics = 0.0;
+    public int n_inventory_analytics = 0;
+    public double rt_inventory_analytics = 0.0;
 
     // Analytics timing
     private DateTime test_start_time;
@@ -55,6 +59,7 @@ namespace ds2xdriver
     private long baseline_orders_count = 0;
     private Dictionary<int, long> baseline_review_counts = new Dictionary<int, long>();  // Star level -> count
     private long baseline_reviewid_max = 0;
+    private long baseline_product_count = 0;
 
     //
     //-------------------------------------------------------------------------------------------------
@@ -167,6 +172,27 @@ namespace ds2xdriver
         catch (Exception e)
         {
           Console.WriteLine("Thread {0}: Baseline review analytics capture error: {1}", Thread.CurrentThread.Name, e.Message);
+          if (e.Message.Contains("Fatal error") || e.Message.Contains("Connection must be valid and open"))
+          {
+            Console.WriteLine("Thread {0}: Fatal connection error during baseline capture, exiting analytics thread", Thread.CurrentThread.Name);
+            ds2interface.ds2close();
+            Console.WriteLine("Thread {0}: Analytics thread exiting", Thread.CurrentThread.Name);
+            return;
+          }
+        }
+      }
+
+      // Capture baseline for price point analytics (if enabled)
+      if (Controller.analytics_interval > 0 && Controller.enable_pricepoint_analytics)
+      {
+        try
+        {
+          baseline_product_count = ds2interface.ds2getrowcount("PRODUCTS" + target_store);
+          Console.WriteLine($"Thread {Thread.CurrentThread.Name}: Price Point Analytics baseline captured: {baseline_product_count:N0} products ({DateTime.Now:HH:mm:ss})");
+        }
+        catch (Exception e)
+        {
+          Console.WriteLine("Thread {0}: Baseline price point analytics capture error: {1}", Thread.CurrentThread.Name, e.Message);
           if (e.Message.Contains("Fatal error") || e.Message.Contains("Connection must be valid and open"))
           {
             Console.WriteLine("Thread {0}: Fatal connection error during baseline capture, exiting analytics thread", Thread.CurrentThread.Name);
@@ -308,6 +334,82 @@ namespace ds2xdriver
               }
             }
 
+            // Run price point analytics if enabled
+            if (Controller.enable_pricepoint_analytics)
+            {
+              try
+              {
+                double rt_analytics = 0.0;
+                var analyticsData = ds2interface.ds36getpricepointanalytics(baseline_product_count, ref rt_analytics);
+
+                if (analyticsData != null)
+                {
+                  long totalProducts = analyticsData.PricePoints.Sum(p => p.ProductCount);
+
+                  Console.WriteLine("\n========================================================================================");
+                  Console.WriteLine($"Price Point Analytics (Store {target_store})");
+                  Console.WriteLine("========================================================================================");
+                  Console.WriteLine("Price Ending        Count      % of Total");
+                  Console.WriteLine("------------        -----      ----------");
+
+                  foreach (var row in analyticsData.PricePoints)
+                  {
+                    decimal pctOfTotal = totalProducts > 0 ? (decimal)row.ProductCount / totalProducts * 100 : 0;
+                    Console.WriteLine($"{row.PriceEnding,12}    {row.ProductCount,9:N0}    {pctOfTotal,9:F1}%");
+                  }
+
+                  Console.WriteLine("========================================================================================");
+                  Console.WriteLine($"Total products: {totalProducts:N0} | Products added: {totalProducts - baseline_product_count:N0} | New products purchased: {analyticsData.NewProductsPurchased:N0}");
+                  Console.WriteLine("========================================================================================\n");
+                }
+
+                n_pricepoint_analytics++;
+                rt_pricepoint_analytics += rt_analytics;
+              }
+              catch (Exception e)
+              {
+                Console.WriteLine("Thread {0}: GetPricePointAnalytics error: {1}", Thread.CurrentThread.Name, e.Message);
+                if (e.Message.Contains("Fatal error") || e.Message.Contains("Connection must be valid and open"))
+                {
+                  Console.WriteLine("Thread {0}: Fatal connection error detected, exiting analytics thread", Thread.CurrentThread.Name);
+                  break;
+                }
+              }
+            }
+
+            // Run inventory analytics if enabled
+            if (Controller.enable_inventory_analytics)
+            {
+              try
+              {
+                double rt_analytics = 0.0;
+                var data = ds2interface.ds36getinventoryanalytics(ref rt_analytics);
+
+                if (data != null)
+                {
+                  Console.WriteLine("\n=============================================================================================================================");
+                  Console.WriteLine($"Inventory Analytics (Store {target_store})");
+                  Console.WriteLine("=============================================================================================================================");
+                  Console.WriteLine("Low Stock (<10)    High Stock (>100)    Reorder    Avg Inv    Sales: Dead (0)    Low (1-999)    Med (1K-1.5K)    High (1.5K+)");
+                  Console.WriteLine("---------------    -----------------    -------    -------    ---------------    -----------    -------------    ------------");
+                  Console.WriteLine($"{data.LowStockCount,15:N0}    {data.HighStockCount,17:N0}    {data.ReorderCount,7:N0}    {data.AvgInventory,7:F1}    {data.DeadStock,15:N0}    {data.LowSales,11:N0}      {data.MedSales,11:N0}      {data.HighSales,10:N0}");
+                  Console.WriteLine("=============================================================================================================================\n");
+                }
+
+                n_inventory_analytics++;
+                rt_inventory_analytics += rt_analytics;
+              }
+              catch (Exception e)
+              {
+                Console.WriteLine("Thread {0}: GetInventoryAnalytics error: {1}", Thread.CurrentThread.Name, e.Message);
+                if (e.Message.Contains("Fatal error") || e.Message.Contains("Connection must be valid and open"))
+                {
+                  Console.WriteLine("Thread {0}: Fatal connection error detected, exiting analytics thread", Thread.CurrentThread.Name);
+                  break;
+                }
+              }
+            }
+
             // Run review analytics if enabled
             if (Controller.enable_review_analytics)
             {
@@ -376,7 +478,7 @@ namespace ds2xdriver
       ds2interface.ds2close();
 
       // Print statistics
-      if (n_membership_analytics > 0 || n_newcustomer_analytics > 0 || n_review_analytics > 0)
+      if (n_membership_analytics > 0 || n_newcustomer_analytics > 0 || n_review_analytics > 0 || n_pricepoint_analytics > 0 || n_inventory_analytics > 0)
       {
         Console.WriteLine("\n========== Analytics Statistics (Store {0}) ==========", target_store);
         if (n_membership_analytics > 0)
@@ -393,6 +495,16 @@ namespace ds2xdriver
         {
           Console.WriteLine("  GetReviewAnalytics:      {0,6} operations, avg RT: {1:F3} sec",
                             n_review_analytics, rt_review_analytics / n_review_analytics);
+        }
+        if (n_pricepoint_analytics > 0)
+        {
+          Console.WriteLine("  GetPricePointAnalytics:  {0,6} operations, avg RT: {1:F3} sec",
+                            n_pricepoint_analytics, rt_pricepoint_analytics / n_pricepoint_analytics);
+        }
+        if (n_inventory_analytics > 0)
+        {
+          Console.WriteLine("  GetInventoryAnalytics:   {0,6} operations, avg RT: {1:F3} sec",
+                            n_inventory_analytics, rt_inventory_analytics / n_inventory_analytics);
         }
         Console.WriteLine("=======================================================\n");
       }

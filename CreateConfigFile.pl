@@ -50,6 +50,8 @@ my $analytics_interval = 0;				#Analytics interval in minutes (0 = disabled) def
 my $enable_membership_analytics = "Y";			#Enable membership analytics (Y/N) default = Y
 my $enable_newcustomer_analytics = "Y";			#Enable new customer analytics (Y/N) default = Y
 my $enable_review_analytics = "Y";			#Enable review analytics (Y/N) default = Y
+my $enable_pricepoint_analytics = "Y";			#Enable price point analytics (Y/N) default = Y
+my $enable_inventory_analytics = "Y";			#Enable inventory analytics (Y/N) default = Y
 my $ds2_mode = "N";					#DS2 compatibility mode (3 browse types only) default = N
 my $validate_post_test = "Y";				#Run validation SQL after benchmark completes default = Y
 
@@ -146,6 +148,14 @@ $enable_newcustomer_analytics ||= "Y";
 print "Enable review analytics ( Y / N ) [Y] : ";
 chomp($enable_review_analytics = <STDIN>);
 $enable_review_analytics ||= "Y";
+
+print "Enable price point analytics ( Y / N ) [Y] : ";
+chomp($enable_pricepoint_analytics = <STDIN>);
+$enable_pricepoint_analytics ||= "Y";
+
+print "Enable inventory analytics ( Y / N ) [Y] : ";
+chomp($enable_inventory_analytics = <STDIN>);
+$enable_inventory_analytics ||= "Y";
 }
 
 print "Enable manager operations ( Y / N ) [N] : ";
@@ -298,6 +308,12 @@ $line = "enable_newcustomer_analytics=".$enable_newcustomer_analytics;
 print NEWFILE $line;
 print NEWFILE $end_line;
 $line = "enable_review_analytics=".$enable_review_analytics;
+print NEWFILE $line;
+print NEWFILE $end_line;
+$line = "enable_pricepoint_analytics=".$enable_pricepoint_analytics;
+print NEWFILE $line;
+print NEWFILE $end_line;
+$line = "enable_inventory_analytics=".$enable_inventory_analytics;
 print NEWFILE $line;
 print NEWFILE $end_line;
 $line = "ds2_mode=".$ds2_mode;

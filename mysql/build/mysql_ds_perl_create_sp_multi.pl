@@ -1078,6 +1078,62 @@ BEGIN
   ORDER BY STARS DESC;
 END $$
 
+DELIMITER ;
+DROP PROCEDURE IF EXISTS DS3.GetPricePointAnalytics$k;
+DELIMITER $$
+CREATE PROCEDURE DS3.GetPricePointAnalytics$k(
+  IN baseline_product_count BIGINT UNSIGNED
+)
+BEGIN
+  -- Result Set 1: Price point distribution
+  SELECT
+    CASE
+      WHEN (CAST(PRICE * 100 AS SIGNED) % 100) = 99 THEN '.99'
+      WHEN (CAST(PRICE * 100 AS SIGNED) % 100) = 77 THEN '.77'
+      WHEN (CAST(PRICE * 100 AS SIGNED) % 100) = 1 THEN '.01'
+      ELSE 'Other'
+    END AS PriceEnding,
+    COUNT(*) AS ProductCount
+  FROM PRODUCTS$k
+  GROUP BY
+    CASE
+      WHEN (CAST(PRICE * 100 AS SIGNED) % 100) = 99 THEN '.99'
+      WHEN (CAST(PRICE * 100 AS SIGNED) % 100) = 77 THEN '.77'
+      WHEN (CAST(PRICE * 100 AS SIGNED) % 100) = 1 THEN '.01'
+      ELSE 'Other'
+    END
+  ORDER BY
+    CASE
+      WHEN (CAST(PRICE * 100 AS SIGNED) % 100) = 99 THEN 1
+      WHEN (CAST(PRICE * 100 AS SIGNED) % 100) = 77 THEN 2
+      WHEN (CAST(PRICE * 100 AS SIGNED) % 100) = 1 THEN 3
+      ELSE 4
+    END;
+
+  -- Result Set 2: New products purchased count
+  SELECT COUNT(DISTINCT PROD_ID) AS NewProductsPurchased
+  FROM CUST_HIST$k
+  WHERE PROD_ID > baseline_product_count;
+END $$
+
+DELIMITER ;
+DROP PROCEDURE IF EXISTS DS3.GetInventoryAnalytics$k;
+DELIMITER $$
+CREATE PROCEDURE DS3.GetInventoryAnalytics$k()
+BEGIN
+  SELECT
+    COUNT(CASE WHEN QUAN_IN_STOCK < 10 THEN 1 END) AS LowStockCount,
+    COUNT(CASE WHEN QUAN_IN_STOCK > 100 THEN 1 END) AS HighStockCount,
+    (SELECT COUNT(*) FROM REORDER$k) AS ReorderCount,
+    AVG(CAST(QUAN_IN_STOCK AS DECIMAL(10,1))) AS AvgInventory,
+    COUNT(CASE WHEN SALES = 0 THEN 1 END) AS DeadStock,
+    COUNT(CASE WHEN SALES BETWEEN 1 AND 999 THEN 1 END) AS LowSales,
+    COUNT(CASE WHEN SALES BETWEEN 1000 AND 1499 THEN 1 END) AS MedSales,
+    COUNT(CASE WHEN SALES >= 1500 THEN 1 END) AS HighSales,
+    COUNT(*) AS TotalProducts
+  FROM INVENTORY$k;
+END $$
+
 \n";
   close $OUT;
   sleep(1);

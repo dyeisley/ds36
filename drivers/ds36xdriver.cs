@@ -177,6 +177,8 @@ namespace ds2xdriver
     public static bool enable_membership_analytics = true;
     public static bool enable_newcustomer_analytics = true;
     public static bool enable_review_analytics = true;
+    public static bool enable_pricepoint_analytics = true;
+    public static bool enable_inventory_analytics = true;
     public static int manager_batch_size_min = 10;
     public static int manager_batch_size_max = 100;
 
@@ -852,6 +854,26 @@ namespace ds2xdriver
         Validator = ValidateYesNo
       };
 
+      // enable_pricepoint_analytics - enable price point analytics
+      definitions["enable_pricepoint_analytics"] = new ParameterDefinition
+      {
+        Name = "enable_pricepoint_analytics",
+        Description = "Enable price point analytics (y/n)",
+        DefaultValue = "Y",
+        Type = ParamType.Boolean,
+        Validator = ValidateYesNo
+      };
+
+      // enable_inventory_analytics - enable inventory analytics
+      definitions["enable_inventory_analytics"] = new ParameterDefinition
+      {
+        Name = "enable_inventory_analytics",
+        Description = "Enable inventory analytics (y/n)",
+        DefaultValue = "Y",
+        Type = ParamType.Boolean,
+        Validator = ValidateYesNo
+      };
+
       // manager_batch_size_min - minimum batch size for manager operations
       definitions["manager_batch_size_min"] = new ParameterDefinition
       {
@@ -1371,6 +1393,8 @@ namespace ds2xdriver
       enable_membership_analytics = parser.GetValue<bool>("enable_membership_analytics");
       enable_newcustomer_analytics = parser.GetValue<bool>("enable_newcustomer_analytics");
       enable_review_analytics = parser.GetValue<bool>("enable_review_analytics");
+      enable_pricepoint_analytics = parser.GetValue<bool>("enable_pricepoint_analytics");
+      enable_inventory_analytics = parser.GetValue<bool>("enable_inventory_analytics");
       manager_batch_size_min = parser.GetValue<int>("manager_batch_size_min");
       manager_batch_size_max = parser.GetValue<int>("manager_batch_size_max");
 
@@ -2587,6 +2611,8 @@ namespace ds2xdriver
         Console.WriteLine($"  Membership analytics: {(enable_membership_analytics ? "ENABLED" : "DISABLED")}");
         Console.WriteLine($"  New customer analytics: {(enable_newcustomer_analytics ? "ENABLED" : "DISABLED")}");
         Console.WriteLine($"  Review analytics: {(enable_review_analytics ? "ENABLED" : "DISABLED")}");
+        Console.WriteLine($"  Price point analytics: {(enable_pricepoint_analytics ? "ENABLED" : "DISABLED")}");
+        Console.WriteLine($"  Inventory analytics: {(enable_inventory_analytics ? "ENABLED" : "DISABLED")}");
       }
       else
       {

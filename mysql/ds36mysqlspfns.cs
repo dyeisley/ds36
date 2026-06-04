@@ -52,6 +52,31 @@ namespace ds2xdriver
     public long LowHelp { get; set; }
   }
 
+  public class PricePointAnalyticsRow
+  {
+    public string PriceEnding { get; set; }
+    public long ProductCount { get; set; }
+  }
+
+  public class PricePointAnalyticsData
+  {
+    public List<PricePointAnalyticsRow> PricePoints { get; set; }
+    public long NewProductsPurchased { get; set; }
+  }
+
+  public class InventoryAnalyticsRow
+  {
+    public long LowStockCount { get; set; }
+    public long HighStockCount { get; set; }
+    public long ReorderCount { get; set; }
+    public decimal AvgInventory { get; set; }
+    public long DeadStock { get; set; }
+    public long LowSales { get; set; }
+    public long MedSales { get; set; }
+    public long HighSales { get; set; }
+    public long TotalProducts { get; set; }
+  }
+
   /// <summary>
   /// ds35mysqlspfns.cs: DVD Store 3.5 MySql Functions
   /// </summary>
@@ -66,7 +91,8 @@ namespace ds2xdriver
     MySqlCommand Login, New_Customer, New_Member, Get_Membership_Status, Renew_Membership, New_Review, New_Helpfulness, New_Product, Purchase;
     MySqlCommand BrowseReviews_by_title, BrowseReviews_by_actor, Get_Prod_Reviews, Get_Reviews_by_stars;
     MySqlCommand Get_Reviews_by_date, Browse_by_title, Browse_by_actor, Browse_by_category, Browse_by_membership, Browse_by_vector;
-    MySqlCommand Remove_Review_By_Product, Remove_Unhelpful_Reviews, Remove_Reviews_By_Date, Adjust_Prices, Bulk_Price_Adjustment, Mark_Specials, Expire_Memberships, Purge_Old_Orders, Upgrade_Membership, Promotional_Membership, Get_Membership_Analytics, Get_New_Customer_Analytics, Get_Review_Analytics;
+    MySqlCommand Remove_Review_By_Product, Remove_Unhelpful_Reviews, Remove_Reviews_By_Date, Adjust_Prices, Bulk_Price_Adjustment, Mark_Specials, Expire_Memberships, Purge_Old_Orders, Upgrade_Membership, Promotional_Membership;
+    MySqlCommand Get_Price_Point_Analytics, Get_Inventory_Analytics, Get_Membership_Analytics, Get_New_Customer_Analytics, Get_Review_Analytics;
     MySqlParameter cust_out_param, member_out_param, reviewid_out_param, helpfulnessid_out_param, neworder_out_param;
     MySqlCommand[] CostQuery = new MySqlCommand[11];
 
@@ -323,6 +349,13 @@ namespace ds2xdriver
       Get_Review_Analytics = new MySqlCommand("DS3.GetReviewAnalytics" + target_store_number, objConn);
       Get_Review_Analytics.CommandType = CommandType.StoredProcedure;
       Get_Review_Analytics.Parameters.Add("reviewid_baseline", MySqlDbType.Int64);
+
+      Get_Price_Point_Analytics = new MySqlCommand("DS3.GetPricePointAnalytics" + target_store_number, objConn);
+      Get_Price_Point_Analytics.CommandType = CommandType.StoredProcedure;
+      Get_Price_Point_Analytics.Parameters.Add("baseline_product_count", MySqlDbType.UInt64);
+
+      Get_Inventory_Analytics = new MySqlCommand("DS3.GetInventoryAnalytics" + target_store_number, objConn);
+      Get_Inventory_Analytics.CommandType = CommandType.StoredProcedure;
     }
 
     //
@@ -1435,6 +1468,96 @@ namespace ds2xdriver
       catch (Exception e)
       {
         Console.WriteLine($"Thread {Thread.CurrentThread.Name}: ds36getreviewanalytics error: {e.Message}");
+        throw;
+      }
+      finally
+      {
+        rt = timer.Elapsed.TotalSeconds;
+      }
+
+      return result;
+    }
+
+    //
+    //-------------------------------------------------------------------------------------------------
+    //
+    public PricePointAnalyticsData ds36getpricepointanalytics(long baseline_product_count, ref double rt)
+    {
+      var result = new PricePointAnalyticsData
+      {
+        PricePoints = new List<PricePointAnalyticsRow>(),
+        NewProductsPurchased = 0
+      };
+      Stopwatch timer = Stopwatch.StartNew();
+
+      try
+      {
+        Get_Price_Point_Analytics.Parameters["baseline_product_count"].Value = baseline_product_count;
+
+        using (MySqlDataReader reader = Get_Price_Point_Analytics.ExecuteReader())
+        {
+          // Result Set 1: Price point distribution
+          while (reader.Read())
+          {
+            result.PricePoints.Add(new PricePointAnalyticsRow
+            {
+              PriceEnding = reader.GetString(0),
+              ProductCount = reader.GetInt64(1)
+            });
+          }
+
+          // Result Set 2: New products purchased
+          if (reader.NextResult() && reader.Read())
+          {
+            result.NewProductsPurchased = reader.GetInt64(0);
+          }
+        }
+      }
+      catch (Exception e)
+      {
+        Console.WriteLine($"Thread {Thread.CurrentThread.Name}: ds36getpricepointanalytics error: {e.Message}");
+        throw;
+      }
+      finally
+      {
+        rt = timer.Elapsed.TotalSeconds;
+      }
+
+      return result;
+    }
+
+    //
+    //-------------------------------------------------------------------------------------------------
+    //
+    public InventoryAnalyticsRow ds36getinventoryanalytics(ref double rt)
+    {
+      InventoryAnalyticsRow result = null;
+      Stopwatch timer = Stopwatch.StartNew();
+
+      try
+      {
+        using (MySqlDataReader reader = Get_Inventory_Analytics.ExecuteReader())
+        {
+          if (reader.Read())
+          {
+            result = new InventoryAnalyticsRow
+            {
+              LowStockCount = reader.GetInt64(0),
+              HighStockCount = reader.GetInt64(1),
+              ReorderCount = reader.GetInt64(2),
+              AvgInventory = reader.GetDecimal(3),
+              DeadStock = reader.GetInt64(4),
+              LowSales = reader.GetInt64(5),
+              MedSales = reader.GetInt64(6),
+              HighSales = reader.GetInt64(7),
+              TotalProducts = reader.GetInt64(8)
+            };
+          }
+        }
+      }
+      catch (Exception e)
+      {
+        Console.WriteLine($"Thread {Thread.CurrentThread.Name}: ds36getinventoryanalytics error: {e.Message}");
         throw;
       }
       finally
