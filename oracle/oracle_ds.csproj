@@ -12,6 +12,7 @@
    <Compile Include="ds36oraclefns.cs" />
    <Compile Include="../drivers/ds36xdriver.cs" />
    <Compile Include="../drivers/ds36xmanager.cs" />
+   <Compile Include="../drivers/ds36xanalytics.cs" />
   </ItemGroup>
 
   <ItemGroup>

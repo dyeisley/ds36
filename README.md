@@ -8,6 +8,7 @@ The web driver (drivers/ds36webfns.cs) and PHP code have not been modified.
 ## What's New in 3.6
 
 - **Manager Thread System**: Background thread with 11 administrative operations (AddProduct, RemoveReviews, AdjustPrices, BulkPriceAdjustment, MarkSpecials, ExpireMemberships, PurgeOldOrders, UpgradeMembership, PromotionalMembership)
+- **Analytics System**: Separate analytics thread tracks membership tiers, new customer acquisition, and review activity with delta tracking and configurable intervals
 - **Membership Renewal**: Members can renew expired memberships (controlled by pct_renewmember parameter); non-members cannot browse by membership; BROWSE_BY_MEMBERSHIP uses customer's actual membership tier
 - **MERGE/UPSERT Support**: NEW_REVIEW_HELPFULNESS and PromotionalMembership use MERGE/UPSERT with audit tracking - prevents duplicate ratings, handles race conditions, provides batch promotional upgrades, and adds database feature coverage (MERGE operations and trigger behavior testing)
 - **Data Generation Improvements**: Linear database scaling (200:10:1 ratio from 4 GB baseline), dynamic popular products modulo for small databases

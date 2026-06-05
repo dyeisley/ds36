@@ -46,7 +46,12 @@ my $manager_expire_memberships_pct = 0;			#Percentage chance for ExpireMembershi
 my $manager_purge_old_orders_pct = 0;			#Percentage chance for PurgeOldOrders operation default = 0
 my $manager_upgrade_membership_pct = 0;			#Percentage chance for UpgradeMembership operation default = 0
 my $manager_promo_membership_pct = 0;			#Percentage chance for PromotionalMembership operation default = 0
-my $manager_analytics_interval = 0;			#Manager analytics interval in minutes (0 = disabled) default = 0
+my $analytics_interval = 0;				#Analytics interval in minutes (0 = disabled) default = 0
+my $enable_membership_analytics = "Y";			#Enable membership analytics (Y/N) default = Y
+my $enable_newcustomer_analytics = "Y";			#Enable new customer analytics (Y/N) default = Y
+my $enable_review_analytics = "Y";			#Enable review analytics (Y/N) default = Y
+my $enable_pricepoint_analytics = "Y";			#Enable price point analytics (Y/N) default = Y
+my $enable_inventory_analytics = "Y";			#Enable inventory analytics (Y/N) default = Y
 my $ds2_mode = "N";					#DS2 compatibility mode (3 browse types only) default = N
 my $validate_post_test = "Y";				#Run validation SQL after benchmark completes default = Y
 
@@ -92,16 +97,26 @@ if (-f ".dvdstore_metadata") {
 print "Please enter target host(s) (database/web server hostname or IP Address) [$target_host] : ";
 chomp($target_host = <STDIN>);
 $target_host ||= $hostname;
+
+# Count number of target servers (semicolon-separated)
+my $n_targets = ($target_host =~ tr/;/;/) + 1;
+
 print "Please enter database size (e.g. Input can be like 30MB, 80GB ,etc) [$saved_db_size] : ";
 chomp($database_size = <STDIN>);
 $database_size ||= $saved_db_size;
-print "Please enter target hostname for perfmon CPU% display (windows only) : ";
-chomp($windows_perf_host = <STDIN>);
-print "Please enter <username>:<password>:<IP Address> for linux machines for CPU % display (linux only) : ";
-chomp($linux_perf_host = <STDIN>);
-print "Please enter if you want detailed view of runtime statistics of each target machine ( Y / N ) [N] : ";
-chomp($detailed_view = <STDIN>);
-$detailed_view ||= "N";
+if(lc($^O) eq lc("MSWin32"))
+{
+  print "Please enter target hostname for perfmon CPU% display (windows only) : ";
+  chomp($windows_perf_host = <STDIN>);
+  print "Please enter <username>:<password>:<IP Address> for linux machines for CPU % display (windows driver only) : ";
+  chomp($linux_perf_host = <STDIN>);
+}
+if ($n_targets > 1)
+{
+  print "Please enter if you want detailed view of runtime statistics of each target machine ( Y / N ) [N] : ";
+  chomp($detailed_view = <STDIN>);
+  $detailed_view ||= "N";
+}
 
 if(lc($^O) eq lc("linux"))
 {
@@ -125,6 +140,33 @@ $ds2_mode ||= "N";
 print "Run validation SQL after benchmark completes ( Y / N ) [Y] : ";
 chomp($validate_post_test = <STDIN>);
 $validate_post_test ||= "Y";
+
+print "Analytics interval in minutes (0 = disabled) [0] : ";
+chomp($analytics_interval = <STDIN>);
+$analytics_interval ||= 0;
+
+if ($analytics_interval > 0)
+{
+print "Enable membership analytics ( Y / N ) [Y] : ";
+chomp($enable_membership_analytics = <STDIN>);
+$enable_membership_analytics ||= "Y";
+
+print "Enable new customer analytics ( Y / N ) [Y] : ";
+chomp($enable_newcustomer_analytics = <STDIN>);
+$enable_newcustomer_analytics ||= "Y";
+
+print "Enable review analytics ( Y / N ) [Y] : ";
+chomp($enable_review_analytics = <STDIN>);
+$enable_review_analytics ||= "Y";
+
+print "Enable price point analytics ( Y / N ) [Y] : ";
+chomp($enable_pricepoint_analytics = <STDIN>);
+$enable_pricepoint_analytics ||= "Y";
+
+print "Enable inventory analytics ( Y / N ) [Y] : ";
+chomp($enable_inventory_analytics = <STDIN>);
+$enable_inventory_analytics ||= "Y";
+}
 
 print "Enable manager operations ( Y / N ) [N] : ";
 chomp($enable_managers = <STDIN>);
@@ -163,9 +205,6 @@ $manager_upgrade_membership_pct ||= 0;
 print "Manager PromotionalMembership percentage (0-100) [0] : ";
 chomp($manager_promo_membership_pct = <STDIN>);
 $manager_promo_membership_pct ||= 0;
-print "Manager analytics interval in minutes (0 = disabled) [0] : ";
-chomp($manager_analytics_interval = <STDIN>);
-$manager_analytics_interval ||= 0;
 print "Manager PurgeOldOrders percentage (0-100) [0] : ";
 chomp($manager_purge_old_orders_pct = <STDIN>);
 $manager_purge_old_orders_pct ||= 0;
@@ -269,7 +308,22 @@ print NEWFILE $end_line;
 $line = "manager_promo_membership_pct=".$manager_promo_membership_pct;
 print NEWFILE $line;
 print NEWFILE $end_line;
-$line = "manager_analytics_interval=".$manager_analytics_interval;
+$line = "analytics_interval=".$analytics_interval;
+print NEWFILE $line;
+print NEWFILE $end_line;
+$line = "enable_membership_analytics=".$enable_membership_analytics;
+print NEWFILE $line;
+print NEWFILE $end_line;
+$line = "enable_newcustomer_analytics=".$enable_newcustomer_analytics;
+print NEWFILE $line;
+print NEWFILE $end_line;
+$line = "enable_review_analytics=".$enable_review_analytics;
+print NEWFILE $line;
+print NEWFILE $end_line;
+$line = "enable_pricepoint_analytics=".$enable_pricepoint_analytics;
+print NEWFILE $line;
+print NEWFILE $end_line;
+$line = "enable_inventory_analytics=".$enable_inventory_analytics;
 print NEWFILE $line;
 print NEWFILE $end_line;
 $line = "ds2_mode=".$ds2_mode;

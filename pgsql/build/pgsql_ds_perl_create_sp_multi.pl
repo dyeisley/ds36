@@ -1104,6 +1104,158 @@ END;
 \$\$
 LANGUAGE plpgsql;
 
+CREATE OR REPLACE FUNCTION getnewcustomeranalytics$k(
+  customers_baseline BIGINT
+)
+RETURNS TABLE (
+  Created BIGINT,
+  TwoPlus BIGINT,
+  ThreePlus BIGINT,
+  TotalOrders BIGINT
+) AS \$\$
+BEGIN
+  RETURN QUERY
+  WITH NewCustomerStats AS (
+    SELECT
+      COUNT(DISTINCT c.customerid) AS Created,
+      COUNT(DISTINCT CASE WHEN o.OrderCount >= 2 THEN c.customerid END) AS TwoPlus,
+      COUNT(DISTINCT CASE WHEN o.OrderCount > 2 THEN c.customerid END) AS ThreePlus,
+      COALESCE(SUM(o.OrderCount), 0) AS TotalOrders
+    FROM customers$k c
+    LEFT JOIN (
+      SELECT customerid,
+             COUNT(*) AS OrderCount
+      FROM orders$k
+      WHERE customerid > customers_baseline
+      GROUP BY customerid
+    ) o ON c.customerid = o.customerid
+    WHERE c.customerid > customers_baseline
+  )
+  SELECT ncs.Created::BIGINT, ncs.TwoPlus::BIGINT, ncs.ThreePlus::BIGINT, ncs.TotalOrders::BIGINT
+  FROM NewCustomerStats ncs;
+END;
+\$\$
+LANGUAGE plpgsql;
+
+CREATE OR REPLACE FUNCTION getreviewanalytics$k(
+  reviewid_baseline BIGINT
+)
+RETURNS TABLE (
+  Stars INT,
+  Reviews BIGINT,
+  Added BIGINT,
+  AvgHelp NUMERIC(10,1),
+  HighHelp BIGINT,
+  LowHelp BIGINT
+) AS \$\$
+BEGIN
+  RETURN QUERY
+  WITH ReviewStats AS (
+    SELECT
+      r.stars,
+      COUNT(*) AS Reviews,
+      SUM(CASE WHEN r.review_id > reviewid_baseline THEN 1 ELSE 0 END) AS Added,
+      COALESCE(AVG(r.total_helpfulness), 0) AS AvgHelp,
+      SUM(CASE WHEN r.total_helpfulness >= 20 THEN 1 ELSE 0 END) AS HighHelp,
+      SUM(CASE WHEN r.total_helpfulness < 5 THEN 1 ELSE 0 END) AS LowHelp
+    FROM reviews$k r
+    GROUP BY r.stars
+  )
+  SELECT
+    rs.stars::INT,
+    rs.Reviews::BIGINT,
+    rs.Added::BIGINT,
+    rs.AvgHelp::NUMERIC(10,1),
+    rs.HighHelp::BIGINT,
+    rs.LowHelp::BIGINT
+  FROM ReviewStats rs
+  ORDER BY rs.stars DESC;
+END;
+\$\$
+LANGUAGE plpgsql;
+
+CREATE OR REPLACE FUNCTION getpricepointanalytics$k(
+  baseline_product_count BIGINT,
+  OUT price_ending TEXT,
+  OUT product_count BIGINT,
+  OUT new_products_purchased BIGINT
+)
+RETURNS SETOF RECORD AS \$\$
+BEGIN
+  -- Result Set 1: Price point distribution
+  RETURN QUERY
+  SELECT
+    CASE
+      WHEN (CAST(price * 100 AS INT) % 100) = 99 THEN '.99'::TEXT
+      WHEN (CAST(price * 100 AS INT) % 100) = 77 THEN '.77'::TEXT
+      WHEN (CAST(price * 100 AS INT) % 100) = 1 THEN '.01'::TEXT
+      ELSE 'Other'::TEXT
+    END AS price_ending,
+    COUNT(*)::BIGINT AS product_count,
+    0::BIGINT AS new_products_purchased
+  FROM products$k
+  GROUP BY
+    CASE
+      WHEN (CAST(price * 100 AS INT) % 100) = 99 THEN '.99'::TEXT
+      WHEN (CAST(price * 100 AS INT) % 100) = 77 THEN '.77'::TEXT
+      WHEN (CAST(price * 100 AS INT) % 100) = 1 THEN '.01'::TEXT
+      ELSE 'Other'::TEXT
+    END
+  ORDER BY
+    CASE
+      CASE
+        WHEN (CAST(price * 100 AS INT) % 100) = 99 THEN '.99'::TEXT
+        WHEN (CAST(price * 100 AS INT) % 100) = 77 THEN '.77'::TEXT
+        WHEN (CAST(price * 100 AS INT) % 100) = 1 THEN '.01'::TEXT
+        ELSE 'Other'::TEXT
+      END
+      WHEN '.99' THEN 1
+      WHEN '.77' THEN 2
+      WHEN '.01' THEN 3
+      ELSE 4
+    END;
+
+  -- Result Set 2: New products purchased count (separate query)
+  RETURN QUERY
+  SELECT
+    ''::TEXT AS price_ending,
+    0::BIGINT AS product_count,
+    COUNT(DISTINCT prod_id)::BIGINT AS new_products_purchased
+  FROM cust_hist$k
+  WHERE prod_id > baseline_product_count;
+END;
+\$\$
+LANGUAGE plpgsql;
+
+CREATE OR REPLACE FUNCTION getinventoryanalytics$k()
+RETURNS TABLE (
+  LowStockCount BIGINT,
+  HighStockCount BIGINT,
+  ReorderCount BIGINT,
+  AvgInventory NUMERIC(10,1),
+  DeadStock BIGINT,
+  LowSales BIGINT,
+  MedSales BIGINT,
+  HighSales BIGINT,
+  TotalProducts BIGINT
+) AS \$\$
+BEGIN
+  RETURN QUERY
+  SELECT
+    COUNT(CASE WHEN quan_in_stock < 10 THEN 1 END)::BIGINT AS LowStockCount,
+    COUNT(CASE WHEN quan_in_stock > 100 THEN 1 END)::BIGINT AS HighStockCount,
+    (SELECT COUNT(*) FROM reorder$k)::BIGINT AS ReorderCount,
+    AVG(quan_in_stock)::NUMERIC(10,1) AS AvgInventory,
+    COUNT(CASE WHEN sales = 0 THEN 1 END)::BIGINT AS DeadStock,
+    COUNT(CASE WHEN sales BETWEEN 1 AND 999 THEN 1 END)::BIGINT AS LowSales,
+    COUNT(CASE WHEN sales BETWEEN 1000 AND 1499 THEN 1 END)::BIGINT AS MedSales,
+    COUNT(CASE WHEN sales >= 1500 THEN 1 END)::BIGINT AS HighSales,
+    COUNT(*)::BIGINT AS TotalProducts
+  FROM inventory$k;
+END;
+\$\$
+LANGUAGE plpgsql;
+
 \n";
 	close $OUT;
 	sleep(1);

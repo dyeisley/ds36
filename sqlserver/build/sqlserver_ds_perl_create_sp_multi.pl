@@ -1239,6 +1239,135 @@ BEGIN
 END
 GO
 
+IF EXISTS (SELECT name FROM sysobjects WHERE name = 'GetNewCustomerAnalytics$k' AND type = 'P')
+  DROP PROCEDURE GetNewCustomerAnalytics$k
+GO
+CREATE PROCEDURE GetNewCustomerAnalytics$k
+  \@customers_baseline BIGINT
+AS
+BEGIN
+  SET NOCOUNT ON;
+
+  WITH NewCustomerStats AS (
+    SELECT
+      CAST(COUNT(DISTINCT c.CUSTOMERID) AS BIGINT) AS Created,
+      CAST(COUNT(DISTINCT CASE WHEN o.OrderCount >= 2 THEN c.CUSTOMERID END) AS BIGINT) AS TwoPlus,
+      CAST(COUNT(DISTINCT CASE WHEN o.OrderCount > 2 THEN c.CUSTOMERID END) AS BIGINT) AS ThreePlus,
+      CAST(ISNULL(SUM(o.OrderCount), 0) AS BIGINT) AS TotalOrders
+    FROM CUSTOMERS$k c
+    LEFT JOIN (
+      SELECT CUSTOMERID,
+             COUNT(*) AS OrderCount
+      FROM ORDERS$k
+      WHERE CUSTOMERID > \@customers_baseline
+      GROUP BY CUSTOMERID
+    ) o ON c.CUSTOMERID = o.CUSTOMERID
+    WHERE c.CUSTOMERID > \@customers_baseline
+  )
+  SELECT Created, TwoPlus, ThreePlus, TotalOrders
+  FROM NewCustomerStats;
+END
+GO
+
+IF EXISTS (SELECT name FROM sysobjects WHERE name = 'GetReviewAnalytics$k' AND type = 'P')
+  DROP PROCEDURE GetReviewAnalytics$k
+GO
+CREATE PROCEDURE GetReviewAnalytics$k
+  \@reviewid_baseline BIGINT
+AS
+BEGIN
+  SET NOCOUNT ON;
+
+  WITH ReviewStats AS (
+    SELECT
+      STARS,
+      COUNT(*) AS Reviews,
+      SUM(CASE WHEN REVIEW_ID > \@reviewid_baseline THEN 1 ELSE 0 END) AS Added,
+      ISNULL(AVG(CAST(TOTAL_HELPFULNESS AS DECIMAL(10,1))), 0) AS AvgHelp,
+      SUM(CASE WHEN TOTAL_HELPFULNESS >= 20 THEN 1 ELSE 0 END) AS HighHelp,
+      SUM(CASE WHEN TOTAL_HELPFULNESS < 5 THEN 1 ELSE 0 END) AS LowHelp
+    FROM REVIEWS$k
+    GROUP BY STARS
+  )
+  SELECT
+    STARS,
+    CAST(Reviews AS BIGINT) AS Reviews,
+    CAST(Added AS BIGINT) AS Added,
+    CAST(AvgHelp AS DECIMAL(10,1)) AS AvgHelp,
+    CAST(HighHelp AS BIGINT) AS HighHelp,
+    CAST(LowHelp AS BIGINT) AS LowHelp
+  FROM ReviewStats
+  ORDER BY STARS DESC;
+END
+GO
+
+DROP PROCEDURE GetPricePointAnalytics$k
+GO
+CREATE PROCEDURE GetPricePointAnalytics$k
+  \@baseline_product_count BIGINT
+AS
+BEGIN
+  SET NOCOUNT ON;
+
+  -- Result Set 1: Price point distribution
+  SELECT
+    CASE
+      WHEN (CAST(PRICE * 100 AS INT) % 100) = 99 THEN '.99'
+      WHEN (CAST(PRICE * 100 AS INT) % 100) = 77 THEN '.77'
+      WHEN (CAST(PRICE * 100 AS INT) % 100) = 1 THEN '.01'
+      ELSE 'Other'
+    END AS PriceEnding,
+    CAST(COUNT(*) AS BIGINT) AS ProductCount
+  FROM PRODUCTS$k
+  GROUP BY
+    CASE
+      WHEN (CAST(PRICE * 100 AS INT) % 100) = 99 THEN '.99'
+      WHEN (CAST(PRICE * 100 AS INT) % 100) = 77 THEN '.77'
+      WHEN (CAST(PRICE * 100 AS INT) % 100) = 1 THEN '.01'
+      ELSE 'Other'
+    END
+  ORDER BY
+    CASE
+      CASE
+        WHEN (CAST(PRICE * 100 AS INT) % 100) = 99 THEN '.99'
+        WHEN (CAST(PRICE * 100 AS INT) % 100) = 77 THEN '.77'
+        WHEN (CAST(PRICE * 100 AS INT) % 100) = 1 THEN '.01'
+        ELSE 'Other'
+      END
+      WHEN '.99' THEN 1
+      WHEN '.77' THEN 2
+      WHEN '.01' THEN 3
+      ELSE 4
+    END;
+
+  -- Result Set 2: New products purchased count
+  SELECT CAST(COUNT(DISTINCT PROD_ID) AS BIGINT) AS NewProductsPurchased
+  FROM CUST_HIST$k
+  WHERE PROD_ID > \@baseline_product_count;
+END
+GO
+
+DROP PROCEDURE GetInventoryAnalytics$k
+GO
+CREATE PROCEDURE GetInventoryAnalytics$k
+AS
+BEGIN
+  SET NOCOUNT ON;
+
+  SELECT
+    CAST(COUNT(CASE WHEN QUAN_IN_STOCK < 10 THEN 1 END) AS BIGINT) AS LowStockCount,
+    CAST(COUNT(CASE WHEN QUAN_IN_STOCK > 100 THEN 1 END) AS BIGINT) AS HighStockCount,
+    CAST((SELECT COUNT(*) FROM REORDER$k) AS BIGINT) AS ReorderCount,
+    AVG(CAST(QUAN_IN_STOCK AS DECIMAL(10,1))) AS AvgInventory,
+    CAST(COUNT(CASE WHEN SALES = 0 THEN 1 END) AS BIGINT) AS DeadStock,
+    CAST(COUNT(CASE WHEN SALES BETWEEN 1 AND 999 THEN 1 END) AS BIGINT) AS LowSales,
+    CAST(COUNT(CASE WHEN SALES BETWEEN 1000 AND 1499 THEN 1 END) AS BIGINT) AS MedSales,
+    CAST(COUNT(CASE WHEN SALES >= 1500 THEN 1 END) AS BIGINT) AS HighSales,
+    CAST(COUNT(*) AS BIGINT) AS TotalProducts
+  FROM INVENTORY$k;
+END
+GO
+
 \n";
   close $OUT;
 }

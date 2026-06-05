@@ -127,8 +127,8 @@ namespace ds2xdriver
     public static double[] rt_tot_lastn = new double[GlobalConstants.LAST_N];
     public static bool Start = false, End = false;
     public static string virt_dir = "ds3", page_type = "php";
-    public static int[] max_customer = new int[GlobalConstants.MAX_STORES+1]; // there is no store 0. We use store number as the index.;
-    public static int[] max_product = new int[GlobalConstants.MAX_STORES+1]; // there is no store 0. We use store number as the index.
+    public static int[] max_customer = new int[GlobalConstants.MAX_STORES + 1]; // there is no store 0. We use store number as the index.;
+    public static int[] max_product = new int[GlobalConstants.MAX_STORES + 1]; // there is no store 0. We use store number as the index.
 
     //Added new parameter database_custom_size and new variables by GSK
     //Note that order_rows are per month
@@ -173,7 +173,12 @@ namespace ds2xdriver
     public static int manager_purge_old_orders_pct = 5;
     public static int manager_upgrade_membership_pct = 5;
     public static int manager_promo_membership_pct = 0;
-    public static int manager_analytics_interval = 0;
+    public static int analytics_interval = 0;
+    public static bool enable_membership_analytics = true;
+    public static bool enable_newcustomer_analytics = true;
+    public static bool enable_review_analytics = true;
+    public static bool enable_pricepoint_analytics = true;
+    public static bool enable_inventory_analytics = true;
     public static int manager_batch_size_min = 10;
     public static int manager_batch_size_max = 100;
 
@@ -809,14 +814,64 @@ namespace ds2xdriver
         Validator = (value) => ValidateInt(value, min: 0, max: 100)
       };
 
-      // manager_analytics_interval - minutes between membership analytics queries
-      definitions["manager_analytics_interval"] = new ParameterDefinition
+      // analytics_interval - minutes between analytics queries
+      definitions["analytics_interval"] = new ParameterDefinition
       {
-        Name = "manager_analytics_interval",
+        Name = "analytics_interval",
         Description = "Minutes between membership analytics queries (0 = disabled)",
         DefaultValue = "0",
         Type = ParamType.Int,
         Validator = (value) => ValidateInt(value, min: 0, max: 60)
+      };
+
+      // enable_membership_analytics - enable membership analytics
+      definitions["enable_membership_analytics"] = new ParameterDefinition
+      {
+        Name = "enable_membership_analytics",
+        Description = "Enable membership analytics (y/n)",
+        DefaultValue = "Y",
+        Type = ParamType.Boolean,
+        Validator = ValidateYesNo
+      };
+
+      // enable_newcustomer_analytics - enable new customer analytics
+      definitions["enable_newcustomer_analytics"] = new ParameterDefinition
+      {
+        Name = "enable_newcustomer_analytics",
+        Description = "Enable new customer analytics (y/n)",
+        DefaultValue = "Y",
+        Type = ParamType.Boolean,
+        Validator = ValidateYesNo
+      };
+
+      // enable_review_analytics - enable review analytics
+      definitions["enable_review_analytics"] = new ParameterDefinition
+      {
+        Name = "enable_review_analytics",
+        Description = "Enable review analytics (y/n)",
+        DefaultValue = "Y",
+        Type = ParamType.Boolean,
+        Validator = ValidateYesNo
+      };
+
+      // enable_pricepoint_analytics - enable price point analytics
+      definitions["enable_pricepoint_analytics"] = new ParameterDefinition
+      {
+        Name = "enable_pricepoint_analytics",
+        Description = "Enable price point analytics (y/n)",
+        DefaultValue = "Y",
+        Type = ParamType.Boolean,
+        Validator = ValidateYesNo
+      };
+
+      // enable_inventory_analytics - enable inventory analytics
+      definitions["enable_inventory_analytics"] = new ParameterDefinition
+      {
+        Name = "enable_inventory_analytics",
+        Description = "Enable inventory analytics (y/n)",
+        DefaultValue = "Y",
+        Type = ParamType.Boolean,
+        Validator = ValidateYesNo
       };
 
       // manager_batch_size_min - minimum batch size for manager operations
@@ -1334,18 +1389,25 @@ namespace ds2xdriver
       manager_purge_old_orders_pct = parser.GetValue<int>("manager_purge_old_orders_pct");
       manager_upgrade_membership_pct = parser.GetValue<int>("manager_upgrade_membership_pct");
       manager_promo_membership_pct = parser.GetValue<int>("manager_promo_membership_pct");
-      manager_analytics_interval = parser.GetValue<int>("manager_analytics_interval");
+      analytics_interval = parser.GetValue<int>("analytics_interval");
+      enable_membership_analytics = parser.GetValue<bool>("enable_membership_analytics");
+      enable_newcustomer_analytics = parser.GetValue<bool>("enable_newcustomer_analytics");
+      enable_review_analytics = parser.GetValue<bool>("enable_review_analytics");
+      enable_pricepoint_analytics = parser.GetValue<bool>("enable_pricepoint_analytics");
+      enable_inventory_analytics = parser.GetValue<bool>("enable_inventory_analytics");
       manager_batch_size_min = parser.GetValue<int>("manager_batch_size_min");
       manager_batch_size_max = parser.GetValue<int>("manager_batch_size_max");
 
       // Display configuration summary
       DisplayConfiguration();
 
+      /*
       for (i = 0; i < GlobalConstants.MAX_STORES+1; i++) // we use the store number 1-N for the index. Element 0 not used.
       {
         max_product[i] = product_rows;
         max_customer[i] = customer_rows;
       }
+      */
 
       //Changed by GSK (size of array prod_array = number of rows in product table + (10000 * 10)
       //Reason : Every 10000th product will be popular and will have 10 entries in list
@@ -1512,9 +1574,34 @@ namespace ds2xdriver
           CPU_PCT[i] = new PerformanceCounter("Processor", "% Processor Time", "_Total", windows_perf_host_servers[i]);
           }
         }
-#else
-      Console.WriteLine("Not generating Windows Performance Monitor Counters");
 #endif
+
+      // Create and start analytics threads FIRST (if enabled) so they can capture baselines before customer threads start
+      Analytics[] analytics = new Analytics[GlobalConstants.MAX_STORES];
+      Thread[] analytics_threads = new Thread[GlobalConstants.MAX_STORES];
+      if (analytics_interval > 0)
+      {
+        Console.WriteLine("Controller ({0}): creating analytics threads", DateTime.Now);
+        for (i = 0, server_id = 0; i < n_stores; i++)
+        {
+          analytics[i] = new Analytics(i, server_id, i + 1);
+          analytics_threads[i] = new Thread(new ThreadStart(analytics[i].RunAnalytics));
+          analytics_threads[i].Start();
+
+          // Round-robin across servers
+          server_id++;
+          if (server_id >= n_target_servers)
+            server_id = 0;
+        }
+
+        // Wait for all analytics threads to capture baselines
+        while (Analytics.baseline_threads_completed < n_stores)
+        {
+          Thread.Sleep(500);
+        }
+
+        Console.WriteLine("Controller ({0}): {1} analytics thread(s) started, baselines captured", DateTime.Now, n_stores);
+      }
 
       for (i = 0, server_id = 0; i < n_threads; i++) // Create User objects; associate each with new Thread running Emulate method
       {
@@ -2065,6 +2152,7 @@ namespace ds2xdriver
       //  "rt_login_avg_msec={9} rt_newcust_avg_msec={10} rt_browse_avg_msec={11} rt_purchase_avg_msec={12} " +
       //  "n_rollbacks_overall={13} rollback_rate = {14,5:F1}%  ",
       // Print final statistics
+      /*
       Console.WriteLine("\n========================================================================");
       Console.WriteLine("                    FINAL RESULTS - {0}", DateTime.Now);
       Console.WriteLine("========================================================================");
@@ -2092,6 +2180,7 @@ namespace ds2xdriver
       Console.WriteLine("  Total (max last {0}): {1,7:F3} sec", GlobalConstants.LAST_N, rt_tot_lastn_max_msec / 1000.0);
       Console.WriteLine("  Total (sampled):      {0,7:F3} sec", rt_tot_sampled);
       Console.WriteLine("========================================================================\n");
+      */
 
       if (outfilename != string.Empty)
       {
@@ -2237,6 +2326,34 @@ namespace ds2xdriver
       }
       Console.WriteLine("Controller ({0}): all user threads completed", DateTime.Now);
 
+      Console.WriteLine("\n========================================================================");
+      Console.WriteLine("                    FINAL RESULTS - {0}", DateTime.Now);
+      Console.WriteLine("========================================================================");
+      Console.WriteLine("Elapsed Time:           {0,7:F1} sec", et);
+      Console.WriteLine("Total Orders:           {0,7}", n_overall);
+      Console.WriteLine("Orders Per Minute:      {0,7} OPM", opm);
+      Console.WriteLine();
+      Console.WriteLine("Customer Operations:");
+      Console.WriteLine("  Login:                {0,7} operations, avg RT: {1:F3} sec", n_login_overall, rt_login_avg_msec / 1000.0);
+      Console.WriteLine("  New Customer:         {0,7} operations, avg RT: {1:F3} sec", n_newcust_overall, rt_newcust_avg_msec / 1000.0);
+      Console.WriteLine("  Renew Membership:     {0,7} operations, avg RT: {1:F3} sec", n_membershiprenew_overall, rt_membershiprenew_avg_msec / 1000.0);
+      Console.WriteLine("  New Member:           {0,7} operations, avg RT: {1:F3} sec", n_newmember_overall, rt_newmember_avg_msec / 1000.0);
+      Console.WriteLine("  Browse:               {0,7} operations, avg RT: {1:F3} sec", n_browse_overall, rt_browse_avg_msec / 1000.0);
+      if (n_vectors == 1)
+      {
+        Console.WriteLine("  Browse (vector):      {0,7} operations", n_browse_vector);
+      }
+      Console.WriteLine("  Review Browse:        {0,7} operations, avg RT: {1:F3} sec", n_reviewbrowse_overall, rt_reviewbrowse_avg_msec / 1000.0);
+      Console.WriteLine("  New Review:           {0,7} operations, avg RT: {1:F3} sec", n_newreview_overall, rt_newreview_avg_msec / 1000.0);
+      Console.WriteLine("  New Helpfulness:      {0,7} operations, avg RT: {1:F3} sec", n_newhelpfulness_overall, rt_newhelpfulness_avg_msec / 1000.0);
+      Console.WriteLine("  Purchase:             {0,7} operations, avg RT: {1:F3} sec", n_purchase_overall, rt_purchase_avg_msec / 1000.0);
+      Console.WriteLine("  Rollbacks:            {0,7} ({1,4:F1}%)", n_rollbacks_overall, (100.0 * n_rollbacks_overall) / n_overall);
+      Console.WriteLine();
+      Console.WriteLine("  Total (avg):          {0,7:F3} sec", rt_tot_avg_msec / 1000.0);
+      Console.WriteLine("  Total (max last {0}): {1,7:F3} sec", GlobalConstants.LAST_N, rt_tot_lastn_max_msec / 1000.0);
+      Console.WriteLine("  Total (sampled):      {0,7:F3} sec", rt_tot_sampled);
+      Console.WriteLine("========================================================================\n");
+
       // Wait for all manager threads to complete
       if (enable_managers)
       {
@@ -2249,6 +2366,20 @@ namespace ds2xdriver
           }
         }
         Console.WriteLine("Controller ({0}): all manager threads completed", DateTime.Now);
+      }
+
+      // Wait for all analytics threads to complete
+      if (analytics_interval > 0)
+      {
+        Console.WriteLine("Controller ({0}): waiting for analytics threads to complete...", DateTime.Now);
+        for (i = 0; i < n_stores; i++)
+        {
+          if (analytics_threads[i] != null && analytics_threads[i].IsAlive)
+          {
+            analytics_threads[i].Join();
+          }
+        }
+        Console.WriteLine("Controller ({0}): all analytics threads completed", DateTime.Now);
       }
 
       Console.WriteLine("Controller ({0}): all threads stopped, exiting", DateTime.Now);
@@ -2301,7 +2432,7 @@ namespace ds2xdriver
           Console.WriteLine($"  Validation output saved to: {validationOutputFile}");
         }
 
-        Console.WriteLine("Validation complete.");
+        Console.WriteLine("Validation complete.\n");
       }
 
       Console.WriteLine("n_purchase_from_start= {0} n_rollbacks_from_start= {1}", n_purchase_from_start, n_rollbacks_from_start);
@@ -2469,12 +2600,25 @@ namespace ds2xdriver
         Console.WriteLine($"    PurgeOldOrders={manager_purge_old_orders_pct}%");
         Console.WriteLine($"    UpgradeMembership={manager_upgrade_membership_pct}%");
         Console.WriteLine($"    PromotionalMembership={manager_promo_membership_pct}%");
-        Console.WriteLine($"  Analytics: {(manager_analytics_interval > 0 ? $"every {manager_analytics_interval} min" : "DISABLED")}");
         Console.WriteLine($"  Batch size: {manager_batch_size_min}-{manager_batch_size_max}");
       }
       else
       {
         Console.WriteLine($"Manager threads: DISABLED");
+      }
+      if (analytics_interval > 0)
+      {
+        Console.WriteLine($"Analytics: ENABLED");
+        Console.WriteLine($"  Interval: {analytics_interval} minutes");
+        Console.WriteLine($"  Membership analytics: {(enable_membership_analytics ? "ENABLED" : "DISABLED")}");
+        Console.WriteLine($"  New customer analytics: {(enable_newcustomer_analytics ? "ENABLED" : "DISABLED")}");
+        Console.WriteLine($"  Review analytics: {(enable_review_analytics ? "ENABLED" : "DISABLED")}");
+        Console.WriteLine($"  Price point analytics: {(enable_pricepoint_analytics ? "ENABLED" : "DISABLED")}");
+        Console.WriteLine($"  Inventory analytics: {(enable_inventory_analytics ? "ENABLED" : "DISABLED")}");
+      }
+      else
+      {
+        Console.WriteLine($"Analytics: DISABLED");
       }
       Console.WriteLine("============================\n");
     }
@@ -2638,6 +2782,29 @@ namespace ds2xdriver
     }
 
     //
+    //---------------------------------------------------------------------------------------------------
+    // GetSkewedReviewStars - Skewed positive: 5% 1-star, 16% 2-star, 40% 3-star, 24% 4-star, 15% 5-star
+    //---------------------------------------------------------------------------------------------------
+    public static int GetSkewedReviewStars()
+    {
+      int roll = Random.Shared.Next(100);
+
+      if (roll < 5)
+        return 1;  // 0-4 (5%)
+
+      if (roll < 21)
+        return 2; // 5-20 (16%)
+
+      if (roll < 61)
+        return 3; // 21-60 (40%)
+
+      if (roll < 85)
+        return 4; // 61-84 (24%)
+
+      return 5; // 85-99 (15%)
+    }
+
+    //
     //-------------------------------------------------------------------------------------------------
     // GetSkewedCustomerId: Returns customer ID with probabilistic skewing
     // 20% probability: Select from top 10% of customer IDs (most recent customers)
@@ -2755,6 +2922,16 @@ namespace ds2xdriver
       //Changed by GSK
       Console.WriteLine("Thread {0}: connected to {1}", Thread.CurrentThread.Name, Controller.target_servers[target_server_id].ToString());
 
+      if (Userid == 0)
+      {
+        for (i = 1; i <= Controller.n_stores; i++) // we use the store number 1-N for the index. Element 0 not used.
+        {
+          Controller.max_product[i] = (int)ds2interfaces[Userid].ds2getrowcount("PRODUCTS" + i);
+          Controller.max_customer[i] = (int)ds2interfaces[Userid].ds2getrowcount("CUSTOMERS" + i);
+          // Console.WriteLine("Store {0}\n  Customers: {1}\n  Products: {2}", i, Controller.max_customer[i], Controller.max_product[i] ); 
+        }
+      }
+
       lock (typeof(User))  // Only allow one instance of User to access this code at a time
       {
         ++Controller.n_threads_connected;
@@ -2778,8 +2955,8 @@ namespace ds2xdriver
         rt_newreview = 0.0;  // total response time for new reviews created in this emulation loop
         rt_newhelpfulness = 0.0;  // total response time for new helpfulness ratings of reviews in this emulation loop
         rt_purchase = 0.0;  //  response time for purchase in this emulation loop
-	rt_membership_renew = 0.0;
-	rt_membership_check = 0.0;
+        rt_membership_renew = 0.0;
+        rt_membership_check = 0.0;
 
         IsLogin = false;
         IsRollback = false;
@@ -2856,7 +3033,7 @@ namespace ds2xdriver
               }
             }
             //Console.WriteLine("Checked membership for user: {0}",customerid_out);
-	    //Console.WriteLine("  is_expired_out: {0}  membershiplevel_out: {1}", is_expired_out,membershiplevel_out);
+            //Console.WriteLine("  is_expired_out: {0}  membershiplevel_out: {1}", is_expired_out,membershiplevel_out);
 
             // Assume getting membership status is part of the login process. Don't add the time to the total.
             //rt_tot += rt_membership_check;
@@ -2869,7 +3046,7 @@ namespace ds2xdriver
                 // Renew membership
                 int rows_affected = 0;
                 failures = 0;
-	        //Console.WriteLine("Renew memebership for: {0}", customerid_out);
+                //Console.WriteLine("Renew memebership for: {0}", customerid_out);
                 while (!ds2interfaces[Userid].ds2renewmembership(customerid_out, ref rows_affected, ref rt_membership_renew))
                 {
                   if (++failures < GlobalConstants.MAX_FAILURES)
@@ -3068,7 +3245,7 @@ namespace ds2xdriver
 
           failures = 0;
 
-	  browse_rows_returned = 0;
+          browse_rows_returned = 0;
           while (!ds2interfaces[Userid].ds2browse(browse_type_in, browse_category_in, browse_actor_in,
             browse_title_in, batch_size_in, Controller.search_depth, customerid_out, membershiplevel_out,
             ref browse_rows_returned, ref prod_id_out, ref title_out, ref actor_out, ref price_out, ref special_out,
@@ -3245,7 +3422,7 @@ namespace ds2xdriver
 
             new_review_summary_in = CreateReviewData(3);
             new_review_text_in = CreateReviewData(25);
-            new_review_stars_in = Random.Shared.Next(1, 6);
+            new_review_stars_in = Controller.GetSkewedReviewStars(); // Random.Shared.Next(1+membershiplevel_out, 6);
             new_review_prod_id_in = review_prod_id_out[Random.Shared.Next(0, rows_returned)];
 
             failures = 0;
@@ -3274,7 +3451,7 @@ namespace ds2xdriver
           {
             IsNewHelpfulness = true;
             reviewid_in = review_id_out[Random.Shared.Next(0, rows_returned)];
-            reviewhelpfulness_in = Random.Shared.Next(1, 11);
+            reviewhelpfulness_in = Random.Shared.Next(1 + membershiplevel_out, 11);
 
             failures = 0;
             while (!ds2interfaces[Userid].ds2newreviewhelpfulness(reviewid_in, customerid_out, reviewhelpfulness_in, ref reviewhelpfulnessid_out, ref rt))
@@ -3305,7 +3482,7 @@ namespace ds2xdriver
         // Randomize number of cart items with average n_line_items
         int cart_items = Random.Shared.Next(1, 2 * Controller.n_line_items) + membershiplevel_out;
 
-        for (i = 0; i < cart_items ; i++)
+        for (i = 0; i < cart_items; i++)
         {
           prod_id_in[i] = 0;
           qty_in[i] = 0;

@@ -1019,6 +1019,121 @@ BEGIN
   ORDER BY CASE WHEN m.MEMBERSHIPTYPE IS NULL THEN -1 ELSE m.MEMBERSHIPTYPE END DESC;
 END $$
 
+DROP PROCEDURE IF EXISTS DS3.GetNewCustomerAnalytics$k $$
+CREATE PROCEDURE DS3.GetNewCustomerAnalytics$k(
+  IN customers_baseline BIGINT UNSIGNED
+)
+BEGIN
+  -- Use READ UNCOMMITTED to avoid locking CUSTOMERS table (analytics is read-only, dirty reads acceptable)
+  SET SESSION TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
+
+  WITH NewCustomerStats AS (
+    SELECT
+      COUNT(DISTINCT c.CUSTOMERID) AS Created,
+      COUNT(DISTINCT CASE WHEN o.OrderCount >= 2 THEN c.CUSTOMERID END) AS TwoPlus,
+      COUNT(DISTINCT CASE WHEN o.OrderCount > 2 THEN c.CUSTOMERID END) AS ThreePlus,
+      IFNULL(SUM(o.OrderCount), 0) AS TotalOrders
+    FROM CUSTOMERS$k c
+    LEFT JOIN (
+      SELECT CUSTOMERID,
+             COUNT(*) AS OrderCount
+      FROM ORDERS$k
+      WHERE CUSTOMERID > customers_baseline
+      GROUP BY CUSTOMERID
+    ) o ON c.CUSTOMERID = o.CUSTOMERID
+    WHERE c.CUSTOMERID > customers_baseline
+  )
+  SELECT Created, TwoPlus, ThreePlus, TotalOrders
+  FROM NewCustomerStats;
+END $$
+
+DELIMITER ;
+DROP PROCEDURE IF EXISTS DS3.GetReviewAnalytics$k;
+DELIMITER $$
+CREATE PROCEDURE DS3.GetReviewAnalytics$k(
+  IN reviewid_baseline BIGINT UNSIGNED
+)
+BEGIN
+  SET SESSION TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
+
+  WITH ReviewStats AS (
+    SELECT
+      STARS,
+      COUNT(*) AS Reviews,
+      SUM(CASE WHEN REVIEW_ID > reviewid_baseline THEN 1 ELSE 0 END) AS Added,
+      IFNULL(AVG(TOTAL_HELPFULNESS), 0) AS AvgHelp,
+      SUM(CASE WHEN TOTAL_HELPFULNESS >= 20 THEN 1 ELSE 0 END) AS HighHelp,
+      SUM(CASE WHEN TOTAL_HELPFULNESS < 5 THEN 1 ELSE 0 END) AS LowHelp
+    FROM REVIEWS$k
+    GROUP BY STARS
+  )
+  SELECT
+    STARS,
+    Reviews,
+    Added,
+    CAST(AvgHelp AS DECIMAL(10,1)) AS AvgHelp,
+    HighHelp,
+    LowHelp
+  FROM ReviewStats
+  ORDER BY STARS DESC;
+END $$
+
+DELIMITER ;
+DROP PROCEDURE IF EXISTS DS3.GetPricePointAnalytics$k;
+DELIMITER $$
+CREATE PROCEDURE DS3.GetPricePointAnalytics$k(
+  IN baseline_product_count BIGINT UNSIGNED
+)
+BEGIN
+  -- Result Set 1: Price point distribution
+  SELECT
+    CASE
+      WHEN (CAST(PRICE * 100 AS SIGNED) % 100) = 99 THEN '.99'
+      WHEN (CAST(PRICE * 100 AS SIGNED) % 100) = 77 THEN '.77'
+      WHEN (CAST(PRICE * 100 AS SIGNED) % 100) = 1 THEN '.01'
+      ELSE 'Other'
+    END AS PriceEnding,
+    COUNT(*) AS ProductCount
+  FROM PRODUCTS$k
+  GROUP BY
+    CASE
+      WHEN (CAST(PRICE * 100 AS SIGNED) % 100) = 99 THEN '.99'
+      WHEN (CAST(PRICE * 100 AS SIGNED) % 100) = 77 THEN '.77'
+      WHEN (CAST(PRICE * 100 AS SIGNED) % 100) = 1 THEN '.01'
+      ELSE 'Other'
+    END
+  ORDER BY
+    CASE
+      WHEN (CAST(PRICE * 100 AS SIGNED) % 100) = 99 THEN 1
+      WHEN (CAST(PRICE * 100 AS SIGNED) % 100) = 77 THEN 2
+      WHEN (CAST(PRICE * 100 AS SIGNED) % 100) = 1 THEN 3
+      ELSE 4
+    END;
+
+  -- Result Set 2: New products purchased count
+  SELECT COUNT(DISTINCT PROD_ID) AS NewProductsPurchased
+  FROM CUST_HIST$k
+  WHERE PROD_ID > baseline_product_count;
+END $$
+
+DELIMITER ;
+DROP PROCEDURE IF EXISTS DS3.GetInventoryAnalytics$k;
+DELIMITER $$
+CREATE PROCEDURE DS3.GetInventoryAnalytics$k()
+BEGIN
+  SELECT
+    COUNT(CASE WHEN QUAN_IN_STOCK < 10 THEN 1 END) AS LowStockCount,
+    COUNT(CASE WHEN QUAN_IN_STOCK > 100 THEN 1 END) AS HighStockCount,
+    (SELECT COUNT(*) FROM REORDER$k) AS ReorderCount,
+    AVG(CAST(QUAN_IN_STOCK AS DECIMAL(10,1))) AS AvgInventory,
+    COUNT(CASE WHEN SALES = 0 THEN 1 END) AS DeadStock,
+    COUNT(CASE WHEN SALES BETWEEN 1 AND 999 THEN 1 END) AS LowSales,
+    COUNT(CASE WHEN SALES BETWEEN 1000 AND 1499 THEN 1 END) AS MedSales,
+    COUNT(CASE WHEN SALES >= 1500 THEN 1 END) AS HighSales,
+    COUNT(*) AS TotalProducts
+  FROM INVENTORY$k;
+END $$
+
 \n";
   close $OUT;
   sleep(1);

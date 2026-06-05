@@ -44,6 +44,49 @@ namespace ds2xdriver
     public decimal TotalRevenue { get; set; }
   }
 
+  public class NewCustomerAnalyticsRow
+  {
+    public long Created { get; set; }
+    public long TwoPlus { get; set; }
+    public long ThreePlus { get; set; }
+    public long TotalOrders { get; set; }
+  }
+
+  public class ReviewAnalyticsRow
+  {
+    public int Stars { get; set; }
+    public long Reviews { get; set; }
+    public long Added { get; set; }
+    public decimal AvgHelp { get; set; }
+    public long HighHelp { get; set; }
+    public long LowHelp { get; set; }
+  }
+
+  public class PricePointAnalyticsRow
+  {
+    public string PriceEnding { get; set; }
+    public long ProductCount { get; set; }
+  }
+
+  public class PricePointAnalyticsData
+  {
+    public List<PricePointAnalyticsRow> PricePoints { get; set; }
+    public long NewProductsPurchased { get; set; }
+  }
+
+  public class InventoryAnalyticsRow
+  {
+    public long LowStockCount { get; set; }
+    public long HighStockCount { get; set; }
+    public long ReorderCount { get; set; }
+    public decimal AvgInventory { get; set; }
+    public long DeadStock { get; set; }
+    public long LowSales { get; set; }
+    public long MedSales { get; set; }
+    public long HighSales { get; set; }
+    public long TotalProducts { get; set; }
+  }
+
   /// <summary>
   /// ds3sqlserverfns.cs: DVD Store 3 SQL Server Functions
   /// </summary>
@@ -57,7 +100,8 @@ namespace ds2xdriver
     SqlCommand Get_Prod_Reviews, Get_Prod_Reviews_By_Actor, Get_Prod_Reviews_By_Title, Get_Prod_Reviews_By_Date, Get_Prod_Reviews_By_Stars;
     SqlCommand New_Member, New_Prod_Review, New_Review_Helpfulness;
     SqlCommand Get_Membership_Status, Renew_Membership;
-    SqlCommand Remove_Review_By_Product, Remove_Unhelpful_Reviews, Remove_Reviews_By_Date, Adjust_Prices, Bulk_Price_Adjustment, Mark_Specials, Expire_Memberships, Purge_Old_Orders, Upgrade_Membership, Promotional_Membership, Get_Membership_Analytics;
+    SqlCommand Remove_Review_By_Product, Remove_Unhelpful_Reviews, Remove_Reviews_By_Date, Adjust_Prices, Bulk_Price_Adjustment, Mark_Specials, Expire_Memberships, Purge_Old_Orders, Upgrade_Membership, Promotional_Membership;
+    SqlCommand Get_Membership_Analytics, Get_New_Customer_Analytics, Get_Review_Analytics, Get_Price_Point_Analytics, Get_Inventory_Analytics;
     SqlCommand[] CostQuery = new SqlCommand[11];
 
     //
@@ -279,6 +323,21 @@ namespace ds2xdriver
 
       Get_Membership_Analytics = new SqlCommand("GetMembershipAnalytics" + target_store_number, objConn);
       Get_Membership_Analytics.CommandType = CommandType.StoredProcedure;
+
+      Get_New_Customer_Analytics = new SqlCommand("GetNewCustomerAnalytics" + target_store_number, objConn);
+      Get_New_Customer_Analytics.CommandType = CommandType.StoredProcedure;
+      Get_New_Customer_Analytics.Parameters.Add("@customers_baseline", SqlDbType.BigInt);
+
+      Get_Review_Analytics = new SqlCommand("GetReviewAnalytics" + target_store_number, objConn);
+      Get_Review_Analytics.CommandType = CommandType.StoredProcedure;
+      Get_Review_Analytics.Parameters.Add("@reviewid_baseline", SqlDbType.BigInt);
+
+      Get_Price_Point_Analytics = new SqlCommand("GetPricePointAnalytics" + target_store_number, objConn);
+      Get_Price_Point_Analytics.CommandType = CommandType.StoredProcedure;
+      Get_Price_Point_Analytics.Parameters.Add("@baseline_product_count", SqlDbType.BigInt);
+
+      Get_Inventory_Analytics = new SqlCommand("GetInventoryAnalytics" + target_store_number, objConn);
+      Get_Inventory_Analytics.CommandType = CommandType.StoredProcedure;
 
       Bulk_Price_Adjustment = new SqlCommand("BulkPriceAdjustment" + target_store_number, objConn);
       Bulk_Price_Adjustment.CommandType = CommandType.StoredProcedure;
@@ -1342,6 +1401,7 @@ namespace ds2xdriver
       catch (Exception e)
       {
         Console.WriteLine($"Thread {Thread.CurrentThread.Name}: ds36getmembershipanalytics error: {e.Message}");
+        throw;
       }
       finally
       {
@@ -1349,6 +1409,221 @@ namespace ds2xdriver
       }
 
       return result;
+    }
+
+    //
+    //-------------------------------------------------------------------------------------------------
+    //
+    public NewCustomerAnalyticsRow ds36getnewcustomeranalytics(long customers_baseline, ref double rt)
+    {
+      NewCustomerAnalyticsRow result = null;
+      Stopwatch timer = Stopwatch.StartNew();
+
+      try
+      {
+        Get_New_Customer_Analytics.Parameters["@customers_baseline"].Value = customers_baseline;
+
+        using (SqlDataReader reader = Get_New_Customer_Analytics.ExecuteReader())
+        {
+          if (reader.Read())
+          {
+            result = new NewCustomerAnalyticsRow
+            {
+              Created = reader.GetInt64(0),
+              TwoPlus = reader.GetInt64(1),
+              ThreePlus = reader.GetInt64(2),
+              TotalOrders = reader.GetInt64(3)
+            };
+          }
+        }
+      }
+      catch (Exception e)
+      {
+        Console.WriteLine($"Thread {Thread.CurrentThread.Name}: ds36getnewcustomeranalytics error: {e.Message}");
+        throw;
+      }
+      finally
+      {
+        rt = timer.Elapsed.TotalSeconds;
+      }
+
+      return result;
+    }
+
+    //
+    //-------------------------------------------------------------------------------------------------
+    //
+    public List<ReviewAnalyticsRow> ds36getreviewanalytics(long reviewid_baseline, ref double rt)
+    {
+      var result = new List<ReviewAnalyticsRow>();
+      Stopwatch timer = Stopwatch.StartNew();
+
+      try
+      {
+        Get_Review_Analytics.Parameters["@reviewid_baseline"].Value = reviewid_baseline;
+
+        using (SqlDataReader reader = Get_Review_Analytics.ExecuteReader())
+        {
+          while (reader.Read())
+          {
+            result.Add(new ReviewAnalyticsRow
+            {
+              Stars = reader.GetInt32(0),
+              Reviews = reader.GetInt64(1),
+              Added = reader.GetInt64(2),
+              AvgHelp = reader.GetDecimal(3),
+              HighHelp = reader.GetInt64(4),
+              LowHelp = reader.GetInt64(5)
+            });
+          }
+        }
+      }
+      catch (Exception e)
+      {
+        Console.WriteLine($"Thread {Thread.CurrentThread.Name}: ds36getreviewanalytics error: {e.Message}");
+        throw;
+      }
+      finally
+      {
+        rt = timer.Elapsed.TotalSeconds;
+      }
+
+      return result;
+    }
+
+    //
+    //-------------------------------------------------------------------------------------------------
+    //
+    public PricePointAnalyticsData ds36getpricepointanalytics(long baseline_product_count, ref double rt)
+    {
+      var result = new PricePointAnalyticsData
+      {
+        PricePoints = new List<PricePointAnalyticsRow>()
+      };
+      Stopwatch timer = Stopwatch.StartNew();
+
+      try
+      {
+        Get_Price_Point_Analytics.Parameters["@baseline_product_count"].Value = baseline_product_count;
+
+        using (SqlDataReader reader = Get_Price_Point_Analytics.ExecuteReader())
+        {
+          // Result Set 1: Price point distribution
+          while (reader.Read())
+          {
+            result.PricePoints.Add(new PricePointAnalyticsRow
+            {
+              PriceEnding = reader.GetString(0),
+              ProductCount = reader.GetInt64(1)
+            });
+          }
+
+          // Result Set 2: New products purchased count
+          if (reader.NextResult() && reader.Read())
+          {
+            result.NewProductsPurchased = reader.GetInt64(0);
+          }
+        }
+      }
+      catch (Exception e)
+      {
+        Console.WriteLine($"Thread {Thread.CurrentThread.Name}: ds36getpricepointanalytics error: {e.Message}");
+        throw;
+      }
+      finally
+      {
+        rt = timer.Elapsed.TotalSeconds;
+      }
+
+      return result;
+    }
+
+    //
+    //-------------------------------------------------------------------------------------------------
+    //
+    public InventoryAnalyticsRow ds36getinventoryanalytics(ref double rt)
+    {
+      InventoryAnalyticsRow result = null;
+      Stopwatch timer = Stopwatch.StartNew();
+
+      try
+      {
+        using (SqlDataReader reader = Get_Inventory_Analytics.ExecuteReader())
+        {
+          if (reader.Read())
+          {
+            result = new InventoryAnalyticsRow
+            {
+              LowStockCount = reader.GetInt64(0),
+              HighStockCount = reader.GetInt64(1),
+              ReorderCount = reader.GetInt64(2),
+              AvgInventory = reader.GetDecimal(3),
+              DeadStock = reader.GetInt64(4),
+              LowSales = reader.GetInt64(5),
+              MedSales = reader.GetInt64(6),
+              HighSales = reader.GetInt64(7),
+              TotalProducts = reader.GetInt64(8)
+            };
+          }
+        }
+      }
+      catch (Exception e)
+      {
+        Console.WriteLine($"Thread {Thread.CurrentThread.Name}: ds36getinventoryanalytics error: {e.Message}");
+        throw;
+      }
+      finally
+      {
+        rt = timer.Elapsed.TotalSeconds;
+      }
+
+      return result;
+    }
+
+    //
+    //-------------------------------------------------------------------------------------------------
+    //
+    public long ds2getrowcount(string tablename)
+    {
+      long count = 0;
+      try
+      {
+        // SQL Server: dbo.PRODUCTS1
+        string sqlTable = "dbo." + tablename;
+        using (SqlCommand cmd = new SqlCommand($"SELECT COUNT(*) FROM {sqlTable}", objConn))
+        {
+          count = Convert.ToInt64(cmd.ExecuteScalar());
+        }
+      }
+      catch (Exception e)
+      {
+        Console.WriteLine($"Thread {Thread.CurrentThread.Name}: ds2getrowcount({tablename}) error: {e.Message}");
+        throw;
+      }
+      return count;
+    }
+
+    //
+    //-------------------------------------------------------------------------------------------------
+    //
+    public long ds2getmaxid(string tablename, string columnname)
+    {
+      long maxid = 0;
+      try
+      {
+        // SQL Server: dbo.REVIEWS1, REVIEW_ID
+        string sqlTable = "dbo." + tablename;
+        using (SqlCommand cmd = new SqlCommand($"SELECT ISNULL(MAX({columnname}), 0) FROM {sqlTable}", objConn))
+        {
+          maxid = Convert.ToInt64(cmd.ExecuteScalar());
+        }
+      }
+      catch (Exception e)
+      {
+        Console.WriteLine($"Thread {Thread.CurrentThread.Name}: ds2getmaxid({tablename}, {columnname}) error: {e.Message}");
+        throw;
+      }
+      return maxid;
     }
 
     //
@@ -1496,7 +1771,10 @@ namespace ds2xdriver
     //
     public bool ds2close()
     {
-      objConn.Close();
+      if (objConn != null && objConn.State == ConnectionState.Open)
+      {
+        objConn.Close();
+      }
       return (true);
     } // end ds2close()
   } // end Class ds2Interface
