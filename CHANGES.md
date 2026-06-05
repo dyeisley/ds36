@@ -163,6 +163,20 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - **GetNewCustomerAnalytics** - Tracks new customer acquisition and engagement (created, 2+ orders, 3+ orders, conversion rates) (SQL Server ✓, MySQL ✓, PostgreSQL ✓, Oracle ✓)
 - **GetReviewAnalytics** - Tracks review activity (star distribution, helpfulness metrics, added/removed reviews) (SQL Server ✓, MySQL ✓, PostgreSQL ✓, Oracle ✓)
   - Star distribution: 5% / 16% / 40% / 24% / 15% (skewed positive)
+- **GetPricePointAnalytics** ⭐ NEW - Tracks product price ending distribution and new product purchases (SQL Server ✓, MySQL ✓, PostgreSQL ✓, Oracle ✓)
+  - Price endings: .99 (original), .77 (BulkPriceAdjustment), .01 (AddProduct), Other (AdjustPrices)
+  - Baseline tracking: products added and new products purchased during test run
+  - Database-specific implementations:
+    - SQL Server/MySQL: 2 result sets (price distribution + new products count)
+    - PostgreSQL: Combined SETOF RECORD result
+    - Oracle: 2 separate procedures (REF CURSOR + OUT parameter)
+- **GetInventoryAnalytics** ⭐ NEW - Tracks inventory levels and sales distribution (SQL Server ✓, MySQL ✓, PostgreSQL ✓, Oracle ✓)
+  - Stock levels: Low (<10), High (>100), Reorder queue, Average inventory
+  - Sales distribution: Dead (0), Low (1-999), Med (1K-1.5K), High (1.5K+)
+  - Shows product lifecycle: new products climb from Dead → Low → Med → High as they accumulate sales
+  - Database-specific implementations:
+    - SQL Server: COUNT cast to BIGINT
+    - Oracle: CROSS JOIN for ReorderCount, ROUND(AVG, 1), COUNT returns NUMBER (Decimal)
   - See `ANALYTICS.md` for complete documentation
 
 **Documentation:**

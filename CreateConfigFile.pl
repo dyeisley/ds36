@@ -97,16 +97,26 @@ if (-f ".dvdstore_metadata") {
 print "Please enter target host(s) (database/web server hostname or IP Address) [$target_host] : ";
 chomp($target_host = <STDIN>);
 $target_host ||= $hostname;
+
+# Count number of target servers (semicolon-separated)
+my $n_targets = ($target_host =~ tr/;/;/) + 1;
+
 print "Please enter database size (e.g. Input can be like 30MB, 80GB ,etc) [$saved_db_size] : ";
 chomp($database_size = <STDIN>);
 $database_size ||= $saved_db_size;
-print "Please enter target hostname for perfmon CPU% display (windows only) : ";
-chomp($windows_perf_host = <STDIN>);
-print "Please enter <username>:<password>:<IP Address> for linux machines for CPU % display (linux only) : ";
-chomp($linux_perf_host = <STDIN>);
-print "Please enter if you want detailed view of runtime statistics of each target machine ( Y / N ) [N] : ";
-chomp($detailed_view = <STDIN>);
-$detailed_view ||= "N";
+if(lc($^O) eq lc("MSWin32"))
+{
+  print "Please enter target hostname for perfmon CPU% display (windows only) : ";
+  chomp($windows_perf_host = <STDIN>);
+  print "Please enter <username>:<password>:<IP Address> for linux machines for CPU % display (windows driver only) : ";
+  chomp($linux_perf_host = <STDIN>);
+}
+if ($n_targets > 1)
+{
+  print "Please enter if you want detailed view of runtime statistics of each target machine ( Y / N ) [N] : ";
+  chomp($detailed_view = <STDIN>);
+  $detailed_view ||= "N";
+}
 
 if(lc($^O) eq lc("linux"))
 {

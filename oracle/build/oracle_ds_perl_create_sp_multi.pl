@@ -1437,6 +1437,84 @@ BEGIN
 END;
 /
 
+CREATE OR REPLACE PROCEDURE GET_PRICE_POINT_ANALYTICS$k(
+    p_baseline_product_count IN NUMBER,
+    p_cursor OUT SYS_REFCURSOR
+)
+IS
+BEGIN
+    OPEN p_cursor FOR
+    -- Result Set 1: Price point distribution
+    SELECT
+        CASE
+            WHEN MOD(CAST(PRICE * 100 AS INT), 100) = 99 THEN '.99'
+            WHEN MOD(CAST(PRICE * 100 AS INT), 100) = 77 THEN '.77'
+            WHEN MOD(CAST(PRICE * 100 AS INT), 100) = 1 THEN '.01'
+            ELSE 'Other'
+        END AS PriceEnding,
+        COUNT(*) AS ProductCount
+    FROM DS3.PRODUCTS$k
+    GROUP BY
+        CASE
+            WHEN MOD(CAST(PRICE * 100 AS INT), 100) = 99 THEN '.99'
+            WHEN MOD(CAST(PRICE * 100 AS INT), 100) = 77 THEN '.77'
+            WHEN MOD(CAST(PRICE * 100 AS INT), 100) = 1 THEN '.01'
+            ELSE 'Other'
+        END
+    ORDER BY
+        CASE
+            CASE
+                WHEN MOD(CAST(PRICE * 100 AS INT), 100) = 99 THEN '.99'
+                WHEN MOD(CAST(PRICE * 100 AS INT), 100) = 77 THEN '.77'
+                WHEN MOD(CAST(PRICE * 100 AS INT), 100) = 1 THEN '.01'
+                ELSE 'Other'
+            END
+            WHEN '.99' THEN 1
+            WHEN '.77' THEN 2
+            WHEN '.01' THEN 3
+            ELSE 4
+        END;
+
+    -- Result Set 2: New products purchased count
+    -- Oracle doesn't support multiple result sets, so we'll handle this in the C# code
+    -- by making a second call or combining into a single query
+END;
+/
+
+CREATE OR REPLACE PROCEDURE GET_NEW_PRODUCTS_PURCHASED$k(
+    p_baseline_product_count IN NUMBER,
+    p_count OUT NUMBER
+)
+IS
+BEGIN
+    SELECT COUNT(DISTINCT PROD_ID)
+    INTO p_count
+    FROM DS3.CUST_HIST$k
+    WHERE PROD_ID > p_baseline_product_count;
+END;
+/
+
+CREATE OR REPLACE PROCEDURE GET_INVENTORY_ANALYTICS$k(
+    p_cursor OUT SYS_REFCURSOR
+)
+IS
+BEGIN
+    OPEN p_cursor FOR
+    SELECT
+        COUNT(CASE WHEN QUAN_IN_STOCK < 10 THEN 1 END) AS LowStockCount,
+        COUNT(CASE WHEN QUAN_IN_STOCK > 100 THEN 1 END) AS HighStockCount,
+        MAX(r.ReorderCount) AS ReorderCount,
+        ROUND(NVL(AVG(QUAN_IN_STOCK), 0), 1) AS AvgInventory,
+        COUNT(CASE WHEN SALES = 0 THEN 1 END) AS DeadStock,
+        COUNT(CASE WHEN SALES BETWEEN 1 AND 999 THEN 1 END) AS LowSales,
+        COUNT(CASE WHEN SALES BETWEEN 1000 AND 1499 THEN 1 END) AS MedSales,
+        COUNT(CASE WHEN SALES >= 1500 THEN 1 END) AS HighSales,
+        COUNT(*) AS TotalProducts
+    FROM DS3.INVENTORY$k
+    CROSS JOIN (SELECT COUNT(*) AS ReorderCount FROM DS3.REORDER$k) r;
+END;
+/
+
 CREATE OR REPLACE TRIGGER \"DS3\".\"TRG_HELPFULNESS_SYNC$k\"
 AFTER INSERT OR UPDATE OR DELETE ON \"DS3\".\"REVIEWS_HELPFULNESS$k\"
 FOR EACH ROW

@@ -62,6 +62,31 @@ namespace ds2xdriver
     public long LowHelp { get; set; }
   }
 
+  public class PricePointAnalyticsRow
+  {
+    public string PriceEnding { get; set; }
+    public long ProductCount { get; set; }
+  }
+
+  public class PricePointAnalyticsData
+  {
+    public List<PricePointAnalyticsRow> PricePoints { get; set; }
+    public long NewProductsPurchased { get; set; }
+  }
+
+  public class InventoryAnalyticsRow
+  {
+    public long LowStockCount { get; set; }
+    public long HighStockCount { get; set; }
+    public long ReorderCount { get; set; }
+    public decimal AvgInventory { get; set; }
+    public long DeadStock { get; set; }
+    public long LowSales { get; set; }
+    public long MedSales { get; set; }
+    public long HighSales { get; set; }
+    public long TotalProducts { get; set; }
+  }
+
   /// <summary>
   /// ds2pgsqlfns.cs: DVD Store 3 postgreSQL Functions
   /// </summary>
@@ -75,7 +100,7 @@ namespace ds2xdriver
     NpgsqlCommand Login, New_Customer, Browse_By_Category, Browse_By_Actor, Browse_By_Title, Browse_By_Membership, Purchase;
     NpgsqlCommand New_Member, Get_Membership_Status, Renew_Membership, New_Prod_Review, New_Review_Helpfulness, New_Product;
     NpgsqlCommand Get_Prod_Reviews, Get_Prod_Reviews_By_Date, Get_Prod_Reviews_By_Stars, Get_Prod_Reviews_By_Actor, Get_Prod_Reviews_By_Title;
-    NpgsqlCommand Remove_Review_By_Product, Remove_Unhelpful_Reviews, Remove_Reviews_By_Date, Adjust_Prices, Bulk_Price_Adjustment, Mark_Specials, Expire_Memberships, Purge_Old_Orders, Upgrade_Membership, Promotional_Membership, Get_Membership_Analytics, Get_New_Customer_Analytics, Get_Review_Analytics;
+    NpgsqlCommand Remove_Review_By_Product, Remove_Unhelpful_Reviews, Remove_Reviews_By_Date, Adjust_Prices, Bulk_Price_Adjustment, Mark_Specials, Expire_Memberships, Purge_Old_Orders, Upgrade_Membership, Promotional_Membership, Get_Membership_Analytics, Get_New_Customer_Analytics, Get_Review_Analytics, Get_Price_Point_Analytics, Get_Inventory_Analytics;
     NpgsqlCommand[] CostQuery = new NpgsqlCommand[11];
 
     //
@@ -297,6 +322,11 @@ namespace ds2xdriver
 
       Get_Review_Analytics = new NpgsqlCommand("SELECT * FROM getreviewanalytics" + target_store_number + "(@reviewid_baseline)", objConn);
       Get_Review_Analytics.Parameters.Add("reviewid_baseline", NpgsqlDbType.Bigint);
+
+      Get_Price_Point_Analytics = new NpgsqlCommand("SELECT * FROM getpricepointanalytics" + target_store_number + "(@baseline_product_count)", objConn);
+      Get_Price_Point_Analytics.Parameters.Add("baseline_product_count", NpgsqlDbType.Bigint);
+
+      Get_Inventory_Analytics = new NpgsqlCommand("SELECT * FROM getinventoryanalytics" + target_store_number + "()", objConn);
     }
 
     //
@@ -1377,6 +1407,102 @@ namespace ds2xdriver
       catch (Exception e)
       {
         Console.WriteLine($"Thread {Thread.CurrentThread.Name}: ds36getreviewanalytics error: {e.Message}");
+        throw;
+      }
+      finally
+      {
+        rt = timer.Elapsed.TotalSeconds;
+      }
+
+      return result;
+    }
+
+    //
+    //-------------------------------------------------------------------------------------------------
+    //
+    public PricePointAnalyticsData ds36getpricepointanalytics(long baseline_product_count, ref double rt)
+    {
+      var result = new PricePointAnalyticsData
+      {
+        PricePoints = new List<PricePointAnalyticsRow>()
+      };
+      Stopwatch timer = Stopwatch.StartNew();
+
+      try
+      {
+        Get_Price_Point_Analytics.Parameters["baseline_product_count"].Value = baseline_product_count;
+
+        using (NpgsqlDataReader reader = Get_Price_Point_Analytics.ExecuteReader())
+        {
+          // PostgreSQL returns combined rows: price distribution rows + final row with new products count
+          while (reader.Read())
+          {
+            string priceEnding = reader.GetString(0);
+            long productCount = reader.GetInt64(1);
+            long newProductsPurchased = reader.GetInt64(2);
+
+            // Price distribution rows have productCount > 0
+            // Final row has productCount = 0 and newProductsPurchased value
+            if (productCount > 0)
+            {
+              result.PricePoints.Add(new PricePointAnalyticsRow
+              {
+                PriceEnding = priceEnding,
+                ProductCount = productCount
+              });
+            }
+            else
+            {
+              result.NewProductsPurchased = newProductsPurchased;
+            }
+          }
+        }
+      }
+      catch (Exception e)
+      {
+        Console.WriteLine($"Thread {Thread.CurrentThread.Name}: ds36getpricepointanalytics error: {e.Message}");
+        throw;
+      }
+      finally
+      {
+        rt = timer.Elapsed.TotalSeconds;
+      }
+
+      return result;
+    }
+
+    //
+    //-------------------------------------------------------------------------------------------------
+    //
+    public InventoryAnalyticsRow ds36getinventoryanalytics(ref double rt)
+    {
+      InventoryAnalyticsRow result = null;
+      Stopwatch timer = Stopwatch.StartNew();
+
+      try
+      {
+        using (NpgsqlDataReader reader = Get_Inventory_Analytics.ExecuteReader())
+        {
+          if (reader.Read())
+          {
+            result = new InventoryAnalyticsRow
+            {
+              LowStockCount = reader.GetInt64(0),
+              HighStockCount = reader.GetInt64(1),
+              ReorderCount = reader.GetInt64(2),
+              AvgInventory = reader.GetDecimal(3),
+              DeadStock = reader.GetInt64(4),
+              LowSales = reader.GetInt64(5),
+              MedSales = reader.GetInt64(6),
+              HighSales = reader.GetInt64(7),
+              TotalProducts = reader.GetInt64(8)
+            };
+          }
+        }
+      }
+      catch (Exception e)
+      {
+        Console.WriteLine($"Thread {Thread.CurrentThread.Name}: ds36getinventoryanalytics error: {e.Message}");
         throw;
       }
       finally

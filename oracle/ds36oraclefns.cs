@@ -60,6 +60,31 @@ namespace ds2xdriver
     public long LowHelp { get; set; }
   }
 
+  public class PricePointAnalyticsRow
+  {
+    public string PriceEnding { get; set; }
+    public long ProductCount { get; set; }
+  }
+
+  public class PricePointAnalyticsData
+  {
+    public List<PricePointAnalyticsRow> PricePoints { get; set; }
+    public long NewProductsPurchased { get; set; }
+  }
+
+  public class InventoryAnalyticsRow
+  {
+    public long LowStockCount { get; set; }
+    public long HighStockCount { get; set; }
+    public long ReorderCount { get; set; }
+    public decimal AvgInventory { get; set; }
+    public long DeadStock { get; set; }
+    public long LowSales { get; set; }
+    public long MedSales { get; set; }
+    public long HighSales { get; set; }
+    public long TotalProducts { get; set; }
+  }
+
   /// <summary>
   /// ds2oraclefns.cs: DVD Store 3 Oracle Functions
   /// </summary>
@@ -70,7 +95,7 @@ namespace ds2xdriver
     OracleCommand Login, New_Customer, Browse_By_Category, Browse_By_Actor, Browse_By_Title, Browse_By_Membership, New_Product, Purchase;
     OracleCommand Get_Prod_Reviews, Get_Prod_Reviews_By_Actor, Get_Prod_Reviews_By_Title, Get_Prod_Reviews_By_Date, Get_Prod_Reviews_By_Stars;
     OracleCommand New_Member, Get_Membership_Status, Renew_Membership, New_Prod_Review, New_Review_Helpfulness;
-    OracleCommand Remove_Review_By_Product, Remove_Unhelpful_Reviews, Remove_Reviews_By_Date, Adjust_Prices, Bulk_Price_Adjustment, Mark_Specials, Expire_Memberships, Purge_Old_Orders, Upgrade_Membership, Promotional_Membership, Get_Membership_Analytics, Get_New_Customer_Analytics, Get_Review_Analytics;
+    OracleCommand Remove_Review_By_Product, Remove_Unhelpful_Reviews, Remove_Reviews_By_Date, Adjust_Prices, Bulk_Price_Adjustment, Mark_Specials, Expire_Memberships, Purge_Old_Orders, Upgrade_Membership, Promotional_Membership, Get_Membership_Analytics, Get_New_Customer_Analytics, Get_Review_Analytics, Get_Price_Point_Analytics, Get_New_Products_Purchased, Get_Inventory_Analytics;
 
     OracleParameter[] New_Customer_prm = new OracleParameter[20];
     OracleParameter[] Purchase_prm = new OracleParameter[6];
@@ -355,6 +380,20 @@ namespace ds2xdriver
       Get_Review_Analytics.CommandType = CommandType.StoredProcedure;
       Get_Review_Analytics.Parameters.Add("p_reviewid_baseline", OracleDbType.Int64);
       Get_Review_Analytics.Parameters.Add("p_cursor", OracleDbType.RefCursor, ParameterDirection.Output);
+
+      Get_Price_Point_Analytics = new OracleCommand("DS3.GET_PRICE_POINT_ANALYTICS" + target_store_number, objConn);
+      Get_Price_Point_Analytics.CommandType = CommandType.StoredProcedure;
+      Get_Price_Point_Analytics.Parameters.Add("p_baseline_product_count", OracleDbType.Int64);
+      Get_Price_Point_Analytics.Parameters.Add("p_cursor", OracleDbType.RefCursor, ParameterDirection.Output);
+
+      Get_New_Products_Purchased = new OracleCommand("DS3.GET_NEW_PRODUCTS_PURCHASED" + target_store_number, objConn);
+      Get_New_Products_Purchased.CommandType = CommandType.StoredProcedure;
+      Get_New_Products_Purchased.Parameters.Add("p_baseline_product_count", OracleDbType.Int64);
+      Get_New_Products_Purchased.Parameters.Add("p_count", OracleDbType.Int64, ParameterDirection.Output);
+
+      Get_Inventory_Analytics = new OracleCommand("DS3.GET_INVENTORY_ANALYTICS" + target_store_number, objConn);
+      Get_Inventory_Analytics.CommandType = CommandType.StoredProcedure;
+      Get_Inventory_Analytics.Parameters.Add("p_cursor", OracleDbType.RefCursor, ParameterDirection.Output);
     }
 
     //
@@ -1467,6 +1506,97 @@ namespace ds2xdriver
       catch (Exception e)
       {
         Console.WriteLine($"Thread {Thread.CurrentThread.Name}: ds36getreviewanalytics error: {e.Message}");
+        throw;
+      }
+      finally
+      {
+        rt = timer.Elapsed.TotalSeconds;
+      }
+
+      return result;
+    }
+
+    //
+    //-------------------------------------------------------------------------------------------------
+    //
+    public PricePointAnalyticsData ds36getpricepointanalytics(long baseline_product_count, ref double rt)
+    {
+      var result = new PricePointAnalyticsData
+      {
+        PricePoints = new List<PricePointAnalyticsRow>()
+      };
+      Stopwatch timer = Stopwatch.StartNew();
+
+      try
+      {
+        // Get price distribution
+        Get_Price_Point_Analytics.Parameters["p_baseline_product_count"].Value = baseline_product_count;
+        Get_Price_Point_Analytics.ExecuteNonQuery();
+
+        using (OracleDataReader reader = ((Oracle.ManagedDataAccess.Types.OracleRefCursor)Get_Price_Point_Analytics.Parameters["p_cursor"].Value).GetDataReader())
+        {
+          while (reader.Read())
+          {
+            result.PricePoints.Add(new PricePointAnalyticsRow
+            {
+              PriceEnding = reader.GetString(0),
+              ProductCount = (long)reader.GetDecimal(1)
+            });
+          }
+        }
+
+        // Get new products purchased count (separate procedure)
+        Get_New_Products_Purchased.Parameters["p_baseline_product_count"].Value = baseline_product_count;
+        Get_New_Products_Purchased.ExecuteNonQuery();
+        result.NewProductsPurchased = Convert.ToInt64(Get_New_Products_Purchased.Parameters["p_count"].Value.ToString());
+      }
+      catch (Exception e)
+      {
+        Console.WriteLine($"Thread {Thread.CurrentThread.Name}: ds36getpricepointanalytics error: {e.Message}");
+        throw;
+      }
+      finally
+      {
+        rt = timer.Elapsed.TotalSeconds;
+      }
+
+      return result;
+    }
+
+    //
+    //-------------------------------------------------------------------------------------------------
+    //
+    public InventoryAnalyticsRow ds36getinventoryanalytics(ref double rt)
+    {
+      InventoryAnalyticsRow result = null;
+      Stopwatch timer = Stopwatch.StartNew();
+
+      try
+      {
+        Get_Inventory_Analytics.ExecuteNonQuery();
+
+        using (OracleDataReader reader = ((Oracle.ManagedDataAccess.Types.OracleRefCursor)Get_Inventory_Analytics.Parameters["p_cursor"].Value).GetDataReader())
+        {
+          if (reader.Read())
+          {
+            result = new InventoryAnalyticsRow
+            {
+              LowStockCount = (long)reader.GetDecimal(0),
+              HighStockCount = (long)reader.GetDecimal(1),
+              ReorderCount = (long)reader.GetDecimal(2),
+              AvgInventory = reader.IsDBNull(3) ? 0 : reader.GetDecimal(3),
+              DeadStock = (long)reader.GetDecimal(4),
+              LowSales = (long)reader.GetDecimal(5),
+              MedSales = (long)reader.GetDecimal(6),
+              HighSales = (long)reader.GetDecimal(7),
+              TotalProducts = (long)reader.GetDecimal(8)
+            };
+          }
+        }
+      }
+      catch (Exception e)
+      {
+        Console.WriteLine($"Thread {Thread.CurrentThread.Name}: ds36getinventoryanalytics error: {e.Message}");
         throw;
       }
       finally

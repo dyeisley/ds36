@@ -127,8 +127,8 @@ namespace ds2xdriver
     public static double[] rt_tot_lastn = new double[GlobalConstants.LAST_N];
     public static bool Start = false, End = false;
     public static string virt_dir = "ds3", page_type = "php";
-    public static int[] max_customer = new int[GlobalConstants.MAX_STORES+1]; // there is no store 0. We use store number as the index.;
-    public static int[] max_product = new int[GlobalConstants.MAX_STORES+1]; // there is no store 0. We use store number as the index.
+    public static int[] max_customer = new int[GlobalConstants.MAX_STORES + 1]; // there is no store 0. We use store number as the index.;
+    public static int[] max_product = new int[GlobalConstants.MAX_STORES + 1]; // there is no store 0. We use store number as the index.
 
     //Added new parameter database_custom_size and new variables by GSK
     //Note that order_rows are per month
@@ -1574,8 +1574,6 @@ namespace ds2xdriver
           CPU_PCT[i] = new PerformanceCounter("Processor", "% Processor Time", "_Total", windows_perf_host_servers[i]);
           }
         }
-#else
-      Console.WriteLine("Not generating Windows Performance Monitor Counters");
 #endif
 
       // Create and start analytics threads FIRST (if enabled) so they can capture baselines before customer threads start
@@ -1595,10 +1593,14 @@ namespace ds2xdriver
           if (server_id >= n_target_servers)
             server_id = 0;
         }
-        Console.WriteLine("Controller ({0}): {1} analytics thread(s) started", DateTime.Now, n_stores);
 
-        // Give analytics threads time to connect and capture baselines
-        Thread.Sleep(2000);
+        // Wait for all analytics threads to capture baselines
+        while (Analytics.baseline_threads_completed < n_stores)
+        {
+          Thread.Sleep(500);
+        }
+
+        Console.WriteLine("Controller ({0}): {1} analytics thread(s) started, baselines captured", DateTime.Now, n_stores);
       }
 
       for (i = 0, server_id = 0; i < n_threads; i++) // Create User objects; associate each with new Thread running Emulate method
@@ -2785,16 +2787,19 @@ namespace ds2xdriver
     //---------------------------------------------------------------------------------------------------
     public static int GetSkewedReviewStars()
     {
-      int stars = 0;
       int roll = Random.Shared.Next(100);
 
-      if (roll < 5) return 1;  // 0-4 (5%)
+      if (roll < 5)
+        return 1;  // 0-4 (5%)
 
-      if (roll < 21) return 2; // 5-20 (16%)
+      if (roll < 21)
+        return 2; // 5-20 (16%)
 
-      if (roll < 61) return 3; // 21-60 (40%)
+      if (roll < 61)
+        return 3; // 21-60 (40%)
 
-      if (roll < 85) return 4; // 61-84 (24%)
+      if (roll < 85)
+        return 4; // 61-84 (24%)
 
       return 5; // 85-99 (15%)
     }
@@ -2921,8 +2926,8 @@ namespace ds2xdriver
       {
         for (i = 1; i <= Controller.n_stores; i++) // we use the store number 1-N for the index. Element 0 not used.
         {
-          Controller.max_product[i] = (int)ds2interfaces[Userid].ds2getrowcount("PRODUCTS" + i) ;
-          Controller.max_customer[i] = (int)ds2interfaces[Userid].ds2getrowcount("CUSTOMERS" + i) ;
+          Controller.max_product[i] = (int)ds2interfaces[Userid].ds2getrowcount("PRODUCTS" + i);
+          Controller.max_customer[i] = (int)ds2interfaces[Userid].ds2getrowcount("CUSTOMERS" + i);
           // Console.WriteLine("Store {0}\n  Customers: {1}\n  Products: {2}", i, Controller.max_customer[i], Controller.max_product[i] ); 
         }
       }
@@ -2950,8 +2955,8 @@ namespace ds2xdriver
         rt_newreview = 0.0;  // total response time for new reviews created in this emulation loop
         rt_newhelpfulness = 0.0;  // total response time for new helpfulness ratings of reviews in this emulation loop
         rt_purchase = 0.0;  //  response time for purchase in this emulation loop
-	rt_membership_renew = 0.0;
-	rt_membership_check = 0.0;
+        rt_membership_renew = 0.0;
+        rt_membership_check = 0.0;
 
         IsLogin = false;
         IsRollback = false;
@@ -3028,7 +3033,7 @@ namespace ds2xdriver
               }
             }
             //Console.WriteLine("Checked membership for user: {0}",customerid_out);
-	    //Console.WriteLine("  is_expired_out: {0}  membershiplevel_out: {1}", is_expired_out,membershiplevel_out);
+            //Console.WriteLine("  is_expired_out: {0}  membershiplevel_out: {1}", is_expired_out,membershiplevel_out);
 
             // Assume getting membership status is part of the login process. Don't add the time to the total.
             //rt_tot += rt_membership_check;
@@ -3041,7 +3046,7 @@ namespace ds2xdriver
                 // Renew membership
                 int rows_affected = 0;
                 failures = 0;
-	        //Console.WriteLine("Renew memebership for: {0}", customerid_out);
+                //Console.WriteLine("Renew memebership for: {0}", customerid_out);
                 while (!ds2interfaces[Userid].ds2renewmembership(customerid_out, ref rows_affected, ref rt_membership_renew))
                 {
                   if (++failures < GlobalConstants.MAX_FAILURES)
@@ -3240,7 +3245,7 @@ namespace ds2xdriver
 
           failures = 0;
 
-	  browse_rows_returned = 0;
+          browse_rows_returned = 0;
           while (!ds2interfaces[Userid].ds2browse(browse_type_in, browse_category_in, browse_actor_in,
             browse_title_in, batch_size_in, Controller.search_depth, customerid_out, membershiplevel_out,
             ref browse_rows_returned, ref prod_id_out, ref title_out, ref actor_out, ref price_out, ref special_out,
@@ -3446,7 +3451,7 @@ namespace ds2xdriver
           {
             IsNewHelpfulness = true;
             reviewid_in = review_id_out[Random.Shared.Next(0, rows_returned)];
-            reviewhelpfulness_in = Random.Shared.Next(1+membershiplevel_out, 11);
+            reviewhelpfulness_in = Random.Shared.Next(1 + membershiplevel_out, 11);
 
             failures = 0;
             while (!ds2interfaces[Userid].ds2newreviewhelpfulness(reviewid_in, customerid_out, reviewhelpfulness_in, ref reviewhelpfulnessid_out, ref rt))
@@ -3477,7 +3482,7 @@ namespace ds2xdriver
         // Randomize number of cart items with average n_line_items
         int cart_items = Random.Shared.Next(1, 2 * Controller.n_line_items) + membershiplevel_out;
 
-        for (i = 0; i < cart_items ; i++)
+        for (i = 0; i < cart_items; i++)
         {
           prod_id_in[i] = 0;
           qty_in[i] = 0;

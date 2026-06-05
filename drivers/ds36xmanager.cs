@@ -148,174 +148,174 @@ namespace ds2xdriver
           int rows_affected = 0;
 
           try
-        {
-          if (roll < Controller.manager_add_product_pct)
           {
-            // AddNewInventoryProduct - add batch of products
-            int batch_size = Random.Shared.Next(Controller.manager_batch_size_min, Controller.manager_batch_size_max + 1);
-            n_add_product++;  // OUTSIDE loop - operation selected once per interval
-
-            for (int i = 0; i < batch_size; i++)
+            if (roll < Controller.manager_add_product_pct)
             {
-              int new_category_in = Random.Shared.Next(1, GlobalConstants.MAX_CATEGORY + 1);
-              string new_actor_in = CreateActor();
-              string new_title_in = CreateTitle();
-              decimal price_in = Random.Shared.Next(6, 21) + 0.01m;  // Prices from 6.01 to 20.01
-              int initial_stock_in = Random.Shared.Next(1, 500);
+              // AddNewInventoryProduct - add batch of products
+              int batch_size = Random.Shared.Next(Controller.manager_batch_size_min, Controller.manager_batch_size_max + 1);
+              n_add_product++;  // OUTSIDE loop - operation selected once per interval
 
-              int newproduct_id = 0;
-              if (ds2interface.ds2newproduct(new_category_in, new_title_in, new_actor_in, price_in, initial_stock_in, ref newproduct_id, ref rt))
+              for (int i = 0; i < batch_size; i++)
               {
-                rt_add_product += rt;  // INSIDE loop - accumulate response times
-                if (newproduct_id > 0)
+                int new_category_in = Random.Shared.Next(1, GlobalConstants.MAX_CATEGORY + 1);
+                string new_actor_in = CreateActor();
+                string new_title_in = CreateTitle();
+                decimal price_in = Random.Shared.Next(6, 21) + 0.01m;  // Prices from 6.01 to 20.01
+                int initial_stock_in = Random.Shared.Next(1, 500);
+
+                int newproduct_id = 0;
+                if (ds2interface.ds2newproduct(new_category_in, new_title_in, new_actor_in, price_in, initial_stock_in, ref newproduct_id, ref rt))
                 {
-                  n_products_added++;  // INSIDE loop - count products actually added
+                  rt_add_product += rt;  // INSIDE loop - accumulate response times
+                  if (newproduct_id > 0)
+                  {
+                    n_products_added++;  // INSIDE loop - count products actually added
+                  }
+                  // Update max_product for this store if needed
+                  if (newproduct_id > Controller.max_product[target_store])
+                  {
+                    Controller.max_product[target_store] = newproduct_id;
+                  }
+                  //Console.WriteLine("Thread {0}: Added product {1}: {2} - {3}", Thread.CurrentThread.Name, newproduct_id, new_title_in, new_actor_in);
                 }
-                // Update max_product for this store if needed
-                if (newproduct_id > Controller.max_product[target_store])
-                {
-                  Controller.max_product[target_store] = newproduct_id;
-                }
-                //Console.WriteLine("Thread {0}: Added product {1}: {2} - {3}", Thread.CurrentThread.Name, newproduct_id, new_title_in, new_actor_in);
               }
             }
-          }
-          else if (roll < Controller.manager_add_product_pct + Controller.manager_delete_review_pct)
-          {
-            // RemoveReview - 33% by product, 33% unhelpful, 33% by date (20% default)
-            int review_op = Random.Shared.Next(3);
-            if (review_op == 0)
+            else if (roll < Controller.manager_add_product_pct + Controller.manager_delete_review_pct)
             {
-              // RemoveReviewByProduct - delete batch of reviews
+              // RemoveReview - 33% by product, 33% unhelpful, 33% by date (20% default)
+              int review_op = Random.Shared.Next(3);
+              if (review_op == 0)
+              {
+                // RemoveReviewByProduct - delete batch of reviews
+                int batch_size = Random.Shared.Next(Controller.manager_batch_size_min, Controller.manager_batch_size_max + 1);
+                n_remove_review_by_product++;  // OUTSIDE loop - operation selected once per interval
+
+                for (int i = 0; i < batch_size; i++)
+                {
+                  int prod_id = Controller.GetSkewedProductId(Controller.max_product[target_store]);
+                  int deleted_review_id = ds2interface.ds36removereviewbyproduct(prod_id, ref rt);
+                  rt_remove_review_by_product += rt;  // INSIDE loop - accumulate response times
+                  if (deleted_review_id > 0)
+                  {
+                    n_reviews_removed_by_product++;  // INSIDE loop - count reviews actually deleted
+                                                     //Console.WriteLine("Thread {0}: Removed review {1} for product {2}", Thread.CurrentThread.Name, deleted_review_id, prod_id);
+                  }
+                }
+              }
+              else if (review_op == 1)
+              {
+                // RemoveUnhelpfulReviews
+                int batch_size = Random.Shared.Next(Controller.manager_batch_size_min, Controller.manager_batch_size_max + 1);
+                rows_affected = ds2interface.ds36removeunhelpfulreviews(batch_size, ref rt);
+                n_remove_unhelpful_reviews++;
+                n_reviews_removed_unhelpful += rows_affected;
+                rt_remove_unhelpful_reviews += rt;
+                //Console.WriteLine("Thread {0}: Removed {1} unhelpful reviews", Thread.CurrentThread.Name, rows_affected);
+              }
+              else
+              {
+                // RemoveReviewsByDate
+                int batch_size = Random.Shared.Next(Controller.manager_batch_size_min, Controller.manager_batch_size_max + 1);
+                rows_affected = ds2interface.ds36removereviewsbydate(batch_size, ref rt);
+                n_remove_reviews_by_date++;
+                n_reviews_removed_by_date += rows_affected;
+                rt_remove_reviews_by_date += rt;
+                //Console.WriteLine("Thread {0}: Removed {1} reviews by date", Thread.CurrentThread.Name, rows_affected);
+              }
+            }
+            else if (roll < Controller.manager_add_product_pct + Controller.manager_delete_review_pct + Controller.manager_update_price_pct)
+            {
+              // Price adjustment - alternate between individual and bulk
               int batch_size = Random.Shared.Next(Controller.manager_batch_size_min, Controller.manager_batch_size_max + 1);
-              n_remove_review_by_product++;  // OUTSIDE loop - operation selected once per interval
+
+              if (use_bulk_price_adjustment)
+              {
+                // Bulk: category-wide adjustment, minimum 500 products, same ±25%, .77 endings
+                int bulk_batch_size = Math.Max(batch_size * 10, 500);
+                int category = Random.Shared.Next(1, GlobalConstants.MAX_CATEGORY + 1);  // Random category 1-16
+                rows_affected = ds2interface.ds36bulkpriceadjustment(bulk_batch_size, category, ref rt);
+                n_bulk_price_adjustments++;
+                n_bulk_products_price_changed += rows_affected;
+                rt_bulk_price_adjustments += rt;
+              }
+              else
+              {
+                // Single: individual products, each gets different ±10%, keeps .99 endings
+                n_adjust_prices++;
+                for (int i = 0; i < batch_size; i++)
+                {
+                  int prod_id = Controller.GetSkewedProductId(Controller.max_product[target_store]);
+                  rows_affected = ds2interface.ds36adjustprices(prod_id, ref rt);
+                  rt_adjust_prices += rt;
+                  n_products_price_changed += rows_affected;
+                }
+              }
+
+              // Toggle for next time
+              use_bulk_price_adjustment = !use_bulk_price_adjustment;
+            }
+            else if (roll < Controller.manager_add_product_pct + Controller.manager_delete_review_pct + Controller.manager_update_price_pct + Controller.manager_update_special_pct)
+            {
+              // MarkSpecials - toggle batch of product special flags
+              int batch_size = Random.Shared.Next(Controller.manager_batch_size_min, Controller.manager_batch_size_max + 1);
+              n_mark_specials++;  // OUTSIDE loop - operation selected once per interval
 
               for (int i = 0; i < batch_size; i++)
               {
                 int prod_id = Controller.GetSkewedProductId(Controller.max_product[target_store]);
-                int deleted_review_id = ds2interface.ds36removereviewbyproduct(prod_id, ref rt);
-                rt_remove_review_by_product += rt;  // INSIDE loop - accumulate response times
-                if (deleted_review_id > 0)
-                {
-                  n_reviews_removed_by_product++;  // INSIDE loop - count reviews actually deleted
-                  //Console.WriteLine("Thread {0}: Removed review {1} for product {2}", Thread.CurrentThread.Name, deleted_review_id, prod_id);
-                }
+                rows_affected = ds2interface.ds36markspecials(prod_id, ref rt);
+                rt_mark_specials += rt;  // INSIDE loop - accumulate response times
+                n_products_special_changed += rows_affected;  // INSIDE loop - count products actually changed
+                                                              //Console.WriteLine("Thread {0}: Toggled special for product {1}, rows affected: {2}", Thread.CurrentThread.Name, prod_id, rows_affected);
               }
             }
-            else if (review_op == 1)
+            else if (roll < Controller.manager_add_product_pct + Controller.manager_delete_review_pct + Controller.manager_update_price_pct + Controller.manager_update_special_pct + Controller.manager_expire_memberships_pct)
             {
-              // RemoveUnhelpfulReviews
+              // ExpireMemberships (1% default)
               int batch_size = Random.Shared.Next(Controller.manager_batch_size_min, Controller.manager_batch_size_max + 1);
-              rows_affected = ds2interface.ds36removeunhelpfulreviews(batch_size, ref rt);
-              n_remove_unhelpful_reviews++;
-              n_reviews_removed_unhelpful += rows_affected;
-              rt_remove_unhelpful_reviews += rt;
-              //Console.WriteLine("Thread {0}: Removed {1} unhelpful reviews", Thread.CurrentThread.Name, rows_affected);
+              rows_affected = ds2interface.ds36expirememberships(batch_size, ref rt);
+              n_expire_memberships++;
+              n_memberships_expired += rows_affected;
+              rt_expire_memberships += rt;
+              //Console.WriteLine("Thread {0}: Expired {1} memberships", Thread.CurrentThread.Name, rows_affected);
+            }
+            else if (roll < Controller.manager_add_product_pct + Controller.manager_delete_review_pct +
+                            Controller.manager_update_price_pct + Controller.manager_update_special_pct +
+                            Controller.manager_expire_memberships_pct + Controller.manager_purge_old_orders_pct)
+            {
+              // PurgeOldOrders (data retention/GDPR compliance - low % default)
+              int batch_size = Random.Shared.Next(Controller.manager_batch_size_min, Controller.manager_batch_size_max + 1);
+              rows_affected = ds2interface.ds36purgeoldorders(batch_size, ref rt);
+              n_purge_old_orders++;
+              n_orders_purged += rows_affected;
+              rt_purge_old_orders += rt;
+              //Console.WriteLine("Thread {0}: Purged {1} old orders", Thread.CurrentThread.Name, rows_affected);
+            }
+            else if (roll < Controller.manager_add_product_pct + Controller.manager_delete_review_pct +
+                            Controller.manager_update_price_pct + Controller.manager_update_special_pct +
+                            Controller.manager_expire_memberships_pct + Controller.manager_purge_old_orders_pct +
+                            Controller.manager_upgrade_membership_pct)
+            {
+              // UpgradeMembership (purchase-based tier upgrade with time-based slicing)
+              // Multiply batch_size by 20 since time-based slicing already limits to ~1% of customers
+              int batch_size = Random.Shared.Next(Controller.manager_batch_size_min, Controller.manager_batch_size_max + 1) * 20;
+              rows_affected = ds2interface.ds36upgrademembership(batch_size, ref rt);
+              n_upgrade_membership++;
+              n_members_upgraded += rows_affected;
+              rt_upgrade_membership += rt;
+              //Console.WriteLine("Thread {0}: Upgraded {1} memberships", Thread.CurrentThread.Name, rows_affected);
             }
             else
             {
-              // RemoveReviewsByDate
+              // PromotionalMembership (MERGE-based 90-day promotional upgrades)
               int batch_size = Random.Shared.Next(Controller.manager_batch_size_min, Controller.manager_batch_size_max + 1);
-              rows_affected = ds2interface.ds36removereviewsbydate(batch_size, ref rt);
-              n_remove_reviews_by_date++;
-              n_reviews_removed_by_date += rows_affected;
-              rt_remove_reviews_by_date += rt;
-              //Console.WriteLine("Thread {0}: Removed {1} reviews by date", Thread.CurrentThread.Name, rows_affected);
+              rows_affected = ds2interface.ds36promotionalmembership(batch_size, ref rt);
+              n_promo_membership++;
+              n_members_promo += rows_affected;
+              rt_promo_membership += rt;
+              //Console.WriteLine("Thread {0}: Promotional membership affected {1} customers", Thread.CurrentThread.Name, rows_affected);
             }
           }
-          else if (roll < Controller.manager_add_product_pct + Controller.manager_delete_review_pct + Controller.manager_update_price_pct)
-          {
-            // Price adjustment - alternate between individual and bulk
-            int batch_size = Random.Shared.Next(Controller.manager_batch_size_min, Controller.manager_batch_size_max + 1);
-
-            if (use_bulk_price_adjustment)
-            {
-              // Bulk: category-wide adjustment, minimum 500 products, same ±25%, .77 endings
-              int bulk_batch_size = Math.Max(batch_size * 10, 500);
-              int category = Random.Shared.Next(1, GlobalConstants.MAX_CATEGORY + 1);  // Random category 1-16
-              rows_affected = ds2interface.ds36bulkpriceadjustment(bulk_batch_size, category, ref rt);
-              n_bulk_price_adjustments++;
-              n_bulk_products_price_changed += rows_affected;
-              rt_bulk_price_adjustments += rt;
-            }
-            else
-            {
-              // Single: individual products, each gets different ±10%, keeps .99 endings
-              n_adjust_prices++;
-              for (int i = 0; i < batch_size; i++)
-              {
-                int prod_id = Controller.GetSkewedProductId(Controller.max_product[target_store]);
-                rows_affected = ds2interface.ds36adjustprices(prod_id, ref rt);
-                rt_adjust_prices += rt;
-                n_products_price_changed += rows_affected;
-              }
-            }
-
-            // Toggle for next time
-            use_bulk_price_adjustment = !use_bulk_price_adjustment;
-          }
-          else if (roll < Controller.manager_add_product_pct + Controller.manager_delete_review_pct + Controller.manager_update_price_pct + Controller.manager_update_special_pct)
-          {
-            // MarkSpecials - toggle batch of product special flags
-            int batch_size = Random.Shared.Next(Controller.manager_batch_size_min, Controller.manager_batch_size_max + 1);
-            n_mark_specials++;  // OUTSIDE loop - operation selected once per interval
-
-            for (int i = 0; i < batch_size; i++)
-            {
-              int prod_id = Controller.GetSkewedProductId(Controller.max_product[target_store]);
-              rows_affected = ds2interface.ds36markspecials(prod_id, ref rt);
-              rt_mark_specials += rt;  // INSIDE loop - accumulate response times
-              n_products_special_changed += rows_affected;  // INSIDE loop - count products actually changed
-              //Console.WriteLine("Thread {0}: Toggled special for product {1}, rows affected: {2}", Thread.CurrentThread.Name, prod_id, rows_affected);
-            }
-          }
-          else if (roll < Controller.manager_add_product_pct + Controller.manager_delete_review_pct + Controller.manager_update_price_pct + Controller.manager_update_special_pct + Controller.manager_expire_memberships_pct)
-          {
-            // ExpireMemberships (1% default)
-            int batch_size = Random.Shared.Next(Controller.manager_batch_size_min, Controller.manager_batch_size_max + 1);
-            rows_affected = ds2interface.ds36expirememberships(batch_size, ref rt);
-            n_expire_memberships++;
-            n_memberships_expired += rows_affected;
-            rt_expire_memberships += rt;
-            //Console.WriteLine("Thread {0}: Expired {1} memberships", Thread.CurrentThread.Name, rows_affected);
-          }
-          else if (roll < Controller.manager_add_product_pct + Controller.manager_delete_review_pct +
-                          Controller.manager_update_price_pct + Controller.manager_update_special_pct +
-                          Controller.manager_expire_memberships_pct + Controller.manager_purge_old_orders_pct)
-          {
-            // PurgeOldOrders (data retention/GDPR compliance - low % default)
-            int batch_size = Random.Shared.Next(Controller.manager_batch_size_min, Controller.manager_batch_size_max + 1);
-            rows_affected = ds2interface.ds36purgeoldorders(batch_size, ref rt);
-            n_purge_old_orders++;
-            n_orders_purged += rows_affected;
-            rt_purge_old_orders += rt;
-            //Console.WriteLine("Thread {0}: Purged {1} old orders", Thread.CurrentThread.Name, rows_affected);
-          }
-          else if (roll < Controller.manager_add_product_pct + Controller.manager_delete_review_pct +
-                          Controller.manager_update_price_pct + Controller.manager_update_special_pct +
-                          Controller.manager_expire_memberships_pct + Controller.manager_purge_old_orders_pct +
-                          Controller.manager_upgrade_membership_pct)
-          {
-            // UpgradeMembership (purchase-based tier upgrade with time-based slicing)
-            // Multiply batch_size by 20 since time-based slicing already limits to ~1% of customers
-            int batch_size = Random.Shared.Next(Controller.manager_batch_size_min, Controller.manager_batch_size_max + 1) * 20;
-            rows_affected = ds2interface.ds36upgrademembership(batch_size, ref rt);
-            n_upgrade_membership++;
-            n_members_upgraded += rows_affected;
-            rt_upgrade_membership += rt;
-            //Console.WriteLine("Thread {0}: Upgraded {1} memberships", Thread.CurrentThread.Name, rows_affected);
-          }
-          else
-          {
-            // PromotionalMembership (MERGE-based 90-day promotional upgrades)
-            int batch_size = Random.Shared.Next(Controller.manager_batch_size_min, Controller.manager_batch_size_max + 1);
-            rows_affected = ds2interface.ds36promotionalmembership(batch_size, ref rt);
-            n_promo_membership++;
-            n_members_promo += rows_affected;
-            rt_promo_membership += rt;
-            //Console.WriteLine("Thread {0}: Promotional membership affected {1} customers", Thread.CurrentThread.Name, rows_affected);
-          }
-        }
           catch (Exception e)
           {
             Console.WriteLine("Thread {0}: Manager operation error: {1}", Thread.CurrentThread.Name, e.Message);
