@@ -1301,7 +1301,8 @@ BEGIN
 END
 GO
 
-DROP PROCEDURE GetPricePointAnalytics$k
+IF EXISTS (SELECT name FROM sysobjects WHERE name = 'GetPricePointAnalytics$k' AND type = 'P')
+  DROP PROCEDURE GetPricePointAnalytics$k
 GO
 CREATE PROCEDURE GetPricePointAnalytics$k
   \@baseline_product_count BIGINT
@@ -1347,7 +1348,8 @@ BEGIN
 END
 GO
 
-DROP PROCEDURE GetInventoryAnalytics$k
+IF EXISTS (SELECT name FROM sysobjects WHERE name = 'GetInventoryAnalytics$k' AND type = 'P')
+  DROP PROCEDURE GetInventoryAnalytics$k
 GO
 CREATE PROCEDURE GetInventoryAnalytics$k
 AS
