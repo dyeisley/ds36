@@ -18,7 +18,6 @@ my $hostname = `hostname`;
 chomp $hostname;
 
 my $target_host = $hostname;				#Database/web server hostname or IP Address  Default = localhost
-my $database_size = "10MB";				#Database Size Default = 10mb  (e.g. 30MB, 80GB)
 my $n_threads = 1;					#number of driver threads against one DB Server
 my $ramp_rate = 10;					#startup rate (users/sec) default = 10
 my $run_time = 0;					#run time (min) - Default = 0 is infinite
@@ -101,9 +100,6 @@ $target_host ||= $hostname;
 # Count number of target servers (semicolon-separated)
 my $n_targets = ($target_host =~ tr/;/;/) + 1;
 
-print "Please enter database size (e.g. Input can be like 30MB, 80GB ,etc) [$saved_db_size] : ";
-chomp($database_size = <STDIN>);
-$database_size ||= $saved_db_size;
 if(lc($^O) eq lc("MSWin32"))
 {
   print "Please enter target hostname for perfmon CPU% display (windows only) : ";
@@ -231,9 +227,6 @@ $line = "ramp_rate=".$ramp_rate;
 print NEWFILE $line;
 print NEWFILE $end_line;
 $line = "run_time=".$run_time;
-print NEWFILE $line;
-print NEWFILE $end_line;
-$line = "db_size=".$database_size;
 print NEWFILE $line;
 print NEWFILE $end_line;
 $line = "warmup_time=".$warmup_time;

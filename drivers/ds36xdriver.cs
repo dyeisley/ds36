@@ -55,6 +55,7 @@ namespace ds2xdriver
     public const int MAX_USERS = 1000;
     public const int MAX_CATEGORY = 16;
     public const int MAX_STORES = 16;
+    public const int MAX_TARGET_SERVERS = 16;
     public const int MAX_ROWS = 1000;
     public const int LAST_N = 100;
     public const int MAX_FAILURES = 10;
@@ -125,15 +126,10 @@ namespace ds2xdriver
         rt_newmember_overall = 0.0;
     public static double rt_membershiprenew_overall = 0.0;
     public static double[] rt_tot_lastn = new double[GlobalConstants.LAST_N];
-    public static bool Start = false, End = false;
+    public static bool Start = false, EndUsers = false, EndAnalytics = false, EndManagers = false;
     public static string virt_dir = "ds3", page_type = "php";
-    public static int[] max_customer = new int[GlobalConstants.MAX_STORES + 1]; // there is no store 0. We use store number as the index.;
-    public static int[] max_product = new int[GlobalConstants.MAX_STORES + 1]; // there is no store 0. We use store number as the index.
-
-    //Added new parameter database_custom_size and new variables by GSK
-    //Note that order_rows are per month
-    public static int customer_rows, order_rows, product_rows;
-    public static string db_size = "10MB";
+    public static int[,] max_customer = new int[GlobalConstants.MAX_TARGET_SERVERS, GlobalConstants.MAX_STORES + 1]; // [target_server_id, store_number] - store 0 unused
+    public static int[,] max_product = new int[GlobalConstants.MAX_TARGET_SERVERS, GlobalConstants.MAX_STORES + 1]; // [target_server_id, store_number] - store 0 unused
 
     //Added by GSK (New parameter to Print detailed or aggregate output  Values = "Y" or "N" Default value = "N"
     public static string detailed_view = "N";
@@ -181,16 +177,6 @@ namespace ds2xdriver
     public static bool enable_inventory_analytics = true;
     public static int manager_batch_size_min = 10;
     public static int manager_batch_size_max = 100;
-
-    // Variables needed within Controller class
-    // Added new Parameter db_size by GSK
-    // db_size will indicate actual database size (e.g. Values for this parameter can be like 10MB or 150GB)
-    //db_size_str parameter is removed since it would not be used in code anywhere
-    //Instead at same place we need db_size parameter
-    //Added new parameter detailed_view by GSK default value = N
-    //Added new parameter log_timestamp by Performance Team - Ruban default value = N
-    //Added new parameter log_freq by Performance Team - Ruban default value = 10
-    //Added new parameter linux_perf_host by GSK
 
     //
     //-------------------------------------------------------------------------------------------------
@@ -436,16 +422,6 @@ namespace ds2xdriver
         DefaultValue = "20",
         Type = ParamType.Int,
         Validator = (value) => ValidateInt(value, min: 0, max: 100)
-      };
-
-      // db_size - database size
-      definitions["db_size"] = new ParameterDefinition
-      {
-        Name = "db_size",
-        Description = "S | M | L or database size (e.g. 30MB, 80GB)",
-        DefaultValue = "10MB",
-        Type = ParamType.String,
-        Validator = ValidateDatabaseSize
       };
 
       // think_time - think time in seconds
@@ -1121,53 +1097,6 @@ namespace ds2xdriver
       return cpuutilizn;
     }
 
-    //-------------------------------------------------------------------------------------------------
-    //
-    //Function written by GSK to calculate number of Rows in tables of database according to database size
-    void CalculateNumberOfRows(string str_db_size)
-    {
-      // Parse database size - validation already done by ValidateDatabaseSize
-      var lower = str_db_size.ToLowerInvariant();
-
-      bool isMB = lower.EndsWith("mb");
-      bool isGB = lower.EndsWith("gb");
-
-      if (!isMB && !isGB)
-        throw new ArgumentException($"Invalid db_size format: {str_db_size}. Must end with 'MB' or 'GB'.");
-
-      string numStr = lower.Substring(0, lower.Length - 2);
-      if (!int.TryParse(numStr, out int size) || size <= 0)
-        throw new ArgumentException($"Invalid db_size value: {str_db_size}. Size must be a positive integer.");
-
-      // Linear scaling formula (matches Install_DVDStore.pl)
-      // Replaces broken Small/Medium/Large tier system
-      // Per-GB multipliers (empirically validated to hit 99-102.5% of target)
-      const int products_per_GB = 12000;      // 12K products per GB
-      const int customers_per_GB = 2400000;   // 2.4M customers per GB (200:1 ratio)
-      const int orders_per_GB = 120000;       // 120K orders per GB (10:1 ratio)
-
-      // Convert size to GB
-      double sizeInGB;
-      if (isMB)
-      {
-        sizeInGB = size / 1000.0;  // Convert MB to GB
-      }
-      else
-      {
-        sizeInGB = size;  // Already in GB
-      }
-
-      // Calculate row counts (linear scaling)
-      product_rows = (int)(products_per_GB * sizeInGB);
-      customer_rows = (int)(customers_per_GB * sizeInGB);
-      order_rows = (int)(orders_per_GB * sizeInGB);
-
-      // Display calculated values
-      Console.WriteLine($"Database size {str_db_size}: {customer_rows:N0} customers, " +
-                       $"{order_rows:N0} orders/month, {product_rows:N0} products");
-
-    }
-
     //
     //-------------------------------------------------------------------------------------------------
     //
@@ -1207,6 +1136,12 @@ namespace ds2xdriver
       target_servers = target.Split(';');
       n_target_servers = target_servers.Length;
 
+      if (n_target_servers > GlobalConstants.MAX_TARGET_SERVERS)
+      {
+        Console.WriteLine($"Error: n_target_servers ({n_target_servers}) exceeds MAX_TARGET_SERVERS ({GlobalConstants.MAX_TARGET_SERVERS})");
+        errors.Add($"n_target_servers ({n_target_servers}) exceeds MAX_TARGET_SERVERS ({GlobalConstants.MAX_TARGET_SERVERS})");
+      }
+
       //Added by GSK
       //Dynamically allocate memory Initialize arrays for book keeping for individual Servers on which test runs
       arr_n_login_overall = new int[n_target_servers];
@@ -1244,10 +1179,6 @@ namespace ds2xdriver
       ramp_rate = parser.GetValue<int>("ramp_rate");
       run_time = parser.GetValue<int>("run_time");
       log_freq = parser.GetValue<int>("log_freq");
-
-      // Database size (already converted from S/M/L by validator)
-      db_size = parser.GetValue<string>("db_size");
-      CalculateNumberOfRows(db_size);
 
       warmup_time = parser.GetValue<int>("warmup_time");
       think_time = parser.GetValue<double>("think_time");
@@ -1401,31 +1332,6 @@ namespace ds2xdriver
       // Display configuration summary
       DisplayConfiguration();
 
-      /*
-      for (i = 0; i < GlobalConstants.MAX_STORES+1; i++) // we use the store number 1-N for the index. Element 0 not used.
-      {
-        max_product[i] = product_rows;
-        max_customer[i] = customer_rows;
-      }
-      */
-
-      //Changed by GSK (size of array prod_array = number of rows in product table + (10000 * 10)
-      //Reason : Every 10000th product will be popular and will have 10 entries in list
-      //Set up array to choose product ids from, weighted with more entries for popular products
-      //Popular products (in this case every 10,000th) will have 10 entries in list, others just 1
-      /*
-      int prod_arr_size = product_rows + 100000;
-      prod_array = new int[prod_arr_size];
-      i = 0;
-      for ( int j = 1 ; j <= max_product ; j++ )
-        {
-        if ( ( j % 10000 ) == 0 ) for ( int k = 0 ; k < 10 ; k++ ) prod_array[i++] = j;
-        else prod_array[i++] = j;
-        }
-      prod_array_size = i;
-      */
-      //Console.WriteLine("{0} products in array", prod_array_size);
-
     } // end of Controller constructor
 
 
@@ -1577,30 +1483,47 @@ namespace ds2xdriver
 #endif
 
       // Create and start analytics threads FIRST (if enabled) so they can capture baselines before customer threads start
-      Analytics[] analytics = new Analytics[GlobalConstants.MAX_STORES];
-      Thread[] analytics_threads = new Thread[GlobalConstants.MAX_STORES];
+      // Single server: one analytics thread per store
+      // Multiple servers: one analytics thread per server (monitoring store 1 only)
+      int max_analytics_threads = Math.Max(GlobalConstants.MAX_TARGET_SERVERS, GlobalConstants.MAX_STORES);
+      Analytics[] analytics = new Analytics[max_analytics_threads];
+      Thread[] analytics_threads = new Thread[max_analytics_threads];
+      int total_analytics_threads = 0;
+
       if (analytics_interval > 0)
       {
         Console.WriteLine("Controller ({0}): creating analytics threads", DateTime.Now);
-        for (i = 0, server_id = 0; i < n_stores; i++)
-        {
-          analytics[i] = new Analytics(i, server_id, i + 1);
-          analytics_threads[i] = new Thread(new ThreadStart(analytics[i].RunAnalytics));
-          analytics_threads[i].Start();
 
-          // Round-robin across servers
-          server_id++;
-          if (server_id >= n_target_servers)
-            server_id = 0;
+        if (n_target_servers == 1)
+        {
+          // Single server: monitor all stores
+          for (int store_num = 1; store_num <= n_stores; store_num++)
+          {
+            analytics[store_num - 1] = new Analytics(store_num - 1, 0, store_num);
+            analytics_threads[store_num - 1] = new Thread(new ThreadStart(analytics[store_num - 1].RunAnalytics));
+            analytics_threads[store_num - 1].Start();
+            total_analytics_threads++;
+          }
+        }
+        else
+        {
+          // Multiple servers: monitor store 1 on each server
+          for (server_id = 0; server_id < n_target_servers; server_id++)
+          {
+            analytics[server_id] = new Analytics(server_id, server_id, 1);
+            analytics_threads[server_id] = new Thread(new ThreadStart(analytics[server_id].RunAnalytics));
+            analytics_threads[server_id].Start();
+            total_analytics_threads++;
+          }
         }
 
         // Wait for all analytics threads to capture baselines
-        while (Analytics.baseline_threads_completed < n_stores)
+        while (Analytics.baseline_threads_completed < total_analytics_threads)
         {
           Thread.Sleep(500);
         }
 
-        Console.WriteLine("Controller ({0}): {1} analytics thread(s) started, baselines captured", DateTime.Now, n_stores);
+        Console.WriteLine("Controller ({0}): {1} analytics thread(s) started, baselines captured", DateTime.Now, total_analytics_threads);
       }
 
       for (i = 0, server_id = 0; i < n_threads; i++) // Create User objects; associate each with new Thread running Emulate method
@@ -1679,30 +1602,34 @@ namespace ds2xdriver
 
       Console.WriteLine("Controller ({0}): all User threads connected", DateTime.Now);
 
-      // Create and start manager threads if enabled (one per store)
-      Manager[] managers = new Manager[GlobalConstants.MAX_STORES];
-      Thread[] manager_threads = new Thread[GlobalConstants.MAX_STORES];
+      // Create and start manager threads if enabled (one per server-store combination)
+      Manager[] managers = new Manager[GlobalConstants.MAX_TARGET_SERVERS * GlobalConstants.MAX_STORES];
+      Thread[] manager_threads = new Thread[GlobalConstants.MAX_TARGET_SERVERS * GlobalConstants.MAX_STORES];
+      int total_manager_threads = n_target_servers * n_stores;
+
       if (enable_managers)
       {
         Console.WriteLine("Controller ({0}): creating manager threads", DateTime.Now);
-        for (i = 0, server_id = 0; i < n_stores; i++)
-        {
-          managers[i] = new Manager(i, server_id, i + 1);
-          manager_threads[i] = new Thread(new ThreadStart(managers[i].RunManager));
-          manager_threads[i].Start();
+        int thread_index = 0;
 
-          // Round-robin across servers
-          server_id++;
-          if (server_id >= n_target_servers)
-            server_id = 0;
+        for (server_id = 0; server_id < n_target_servers; server_id++)
+        {
+          for (int store_num = 1; store_num <= n_stores; store_num++)
+          {
+            managers[thread_index] = new Manager(thread_index, server_id, store_num);
+            manager_threads[thread_index] = new Thread(new ThreadStart(managers[thread_index].RunManager));
+            manager_threads[thread_index].Start();
+            thread_index++;
+          }
         }
-        Console.WriteLine("Controller ({0}): {1} manager thread(s) started", DateTime.Now, n_stores);
+
+        Console.WriteLine("Controller ({0}): {1} manager thread(s) started", DateTime.Now, total_manager_threads);
 
         // Wait for all manager threads to connect (with timeout)
         ConnectTimeout = 60;
-        while ((n_managers_connected < n_stores) && (ConnectTimeout > 0))
+        while ((n_managers_connected < total_manager_threads) && (ConnectTimeout > 0))
         {
-          for (int j = 0; j < n_stores; j++)  // If one of the manager threads has stopped quit
+          for (int j = 0; j < total_manager_threads; j++)  // If one of the manager threads has stopped quit
             if (manager_threads[j].ThreadState == System.Threading.ThreadState.Stopped)
             {
               Console.WriteLine("Controller: Manager thread {0} stopped unexpectedly, Aborting...", j);
@@ -1712,7 +1639,7 @@ namespace ds2xdriver
           --ConnectTimeout;
         }
 
-        if (n_managers_connected < n_stores)   // If all manager threads are not connected, then timeout was exceeded
+        if (n_managers_connected < total_manager_threads)   // If all manager threads are not connected, then timeout was exceeded
         {
           Console.WriteLine("Controller: ConnectTimeout reached : could not connect all manager threads, Aborting...");
           Thread.Sleep(500);
@@ -2313,7 +2240,7 @@ namespace ds2xdriver
       Monitor.Exit(UpdateLock);
 
       // Signal threads to end, wait for 'em to stop
-      End = true;
+      EndUsers = true;
 
       // Wait for all user threads to complete
       Console.WriteLine("Controller ({0}): waiting for user threads to complete...", DateTime.Now);
@@ -2325,6 +2252,36 @@ namespace ds2xdriver
         }
       }
       Console.WriteLine("Controller ({0}): all user threads completed", DateTime.Now);
+
+      // Wait for analytics threads first (clean output - they print statistics)
+      EndAnalytics = true;
+      if (analytics_interval > 0)
+      {
+        Console.WriteLine("Controller ({0}): waiting for analytics threads to complete...", DateTime.Now);
+        for (i = 0; i < total_analytics_threads; i++)
+        {
+          if (analytics_threads[i] != null && analytics_threads[i].IsAlive)
+          {
+            analytics_threads[i].Join();
+          }
+        }
+        Console.WriteLine("Controller ({0}): all analytics threads completed", DateTime.Now);
+      }
+
+      // Wait for all manager threads to complete
+      EndManagers = true;
+      if (enable_managers)
+      {
+        Console.WriteLine("Controller ({0}): waiting for manager threads to complete...", DateTime.Now);
+        for (i = 0; i < total_manager_threads; i++)
+        {
+          if (manager_threads[i] != null && manager_threads[i].IsAlive)
+          {
+            manager_threads[i].Join();
+          }
+        }
+        Console.WriteLine("Controller ({0}): all manager threads completed", DateTime.Now);
+      }
 
       Console.WriteLine("\n========================================================================");
       Console.WriteLine("                    FINAL RESULTS - {0}", DateTime.Now);
@@ -2353,34 +2310,6 @@ namespace ds2xdriver
       Console.WriteLine("  Total (max last {0}): {1,7:F3} sec", GlobalConstants.LAST_N, rt_tot_lastn_max_msec / 1000.0);
       Console.WriteLine("  Total (sampled):      {0,7:F3} sec", rt_tot_sampled);
       Console.WriteLine("========================================================================\n");
-
-      // Wait for all manager threads to complete
-      if (enable_managers)
-      {
-        Console.WriteLine("Controller ({0}): waiting for manager threads to complete...", DateTime.Now);
-        for (i = 0; i < n_stores; i++)
-        {
-          if (manager_threads[i] != null && manager_threads[i].IsAlive)
-          {
-            manager_threads[i].Join();
-          }
-        }
-        Console.WriteLine("Controller ({0}): all manager threads completed", DateTime.Now);
-      }
-
-      // Wait for all analytics threads to complete
-      if (analytics_interval > 0)
-      {
-        Console.WriteLine("Controller ({0}): waiting for analytics threads to complete...", DateTime.Now);
-        for (i = 0; i < n_stores; i++)
-        {
-          if (analytics_threads[i] != null && analytics_threads[i].IsAlive)
-          {
-            analytics_threads[i].Join();
-          }
-        }
-        Console.WriteLine("Controller ({0}): all analytics threads completed", DateTime.Now);
-      }
 
       Console.WriteLine("Controller ({0}): all threads stopped, exiting", DateTime.Now);
 
@@ -2474,7 +2403,6 @@ namespace ds2xdriver
         writer.WriteLine("BENCHMARK PARAMETERS:");
         writer.WriteLine($"  Database Type:          {databaseType}");
         writer.WriteLine($"  Store Number:           {storeNumber}");
-        writer.WriteLine($"  Database size:          {db_size}");
         writer.WriteLine($"  Target Server:          {serverName}");
         writer.WriteLine($"  Run Time:               {run_time} minutes");
         writer.WriteLine($"  Threads:                {n_threads}");
@@ -2487,7 +2415,7 @@ namespace ds2xdriver
         writer.WriteLine($"  pct_newreviews:         {pct_newreviews}%");
         writer.WriteLine($"  pct_newhelpfulness:     {pct_newhelpfulness}%");
         writer.WriteLine($"  DS2 Mode:               {(ds2_mode ? "yes" : "no")}");
-        writer.WriteLine($"  Manager Threads:        {(enable_managers ? n_stores.ToString() : "disabled")}");
+        writer.WriteLine($"  Manager Threads:        {(enable_managers ? (n_target_servers * n_stores).ToString() : "disabled")}");
         if (enable_managers)
         {
           writer.WriteLine($"  manager_interval:             {manager_interval} sec");
@@ -2545,7 +2473,7 @@ namespace ds2xdriver
 
       Console.WriteLine("Examples:");
       Console.WriteLine("---------");
-      Console.WriteLine("  ds36driver --target=localhost --n_threads=10 --db_size=1GB");
+      Console.WriteLine("  ds36driver --target=localhost --n_threads=10");
       Console.WriteLine("  ds36driver --config_file=myconfig.txt --n_threads=20");
       Console.WriteLine("  ds36driver --target=server1;server2;server3 --n_threads=5\n");
     }
@@ -2567,7 +2495,6 @@ namespace ds2xdriver
       Console.WriteLine($"Run time: {(run_time == 0 ? "infinite" : $"{run_time} minutes")}");
       Console.WriteLine($"Warmup time: {warmup_time} minutes");
       Console.WriteLine($"Think time: {think_time} seconds");
-      Console.WriteLine($"Database size: {db_size} ({customer_rows:N0} customers, {order_rows:N0} orders/month, {product_rows:N0} products)");
       Console.WriteLine($"Searches per order: {n_searches} avg");
       Console.WriteLine($"Search batch size: {search_batch_size}");
       Console.WriteLine($"Search depth: {search_depth}");
@@ -2922,13 +2849,16 @@ namespace ds2xdriver
       //Changed by GSK
       Console.WriteLine("Thread {0}: connected to {1}", Thread.CurrentThread.Name, Controller.target_servers[target_server_id].ToString());
 
-      if (Userid == 0)
+      // First user on each target server queries max counts for that server
+      // Users are assigned round-robin, so User 0→Server 0, User 1→Server 1, etc.
+      if (Userid == target_server_id)
       {
         for (i = 1; i <= Controller.n_stores; i++) // we use the store number 1-N for the index. Element 0 not used.
         {
-          Controller.max_product[i] = (int)ds2interfaces[Userid].ds2getrowcount("PRODUCTS" + i);
-          Controller.max_customer[i] = (int)ds2interfaces[Userid].ds2getrowcount("CUSTOMERS" + i);
-          // Console.WriteLine("Store {0}\n  Customers: {1}\n  Products: {2}", i, Controller.max_customer[i], Controller.max_product[i] ); 
+          Controller.max_product[target_server_id, i] = (int)ds2interfaces[Userid].ds2getrowcount("PRODUCTS" + i);
+          Controller.max_customer[target_server_id, i] = (int)ds2interfaces[Userid].ds2getrowcount("CUSTOMERS" + i);
+          Console.WriteLine("Thread {0}: Server {1} Store {2} - Customers: {3}, Products: {4}",
+            Thread.CurrentThread.Name, target_server_id, i, Controller.max_customer[target_server_id, i], Controller.max_product[target_server_id, i]);
         }
       }
 
@@ -2973,7 +2903,7 @@ namespace ds2xdriver
         {
           IsLogin = true;
           //Returning user with skewed customer ID selection (20% from top 10%, 80% uniform)
-          int i_user = Controller.GetSkewedCustomerId(Controller.max_customer[target_store]);
+          int i_user = Controller.GetSkewedCustomerId(Controller.max_customer[target_server_id, target_store]);
           username_in = "user" + i_user;
           password_in = "password";
           rows_returned = 0;
@@ -3081,8 +3011,8 @@ namespace ds2xdriver
           CreateUserData();
           do  // Try newcustomer until find a userid that doesn't exist
           {
-            //int i_user = Random.Shared.Next(1, Controller.max_customer[target_store] + 1);
-            int new_customer_id = Interlocked.Increment(ref Controller.max_customer[target_store]);
+            //int i_user = Random.Shared.Next(1, Controller.max_customer[target_server_id, target_store] + 1);
+            int new_customer_id = Interlocked.Increment(ref Controller.max_customer[target_server_id, target_store]);
             username_in = "user" + new_customer_id;
             password_in = "password";
 
@@ -3382,15 +3312,15 @@ namespace ds2xdriver
               case 0:  // Get Reviews with no order
                 get_review_type_in = "noorder";
                 // assign get_review_prod_in to be a random product id number
-                get_review_prod_in = Controller.GetSkewedProductId(Controller.max_product[target_store]);
+                get_review_prod_in = Controller.GetSkewedProductId(Controller.max_product[target_server_id, target_store]);
                 break;
               case 1:  // Get Reviews by Star ranking
                 get_review_type_in = "star";
-                get_review_prod_in = Controller.GetSkewedProductId(Controller.max_product[target_store]);
+                get_review_prod_in = Controller.GetSkewedProductId(Controller.max_product[target_server_id, target_store]);
                 break;
               case 2:  // Get Reviews by date
                 get_review_type_in = "date";
-                get_review_prod_in = Controller.GetSkewedProductId(Controller.max_product[target_store]);
+                get_review_prod_in = Controller.GetSkewedProductId(Controller.max_product[target_server_id, target_store]);
                 break;
             }
             failures = 0;
@@ -3509,7 +3439,7 @@ namespace ds2xdriver
           else
           {
             // Non-members: use skewed distribution (existing behavior)
-            prod_id_in[i] = Controller.GetSkewedProductId(Controller.max_product[target_store]);
+            prod_id_in[i] = Controller.GetSkewedProductId(Controller.max_product[target_server_id, target_store]);
           }
 
           qty_in[i] = Random.Shared.Next(1, 4);  // qty (1, 2 or 3)
@@ -3621,7 +3551,7 @@ namespace ds2xdriver
 
         Thread.Sleep(Random.Shared.Next(2 * (int)Math.Floor(1000 * Controller.think_time))); // Delay think time seconds
 
-      } while (!Controller.End); // End of Thread Emulation loop
+      } while (!Controller.EndUsers); // End of Thread Emulation loop
 
       ds2interfaces[Userid].ds2close();
 

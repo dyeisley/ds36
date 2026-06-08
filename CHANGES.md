@@ -184,6 +184,44 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - Configuration, performance tuning, troubleshooting
 - Detailed documentation of each analytics operation
 
+### Changed - Multi-Target Server Support
+
+**Multiple Target Servers with Independent Database Sizes:**
+
+- **Problem:** `max_customer` and `max_product` were 1D arrays indexed by store number only. With multiple target servers having different database sizes (e.g., server A: 2.4M customers, server B: 7.2M customers), all threads incorrectly used server 0's values, causing customer ID and product ID selection failures on other servers.
+
+- **Solution:** Converted to 2D arrays `max_customer[server_id, store_number]` and `max_product[server_id, store_number]` so each server tracks its own customer/product counts independently.
+
+- **Architecture Changes:**
+  - **User threads:** First user on each target server (User 0→Server 0, User 1→Server 1, etc.) queries max customer/product counts for that server
+  - **Manager threads:** Nested loops create `n_target_servers × n_stores` manager threads (full server×store coverage)
+  - **Analytics threads:** Hybrid conditional logic:
+    - Single server: one analytics thread per store (monitors all stores)
+    - Multiple servers: one analytics thread per server (monitors store 1 on each server)
+  - **Thread ID namespacing:** Customer (0-9999), Manager (10000+), Analytics (20000+)
+
+- **Shutdown Sequencing:**
+  - Separate End flags: `EndAnalytics`, `EndUser`, `EndManagers` for clean output ordering
+  - Sequence: User threads complete → Analytics threads complete → Manager threads complete
+  - Prevents output interleaving during shutdown
+
+- **Output Updates:**
+  - Analytics headers show server ID when multiple servers: "Membership Analytics (Server 1, Store 1)"
+  - Manager headers show server ID when multiple servers: "Manager Operations Statistics (Server 2, Store 3)"
+  - Validation parameters show manager threads as `n_target_servers × n_stores`
+
+- **Parameter Removal:**
+  - Removed `db_size` parameter - no longer needed since actual counts are queried via `ds2getrowcount()`
+
+- **Validation:** Added `MAX_TARGET_SERVERS` constant (16, matching `MAX_STORES`) with runtime validation
+
+**Files Modified:**
+- `drivers/ds36xdriver.cs` - 2D arrays, hybrid analytics threading, nested manager loops, separate End flags
+- `drivers/ds36xmanager.cs` - 2D array access for max_product
+- `drivers/ds36xanalytics.cs` - Hybrid conditional logic, server ID in headers
+- `drivers/GlobalConstants.cs` - Added MAX_TARGET_SERVERS constant
+- `CreateConfigFile.pl` - Removed db_size prompt (metadata reading retained for future use)
+
 ### Added - Membership Renewal and Browse Behavior
 
 **Membership Status Checking and Renewal**: After successful LOGIN, driver checks membership status and optionally renews expired memberships.

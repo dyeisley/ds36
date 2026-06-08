@@ -127,12 +127,12 @@ namespace ds2xdriver
       // Console.WriteLine("Thread {0}: Manager thread started", Thread.CurrentThread.Name);
 
       // Manager loop: run until Controller signals End
-      while (!Controller.End)
+      while (!Controller.EndManagers)
       {
         // Sleep for the manager interval
         Thread.Sleep(Controller.manager_interval * 1000);
 
-        if (Controller.End)
+        if (Controller.EndManagers)
           break;
 
         // Randomly select operation based on percentages
@@ -172,9 +172,9 @@ namespace ds2xdriver
                     n_products_added++;  // INSIDE loop - count products actually added
                   }
                   // Update max_product for this store if needed
-                  if (newproduct_id > Controller.max_product[target_store])
+                  if (newproduct_id > Controller.max_product[target_server_id, target_store])
                   {
-                    Controller.max_product[target_store] = newproduct_id;
+                    Controller.max_product[target_server_id, target_store] = newproduct_id;
                   }
                   //Console.WriteLine("Thread {0}: Added product {1}: {2} - {3}", Thread.CurrentThread.Name, newproduct_id, new_title_in, new_actor_in);
                 }
@@ -192,7 +192,7 @@ namespace ds2xdriver
 
                 for (int i = 0; i < batch_size; i++)
                 {
-                  int prod_id = Controller.GetSkewedProductId(Controller.max_product[target_store]);
+                  int prod_id = Controller.GetSkewedProductId(Controller.max_product[target_server_id, target_store]);
                   int deleted_review_id = ds2interface.ds36removereviewbyproduct(prod_id, ref rt);
                   rt_remove_review_by_product += rt;  // INSIDE loop - accumulate response times
                   if (deleted_review_id > 0)
@@ -244,7 +244,7 @@ namespace ds2xdriver
                 n_adjust_prices++;
                 for (int i = 0; i < batch_size; i++)
                 {
-                  int prod_id = Controller.GetSkewedProductId(Controller.max_product[target_store]);
+                  int prod_id = Controller.GetSkewedProductId(Controller.max_product[target_server_id, target_store]);
                   rows_affected = ds2interface.ds36adjustprices(prod_id, ref rt);
                   rt_adjust_prices += rt;
                   n_products_price_changed += rows_affected;
@@ -262,7 +262,7 @@ namespace ds2xdriver
 
               for (int i = 0; i < batch_size; i++)
               {
-                int prod_id = Controller.GetSkewedProductId(Controller.max_product[target_store]);
+                int prod_id = Controller.GetSkewedProductId(Controller.max_product[target_server_id, target_store]);
                 rows_affected = ds2interface.ds36markspecials(prod_id, ref rt);
                 rt_mark_specials += rt;  // INSIDE loop - accumulate response times
                 n_products_special_changed += rows_affected;  // INSIDE loop - count products actually changed
@@ -337,7 +337,10 @@ namespace ds2xdriver
                              n_purge_old_orders + n_upgrade_membership + n_promo_membership;
       int total_review_ops = n_remove_review_by_product + n_remove_unhelpful_reviews;
       double total_review_rt = rt_remove_review_by_product + rt_remove_unhelpful_reviews;
-      Console.WriteLine("\n========== Manager Operations Statistics (Store {0}) ==========", target_store);
+      if (Controller.n_target_servers > 1)
+        Console.WriteLine("\n===== Manager Operations Statistics (Server {0}, Store {1}) ========", target_server_id, target_store);
+      else
+        Console.WriteLine("\n========== Manager Operations Statistics (Store {0}) =============", target_store);
       Console.WriteLine("Total Operations: {0}", total_operations);
       Console.WriteLine("  AddProduct:              {0,6} operations, {1,6} products added{2}",
                         n_add_product, n_products_added,

@@ -224,16 +224,16 @@ namespace ds2xdriver
       last_analytics_print_time = test_start_time;
 
       // Analytics loop: run until Controller signals End
-      while (!Controller.End)
+      while (!Controller.EndAnalytics)
       {
         // Sleep for the analytics interval in 1-second increments (allows fast shutdown)
-        for (int i = 0; i < analytics_interval_seconds && !Controller.End; i++)
+        for (int i = 0; i < analytics_interval_seconds && !Controller.EndAnalytics; i++)
         {
           Thread.Sleep(1000);
         }
 
         // It might be time to end after sleeping
-        if (Controller.End)
+        if (Controller.EndAnalytics)
           break;
 
         // Check if it's time to run analytics
@@ -257,7 +257,10 @@ namespace ds2xdriver
                 if (analyticsData != null && analyticsData.Count > 0)
                 {
                   Console.WriteLine("\n=====================================================================================================");
-                  Console.WriteLine($"Membership Analytics (Store {target_store}) - Delta since baseline");
+                  if (Controller.n_target_servers > 1)
+                    Console.WriteLine($"Membership Analytics (Server {target_server_id}, Store {target_store}) - Delta since baseline");
+                  else
+                    Console.WriteLine($"Membership Analytics (Store {target_store}) - Delta since baseline");
                   Console.WriteLine("=====================================================================================================");
                   Console.WriteLine("Tier    Active Members    Expired    New Orders  New Revenue     Rev/Order   Rev/Member    Ord/Member");
                   Console.WriteLine("-----   --------------    -------    ----------  -------------   ---------   -----------   ----------");
@@ -324,7 +327,10 @@ namespace ds2xdriver
                   decimal pctOrders = total_benchmark_orders > 0 ? (decimal)data.TotalOrders / total_benchmark_orders * 100 : 0;
 
                   Console.WriteLine("\n===============================================================================");
-                  Console.WriteLine($"New Customer Analytics (Store {target_store}) - Delta since baseline");
+                  if (Controller.n_target_servers > 1)
+                    Console.WriteLine($"New Customer Analytics (Server {target_server_id}, Store {target_store}) - Delta since baseline");
+                  else
+                    Console.WriteLine($"New Customer Analytics (Store {target_store}) - Delta since baseline");
                   Console.WriteLine("===============================================================================");
                   Console.WriteLine("Created    2+ Orders    3+ Orders    % Active    Orders    Ord/Cust    % Orders");
                   Console.WriteLine("-------    ---------    ---------    --------    ------    --------    --------");
@@ -359,7 +365,10 @@ namespace ds2xdriver
                   long totalProducts = analyticsData.PricePoints.Sum(p => p.ProductCount);
 
                   Console.WriteLine("\n================================================================================");
-                  Console.WriteLine($"Price Point Analytics (Store {target_store})");
+                  if (Controller.n_target_servers > 1)
+                    Console.WriteLine($"Price Point Analytics (Server {target_server_id}, Store {target_store})");
+                  else
+                    Console.WriteLine($"Price Point Analytics (Store {target_store})");
                   Console.WriteLine("================================================================================");
                   Console.WriteLine("Price Ending        Count      % of Total");
                   Console.WriteLine("------------        -----      ----------");
@@ -400,7 +409,10 @@ namespace ds2xdriver
                 if (data != null)
                 {
                   Console.WriteLine("\n=============================================================================================================================");
-                  Console.WriteLine($"Inventory Analytics (Store {target_store})");
+                  if (Controller.n_target_servers > 1)
+                    Console.WriteLine($"Inventory Analytics (Server {target_server_id}, Store {target_store})");
+                  else
+                    Console.WriteLine($"Inventory Analytics (Store {target_store})");
                   Console.WriteLine("=============================================================================================================================");
                   Console.WriteLine("Low Stock (<10)    High Stock (>100)    Reorder    Avg Inv    Sales: Dead (0)    Low (1-999)    Med (1K-1.5K)    High (1.5K+)");
                   Console.WriteLine("---------------    -----------------    -------    -------    ---------------    -----------    -------------    ------------");
@@ -437,7 +449,10 @@ namespace ds2xdriver
                   long totalAdded = analyticsData.Sum(r => r.Added);
 
                   Console.WriteLine("\n============================================================================================================");
-                  Console.WriteLine($"Review Analytics (Store {target_store}) - Delta since baseline");
+                  if (Controller.n_target_servers > 1)
+                    Console.WriteLine($"Review Analytics (Server {target_server_id}, Store {target_store}) - Delta since baseline");
+                  else
+                    Console.WriteLine($"Review Analytics (Store {target_store}) - Delta since baseline");
                   Console.WriteLine("============================================================================================================");
                   Console.WriteLine("Stars      Reviews      Added    Removed    Net Change    Avg Help     High Help      Low Help    % of Total");
                   Console.WriteLine("-----      -------      -----    -------    ----------    --------     ---------      --------    ----------");
@@ -492,7 +507,10 @@ namespace ds2xdriver
       // Print statistics
       if (n_membership_analytics > 0 || n_newcustomer_analytics > 0 || n_review_analytics > 0 || n_pricepoint_analytics > 0 || n_inventory_analytics > 0)
       {
-        Console.WriteLine("\n========== Analytics Statistics (Store {0}) ==========", target_store);
+        if (Controller.n_target_servers > 1)
+          Console.WriteLine("\n==== Analytics Statistics (Server {0}, Store {1}) =========", target_server_id, target_store);
+        else
+          Console.WriteLine("\n========== Analytics Statistics (Store {0}) =============", target_store);
         if (n_membership_analytics > 0)
         {
           Console.WriteLine("  GetMembershipAnalytics:  {0,6} operations, avg RT: {1:F3} sec",
