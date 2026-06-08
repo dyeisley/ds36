@@ -2319,46 +2319,59 @@ namespace ds2xdriver
         Console.WriteLine("\nRunning post-benchmark validation...");
         string timestamp = DateTime.Now.ToString("yyyyMMdd_HHmmss");
         string databaseType = ds2Interface.GetDatabaseType();
-        string validationServer = target_servers[0]; // Use first server for validation
 
-        // Validate each store
-        for (int store = 1; store <= n_stores; store++)
+        // Validate each server-store combination
+        for (int server_id = 0; server_id < n_target_servers; server_id++)
         {
-          string validationOutputFile = $"validation_{databaseType}_store{store}of{n_stores}_{timestamp}.txt";
-          Console.WriteLine($"  Validating store {store}...");
+          string validationServer = target_servers[server_id];
 
-          // Write benchmark parameters header
-          WriteBenchmarkParametersHeader(validationOutputFile, databaseType, validationServer, store);
-
-          // Create temporary ds2interface for validation
-          ds2Interface validationInterface = new ds2Interface(9999, validationServer, store);
-
-          try
+          for (int store = 1; store <= n_stores; store++)
           {
-            // Connect to database (Oracle doesn't need this - sqlplus handles connection)
-            // But PostgreSQL, MySQL, SQL Server need active connection for ADO.NET commands
-            if (databaseType != "oracle")
+            string validationOutputFile;
+            if (n_target_servers > 1)
             {
-              if (!validationInterface.ds2connect())
+              validationOutputFile = $"validation_{databaseType}_server{server_id}_store{store}of{n_stores}_{timestamp}.txt";
+              Console.WriteLine($"  Validating server {server_id}, store {store}...");
+            }
+            else
+            {
+              validationOutputFile = $"validation_{databaseType}_store{store}of{n_stores}_{timestamp}.txt";
+              Console.WriteLine($"  Validating store {store}...");
+            }
+
+            // Write benchmark parameters header
+            WriteBenchmarkParametersHeader(validationOutputFile, databaseType, validationServer, store);
+
+            // Create temporary ds2interface for validation
+            ds2Interface validationInterface = new ds2Interface(9999, validationServer, store);
+
+            try
+            {
+              // Connect to database (Oracle doesn't need this - sqlplus handles connection)
+              // But PostgreSQL, MySQL, SQL Server need active connection for ADO.NET commands
+              if (databaseType != "oracle")
               {
-                Console.WriteLine($"  Error: Could not connect to database for validation");
-                continue;
+                if (!validationInterface.ds2connect())
+                {
+                  Console.WriteLine($"  Error: Could not connect to database for validation");
+                  continue;
+                }
+              }
+
+              // Run validation SQL and append results to output file
+              validationInterface.ds2validate(validationOutputFile, validationServer, store);
+            }
+            finally
+            {
+              // Close connection (safe to call even if not connected)
+              if (databaseType != "oracle")
+              {
+                validationInterface.ds2close();
               }
             }
 
-            // Run validation SQL and append results to output file
-            validationInterface.ds2validate(validationOutputFile, validationServer, store);
+            Console.WriteLine($"  Validation output saved to: {validationOutputFile}");
           }
-          finally
-          {
-            // Close connection (safe to call even if not connected)
-            if (databaseType != "oracle")
-            {
-              validationInterface.ds2close();
-            }
-          }
-
-          Console.WriteLine($"  Validation output saved to: {validationOutputFile}");
         }
 
         Console.WriteLine("Validation complete.\n");
