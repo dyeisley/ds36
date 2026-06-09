@@ -53,7 +53,7 @@ graph TD
 
     BrowseProducts{Is Member?<br/>tier > 0}
     BrowseProducts -->|Yes| BrowseByTier[BROWSE_BY_MEMBERSHIP<br/>using customer's tier<br/>Bronze→1, Silver→2, Gold→3]
-    BrowseProducts -->|No| SelectBrowseType[Random Select:<br/>category, actor, title<br/>(or vector if enabled)]
+    BrowseProducts -->|No| SelectBrowseType[Random Select:<br/>category, actor, title<br/>or vector if enabled]
 
     SelectBrowseType --> NonMemberBrowse{Browse Type?}
     NonMemberBrowse -->|category| BrowseCategory[BROWSE_BY_CATEGORY]
