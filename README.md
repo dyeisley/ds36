@@ -101,10 +101,7 @@ The analytics thread captures baseline metrics before the test starts, then peri
 ```mermaid
 graph TD
     Start([Analytics Thread Starts]) --> Connect[Connect to Database]
-    Connect --> CheckInterval{analytics_interval<br/>> 0?}
-
-    CheckInterval -->|No| WaitStart[Wait for Controller.Start]
-    CheckInterval -->|Yes| CaptureBaselines[Capture Baselines<br/>Before test starts]
+    Connect --> CaptureBaselines[Capture Baselines<br/>Before test starts]
 
     CaptureBaselines --> MembershipBaseline{enable_membership<br/>_analytics?}
     MembershipBaseline -->|Yes| CaptureMembership[Query membership stats<br/>Store orders/revenue by tier]
