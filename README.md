@@ -81,7 +81,7 @@ graph TD
     NewHelpfulness --> BuildCart
 
     BuildCart[Build Shopping Cart<br/>1 to 2*n_line_items + tier] --> FillCart{Member with<br/>Browse Results?}
-    FillCart -->|Yes| UseBrowseResults[Fill from prod_id_out array<br/>(tier-specific products)]
+    FillCart -->|Yes| UseBrowseResults[Fill from prod_id_out array<br/>tier-specific products]
     FillCart -->|No| UseRandom[GetSkewedProductId<br/>random products]
 
     UseBrowseResults --> Spillover{Cart > Browse<br/>Results?}
