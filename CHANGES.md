@@ -15,7 +15,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - **Architecture**:
   - Launches multiple database drivers in parallel with identical workload parameters
   - Keeps 4 separate database executables simple and focused (no factory pattern complexity)
-  - Cross-platform compatible (Linux and Windows)
+  - Cross-platform compatible (Linux and Windows) *(only tested on Linux)*
   - Process orchestration using `Process.Start()` with output redirection
   - Task.WhenAll for parallel execution of async driver launches
   

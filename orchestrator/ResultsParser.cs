@@ -267,7 +267,7 @@ namespace DvdStoreOrchestrator
 
       foreach (var r in results.OrderByDescending(x => x.Opm))
       {
-        Console.WriteLine($"{r.DbType,-18} {r.Hostname,-15} {r.Opm,6:N0}  {r.AvgRt,6:F1}ms    {r.RollbackPct,5:F1}%  {r.TotalOrders,7:N0}");
+        Console.WriteLine($"{r.DbType,-18} {r.Hostname,-15}  {r.Opm,6:N0}  {r.AvgRt,6:F1}ms    {r.RollbackPct,5:F1}%  {r.TotalOrders,7:N0}");
       }
       Console.WriteLine("─────────────────────────────────────────────────────────────────────────");
 
@@ -279,9 +279,9 @@ namespace DvdStoreOrchestrator
       if (hasAnalytics)
       {
         Console.WriteLine("\nAnalytics Performance (avg RT in seconds):");
-        Console.WriteLine("─────────────────────────────────────────────────────────────────────────");
-        Console.WriteLine("Database            Membership  NewCust  Review  Price  Inventory");
-        Console.WriteLine("─────────────────────────────────────────────────────────────────────────");
+        Console.WriteLine("──────────────────────────────────────────────────────────────────────────────");
+        Console.WriteLine("Database            Membership  NewCust  Review  Price  Inventory   Total");
+        Console.WriteLine("──────────────────────────────────────────────────────────────────────────────");
 
         foreach (var r in results)
         {
@@ -291,9 +291,14 @@ namespace DvdStoreOrchestrator
           string price = r.PricePointAnalyticsRt > 0 ? $"{r.PricePointAnalyticsRt:F3}" : "  -  ";
           string inventory = r.InventoryAnalyticsRt > 0 ? $"{r.InventoryAnalyticsRt:F3}" : "  -  ";
 
-          Console.WriteLine($"{r.DbType,-18} {membership,10}  {newCust,7}  {review,6}  {price,5}  {inventory,9}");
+          // Calculate total of all analytics operations
+          double total = r.MembershipAnalyticsRt + r.NewCustomerAnalyticsRt + r.ReviewAnalyticsRt +
+                        r.PricePointAnalyticsRt + r.InventoryAnalyticsRt;
+          string totalStr = total > 0 ? $"{total:F3}" : "  -  ";
+
+          Console.WriteLine($"{r.DbType,-18} {membership,10}  {newCust,7}  {review,6}   {price,5} {inventory,9}   {totalStr,6}");
         }
-        Console.WriteLine("─────────────────────────────────────────────────────────────────────────");
+        Console.WriteLine("──────────────────────────────────────────────────────────────────────────────");
       }
 
       // Manager operations performance (if any database has managers enabled)
@@ -307,9 +312,9 @@ namespace DvdStoreOrchestrator
       if (hasManagers)
       {
         Console.WriteLine("\nManager Operations Performance (avg RT in seconds):");
-        Console.WriteLine("─────────────────────────────────────────────────────────────────────────");
-        Console.WriteLine("Database            AddProd  RmvByProd  RmvUnhlp  RmvByDate  AdjPrice");
-        Console.WriteLine("─────────────────────────────────────────────────────────────────────────");
+        Console.WriteLine("───────────────────────────────────────────────────────────────────────────────");
+        Console.WriteLine("Database            AddProd  RmvByProd  RmvUnhlp  RmvByDate  AdjPrice  Total");
+        Console.WriteLine("───────────────────────────────────────────────────────────────────────────────");
 
         foreach (var r in results)
         {
@@ -319,11 +324,16 @@ namespace DvdStoreOrchestrator
           string rmvDate = r.RemoveReviewsByDateRt > 0 ? $"{r.RemoveReviewsByDateRt:F3}" : "  -   ";
           string adjPrice = r.AdjustPricesRt > 0 ? $"{r.AdjustPricesRt:F3}" : "  -   ";
 
-          Console.WriteLine($"{r.DbType,-18} {addProd,7}  {rmvProd,9}  {rmvUnhlp,8}  {rmvDate,9}  {adjPrice,8}");
+          // Calculate total for first row of manager operations
+          double totalRow1 = r.AddProductRt + r.RemoveReviewByProductRt + r.RemoveUnhelpfulReviewsRt +
+                            r.RemoveReviewsByDateRt + r.AdjustPricesRt;
+          string totalRow1Str = totalRow1 > 0 ? $"{totalRow1:F3}" : "  -   ";
+
+          Console.WriteLine($"{r.DbType,-18} {addProd,7}  {rmvProd,9}  {rmvUnhlp,8}  {rmvDate,9}  {adjPrice,8}   {totalRow1Str,5}");
         }
-        Console.WriteLine("─────────────────────────────────────────────────────────────────────────");
-        Console.WriteLine("Database            BulkPrc  MrkSpecl  ExpireMbr  PurgeOrd  UpgradeMbr  PromoMbr");
-        Console.WriteLine("─────────────────────────────────────────────────────────────────────────");
+        Console.WriteLine("───────────────────────────────────────────────────────────────────────────────────────");
+        Console.WriteLine("Database            BulkPrc  MrkSpecl  ExpireMbr  PurgeOrd  UpgradeMbr  PromoMbr  Total");
+        Console.WriteLine("───────────────────────────────────────────────────────────────────────────────────────");
 
         foreach (var r in results)
         {
@@ -334,9 +344,14 @@ namespace DvdStoreOrchestrator
           string upgrade = r.UpgradeMembershipRt > 0 ? $"{r.UpgradeMembershipRt:F3}" : "  -   ";
           string promo = r.PromotionalMembershipRt > 0 ? $"{r.PromotionalMembershipRt:F3}" : "  -   ";
 
-          Console.WriteLine($"{r.DbType,-18} {bulkPrc,7}  {mrkSpec,8}  {expire,9}  {purge,8}  {upgrade,10}  {promo,8}");
+          // Calculate total for second row of manager operations
+          double totalRow2 = r.BulkPriceAdjustmentRt + r.MarkSpecialsRt + r.ExpireMembershipsRt +
+                            r.PurgeOldOrdersRt + r.UpgradeMembershipRt + r.PromotionalMembershipRt;
+          string totalRow2Str = totalRow2 > 0 ? $"{totalRow2:F3}" : "  -   ";
+
+          Console.WriteLine($"{r.DbType,-18} {bulkPrc,7}  {mrkSpec,8}  {expire,9}  {purge,8}  {upgrade,10}  {promo,8}   {totalRow2Str,5}");
         }
-        Console.WriteLine("─────────────────────────────────────────────────────────────────────────");
+        Console.WriteLine("───────────────────────────────────────────────────────────────────────────────");
       }
 
       Console.WriteLine("========================================================================\n");
