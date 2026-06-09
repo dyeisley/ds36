@@ -1,0 +1,50 @@
+graph TD
+    Start([Program Starts]) --> Main[Main - Parse command line args]
+    Main --> ConstructController[Controller Constructor:<br/>Parse config file,<br/>validate parameters]
+    ConstructController --> DisplayConfig[Display Configuration Summary]
+    DisplayConfig --> DoWork[do_work method]
+
+    DoWork --> CreateAnalytics{analytics_interval<br/>> 0?}
+    CreateAnalytics -->|Yes| SpawnAnalytics[Spawn Analytics Threads<br/>1 per store single server<br/>1 per server multi-server<br/>▶ See Analytics Workflow]
+    CreateAnalytics -->|No| CreateCustomer
+    SpawnAnalytics --> WaitBaselines[Wait for all analytics threads<br/>to capture baselines]
+    WaitBaselines --> CreateCustomer
+
+    CreateCustomer[Create Customer Thread Objects<br/>Round-robin to servers<br/>▶ See Customer Workflow]
+    CreateCustomer --> RegisterLinux{Linux perf<br/>monitoring?}
+    RegisterLinux -->|Yes| PlinkRSA[Plink RSA key registration]
+    RegisterLinux -->|No| StartCustomer
+    PlinkRSA --> StartCustomer
+
+    StartCustomer[Start all customer threads] --> WaitRunning[Wait for all threads running]
+    WaitRunning --> WaitConnected[Wait for all threads connected<br/>60 second timeout]
+
+    WaitConnected --> CreateManagers{enable_managers?}
+    CreateManagers -->|Yes| SpawnManagers[Spawn Manager Threads<br/>n_target_servers × n_stores<br/>▶ See Manager Workflow]
+    CreateManagers -->|No| WaitManagerConnected
+    SpawnManagers --> WaitManagerConnected[Wait for manager threads connected]
+
+    WaitManagerConnected --> SetStart[Controller.Start = true<br/>All threads begin work]
+    SetStart --> WarmupPhase[Warmup Phase:<br/>warmup_time minutes]
+
+    WarmupPhase --> ResetCounters[Reset counters after warmup]
+    ResetCounters --> RunPhase[Run Phase Loop:<br/>run_time * 60 seconds]
+
+    RunPhase --> LogInterval[Every log_freq seconds:<br/>Print OPM, RT, rollbacks<br/>Sample CPU if enabled]
+    LogInterval --> CheckEnd{Elapsed >=<br/>run_time?}
+
+    CheckEnd -->|No| RunPhase
+    CheckEnd -->|Yes| StopThreads[Set Controller.EndUsers = true]
+
+    StopThreads --> WaitUsers[Wait for customer threads to exit]
+    WaitUsers --> StopAnalytics[Set Controller.EndAnalytics = true]
+    StopAnalytics --> WaitAnalytics[Wait for analytics threads to exit]
+    WaitAnalytics --> StopManagers[Set Controller.EndManagers = true]
+    StopManagers --> WaitManagers[Wait for manager threads to exit]
+
+    WaitManagers --> PrintStats[Print Final Statistics:<br/>Customer ops, Analytics, Managers]
+    PrintStats --> Validation{validate_post_test?}
+
+    Validation -->|Yes| RunValidation[Execute validation SQL:<br/>MySQL/SQL Server/PostgreSQL ADO.NET<br/>Oracle sqlplus subprocess]
+    Validation -->|No| End
+    RunValidation --> End([Program Exits])

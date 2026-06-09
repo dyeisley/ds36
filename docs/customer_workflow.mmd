@@ -1,0 +1,63 @@
+graph TD
+    Start([Customer Thread Starts]) --> NewCustomerRoll{Random Roll<br/>< pct_newcustomers?}
+
+    NewCustomerRoll -->|Yes| NewCustomer[NEWCUSTOMER<br/>Allocate ID atomically<br/>username = user + new_id<br/>membershiplevel_out = 0]
+    NewCustomerRoll -->|No| Login[LOGIN<br/>GetSkewedCustomerId<br/>Favors recent customers]
+
+    Login --> CheckMembership[Get Membership Status]
+
+    CheckMembership --> IsExpired{Membership<br/>Expired?}
+
+    IsExpired -->|Yes| RenewRoll{Random Roll<br/>< pct_renewmember?}
+    RenewRoll -->|Yes| RenewMember[RENEW_MEMBERSHIP<br/>Extend +1 year]
+    RenewRoll -->|No| SetMemberLevel0[membershiplevel = 0]
+    RenewMember --> NewMemberCheck
+    SetMemberLevel0 --> NewMemberCheck
+
+    IsExpired -->|No/None| NewMemberCheck
+    NewCustomer --> NewMemberCheck
+
+    NewMemberCheck{membershiplevel = 0 AND<br/>not expired AND<br/>roll < pct_newmember?}
+    NewMemberCheck -->|Yes| NewMember[NEW_MEMBER<br/>60% Bronze, 30% Silver, 10% Gold<br/>Any non-member can join]
+    NewMemberCheck -->|No| BrowseProducts
+    NewMember --> BrowseProducts
+
+    BrowseProducts{Is Member?<br/>tier > 0}
+    BrowseProducts -->|Yes| BrowseByTier[BROWSE_BY_MEMBERSHIP<br/>using customer's tier<br/>Bronze→1, Silver→2, Gold→3]
+    BrowseProducts -->|No| SelectBrowseType[Random Select:<br/>category, actor, title<br/>(or vector if enabled)]
+
+    SelectBrowseType --> NonMemberBrowse{Browse Type?}
+    NonMemberBrowse -->|category| BrowseCategory[BROWSE_BY_CATEGORY]
+    NonMemberBrowse -->|actor| BrowseActor[BROWSE_BY_ACTOR]
+    NonMemberBrowse -->|title| BrowseTitle[BROWSE_BY_TITLE]
+    NonMemberBrowse -->|vector| BrowseVector[BROWSE_BY_VECTOR]
+
+    BrowseByTier --> StoreBrowseResults[Store prod_id_out array]
+    BrowseCategory --> StoreBrowseResults
+    BrowseActor --> StoreBrowseResults
+    BrowseTitle --> StoreBrowseResults
+    BrowseVector --> StoreBrowseResults
+
+    StoreBrowseResults --> BrowseReviewsPhase[BROWSE_REVIEWS Phase<br/>n_reviews iterations]
+    BrowseReviewsPhase --> GetReviewsPhase[GET_REVIEWS Phase<br/>n_reviews iterations<br/>by stars/date/noorder]
+
+    GetReviewsPhase --> NewReviewRoll{Random Roll<br/>< pct_newreviews?}
+    NewReviewRoll -->|Yes| NewReview[NEW_REVIEW<br/>Write review for product]
+    NewReviewRoll -->|No| HelpfulnessRoll
+    NewReview --> HelpfulnessRoll
+
+    HelpfulnessRoll{Random Roll<br/>< pct_newhelpfulness?}
+    HelpfulnessRoll -->|Yes| NewHelpfulness[NEW_REVIEW_HELPFULNESS<br/>MERGE/UPSERT rating]
+    HelpfulnessRoll -->|No| BuildCart
+    NewHelpfulness --> BuildCart
+
+    BuildCart[Build Shopping Cart<br/>1 to 2*n_line_items + tier] --> FillCart{Member with<br/>Browse Results?}
+    FillCart -->|Yes| UseBrowseResults[Fill from prod_id_out array<br/>(tier-specific products)]
+    FillCart -->|No| UseRandom[GetSkewedProductId<br/>random products]
+
+    UseBrowseResults --> Spillover{Cart > Browse<br/>Results?}
+    Spillover -->|Yes| UseRandom
+    Spillover -->|No| Purchase
+    UseRandom --> Purchase
+
+    Purchase[PURCHASE<br/>Create Order + Orderlines<br/>LAST OPERATION] --> End([End Customer Operation])

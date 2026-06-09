@@ -1,0 +1,69 @@
+graph TD
+    Start([Analytics Thread Starts]) --> Connect[Connect to Database]
+    Connect --> CheckInterval{analytics_interval<br/>> 0?}
+
+    CheckInterval -->|No| WaitStart[Wait for Controller.Start]
+    CheckInterval -->|Yes| CaptureBaselines[Capture Baselines<br/>Before test starts]
+
+    CaptureBaselines --> MembershipBaseline{enable_membership<br/>_analytics?}
+    MembershipBaseline -->|Yes| CaptureMembership[Query membership stats<br/>Store orders/revenue by tier]
+    MembershipBaseline -->|No| NewCustomerBaseline
+    CaptureMembership --> NewCustomerBaseline
+
+    NewCustomerBaseline{enable_newcustomer<br/>_analytics?}
+    NewCustomerBaseline -->|Yes| CaptureNewCustomer[Count customers and orders<br/>baseline_customer_count<br/>baseline_orders_count]
+    NewCustomerBaseline -->|No| ReviewBaseline
+    CaptureNewCustomer --> ReviewBaseline
+
+    ReviewBaseline{enable_review<br/>_analytics?}
+    ReviewBaseline -->|Yes| CaptureReview[Get MAX REVIEW_ID<br/>Query review counts by stars]
+    ReviewBaseline -->|No| PricePointBaseline
+    CaptureReview --> PricePointBaseline
+
+    PricePointBaseline{enable_pricepoint<br/>_analytics?}
+    PricePointBaseline -->|Yes| CapturePricePoint[Count products<br/>baseline_product_count]
+    PricePointBaseline -->|No| SignalComplete
+    CapturePricePoint --> SignalComplete
+
+    SignalComplete[Increment baseline_threads_completed] --> WaitStart
+
+    WaitStart --> StartLoop[Record test_start_time<br/>last_analytics_print_time]
+    StartLoop --> AnalyticsLoop{Controller.EndAnalytics?}
+
+    AnalyticsLoop -->|Yes| CloseConnection[Close Database Connection]
+    AnalyticsLoop -->|No| Sleep[Sleep analytics_interval<br/>in 1-second increments<br/>for fast shutdown]
+
+    Sleep --> CheckEnd{Controller.EndAnalytics?}
+    CheckEnd -->|Yes| CloseConnection
+    CheckEnd -->|No| CheckTime{time_since_last<br/>_analytics >=<br/>interval?}
+
+    CheckTime -->|No| AnalyticsLoop
+    CheckTime -->|Yes| UpdateTime[last_analytics_print_time = NOW]
+
+    UpdateTime --> RunMembership{enable_membership<br/>_analytics?}
+    RunMembership -->|Yes| QueryMembership[GET_MEMBERSHIP_ANALYTICS<br/>Calculate deltas vs baseline<br/>Print tier distribution table]
+    RunMembership -->|No| RunNewCustomer
+    QueryMembership --> RunNewCustomer
+
+    RunNewCustomer{enable_newcustomer<br/>_analytics?}
+    RunNewCustomer -->|Yes| QueryNewCustomer[GET_NEW_CUSTOMER_ANALYTICS<br/>Count customers with 2+, 3+ orders<br/>Calculate % Active, Ord/Cust]
+    RunNewCustomer -->|No| RunPricePoint
+    QueryNewCustomer --> RunPricePoint
+
+    RunPricePoint{enable_pricepoint<br/>_analytics?}
+    RunPricePoint -->|Yes| QueryPricePoint[GET_PRICEPOINT_ANALYTICS<br/>Distribution by ending .99/.77/.01<br/>New products purchased count]
+    RunPricePoint -->|No| RunInventory
+    QueryPricePoint --> RunInventory
+
+    RunInventory{enable_inventory<br/>_analytics?}
+    RunInventory -->|Yes| QueryInventory[GET_INVENTORY_ANALYTICS<br/>Stock levels low/high/reorder<br/>Sales distribution dead/low/med/high]
+    RunInventory -->|No| RunReview
+    QueryInventory --> RunReview
+
+    RunReview{enable_review<br/>_analytics?}
+    RunReview -->|Yes| QueryReview[GET_REVIEW_ANALYTICS<br/>Reviews by star rating<br/>Calculate added/removed/net change]
+    RunReview -->|No| AnalyticsLoop
+    QueryReview --> AnalyticsLoop
+
+    CloseConnection --> PrintStats[Print Analytics Statistics<br/>Operation counts, avg RT]
+    PrintStats --> End([Analytics Thread Exits])

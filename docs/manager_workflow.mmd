@@ -1,0 +1,47 @@
+graph TD
+    Start([Manager Thread Starts]) --> Connect[Connect to Database]
+    Connect --> WaitStart[Wait for Controller.Start]
+    WaitStart --> ManagerLoop{Controller.EndManagers?}
+
+    ManagerLoop -->|Yes| CloseConnection[Close Database Connection]
+    ManagerLoop -->|No| Sleep[Sleep manager_interval seconds]
+
+    Sleep --> CheckEnd{Controller.EndManagers?}
+    CheckEnd -->|Yes| CloseConnection
+    CheckEnd -->|No| CheckPct{total_pct > 0?}
+
+    CheckPct -->|No| ManagerLoop
+    CheckPct -->|Yes| RandomRoll[Random roll 0 to total_pct]
+
+    RandomRoll --> SelectOp{Which operation<br/>range?}
+
+    SelectOp -->|AddProduct| AddProduct[ADD_PRODUCT<br/>Batch loop: random category,<br/>actor, title, price .01,<br/>initial stock 1-500]
+    SelectOp -->|DeleteReview| ReviewType{33% each:<br/>ByProduct,<br/>Unhelpful,<br/>or ByDate?}
+    SelectOp -->|UpdatePrice| PriceToggle{Alternate:<br/>Bulk or<br/>Individual?}
+    SelectOp -->|UpdateSpecial| MarkSpecials[MARK_SPECIALS<br/>Batch loop: toggle SPECIAL flag<br/>for random products]
+    SelectOp -->|ExpireMemb| ExpireMemberships[EXPIRE_MEMBERSHIPS<br/>DELETE memberships<br/>with EXPIREDATE in past]
+    SelectOp -->|PurgeOrders| PurgeOldOrders[PURGE_OLD_ORDERS<br/>DELETE oldest orders<br/>cascades to ORDERLINES, CUST_HIST]
+    SelectOp -->|UpgradeMemb| UpgradeMembership[UPGRADE_MEMBERSHIP<br/>Percentile-based tier upgrades<br/>MOD customerid for time slicing]
+    SelectOp -->|PromoMemb| PromotionalMembership[PROMOTIONAL_MEMBERSHIP<br/>MERGE 90-day upgrades<br/>MEMBERSHIP_PROMO_AUDIT tracking]
+
+    ReviewType -->|ByProduct| RemoveByProduct[REMOVE_REVIEW_BY_PRODUCT<br/>Batch loop: delete all reviews<br/>for random products]
+    ReviewType -->|Unhelpful| RemoveUnhelpful[REMOVE_UNHELPFUL_REVIEWS<br/>DELETE reviews with<br/>low helpfulness scores]
+    ReviewType -->|ByDate| RemoveByDate[REMOVE_REVIEWS_BY_DATE<br/>DELETE oldest reviews]
+
+    PriceToggle -->|Bulk| BulkPrice[BULK_PRICE_ADJUSTMENT<br/>Category-wide ±25%<br/>Min 500 products, .77 endings<br/>Toggle flag for next time]
+    PriceToggle -->|Individual| AdjustPrices[ADJUST_PRICES<br/>Batch loop: individual ±10%<br/>Toggle flag for next time]
+
+    AddProduct --> ManagerLoop
+    RemoveByProduct --> ManagerLoop
+    RemoveUnhelpful --> ManagerLoop
+    RemoveByDate --> ManagerLoop
+    BulkPrice --> ManagerLoop
+    AdjustPrices --> ManagerLoop
+    MarkSpecials --> ManagerLoop
+    ExpireMemberships --> ManagerLoop
+    PurgeOldOrders --> ManagerLoop
+    UpgradeMembership --> ManagerLoop
+    PromotionalMembership --> ManagerLoop
+
+    CloseConnection --> PrintStats[Print Manager Statistics<br/>11 operations: counts,<br/>rows affected, avg RT]
+    PrintStats --> End([Manager Thread Exits])
