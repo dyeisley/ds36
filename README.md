@@ -7,6 +7,7 @@ The web driver (drivers/ds36webfns.cs) and PHP code have not been modified.
 
 ## What's New in 3.6
 
+- **Multi-Database Orchestrator**: New orchestrator executable for side-by-side performance comparison - launches MySQL, SQL Server, PostgreSQL, and Oracle simultaneously with identical workload parameters, real-time labeled output, and automated comparison tables showing OPM, response times, analytics, and manager operations across all databases
 - **Manager Thread System**: Background thread with 11 administrative operations (AddProduct, RemoveReviews, AdjustPrices, BulkPriceAdjustment, MarkSpecials, ExpireMemberships, PurgeOldOrders, UpgradeMembership, PromotionalMembership)
 - **Analytics System**: Separate analytics thread tracks membership tiers, new customer acquisition, and review activity with delta tracking and configurable intervals
 - **Membership Renewal**: Members can renew expired memberships (controlled by pct_renewmember parameter); non-members cannot browse by membership; BROWSE_BY_MEMBERSHIP uses customer's actual membership tier

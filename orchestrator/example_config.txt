@@ -1,0 +1,55 @@
+# DVD Store Multi-Database Orchestrator Config
+# Launches multiple database drivers for side-by-side comparison
+
+# Common benchmark parameters (shared across all databases)
+run_time=10
+n_threads=16
+ramp_rate=10
+warmup_time=1
+think_time=0
+pct_newcustomers=10
+pct_newhelpfulness=10
+pct_newmember=5
+pct_newreviews=5
+pct_renewmember=50
+n_searches=3
+search_batch_size=5
+n_line_items=5
+
+# Analytics settings
+analytics_interval=2
+enable_membership_analytics=Y
+enable_newcustomer_analytics=Y
+enable_review_analytics=Y
+enable_pricepoint_analytics=Y
+enable_inventory_analytics=Y
+
+# Manager settings
+enable_managers=Y
+manager_interval=30
+manager_batch_size_min=10
+manager_batch_size_max=100
+manager_add_product_pct=40
+manager_delete_review_pct=20
+manager_update_price_pct=20
+manager_update_special_pct=5
+manager_expire_memberships_pct=5
+manager_purge_old_orders_pct=0
+manager_upgrade_membership_pct=0
+manager_promo_membership_pct=0
+
+# Validation
+# Note: Requires database CLI tools (mysql, sqlcmd, psql, sqlplus) on orchestrator machine
+# Set to Y only if you have all required tools installed
+validate_post_test=N
+ds2_mode=N
+
+# Database targets
+# Format: target_N=path/to/executable:hostname
+# Database type is auto-detected from directory name in path
+# Create binaries first: cd ../mysql && dotnet publish -c Release -o .
+# Note: On Windows, add .exe extension (e.g., ../mysql/mysql_ds.exe)
+target_1=../mysql/mysql_ds:10.31.46.50
+target_2=../sqlserver/sqlserver_ds:10.31.46.51
+target_3=../pgsql/pgsql_ds:10.31.46.52
+target_4=../oracle/oracle_ds:10.31.46.53
