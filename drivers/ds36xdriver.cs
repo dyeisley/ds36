@@ -2941,9 +2941,10 @@ namespace ds2xdriver
 
           if (customerid_out == 0)
           {
-            Console.WriteLine("Thread {0}: User {1} not found, thread exiting",
+            Console.WriteLine("Thread {0}: User {1} not found, thread continuing.",
               Thread.CurrentThread.Name, username_in);
-            return;
+            //return;
+	    continue; // Skip to next iteration, pick new customer
           }
 
           //        Console.WriteLine("Thread {0}: User {1} logged in, customerid= {2}, previous DVDs ordered= {3}, " +
@@ -3022,44 +3023,35 @@ namespace ds2xdriver
         else   // New user
         {
           CreateUserData();
-          do  // Try newcustomer until find a userid that doesn't exist
+          password_in = "password";
+
+          failures = 0;
+          while (!ds2interfaces[Userid].ds2newcustomer(password_in, firstname_in, lastname_in,
+            address1_in, address2_in, city_in, state_in, zip_in, country_in, email_in, phone_in,
+            creditcardtype_in, creditcard_in, ccexpmon_in, ccexpyr_in, age_in, income_in, gender_in,
+            ref username_in, ref customerid_out, ref rt))
           {
-            //int i_user = Random.Shared.Next(1, Controller.max_customer[target_server_id, target_store] + 1);
-            int new_customer_id = Interlocked.Increment(ref Controller.max_customer[target_server_id, target_store]);
-            username_in = "user" + new_customer_id;
-            password_in = "password";
-
-            failures = 0;
-            while (!ds2interfaces[Userid].ds2newcustomer(username_in, password_in, firstname_in, lastname_in,
-              address1_in, address2_in, city_in, state_in, zip_in, country_in, email_in, phone_in,
-              creditcardtype_in, creditcard_in, ccexpmon_in, ccexpyr_in, age_in, income_in, gender_in,
-              ref customerid_out, ref rt))
+            if (++failures < GlobalConstants.MAX_FAILURES)
             {
-              if (++failures < GlobalConstants.MAX_FAILURES)
-              {
-                Console.WriteLine("Thread {0}: Error in New Customer for User {1}, failure {2}, retrying",
-                Thread.CurrentThread.Name, username_in, failures);
-              }
-              else
-              {
-                Console.WriteLine("Thread {0}: Error in New Customer for User {1}, failure {2}, exiting",
-                Thread.CurrentThread.Name, username_in, failures);
-                return;
-              }
+              Console.WriteLine("Thread {0}: Error in New Customer, failure {1}, retrying",
+              Thread.CurrentThread.Name, failures);
             }
-
-            //if (customerid_out == 0)
-            //{
-            //    Console.WriteLine("User name {0} already exists", username_in);
-            //}
-            if (customerid_out == -1)
+            else
             {
-              Console.WriteLine("New Customer - DB didn't return value for new customerid, retrying... ");
+              Console.WriteLine("Thread {0}: Error in New Customer, failure {1}, exiting",
+              Thread.CurrentThread.Name, failures);
+              return;
             }
-          } while (customerid_out < 1); // end of do/while try newcustomer
+          }
 
-          //        Console.WriteLine("Thread {0}: New user {1} logged in, customerid = {2}, RT= {3,10:F3}",
-          //           Thread.CurrentThread.Name, username_in, customerid_out, rt);
+          // Update max_customer tracking for LOGIN's GetSkewedCustomerId
+          if (customerid_out > Controller.max_customer[target_server_id, target_store])
+          {
+            Controller.max_customer[target_server_id, target_store] = customerid_out;
+          }
+
+          //Console.WriteLine("Thread {0}: New user {1} logged in, customerid = {2}, RT= {3,10:F3}",
+          //  Thread.CurrentThread.Name, username_in, customerid_out, rt);
 
           rt_newcust = rt;  // Just count last iteration if had to retry username
           rt_tot += rt;

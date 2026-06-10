@@ -156,7 +156,8 @@ namespace ds2xdriver
       New_Customer_prm[11] = New_Customer.Parameters.Add("creditcardtype_in", OracleDbType.Int16, ParameterDirection.Input);
       New_Customer_prm[12] = New_Customer.Parameters.Add("creditcard_in", OracleDbType.Varchar2, ParameterDirection.Input);
       New_Customer_prm[13] = New_Customer.Parameters.Add("creditcardexpiration_in", OracleDbType.Varchar2, ParameterDirection.Input);
-      New_Customer_prm[14] = New_Customer.Parameters.Add("username_in", OracleDbType.Varchar2, ParameterDirection.Input);
+      New_Customer_prm[14] = New_Customer.Parameters.Add("username_out", OracleDbType.Varchar2, ParameterDirection.Output);
+      New_Customer_prm[14].Size = 50;
       New_Customer_prm[15] = New_Customer.Parameters.Add("password_in", OracleDbType.Varchar2, ParameterDirection.Input);
       New_Customer_prm[16] = New_Customer.Parameters.Add("age_in", OracleDbType.Int16, ParameterDirection.Input);
       New_Customer_prm[17] = New_Customer.Parameters.Add("income_in", OracleDbType.Int32, ParameterDirection.Input);
@@ -482,11 +483,11 @@ namespace ds2xdriver
        //
        //-------------------------------------------------------------------------------------------------
        //
-    public bool ds2newcustomer(string username_in, string password_in, string firstname_in,
+    public bool ds2newcustomer(string password_in, string firstname_in,
       string lastname_in, string address1_in, string address2_in, string city_in, string state_in,
       string zip_in, string country_in, string email_in, string phone_in, int creditcardtype_in,
       string creditcard_in, int ccexpmon_in, int ccexpyr_in, int age_in, int income_in,
-      string gender_in, ref int customerid_out, ref double rt)
+      string gender_in, ref string username_out, ref int customerid_out, ref double rt)
     {
       int region_in = (country_in == "US") ? 1 : 2;
       string creditcardexpiration_in = String.Format("{0:D4}/{1:D2}", ccexpyr_in, ccexpmon_in);
@@ -505,7 +506,6 @@ namespace ds2xdriver
       New_Customer_prm[11].Value = creditcardtype_in;
       New_Customer_prm[12].Value = creditcard_in;
       New_Customer_prm[13].Value = creditcardexpiration_in;
-      New_Customer_prm[14].Value = username_in;
       New_Customer_prm[15].Value = password_in;
       New_Customer_prm[16].Value = age_in;
       New_Customer_prm[17].Value = income_in;
@@ -516,6 +516,7 @@ namespace ds2xdriver
       try
       {
         New_Customer.ExecuteNonQuery();
+        username_out = New_Customer_prm[14].Value.ToString();
         customerid_out = Convert.ToInt32(New_Customer_prm[19].Value.ToString());
         return (true);
       }
@@ -535,9 +536,6 @@ namespace ds2xdriver
       {
         rt = timer.Elapsed.TotalSeconds;
       }
-
-      //    Console.WriteLine("Thread {0}: New_Customer created w/username_in= {1}  region={2}  customerid={3}",
-      //      Thread.CurrentThread.Name, username_in, region_in, customerid_out);
 
     } // end ds2newcustomer()
 

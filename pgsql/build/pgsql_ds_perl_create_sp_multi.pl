@@ -53,19 +53,20 @@ CREATE OR REPLACE FUNCTION new_customer$k (
     IN creditcardtype_in int,
     IN creditcard_in VARCHAR(50),
     IN creditcardexpiration_in VARCHAR(50),
-    IN username_in VARCHAR(50),
     IN password_in VARCHAR(50),
     IN age_in SMALLINT,
     IN income_in int,
-    IN gender_in VARCHAR(1)
+    IN gender_in VARCHAR(1),
+    OUT customerid_out INTEGER,
+    OUT username_out VARCHAR(50)
 )
-RETURNS INTEGER
 LANGUAGE plpgsql
 AS \$\$
 DECLARE
-    customerid_out INTEGER;
+    temp_username VARCHAR(50);
 BEGIN
-    BEGIN
+    temp_username := 'temp-' || pg_backend_pid() || '-' || EXTRACT(EPOCH FROM clock_timestamp());
+
     INSERT INTO CUSTOMERS$k (
           firstname,
           lastname,
@@ -92,7 +93,7 @@ BEGIN
           lastname_in,
           email_in,
           phone_in,
-          username_in,
+          temp_username,
           password_in,
           address1_in,
           address2_in,
@@ -109,12 +110,9 @@ BEGIN
 	  gender_in
     )
     RETURNING customerid INTO customerid_out;
-    RETURN customerid_out;
-    EXCEPTION
-    	WHEN unique_violation THEN
-            RETURN 0;
-    END;
-    -- RETURN -1;
+
+    username_out := 'user' || customerid_out;
+    UPDATE CUSTOMERS$k SET USERNAME = username_out WHERE CUSTOMERID = customerid_out;
 END;
 \$\$
 ;

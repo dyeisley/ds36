@@ -141,11 +141,12 @@ namespace ds2xdriver
       New_Customer.Parameters.Add("creditcardtype_in", NpgsqlDbType.Integer);
       New_Customer.Parameters.Add("creditcard_in", NpgsqlDbType.Varchar, 50);
       New_Customer.Parameters.Add("creditcardexpiration_in", NpgsqlDbType.Varchar, 50);
-      New_Customer.Parameters.Add("username_in", NpgsqlDbType.Varchar, 50);
       New_Customer.Parameters.Add("password_in", NpgsqlDbType.Varchar, 50);
       New_Customer.Parameters.Add("age_in", NpgsqlDbType.Smallint);
       New_Customer.Parameters.Add("income_in", NpgsqlDbType.Integer);
       New_Customer.Parameters.Add("gender_in", NpgsqlDbType.Varchar, 1);
+      New_Customer.Parameters.Add("customerid_out", NpgsqlDbType.Integer).Direction = ParameterDirection.Output;
+      New_Customer.Parameters.Add("username_out", NpgsqlDbType.Varchar, 50).Direction = ParameterDirection.Output;
 
       New_Member = new NpgsqlCommand("NEW_MEMBER" + target_store_number, objConn);
       New_Member.CommandType = CommandType.StoredProcedure;
@@ -396,11 +397,11 @@ namespace ds2xdriver
        //
        //-------------------------------------------------------------------------------------------------
        // 
-    public bool ds2newcustomer(string username_in, string password_in, string firstname_in,
+    public bool ds2newcustomer(string password_in, string firstname_in,
       string lastname_in, string address1_in, string address2_in, string city_in, string state_in,
       string zip_in, string country_in, string email_in, string phone_in, int creditcardtype_in,
       string creditcard_in, int ccexpmon_in, int ccexpyr_in, int age_in, int income_in,
-      string gender_in, ref int customerid_out, ref double rt)
+      string gender_in, ref string username_out, ref int customerid_out, ref double rt)
     {
       int region_in = (country_in == "US") ? 1 : 2;
       string creditcardexpiration_in = String.Format("{0:D4}/{1:D2}", ccexpyr_in, ccexpmon_in);
@@ -419,21 +420,18 @@ namespace ds2xdriver
       New_Customer.Parameters["creditcardtype_in"].Value = creditcardtype_in;
       New_Customer.Parameters["creditcard_in"].Value = creditcard_in;
       New_Customer.Parameters["creditcardexpiration_in"].Value = creditcardexpiration_in;
-      New_Customer.Parameters["username_in"].Value = username_in;
       New_Customer.Parameters["password_in"].Value = password_in;
       New_Customer.Parameters["age_in"].Value = age_in;
       New_Customer.Parameters["income_in"].Value = income_in;
       New_Customer.Parameters["gender_in"].Value = gender_in;
 
-      //    Console.WriteLine("Thread {0}: Calling New_Customer w/username_in= {1}  region={2}  ccexp={3}",
-      //      Thread.CurrentThread.Name, username_in, region_in, creditcardexpiration_in);
-
       Stopwatch timer = Stopwatch.StartNew();
 
       try
       {
-        customerid_out = Convert.ToInt32(New_Customer.ExecuteScalar().ToString(), 10); // Needed for@IDENTITY
-                                                                                       //customerid_out = Convert.ToInt32(New_Customer.ExecuteScalar());
+        New_Customer.ExecuteNonQuery();
+        customerid_out = Convert.ToInt32(New_Customer.Parameters["customerid_out"].Value);
+        username_out = New_Customer.Parameters["username_out"].Value.ToString();
         return true;
       }
       catch (PostgresException e)

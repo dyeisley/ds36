@@ -128,8 +128,6 @@ namespace ds2xdriver
 
       New_Customer = new SqlCommand("NEW_CUSTOMER" + target_store_number, objConn);
       New_Customer.CommandType = CommandType.StoredProcedure;
-      New_Customer.Parameters.Add("@username_in", SqlDbType.VarChar, 50);
-      New_Customer.Parameters.Add("@password_in", SqlDbType.VarChar, 50);
       New_Customer.Parameters.Add("@firstname_in", SqlDbType.VarChar, 50);
       New_Customer.Parameters.Add("@lastname_in", SqlDbType.VarChar, 50);
       New_Customer.Parameters.Add("@address1_in", SqlDbType.VarChar, 50);
@@ -144,6 +142,8 @@ namespace ds2xdriver
       New_Customer.Parameters.Add("@creditcardtype_in", SqlDbType.TinyInt);
       New_Customer.Parameters.Add("@creditcard_in", SqlDbType.VarChar, 50);
       New_Customer.Parameters.Add("@creditcardexpiration_in", SqlDbType.VarChar, 50);
+      New_Customer.Parameters.Add("@username_out", SqlDbType.VarChar, 50).Direction = ParameterDirection.Output;
+      New_Customer.Parameters.Add("@password_in", SqlDbType.VarChar, 50);
       New_Customer.Parameters.Add("@age_in", SqlDbType.TinyInt);
       New_Customer.Parameters.Add("@income_in", SqlDbType.Int);
       New_Customer.Parameters.Add("@gender_in", SqlDbType.VarChar, 1);
@@ -422,17 +422,15 @@ namespace ds2xdriver
        //
        //-------------------------------------------------------------------------------------------------
        //
-    public bool ds2newcustomer(string username_in, string password_in, string firstname_in,
+    public bool ds2newcustomer(string password_in, string firstname_in,
       string lastname_in, string address1_in, string address2_in, string city_in, string state_in,
       string zip_in, string country_in, string email_in, string phone_in, int creditcardtype_in,
       string creditcard_in, int ccexpmon_in, int ccexpyr_in, int age_in, int income_in,
-      string gender_in, ref int customerid_out, ref double rt)
+      string gender_in, ref string username_out, ref int customerid_out, ref double rt)
     {
       int region_in = (country_in == "US") ? 1 : 2;
       string creditcardexpiration_in = String.Format("{0:D4}/{1:D2}", ccexpyr_in, ccexpmon_in);
 
-      New_Customer.Parameters["@username_in"].Value = username_in;
-      New_Customer.Parameters["@password_in"].Value = password_in;
       New_Customer.Parameters["@firstname_in"].Value = firstname_in;
       New_Customer.Parameters["@lastname_in"].Value = lastname_in;
       New_Customer.Parameters["@address1_in"].Value = address1_in;
@@ -447,18 +445,17 @@ namespace ds2xdriver
       New_Customer.Parameters["@creditcardtype_in"].Value = creditcardtype_in;
       New_Customer.Parameters["@creditcard_in"].Value = creditcard_in;
       New_Customer.Parameters["@creditcardexpiration_in"].Value = creditcardexpiration_in;
+      New_Customer.Parameters["@password_in"].Value = password_in;
       New_Customer.Parameters["@age_in"].Value = age_in;
       New_Customer.Parameters["@income_in"].Value = income_in;
       New_Customer.Parameters["@gender_in"].Value = gender_in;
-
-      //    Console.WriteLine("Thread {0}: Calling New_Customer w/username_in= {1}  region={2}  ccexp={3}",
-      //      Thread.CurrentThread.Name, username_in, region_in, creditcardexpiration_in);
 
       Stopwatch timer = Stopwatch.StartNew();
 
       try
       {
         customerid_out = Convert.ToInt32(New_Customer.ExecuteScalar().ToString(), 10);
+        username_out = New_Customer.Parameters["@username_out"].Value.ToString();
         return (true);
       }
       catch (SqlException e)

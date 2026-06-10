@@ -61,7 +61,7 @@ CREATE PROCEDURE NEW_CUSTOMER$k
   \@creditcardtype_in        TINYINT,
   \@creditcard_in            VARCHAR(50),
   \@creditcardexpiration_in  VARCHAR(50),
-  \@username_in              VARCHAR(50),
+  \@username_out             VARCHAR(50) OUTPUT,
   \@password_in              VARCHAR(50),
   \@age_in                   TINYINT,
   \@income_in                INT,
@@ -70,56 +70,61 @@ CREATE PROCEDURE NEW_CUSTOMER$k
 
   AS
 
-  IF (SELECT COUNT(*) FROM CUSTOMERS$k WHERE USERNAME=\@username_in) = 0
-  BEGIN
-    INSERT INTO CUSTOMERS$k
-      (
-      FIRSTNAME,
-      LASTNAME,
-      ADDRESS1,
-      ADDRESS2,
-      CITY,
-      STATE,
-      ZIP,
-      COUNTRY,
-      REGION,
-      EMAIL,
-      PHONE,
-      CREDITCARDTYPE,
-      CREDITCARD,
-      CREDITCARDEXPIRATION,
-      USERNAME,
-      PASSWORD,
-      AGE,
-      INCOME,
-      GENDER
-      )
-    VALUES
-      (
-      \@firstname_in,
-      \@lastname_in,
-      \@address1_in,
-      \@address2_in,
-      \@city_in,
-      \@state_in,
-      \@zip_in,
-      \@country_in,
-      \@region_in,
-      \@email_in,
-      \@phone_in,
-      \@creditcardtype_in,
-      \@creditcard_in,
-      \@creditcardexpiration_in,
-      \@username_in,
-      \@password_in,
-      \@age_in,
-      \@income_in,
-      \@gender_in
-      )
-    SELECT SCOPE_IDENTITY()
-  END
-  ELSE
-    SELECT 0
+  DECLARE \@customerid_new INT
+  DECLARE \@temp_username VARCHAR(50)
+  SET \@temp_username = 'temp-' + CAST(\@\@SPID AS VARCHAR) + '-' + CAST(GETDATE() AS VARCHAR)
+
+  INSERT INTO CUSTOMERS$k
+    (
+    FIRSTNAME,
+    LASTNAME,
+    ADDRESS1,
+    ADDRESS2,
+    CITY,
+    STATE,
+    ZIP,
+    COUNTRY,
+    REGION,
+    EMAIL,
+    PHONE,
+    CREDITCARDTYPE,
+    CREDITCARD,
+    CREDITCARDEXPIRATION,
+    USERNAME,
+    PASSWORD,
+    AGE,
+    INCOME,
+    GENDER
+    )
+  VALUES
+    (
+    \@firstname_in,
+    \@lastname_in,
+    \@address1_in,
+    \@address2_in,
+    \@city_in,
+    \@state_in,
+    \@zip_in,
+    \@country_in,
+    \@region_in,
+    \@email_in,
+    \@phone_in,
+    \@creditcardtype_in,
+    \@creditcard_in,
+    \@creditcardexpiration_in,
+    \@temp_username,
+    \@password_in,
+    \@age_in,
+    \@income_in,
+    \@gender_in
+    )
+
+  SET \@customerid_new = SCOPE_IDENTITY()
+  SET \@username_out = 'user' + CAST(\@customerid_new AS VARCHAR)
+
+  UPDATE CUSTOMERS$k SET USERNAME = \@username_out WHERE CUSTOMERID = \@customerid_new
+
+  SELECT \@customerid_new
 GO
 
 -- NEW_MEMBER

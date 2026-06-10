@@ -93,7 +93,7 @@ namespace ds2xdriver
     MySqlCommand Get_Reviews_by_date, Browse_by_title, Browse_by_actor, Browse_by_category, Browse_by_membership, Browse_by_vector;
     MySqlCommand Remove_Review_By_Product, Remove_Unhelpful_Reviews, Remove_Reviews_By_Date, Adjust_Prices, Bulk_Price_Adjustment, Mark_Specials, Expire_Memberships, Purge_Old_Orders, Upgrade_Membership, Promotional_Membership;
     MySqlCommand Get_Price_Point_Analytics, Get_Inventory_Analytics, Get_Membership_Analytics, Get_New_Customer_Analytics, Get_Review_Analytics;
-    MySqlParameter cust_out_param, member_out_param, reviewid_out_param, helpfulnessid_out_param, neworder_out_param;
+    MySqlParameter cust_out_param, username_out_param, member_out_param, reviewid_out_param, helpfulnessid_out_param, neworder_out_param;
     MySqlCommand[] CostQuery = new MySqlCommand[11];
 
     //
@@ -111,6 +111,9 @@ namespace ds2xdriver
       cust_out_param = new MySqlParameter("customerid_out", MySqlDbType.Int32);
       cust_out_param.Direction = ParameterDirection.Output;
       cust_out_param.Value = 0;
+
+      username_out_param = new MySqlParameter("username_out", MySqlDbType.VarChar, 50);
+      username_out_param.Direction = ParameterDirection.Output;
 
       member_out_param = new MySqlParameter("customerid_out", MySqlDbType.Int32);
       member_out_param.Direction = ParameterDirection.Output;
@@ -136,8 +139,6 @@ namespace ds2xdriver
 
       New_Customer = new MySqlCommand("NEW_CUSTOMER" + target_store_number, objConn);
       New_Customer.CommandType = CommandType.StoredProcedure;
-      New_Customer.Parameters.Add("username_in", MySqlDbType.VarChar, 50);
-      New_Customer.Parameters.Add("password_in", MySqlDbType.VarChar, 50);
       New_Customer.Parameters.Add("firstname_in", MySqlDbType.VarChar, 50);
       New_Customer.Parameters.Add("lastname_in", MySqlDbType.VarChar, 50);
       New_Customer.Parameters.Add("address1_in", MySqlDbType.VarChar, 50);
@@ -152,6 +153,8 @@ namespace ds2xdriver
       New_Customer.Parameters.Add("creditcardtype_in", MySqlDbType.Int32);
       New_Customer.Parameters.Add("creditcard_in", MySqlDbType.VarChar, 50);
       New_Customer.Parameters.Add("creditcardexpiration_in", MySqlDbType.VarChar, 50);
+      New_Customer.Parameters.Add(username_out_param);
+      New_Customer.Parameters.Add("password_in", MySqlDbType.VarChar, 50);
       New_Customer.Parameters.Add("age_in", MySqlDbType.Byte);
       New_Customer.Parameters.Add("income_in", MySqlDbType.Int32);
       New_Customer.Parameters.Add("gender_in", MySqlDbType.VarChar, 1);
@@ -426,17 +429,15 @@ namespace ds2xdriver
        //
        //-------------------------------------------------------------------------------------------------
        // 
-    public bool ds2newcustomer(string username_in, string password_in, string firstname_in,
+    public bool ds2newcustomer(string password_in, string firstname_in,
       string lastname_in, string address1_in, string address2_in, string city_in, string state_in,
       string zip_in, string country_in, string email_in, string phone_in, int creditcardtype_in,
       string creditcard_in, int ccexpmon_in, int ccexpyr_in, int age_in, int income_in,
-      string gender_in, ref int customerid_out, ref double rt)
+      string gender_in, ref string username_out, ref int customerid_out, ref double rt)
     {
       int region_in = (country_in == "US") ? 1 : 2;
       string creditcardexpiration_in = String.Format("{0:D4}/{1:D2}", ccexpyr_in, ccexpmon_in);
 
-      New_Customer.Parameters["username_in"].Value = username_in;
-      New_Customer.Parameters["password_in"].Value = password_in;
       New_Customer.Parameters["firstname_in"].Value = firstname_in;
       New_Customer.Parameters["lastname_in"].Value = lastname_in;
       New_Customer.Parameters["address1_in"].Value = address1_in;
@@ -451,12 +452,10 @@ namespace ds2xdriver
       New_Customer.Parameters["creditcardtype_in"].Value = creditcardtype_in;
       New_Customer.Parameters["creditcard_in"].Value = creditcard_in;
       New_Customer.Parameters["creditcardexpiration_in"].Value = creditcardexpiration_in;
+      New_Customer.Parameters["password_in"].Value = password_in;
       New_Customer.Parameters["age_in"].Value = age_in;
       New_Customer.Parameters["income_in"].Value = income_in;
       New_Customer.Parameters["gender_in"].Value = gender_in;
-
-      //    Console.WriteLine("Thread {0}: Calling New_Customer w/username_in= {1}  region={2}  ccexp={3}",
-      //      Thread.CurrentThread.Name, username_in, region_in, creditcardexpiration_in);
 
       Stopwatch timer = Stopwatch.StartNew();
 
@@ -464,6 +463,7 @@ namespace ds2xdriver
       {
         New_Customer.ExecuteNonQuery();
         customerid_out = (int)cust_out_param.Value;
+        username_out = username_out_param.Value.ToString();
         return true;
       }
       catch (MySqlException e)

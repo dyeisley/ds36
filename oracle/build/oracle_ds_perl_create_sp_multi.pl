@@ -51,7 +51,7 @@ foreach my $k (1 .. $numberofstores){
   creditcardtype_in DS3.CUSTOMERS$k.CREDITCARDTYPE%TYPE,
   creditcard_in DS3.CUSTOMERS$k.CREDITCARD%TYPE,
   creditcardexpiration_in DS3.CUSTOMERS$k.CREDITCARDEXPIRATION%TYPE,
-  username_in DS3.CUSTOMERS$k.USERNAME%TYPE,
+  username_out OUT DS3.CUSTOMERS$k.USERNAME%TYPE,
   password_in DS3.CUSTOMERS$k.PASSWORD%TYPE,
   age_in DS3.CUSTOMERS$k.AGE%TYPE,
   income_in DS3.CUSTOMERS$k.INCOME%TYPE,
@@ -59,14 +59,10 @@ foreach my $k (1 .. $numberofstores){
   customerid_out OUT INTEGER
   )
   IS
-  rows_returned INTEGER;
   BEGIN
-
-    SELECT COUNT(*) INTO rows_returned FROM CUSTOMERS$k WHERE USERNAME = username_in;
-
-    IF rows_returned = 0
-    THEN
       SELECT CUSTOMERID_SEQ$k.NEXTVAL INTO customerid_out FROM DUAL;
+      username_out := 'user' || customerid_out;
+
       INSERT INTO CUSTOMERS$k
         (
         CUSTOMERID,
@@ -97,7 +93,7 @@ foreach my $k (1 .. $numberofstores){
         lastname_in,
         email_in,
         phone_in,
-        username_in,
+        username_out,
         password_in,
         address1_in,
         address2_in,
@@ -115,10 +111,6 @@ foreach my $k (1 .. $numberofstores){
         )
         ;
       COMMIT;
-
-    ELSE customerid_out := 0;
-
-    END IF;
 
     END NEW_CUSTOMER$k;
 /
@@ -152,6 +144,7 @@ CREATE OR REPLACE  PROCEDURE \"DS3\".\"NEW_MEMBER$k\"
     ELSE
       customerid_out := 0;
     END IF;
+    COMMIT;
     END NEW_MEMBER$k;
 /
 
@@ -312,6 +305,7 @@ BEGIN
   WHERE CUSTOMERID = p_customerid_in;
 
   p_rows_affected := SQL%ROWCOUNT;
+  COMMIT;
 
 END RENEW_MEMBERSHIP$k;
 /
