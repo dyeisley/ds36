@@ -1153,13 +1153,16 @@ AS
 BEGIN
   SET NOCOUNT ON;
 
-  -- Select random batch of customers
+  -- Select random batch of customers using time-based slicing
+  -- Cycles through all customers every 100 seconds (slice 0-99)
   DECLARE \@customer_batch TABLE (CUSTOMERID INT);
+  DECLARE \@current_slice INT = DATEPART(SECOND, GETDATE()) % 100;
 
   INSERT INTO \@customer_batch
   SELECT TOP (\@batch_size) CUSTOMERID
   FROM CUSTOMERS$k
-  ORDER BY NEWID();
+  WHERE CUSTOMERID % 100 = \@current_slice
+  ORDER BY CUSTOMERID;
 
   -- MERGE with audit tracking
   MERGE INTO MEMBERSHIP$k AS target
