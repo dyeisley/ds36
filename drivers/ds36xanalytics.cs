@@ -96,124 +96,120 @@ namespace ds2xdriver
       // Capture ALL baselines BEFORE Controller.Start = true (while customer threads are still blocked)
       // This ensures no customer activity interferes with baseline capture
 
-      if (Controller.analytics_interval > 0)
+      // Capture baseline analytics (if membership analytics enabled)
+      if (Controller.enable_membership_analytics)
       {
-
-        // Capture baseline analytics (if membership analytics enabled)
-        if (Controller.enable_membership_analytics)
+        try
         {
-          try
-          {
-            double rt_baseline = 0.0;
+          double rt_baseline = 0.0;
 
-	    Console.WriteLine($"Thread {Thread.CurrentThread.Name}: Gathering baseline Membership Analytics");
+          Console.WriteLine($"Thread {Thread.CurrentThread.Name}: Gathering baseline Membership Analytics");
 
-            var baselineData = ds2interface.ds36getmembershipanalytics(ref rt_baseline);
-            if (baselineData != null && baselineData.Count > 0)
-            {
-              foreach (var row in baselineData)
-              {
-                int tierKey = row.MembershipType ?? -1;  // Use -1 for NULL tier
-                baseline_analytics[tierKey] = (row.TotalOrders, row.TotalRevenue);
-              }
-              Console.WriteLine($"Thread {Thread.CurrentThread.Name}: Membership Analytics baseline captured at test start ({DateTime.Now:HH:mm:ss})");
-            }
-          }
-          catch (Exception e)
+          var baselineData = ds2interface.ds36getmembershipanalytics(ref rt_baseline);
+          if (baselineData != null && baselineData.Count > 0)
           {
-            Console.WriteLine("Thread {0}: Baseline analytics capture error: {1}", Thread.CurrentThread.Name, e.Message);
-            if (e.Message.Contains("Fatal error") || e.Message.Contains("Connection must be valid and open"))
+            foreach (var row in baselineData)
             {
-              Console.WriteLine("Thread {0}: Fatal connection error during baseline capture, exiting analytics thread", Thread.CurrentThread.Name);
-              ds2interface.ds2close();
-              Console.WriteLine("Thread {0}: Analytics thread exiting", Thread.CurrentThread.Name);
-              return;
+              int tierKey = row.MembershipType ?? -1;  // Use -1 for NULL tier
+              baseline_analytics[tierKey] = (row.TotalOrders, row.TotalRevenue);
             }
+            Console.WriteLine($"Thread {Thread.CurrentThread.Name}: Membership Analytics baseline captured at test start ({DateTime.Now:HH:mm:ss})");
           }
         }
-
-        // Capture baseline for new customer analytics at test start (if enabled)
-        if (Controller.enable_newcustomer_analytics)
+        catch (Exception e)
         {
-          try
+          Console.WriteLine("Thread {0}: Baseline analytics capture error: {1}", Thread.CurrentThread.Name, e.Message);
+          if (e.Message.Contains("Fatal error") || e.Message.Contains("Connection must be valid and open"))
           {
-            baseline_customer_count = ds2interface.ds2getrowcount("CUSTOMERS" + target_store);
-            baseline_orders_count = ds2interface.ds2getrowcount("ORDERS" + target_store);
-            Console.WriteLine($"Thread {Thread.CurrentThread.Name}: New Customer Analytics baseline captured: {baseline_customer_count:N0} customers, {baseline_orders_count:N0} orders at test start ({DateTime.Now:HH:mm:ss})");
-          }
-          catch (Exception e)
-          {
-            Console.WriteLine("Thread {0}: Baseline new customer analytics capture error: {1}", Thread.CurrentThread.Name, e.Message);
-            if (e.Message.Contains("Fatal error") || e.Message.Contains("Connection must be valid and open"))
-            {
-              Console.WriteLine("Thread {0}: Fatal connection error during baseline capture, exiting analytics thread", Thread.CurrentThread.Name);
-              ds2interface.ds2close();
-              Console.WriteLine("Thread {0}: Analytics thread exiting", Thread.CurrentThread.Name);
-              return;
-            }
+            Console.WriteLine("Thread {0}: Fatal connection error during baseline capture, exiting analytics thread", Thread.CurrentThread.Name);
+            ds2interface.ds2close();
+            Console.WriteLine("Thread {0}: Analytics thread exiting", Thread.CurrentThread.Name);
+            return;
           }
         }
-
-        // Capture baseline for review analytics (if enabled)
-        if (Controller.enable_review_analytics)
-        {
-          try
-          {
-            double rt_baseline = 0.0;
-
-            // First get MAX(REVIEW_ID)
-            baseline_reviewid_max = ds2interface.ds2getmaxid("REVIEWS" + target_store, "REVIEW_ID");
-
-	    Console.WriteLine($"Thread {Thread.CurrentThread.Name}: Gathering baseline Review Analytics");
-
-            // Then immediately get review counts using that same MAX value as baseline
-            var baselineData = ds2interface.ds36getreviewanalytics(baseline_reviewid_max, ref rt_baseline);
-            if (baselineData != null && baselineData.Count > 0)
-            {
-              foreach (var row in baselineData)
-              {
-                // Store current counts; Added column should be 0 since we're using current MAX(REVIEW_ID)
-                baseline_review_counts[row.Stars] = row.Reviews;
-              }
-              Console.WriteLine($"Thread {Thread.CurrentThread.Name}: Review Analytics baseline captured: MAX(REVIEW_ID)={baseline_reviewid_max:N0} ({DateTime.Now:HH:mm:ss})");
-            }
-          }
-          catch (Exception e)
-          {
-            Console.WriteLine("Thread {0}: Baseline review analytics capture error: {1}", Thread.CurrentThread.Name, e.Message);
-            if (e.Message.Contains("Fatal error") || e.Message.Contains("Connection must be valid and open"))
-            {
-              Console.WriteLine("Thread {0}: Fatal connection error during baseline capture, exiting analytics thread", Thread.CurrentThread.Name);
-              ds2interface.ds2close();
-              Console.WriteLine("Thread {0}: Analytics thread exiting", Thread.CurrentThread.Name);
-              return;
-            }
-          }
-        }
-
-        // Capture baseline for price point analytics (if enabled)
-        if (Controller.analytics_interval > 0 && Controller.enable_pricepoint_analytics)
-        {
-          try
-          {
-            baseline_product_count = ds2interface.ds2getrowcount("PRODUCTS" + target_store);
-            Console.WriteLine($"Thread {Thread.CurrentThread.Name}: Price Point Analytics baseline captured: {baseline_product_count:N0} products ({DateTime.Now:HH:mm:ss})");
-          }
-          catch (Exception e)
-          {
-            Console.WriteLine("Thread {0}: Baseline price point analytics capture error: {1}", Thread.CurrentThread.Name, e.Message);
-            if (e.Message.Contains("Fatal error") || e.Message.Contains("Connection must be valid and open"))
-            {
-              Console.WriteLine("Thread {0}: Fatal connection error during baseline capture, exiting analytics thread", Thread.CurrentThread.Name);
-              ds2interface.ds2close();
-              Console.WriteLine("Thread {0}: Analytics thread exiting", Thread.CurrentThread.Name);
-              return;
-            }
-          }
-        }
-        // Baseline stats captured - signal completion
-        System.Threading.Interlocked.Increment(ref baseline_threads_completed);
       }
+
+      // Capture baseline for new customer analytics at test start (if enabled)
+      if (Controller.enable_newcustomer_analytics)
+      {
+        try
+        {
+          baseline_customer_count = ds2interface.ds2getrowcount("CUSTOMERS" + target_store);
+          baseline_orders_count = ds2interface.ds2getrowcount("ORDERS" + target_store);
+          Console.WriteLine($"Thread {Thread.CurrentThread.Name}: New Customer Analytics baseline captured: {baseline_customer_count:N0} customers, {baseline_orders_count:N0} orders at test start ({DateTime.Now:HH:mm:ss})");
+        }
+        catch (Exception e)
+        {
+          Console.WriteLine("Thread {0}: Baseline new customer analytics capture error: {1}", Thread.CurrentThread.Name, e.Message);
+          if (e.Message.Contains("Fatal error") || e.Message.Contains("Connection must be valid and open"))
+          {
+            Console.WriteLine("Thread {0}: Fatal connection error during baseline capture, exiting analytics thread", Thread.CurrentThread.Name);
+            ds2interface.ds2close();
+            Console.WriteLine("Thread {0}: Analytics thread exiting", Thread.CurrentThread.Name);
+            return;
+          }
+        }
+      }
+
+      // Capture baseline for review analytics (if enabled)
+      if (Controller.enable_review_analytics)
+      {
+        try
+        {
+          double rt_baseline = 0.0;
+
+          // First get MAX(REVIEW_ID)
+          baseline_reviewid_max = ds2interface.ds2getmaxid("REVIEWS" + target_store, "REVIEW_ID");
+
+          Console.WriteLine($"Thread {Thread.CurrentThread.Name}: Gathering baseline Review Analytics");
+
+          // Then immediately get review counts using that same MAX value as baseline
+          var baselineData = ds2interface.ds36getreviewanalytics(baseline_reviewid_max, ref rt_baseline);
+          if (baselineData != null && baselineData.Count > 0)
+          {
+            foreach (var row in baselineData)
+            {
+              // Store current counts; Added column should be 0 since we're using current MAX(REVIEW_ID)
+              baseline_review_counts[row.Stars] = row.Reviews;
+            }
+            Console.WriteLine($"Thread {Thread.CurrentThread.Name}: Review Analytics baseline captured: MAX(REVIEW_ID)={baseline_reviewid_max:N0} ({DateTime.Now:HH:mm:ss})");
+          }
+        }
+        catch (Exception e)
+        {
+          Console.WriteLine("Thread {0}: Baseline review analytics capture error: {1}", Thread.CurrentThread.Name, e.Message);
+          if (e.Message.Contains("Fatal error") || e.Message.Contains("Connection must be valid and open"))
+          {
+            Console.WriteLine("Thread {0}: Fatal connection error during baseline capture, exiting analytics thread", Thread.CurrentThread.Name);
+            ds2interface.ds2close();
+            Console.WriteLine("Thread {0}: Analytics thread exiting", Thread.CurrentThread.Name);
+            return;
+          }
+        }
+      }
+
+      // Capture baseline for price point analytics (if enabled)
+      if (Controller.enable_pricepoint_analytics)
+      {
+        try
+        {
+          baseline_product_count = ds2interface.ds2getrowcount("PRODUCTS" + target_store);
+          Console.WriteLine($"Thread {Thread.CurrentThread.Name}: Price Point Analytics baseline captured: {baseline_product_count:N0} products ({DateTime.Now:HH:mm:ss})");
+        }
+        catch (Exception e)
+        {
+          Console.WriteLine("Thread {0}: Baseline price point analytics capture error: {1}", Thread.CurrentThread.Name, e.Message);
+          if (e.Message.Contains("Fatal error") || e.Message.Contains("Connection must be valid and open"))
+          {
+            Console.WriteLine("Thread {0}: Fatal connection error during baseline capture, exiting analytics thread", Thread.CurrentThread.Name);
+            ds2interface.ds2close();
+            Console.WriteLine("Thread {0}: Analytics thread exiting", Thread.CurrentThread.Name);
+            return;
+          }
+        }
+      }
+      // Baseline stats captured - signal completion
+      System.Threading.Interlocked.Increment(ref baseline_threads_completed);
 
       // Wait for Controller to signal start
       while (!Controller.Start)
@@ -236,265 +232,261 @@ namespace ds2xdriver
         if (Controller.EndAnalytics)
           break;
 
-        // Check if it's time to run analytics
-        if (Controller.analytics_interval > 0)
+        double time_since_last_analytics = (DateTime.Now - last_analytics_print_time).TotalSeconds;
+
+        if (time_since_last_analytics >= analytics_interval_seconds)
         {
-          double time_since_last_analytics = (DateTime.Now - last_analytics_print_time).TotalSeconds;
+          // Set timestamp now to maintain fixed interval regardless of query duration
+          last_analytics_print_time = DateTime.Now;
 
-          if (time_since_last_analytics >= analytics_interval_seconds)
+          // Run membership analytics if enabled
+          if (Controller.enable_membership_analytics)
           {
-            // Set timestamp now to maintain fixed interval regardless of query duration
-            last_analytics_print_time = DateTime.Now;
-
-            // Run membership analytics if enabled
-            if (Controller.enable_membership_analytics)
+            try
             {
-              try
+              double rt_analytics = 0.0;
+              var analyticsData = ds2interface.ds36getmembershipanalytics(ref rt_analytics);
+
+              if (analyticsData != null && analyticsData.Count > 0)
               {
-                double rt_analytics = 0.0;
-                var analyticsData = ds2interface.ds36getmembershipanalytics(ref rt_analytics);
+                Console.WriteLine("\n=====================================================================================================");
+                if (Controller.n_target_servers > 1)
+                  Console.WriteLine($"Membership Analytics (Server {target_server_id}, Store {target_store}) - Delta since baseline");
+                else
+                  Console.WriteLine($"Membership Analytics (Store {target_store}) - Delta since baseline");
+                Console.WriteLine("=====================================================================================================");
+                Console.WriteLine("Tier    Active Members    Expired    New Orders  New Revenue     Rev/Order   Rev/Member    Ord/Member");
+                Console.WriteLine("-----   --------------    -------    ----------  -------------   ---------   -----------   ----------");
 
-                if (analyticsData != null && analyticsData.Count > 0)
+                // Sort: Tier 3 → 2 → 1 → NULL (descending, NULL last)
+                var sortedData = analyticsData.OrderByDescending(row => row.MembershipType ?? int.MinValue);
+
+                foreach (var row in sortedData)
                 {
-                  Console.WriteLine("\n=====================================================================================================");
-                  if (Controller.n_target_servers > 1)
-                    Console.WriteLine($"Membership Analytics (Server {target_server_id}, Store {target_store}) - Delta since baseline");
-                  else
-                    Console.WriteLine($"Membership Analytics (Store {target_store}) - Delta since baseline");
-                  Console.WriteLine("=====================================================================================================");
-                  Console.WriteLine("Tier    Active Members    Expired    New Orders  New Revenue     Rev/Order   Rev/Member    Ord/Member");
-                  Console.WriteLine("-----   --------------    -------    ----------  -------------   ---------   -----------   ----------");
+                  string tier = row.MembershipType.HasValue ? row.MembershipType.Value.ToString().PadLeft(4) : " N/A";
 
-                  // Sort: Tier 3 → 2 → 1 → NULL (descending, NULL last)
-                  var sortedData = analyticsData.OrderByDescending(row => row.MembershipType ?? int.MinValue);
-
-                  foreach (var row in sortedData)
+                  // Calculate deltas
+                  long deltaOrders = 0;
+                  decimal deltaRevenue = 0;
+                  int tierKey = row.MembershipType ?? -1;  // Use -1 for NULL tier
+                  if (baseline_analytics.TryGetValue(tierKey, out var baseline))
                   {
-                    string tier = row.MembershipType.HasValue ? row.MembershipType.Value.ToString().PadLeft(4) : " N/A";
-
-                    // Calculate deltas
-                    long deltaOrders = 0;
-                    decimal deltaRevenue = 0;
-                    int tierKey = row.MembershipType ?? -1;  // Use -1 for NULL tier
-                    if (baseline_analytics.TryGetValue(tierKey, out var baseline))
-                    {
-                      deltaOrders = row.TotalOrders - baseline.orders;
-                      deltaRevenue = row.TotalRevenue - baseline.revenue;
-                    }
-
-                    // Calculate derived metrics (from deltas)
-                    decimal revenuePerOrder = deltaOrders > 0 ? deltaRevenue / deltaOrders : 0;
-                    decimal revenuePerMember = row.ActiveMemberCount > 0 ? deltaRevenue / row.ActiveMemberCount : 0;
-                    decimal ordersPerMember = row.ActiveMemberCount > 0 ? (decimal)deltaOrders / row.ActiveMemberCount : 0;
-
-                    Console.WriteLine($"{tier}    {row.ActiveMemberCount,14:N0}    {row.ExpiredMemberCount,7:N0}    {deltaOrders,10:N0}  {deltaRevenue,13:C2}   {revenuePerOrder,9:C2}   {revenuePerMember,11:C2}   {ordersPerMember,10:F2}");
+                    deltaOrders = row.TotalOrders - baseline.orders;
+                    deltaRevenue = row.TotalRevenue - baseline.revenue;
                   }
 
-                  Console.WriteLine("=====================================================================================================\n");
+                  // Calculate derived metrics (from deltas)
+                  decimal revenuePerOrder = deltaOrders > 0 ? deltaRevenue / deltaOrders : 0;
+                  decimal revenuePerMember = row.ActiveMemberCount > 0 ? deltaRevenue / row.ActiveMemberCount : 0;
+                  decimal ordersPerMember = row.ActiveMemberCount > 0 ? (decimal)deltaOrders / row.ActiveMemberCount : 0;
+
+                  Console.WriteLine($"{tier}    {row.ActiveMemberCount,14:N0}    {row.ExpiredMemberCount,7:N0}    {deltaOrders,10:N0}  {deltaRevenue,13:C2}   {revenuePerOrder,9:C2}   {revenuePerMember,11:C2}   {ordersPerMember,10:F2}");
                 }
 
-                n_membership_analytics++;
-                rt_membership_analytics += rt_analytics;
+                Console.WriteLine("=====================================================================================================\n");
               }
-              catch (Exception e)
+
+              n_membership_analytics++;
+              rt_membership_analytics += rt_analytics;
+            }
+            catch (Exception e)
+            {
+              Console.WriteLine("Thread {0}: GetMembershipAnalytics error: {1}", Thread.CurrentThread.Name, e.Message);
+              if (e.Message.Contains("Fatal error") || e.Message.Contains("Connection must be valid and open"))
               {
-                Console.WriteLine("Thread {0}: GetMembershipAnalytics error: {1}", Thread.CurrentThread.Name, e.Message);
-                if (e.Message.Contains("Fatal error") || e.Message.Contains("Connection must be valid and open"))
-                {
-                  Console.WriteLine("Thread {0}: Fatal connection error detected, exiting analytics thread", Thread.CurrentThread.Name);
-                  break;
-                }
+                Console.WriteLine("Thread {0}: Fatal connection error detected, exiting analytics thread", Thread.CurrentThread.Name);
+                break;
               }
             }
+          }
 
-            // Run new customer analytics if enabled
-            if (Controller.enable_newcustomer_analytics)
+          // Run new customer analytics if enabled
+          if (Controller.enable_newcustomer_analytics)
+          {
+            try
             {
-              try
+              double rt_analytics = 0.0;
+              var data = ds2interface.ds36getnewcustomeranalytics(baseline_customer_count, ref rt_analytics);
+
+              if (data != null && data.Created > 0)
               {
-                double rt_analytics = 0.0;
-                var data = ds2interface.ds36getnewcustomeranalytics(baseline_customer_count, ref rt_analytics);
+                // Get current total order count for % Orders calculation
+                long current_orders = ds2interface.ds2getrowcount("ORDERS" + target_store);
+                long total_benchmark_orders = current_orders - baseline_orders_count;
 
-                if (data != null && data.Created > 0)
-                {
-                  // Get current total order count for % Orders calculation
-                  long current_orders = ds2interface.ds2getrowcount("ORDERS" + target_store);
-                  long total_benchmark_orders = current_orders - baseline_orders_count;
+                // Calculate derived metrics
+                decimal pctActive = data.Created > 0 ? (decimal)data.TwoPlus / data.Created * 100 : 0;
+                decimal ordPerCust = data.Created > 0 ? (decimal)data.TotalOrders / data.Created : 0;
+                decimal pctOrders = total_benchmark_orders > 0 ? (decimal)data.TotalOrders / total_benchmark_orders * 100 : 0;
 
-                  // Calculate derived metrics
-                  decimal pctActive = data.Created > 0 ? (decimal)data.TwoPlus / data.Created * 100 : 0;
-                  decimal ordPerCust = data.Created > 0 ? (decimal)data.TotalOrders / data.Created : 0;
-                  decimal pctOrders = total_benchmark_orders > 0 ? (decimal)data.TotalOrders / total_benchmark_orders * 100 : 0;
-
-                  Console.WriteLine("\n===============================================================================");
-                  if (Controller.n_target_servers > 1)
-                    Console.WriteLine($"New Customer Analytics (Server {target_server_id}, Store {target_store}) - Delta since baseline");
-                  else
-                    Console.WriteLine($"New Customer Analytics (Store {target_store}) - Delta since baseline");
-                  Console.WriteLine("===============================================================================");
-                  Console.WriteLine("Created    2+ Orders    3+ Orders    % Active    Orders    Ord/Cust    % Orders");
-                  Console.WriteLine("-------    ---------    ---------    --------    ------    --------    --------");
-                  Console.WriteLine($"{data.Created,7:N0}    {data.TwoPlus,9:N0}    {data.ThreePlus,9:N0}    {pctActive,7:F1}%    {data.TotalOrders,6:N0}    {ordPerCust,8:F2}    {pctOrders,7:F1}%");
-                  Console.WriteLine("===============================================================================\n");
-                }
-
-                n_newcustomer_analytics++;
-                rt_newcustomer_analytics += rt_analytics;
+                Console.WriteLine("\n===============================================================================");
+                if (Controller.n_target_servers > 1)
+                  Console.WriteLine($"New Customer Analytics (Server {target_server_id}, Store {target_store}) - Delta since baseline");
+                else
+                  Console.WriteLine($"New Customer Analytics (Store {target_store}) - Delta since baseline");
+                Console.WriteLine("===============================================================================");
+                Console.WriteLine("Created    2+ Orders    3+ Orders    % Active    Orders    Ord/Cust    % Orders");
+                Console.WriteLine("-------    ---------    ---------    --------    ------    --------    --------");
+                Console.WriteLine($"{data.Created,7:N0}    {data.TwoPlus,9:N0}    {data.ThreePlus,9:N0}    {pctActive,7:F1}%    {data.TotalOrders,6:N0}    {ordPerCust,8:F2}    {pctOrders,7:F1}%");
+                Console.WriteLine("===============================================================================\n");
               }
-              catch (Exception e)
+
+              n_newcustomer_analytics++;
+              rt_newcustomer_analytics += rt_analytics;
+            }
+            catch (Exception e)
+            {
+              Console.WriteLine("Thread {0}: GetNewCustomerAnalytics error: {1}", Thread.CurrentThread.Name, e.Message);
+              if (e.Message.Contains("Fatal error") || e.Message.Contains("Connection must be valid and open"))
               {
-                Console.WriteLine("Thread {0}: GetNewCustomerAnalytics error: {1}", Thread.CurrentThread.Name, e.Message);
-                if (e.Message.Contains("Fatal error") || e.Message.Contains("Connection must be valid and open"))
-                {
-                  Console.WriteLine("Thread {0}: Fatal connection error detected, exiting analytics thread", Thread.CurrentThread.Name);
-                  break;
-                }
+                Console.WriteLine("Thread {0}: Fatal connection error detected, exiting analytics thread", Thread.CurrentThread.Name);
+                break;
               }
             }
+          }
 
-            // Run price point analytics if enabled
-            if (Controller.enable_pricepoint_analytics)
+          // Run price point analytics if enabled
+          if (Controller.enable_pricepoint_analytics)
+          {
+            try
             {
-              try
+              double rt_analytics = 0.0;
+              var analyticsData = ds2interface.ds36getpricepointanalytics(baseline_product_count, ref rt_analytics);
+
+              if (analyticsData != null)
               {
-                double rt_analytics = 0.0;
-                var analyticsData = ds2interface.ds36getpricepointanalytics(baseline_product_count, ref rt_analytics);
+                long totalProducts = analyticsData.PricePoints.Sum(p => p.ProductCount);
 
-                if (analyticsData != null)
+                Console.WriteLine("\n================================================================================");
+                if (Controller.n_target_servers > 1)
+                  Console.WriteLine($"Price Point Analytics (Server {target_server_id}, Store {target_store})");
+                else
+                  Console.WriteLine($"Price Point Analytics (Store {target_store})");
+                Console.WriteLine("================================================================================");
+                Console.WriteLine("Price Ending        Count      % of Total");
+                Console.WriteLine("------------        -----      ----------");
+
+                foreach (var row in analyticsData.PricePoints)
                 {
-                  long totalProducts = analyticsData.PricePoints.Sum(p => p.ProductCount);
-
-                  Console.WriteLine("\n================================================================================");
-                  if (Controller.n_target_servers > 1)
-                    Console.WriteLine($"Price Point Analytics (Server {target_server_id}, Store {target_store})");
-                  else
-                    Console.WriteLine($"Price Point Analytics (Store {target_store})");
-                  Console.WriteLine("================================================================================");
-                  Console.WriteLine("Price Ending        Count      % of Total");
-                  Console.WriteLine("------------        -----      ----------");
-
-                  foreach (var row in analyticsData.PricePoints)
-                  {
-                    decimal pctOfTotal = totalProducts > 0 ? (decimal)row.ProductCount / totalProducts * 100 : 0;
-                    Console.WriteLine($"{row.PriceEnding,12}    {row.ProductCount,9:N0}      {pctOfTotal,9:F1}%");
-                  }
-
-                  Console.WriteLine("================================================================================");
-                  Console.WriteLine($"Total products: {totalProducts:N0} | Products added: {totalProducts - baseline_product_count,6:N0} | New products purchased: {analyticsData.NewProductsPurchased,6:N0}");
-                  Console.WriteLine("================================================================================\n");
+                  decimal pctOfTotal = totalProducts > 0 ? (decimal)row.ProductCount / totalProducts * 100 : 0;
+                  Console.WriteLine($"{row.PriceEnding,12}    {row.ProductCount,9:N0}      {pctOfTotal,9:F1}%");
                 }
 
-                n_pricepoint_analytics++;
-                rt_pricepoint_analytics += rt_analytics;
+                Console.WriteLine("================================================================================");
+                Console.WriteLine($"Total products: {totalProducts:N0} | Products added: {totalProducts - baseline_product_count,6:N0} | New products purchased: {analyticsData.NewProductsPurchased,6:N0}");
+                Console.WriteLine("================================================================================\n");
               }
-              catch (Exception e)
+
+              n_pricepoint_analytics++;
+              rt_pricepoint_analytics += rt_analytics;
+            }
+            catch (Exception e)
+            {
+              Console.WriteLine("Thread {0}: GetPricePointAnalytics error: {1}", Thread.CurrentThread.Name, e.Message);
+              if (e.Message.Contains("Fatal error") || e.Message.Contains("Connection must be valid and open"))
               {
-                Console.WriteLine("Thread {0}: GetPricePointAnalytics error: {1}", Thread.CurrentThread.Name, e.Message);
-                if (e.Message.Contains("Fatal error") || e.Message.Contains("Connection must be valid and open"))
-                {
-                  Console.WriteLine("Thread {0}: Fatal connection error detected, exiting analytics thread", Thread.CurrentThread.Name);
-                  break;
-                }
+                Console.WriteLine("Thread {0}: Fatal connection error detected, exiting analytics thread", Thread.CurrentThread.Name);
+                break;
               }
             }
+          }
 
-            // Run inventory analytics if enabled
-            if (Controller.enable_inventory_analytics)
+          // Run inventory analytics if enabled
+          if (Controller.enable_inventory_analytics)
+          {
+            try
             {
-              try
+              double rt_analytics = 0.0;
+              var data = ds2interface.ds36getinventoryanalytics(ref rt_analytics);
+
+              if (data != null)
               {
-                double rt_analytics = 0.0;
-                var data = ds2interface.ds36getinventoryanalytics(ref rt_analytics);
-
-                if (data != null)
-                {
-                  Console.WriteLine("\n=============================================================================================================================");
-                  if (Controller.n_target_servers > 1)
-                    Console.WriteLine($"Inventory Analytics (Server {target_server_id}, Store {target_store})");
-                  else
-                    Console.WriteLine($"Inventory Analytics (Store {target_store})");
-                  Console.WriteLine("=============================================================================================================================");
-                  Console.WriteLine("Low Stock (<10)    High Stock (>100)    Reorder    Avg Inv    Sales: Dead (0)    Low (1-999)    Med (1K-1.5K)    High (1.5K+)");
-                  Console.WriteLine("---------------    -----------------    -------    -------    ---------------    -----------    -------------    ------------");
-                  Console.WriteLine($"{data.LowStockCount,15:N0}    {data.HighStockCount,17:N0}    {data.ReorderCount,7:N0}    {data.AvgInventory,7:F1}    {data.DeadStock,15:N0}    {data.LowSales,11:N0}      {data.MedSales,11:N0}      {data.HighSales,10:N0}");
-                  Console.WriteLine("=============================================================================================================================\n");
-                }
-
-                n_inventory_analytics++;
-                rt_inventory_analytics += rt_analytics;
+                Console.WriteLine("\n=============================================================================================================================");
+                if (Controller.n_target_servers > 1)
+                  Console.WriteLine($"Inventory Analytics (Server {target_server_id}, Store {target_store})");
+                else
+                  Console.WriteLine($"Inventory Analytics (Store {target_store})");
+                Console.WriteLine("=============================================================================================================================");
+                Console.WriteLine("Low Stock (<10)    High Stock (>100)    Reorder    Avg Inv    Sales: Dead (0)    Low (1-999)    Med (1K-1.5K)    High (1.5K+)");
+                Console.WriteLine("---------------    -----------------    -------    -------    ---------------    -----------    -------------    ------------");
+                Console.WriteLine($"{data.LowStockCount,15:N0}    {data.HighStockCount,17:N0}    {data.ReorderCount,7:N0}    {data.AvgInventory,7:F1}    {data.DeadStock,15:N0}    {data.LowSales,11:N0}      {data.MedSales,11:N0}      {data.HighSales,10:N0}");
+                Console.WriteLine("=============================================================================================================================\n");
               }
-              catch (Exception e)
+
+              n_inventory_analytics++;
+              rt_inventory_analytics += rt_analytics;
+            }
+            catch (Exception e)
+            {
+              Console.WriteLine("Thread {0}: GetInventoryAnalytics error: {1}", Thread.CurrentThread.Name, e.Message);
+              if (e.Message.Contains("Fatal error") || e.Message.Contains("Connection must be valid and open"))
               {
-                Console.WriteLine("Thread {0}: GetInventoryAnalytics error: {1}", Thread.CurrentThread.Name, e.Message);
-                if (e.Message.Contains("Fatal error") || e.Message.Contains("Connection must be valid and open"))
-                {
-                  Console.WriteLine("Thread {0}: Fatal connection error detected, exiting analytics thread", Thread.CurrentThread.Name);
-                  break;
-                }
+                Console.WriteLine("Thread {0}: Fatal connection error detected, exiting analytics thread", Thread.CurrentThread.Name);
+                break;
               }
             }
+          }
 
-            // Run review analytics if enabled
-            if (Controller.enable_review_analytics)
+          // Run review analytics if enabled
+          if (Controller.enable_review_analytics)
+          {
+            try
             {
-              try
+              double rt_analytics = 0.0;
+              var analyticsData = ds2interface.ds36getreviewanalytics(baseline_reviewid_max, ref rt_analytics);
+
+              if (analyticsData != null && analyticsData.Count > 0)
               {
-                double rt_analytics = 0.0;
-                var analyticsData = ds2interface.ds36getreviewanalytics(baseline_reviewid_max, ref rt_analytics);
+                // Calculate total reviews and products with reviews for summary
+                long totalReviews = analyticsData.Sum(r => r.Reviews);
+                long totalAdded = analyticsData.Sum(r => r.Added);
 
-                if (analyticsData != null && analyticsData.Count > 0)
+                Console.WriteLine("\n============================================================================================================");
+                if (Controller.n_target_servers > 1)
+                  Console.WriteLine($"Review Analytics (Server {target_server_id}, Store {target_store}) - Delta since baseline");
+                else
+                  Console.WriteLine($"Review Analytics (Store {target_store}) - Delta since baseline");
+                Console.WriteLine("============================================================================================================");
+                Console.WriteLine("Stars      Reviews      Added    Removed    Net Change    Avg Help     High Help      Low Help    % of Total");
+                Console.WriteLine("-----      -------      -----    -------    ----------    --------     ---------      --------    ----------");
+
+                // Calculate weighted averages for summary
+                decimal totalStarWeight = 0;
+                decimal totalHelpWeight = 0;
+                foreach (var row in analyticsData)
                 {
-                  // Calculate total reviews and products with reviews for summary
-                  long totalReviews = analyticsData.Sum(r => r.Reviews);
-                  long totalAdded = analyticsData.Sum(r => r.Added);
+                  totalStarWeight += row.Stars * row.Reviews;
+                  totalHelpWeight += row.AvgHelp * row.Reviews;
+                }
+                decimal avgStars = totalReviews > 0 ? totalStarWeight / totalReviews : 0;
+                decimal avgHelpfulness = totalReviews > 0 ? totalHelpWeight / totalReviews : 0;
 
-                  Console.WriteLine("\n============================================================================================================");
-                  if (Controller.n_target_servers > 1)
-                    Console.WriteLine($"Review Analytics (Server {target_server_id}, Store {target_store}) - Delta since baseline");
-                  else
-                    Console.WriteLine($"Review Analytics (Store {target_store}) - Delta since baseline");
-                  Console.WriteLine("============================================================================================================");
-                  Console.WriteLine("Stars      Reviews      Added    Removed    Net Change    Avg Help     High Help      Low Help    % of Total");
-                  Console.WriteLine("-----      -------      -----    -------    ----------    --------     ---------      --------    ----------");
+                foreach (var row in analyticsData)
+                {
+                  // Calculate deltas
+                  long baselineCount = baseline_review_counts.ContainsKey(row.Stars) ? baseline_review_counts[row.Stars] : 0;
+                  long netChange = row.Reviews - baselineCount;
+                  long removed = row.Added - netChange;
+                  decimal pctOfTotal = totalReviews > 0 ? (decimal)row.Reviews / totalReviews * 100 : 0;
 
-                  // Calculate weighted averages for summary
-                  decimal totalStarWeight = 0;
-                  decimal totalHelpWeight = 0;
-                  foreach (var row in analyticsData)
-                  {
-                    totalStarWeight += row.Stars * row.Reviews;
-                    totalHelpWeight += row.AvgHelp * row.Reviews;
-                  }
-                  decimal avgStars = totalReviews > 0 ? totalStarWeight / totalReviews : 0;
-                  decimal avgHelpfulness = totalReviews > 0 ? totalHelpWeight / totalReviews : 0;
-
-                  foreach (var row in analyticsData)
-                  {
-                    // Calculate deltas
-                    long baselineCount = baseline_review_counts.ContainsKey(row.Stars) ? baseline_review_counts[row.Stars] : 0;
-                    long netChange = row.Reviews - baselineCount;
-                    long removed = row.Added - netChange;
-                    decimal pctOfTotal = totalReviews > 0 ? (decimal)row.Reviews / totalReviews * 100 : 0;
-
-                    Console.WriteLine($"   {row.Stars}    {row.Reviews,9:N0}    {row.Added,7:N0}    {removed,7:N0}    {netChange,10:N0}    {row.AvgHelp,8:F1}    {row.HighHelp,11:N0}    {row.LowHelp,10:N0}    {pctOfTotal,9:F1}%");
-                  }
-
-                  Console.WriteLine("============================================================================================================");
-                  Console.WriteLine($"Total: {totalReviews:N0} reviews    Avg: {avgStars:F2} stars, {avgHelpfulness:F1} helpfulness");
-                  Console.WriteLine("============================================================================================================\n");
+                  Console.WriteLine($"   {row.Stars}    {row.Reviews,9:N0}    {row.Added,7:N0}    {removed,7:N0}    {netChange,10:N0}    {row.AvgHelp,8:F1}    {row.HighHelp,11:N0}    {row.LowHelp,10:N0}    {pctOfTotal,9:F1}%");
                 }
 
-                n_review_analytics++;
-                rt_review_analytics += rt_analytics;
+                Console.WriteLine("============================================================================================================");
+                Console.WriteLine($"Total: {totalReviews:N0} reviews    Avg: {avgStars:F2} stars, {avgHelpfulness:F1} helpfulness");
+                Console.WriteLine("============================================================================================================\n");
               }
-              catch (Exception e)
+
+              n_review_analytics++;
+              rt_review_analytics += rt_analytics;
+            }
+            catch (Exception e)
+            {
+              Console.WriteLine("Thread {0}: GetReviewAnalytics error: {1}", Thread.CurrentThread.Name, e.Message);
+              if (e.Message.Contains("Fatal error") || e.Message.Contains("Connection must be valid and open"))
               {
-                Console.WriteLine("Thread {0}: GetReviewAnalytics error: {1}", Thread.CurrentThread.Name, e.Message);
-                if (e.Message.Contains("Fatal error") || e.Message.Contains("Connection must be valid and open"))
-                {
-                  Console.WriteLine("Thread {0}: Fatal connection error detected, exiting analytics thread", Thread.CurrentThread.Name);
-                  break;
-                }
+                Console.WriteLine("Thread {0}: Fatal connection error detected, exiting analytics thread", Thread.CurrentThread.Name);
+                break;
               }
             }
           }
