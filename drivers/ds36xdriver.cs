@@ -2908,6 +2908,10 @@ namespace ds2xdriver
         IsNewReview = false;
         IsNewHelpfulness = false;
 
+        // Clear membership status before each iteration
+        membershiplevel_out = 0;
+        is_expired_out = 0;
+
         // Login/New Customer Phase
 
         double user_type = Random.Shared.NextDouble();
@@ -2983,7 +2987,7 @@ namespace ds2xdriver
             //rt_tot += rt_membership_check;
 
             // If expired, maybe renew
-            if (is_expired_out == 1)
+            if (is_expired_out == 1 && membershiplevel_out > 0)
             {
               if (Random.Shared.Next(100) < Controller.pct_renewmember)
               {
@@ -3008,6 +3012,7 @@ namespace ds2xdriver
                 IsMembershipRenew = true;
                 rt_tot += rt_membership_renew;
                 // Keep membership level (not expired anymore)
+		is_expired_out = 0;
               }
               else
               {
