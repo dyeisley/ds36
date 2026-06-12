@@ -431,7 +431,19 @@ CREATE PROCEDURE DS3.BROWSE_BY_MEMBERSHIP$k
   IN membershiptype_in        INT
   )
 BEGIN
-        select * from PRODUCTS$k WHERE MEMBERSHIP_ITEM=membershiptype_in limit batch_size_in;
+  DECLARE random_category INT;
+
+  -- Select random category (1-16)
+  SET random_category = FLOOR(RAND() * 16) + 1;
+
+  -- Pseudo-random distribution for variety across different browse operations
+  -- Category filter reduces sort cost, time-based ordering provides variety
+  SELECT *
+  FROM PRODUCTS$k
+  WHERE MEMBERSHIP_ITEM = membershiptype_in
+    AND CATEGORY = random_category
+  ORDER BY (PROD_ID + batch_size_in + membershiptype_in + SECOND(NOW())) % 997
+  LIMIT batch_size_in;
 END; $$
 
 CREATE OR REPLACE PROCEDURE DS3.BROWSE_BY_VECTOR$k (

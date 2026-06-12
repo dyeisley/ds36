@@ -3012,7 +3012,7 @@ namespace ds2xdriver
                 IsMembershipRenew = true;
                 rt_tot += rt_membership_renew;
                 // Keep membership level (not expired anymore)
-		is_expired_out = 0;
+                is_expired_out = 0;
               }
               else
               {
@@ -3023,7 +3023,7 @@ namespace ds2xdriver
           }
         }  // end returning customer
 
-        // New Customer with randomized username
+        // New Customer
 
         else   // New user
         {
@@ -3419,7 +3419,7 @@ namespace ds2xdriver
 
         // Purchase Phase
 
-        // Randomize number of cart items with average n_line_items
+        // Randomize number of cart items with average n_line_items, members buy more.
         int cart_items = Random.Shared.Next(1, 2 * Controller.n_line_items) + membershiplevel_out;
 
         for (i = 0; i < cart_items; i++)
@@ -3436,7 +3436,7 @@ namespace ds2xdriver
 
         // Member vs Non-member purchase behavior:
         // - Members: buy from membership browse results (creates tier-specific purchase patterns)
-        // - Non-members: use skewed distribution (maintains hot-spot testing)
+        // - Non-members: use skewed distribution
         for (i = 0; i < cart_items; i++)
         {
           if (membershiplevel_out > 0 && i < browse_rows_returned)
@@ -3453,6 +3453,18 @@ namespace ds2xdriver
           }
 
           qty_in[i] = Random.Shared.Next(1, 4);  // qty (1, 2 or 3)
+        }
+
+        // Inject a popular product into member purchases (10% of the time)
+        // This boosts popular product sales to match GetSkewedProductId behavior
+	// Without this the popular products don't show up in the validation results.
+        if (membershiplevel_out > 0 && browse_rows_returned > 0 && Random.Shared.Next(0, 100) < 10)
+        {
+          int popular_modulo = Controller.max_product[target_server_id, target_store] >= 10000 ? 10000 : 1000;
+          int num_popular = Controller.max_product[target_server_id, target_store] / popular_modulo;
+          int popular_product = (Random.Shared.Next(0, num_popular) + 1) * popular_modulo;
+
+          prod_id_in[0] = popular_product;
         }
 
         failures = 0;

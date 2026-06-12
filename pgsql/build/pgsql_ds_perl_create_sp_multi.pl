@@ -229,8 +229,21 @@ CREATE OR REPLACE FUNCTION BROWSE_BY_MEMBERSHIP$k (
 RETURNS SETOF PRODUCTS$k
 LANGUAGE plpgsql
 AS \$\$
+DECLARE
+    random_category INTEGER;
 BEGIN
-    RETURN QUERY SELECT * FROM PRODUCTS$k WHERE MEMBERSHIP_ITEM=membershiptype_in LIMIT batch_size_in;
+    -- Select random category (1-16)
+    random_category := FLOOR(RANDOM() * 16)::INTEGER + 1;
+
+    -- Pseudo-random distribution for variety across different browse operations
+    -- Category filter reduces sort cost, time-based ordering provides variety
+    RETURN QUERY
+    SELECT *
+    FROM PRODUCTS$k
+    WHERE MEMBERSHIP_ITEM = membershiptype_in
+      AND CATEGORY = random_category
+    ORDER BY (PROD_ID + batch_size_in + membershiptype_in + EXTRACT(SECOND FROM NOW())::INTEGER) % 997
+    LIMIT batch_size_in;
     RETURN;
 END;
 \$\$;

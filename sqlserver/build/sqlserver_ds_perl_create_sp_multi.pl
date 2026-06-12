@@ -373,11 +373,23 @@ GO
 CREATE PROCEDURE BROWSE_BY_MEMBERSHIP$k
   (
   \@batch_size_in            INT,
-  \@membershiptype_in	     INT
+  \@membershiptype_in        INT
   )
+AS
+BEGIN
+  DECLARE \@random_category INT;
 
-  AS
-  SELECT TOP (\@batch_size_in) * FROM PRODUCTS$k WHERE MEMBERSHIP_ITEM=\@membershiptype_in
+  -- Select random category (1-16)
+  SET \@random_category = FLOOR(RAND() * 16) + 1;
+
+  -- Pseudo-random distribution for variety across different browse operations
+  -- Category filter reduces sort cost, time-based ordering provides variety
+  SELECT TOP (\@batch_size_in) *
+  FROM PRODUCTS$k
+  WHERE MEMBERSHIP_ITEM = \@membershiptype_in
+    AND CATEGORY = \@random_category
+  ORDER BY (PROD_ID + \@batch_size_in + \@membershiptype_in + DATEPART(SECOND, GETDATE())) % 997
+END
 GO
 
 -- get prod reviews

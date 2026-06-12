@@ -384,7 +384,13 @@ CREATE OR REPLACE PROCEDURE \"DS3\".\"BROWSE_BY_MEMBERSHIP$k\"
   )
 AS
   v_cursor SYS_REFCURSOR;
+  v_random_category INTEGER;
 BEGIN
+  -- Select random category (1-16)
+  v_random_category := FLOOR(DBMS_RANDOM.VALUE(1, 17));
+
+  -- Pseudo-random distribution for variety across different browse operations
+  -- Category filter reduces sort cost, time-based ordering provides variety
   OPEN v_cursor FOR
     SELECT
         PROD_ID,
@@ -397,6 +403,8 @@ BEGIN
         MEMBERSHIP_ITEM
     FROM PRODUCTS$k
     WHERE MEMBERSHIP_ITEM = p_membershiptype_in
+      AND CATEGORY = v_random_category
+    ORDER BY MOD(PROD_ID + p_batch_size + p_membershiptype_in + TO_NUMBER(TO_CHAR(SYSDATE, 'SS')), 997)
     FETCH NEXT p_batch_size ROWS ONLY;
 
   DBMS_SQL.RETURN_RESULT(v_cursor);
