@@ -949,8 +949,8 @@ BEGIN
     DBMS_OUTPUT.PUT_LINE('========================================================================');
     DBMS_OUTPUT.PUT_LINE('--- MEMBER-SPECIFIC PURCHASE BEHAVIOR ---');
     DBMS_OUTPUT.PUT_LINE('Verifying: Members buy primarily from their membership tier');
-    DBMS_OUTPUT.PUT_LINE('Expected: ~85-90% of purchases match member tier (tier 1->tier 1, etc.)');
-    DBMS_OUTPUT.PUT_LINE('Expected: ~5-6% spillover to other tiers when cart exceeds browse results');
+    DBMS_OUTPUT.PUT_LINE('Expected: ~70% of purchases match member tier (tier 1->tier 1, etc.)');
+    DBMS_OUTPUT.PUT_LINE('Expected: ~30% spillover to other tiers when cart exceeds browse results');
     DBMS_OUTPUT.PUT_LINE('========================================================================');
     DBMS_OUTPUT.PUT_LINE('');
 END;

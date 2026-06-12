@@ -690,8 +690,8 @@ PRINT '';
 PRINT '========================================================================';
 PRINT '--- MEMBER-SPECIFIC PURCHASE BEHAVIOR ---';
 PRINT 'Verifying: Members buy primarily from their membership tier';
-PRINT 'Expected: ~85-90% of purchases match member tier (tier 1->tier 1, etc.)';
-PRINT 'Expected: ~5-6% spillover to other tiers when cart exceeds browse results';
+PRINT 'Expected: ~70% of purchases match member tier (tier 1->tier 1, etc.)';
+PRINT 'Expected: ~30% spillover to other tiers when cart exceeds browse results';
 PRINT '========================================================================';
 PRINT '';
 

@@ -885,8 +885,8 @@ BEGIN
     RAISE NOTICE '========================================================================';
     RAISE NOTICE '--- MEMBER-SPECIFIC PURCHASE BEHAVIOR ---';
     RAISE NOTICE 'Verifying: Members buy primarily from their membership tier';
-    RAISE NOTICE 'Expected: ~85-90%% of purchases match member tier (tier 1->tier 1, etc.)';
-    RAISE NOTICE 'Expected: ~5-6%% spillover to other tiers when cart exceeds browse results';
+    RAISE NOTICE 'Expected: ~70%% of purchases match member tier (tier 1->tier 1, etc.)';
+    RAISE NOTICE 'Expected: ~30%% spillover to other tiers when cart exceeds browse results';
     RAISE NOTICE '========================================================================';
     RAISE NOTICE '';
 END $$;

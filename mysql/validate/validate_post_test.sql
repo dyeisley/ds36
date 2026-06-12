@@ -656,8 +656,8 @@ SELECT '';
 SELECT '========================================================================';
 SELECT '--- MEMBER-SPECIFIC PURCHASE BEHAVIOR ---';
 SELECT 'Verifying: Members buy primarily from their membership tier';
-SELECT 'Expected: ~85-90% of purchases match member tier (tier 1->tier 1, etc.)';
-SELECT 'Expected: ~5-6% spillover to other tiers when cart exceeds browse results';
+SELECT 'Expected: ~70% of purchases match member tier (tier 1->tier 1, etc.)';
+SELECT 'Expected: ~30% spillover to other tiers when cart exceeds browse results';
 SELECT '========================================================================';
 SELECT '';
 
