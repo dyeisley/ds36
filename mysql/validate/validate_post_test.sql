@@ -93,13 +93,13 @@ SELECT 'Expected: SALES values should be significantly higher than pre-test base
 SELECT '';
 
 SELECT
-    LPAD(i.PROD_ID, 8) AS PROD_ID,
-    RPAD(p.TITLE, 40) AS TITLE,
-    LPAD(i.SALES, 10) AS SALES,
-    RPAD(CASE
+    i.PROD_ID,
+    LEFT(p.TITLE, 30) AS TITLE,
+    i.SALES,
+    CASE
         WHEN i.PROD_ID % {popular_modulo} = 0 THEN '**POPULAR**'
         ELSE ''
-    END, 12) AS IsPopularProduct
+    END AS IsPopularProduct
 FROM INVENTORY{store_number} i
 JOIN PRODUCTS{store_number} p ON i.PROD_ID = p.PROD_ID
 ORDER BY i.SALES DESC
@@ -136,15 +136,15 @@ SELECT 'Expected: REORDER table should show new restocking activity';
 SELECT '';
 
 SELECT
-    LPAD(r.PROD_ID, 8) AS PROD_ID,
-    RPAD(p.TITLE, 40) AS TITLE,
-    LPAD(SUM(r.QUAN_REORDERED), 15) AS TOTAL_REORDERED,
-    LPAD(COUNT(*), 13) AS RESTOCK_COUNT,
+    r.PROD_ID,
+    LEFT(p.TITLE, 30) AS TITLE,
+    SUM(r.QUAN_REORDERED) AS TOTAL_REORDERED,
+    COUNT(*) AS RESTOCK_COUNT,
     MAX(r.DATE_REORDERED) AS LAST_RESTOCK_DATE,
-    RPAD(CASE
+    CASE
         WHEN r.PROD_ID % {popular_modulo} = 0 THEN '**POPULAR**'
         ELSE ''
-    END, 12) AS IsPopularProduct
+    END AS IsPopularProduct
 FROM REORDER{store_number} r
 JOIN PRODUCTS{store_number} p ON r.PROD_ID = p.PROD_ID
 GROUP BY r.PROD_ID, p.TITLE
@@ -219,11 +219,11 @@ SELECT CONCAT('    Delta: ', @total_helpfulness - @total_helpfulness_pre);
 SELECT 'Reviews for Popular Products (ID % {popular_modulo} = 0):';
 
 SELECT
-    LPAD(IFNULL(pre.prod_id, post.PROD_ID), 8) AS PROD_ID,
-    RPAD(IFNULL(pre.title, post.TITLE), 40) AS TITLE,
-    LPAD(IFNULL(pre.review_count, 0), 10) AS Pre,
-    LPAD(IFNULL(post.ReviewCount, 0), 10) AS Post,
-    LPAD(IFNULL(post.ReviewCount, 0) - IFNULL(pre.review_count, 0), 10) AS Delta
+    IFNULL(pre.prod_id, post.PROD_ID) AS PROD_ID,
+    LEFT(IFNULL(pre.title, post.TITLE), 30) AS TITLE,
+    IFNULL(pre.review_count, 0) AS Pre,
+    IFNULL(post.ReviewCount, 0) AS Post,
+    IFNULL(post.ReviewCount, 0) - IFNULL(pre.review_count, 0) AS Delta
 FROM VALIDATION_POPULAR_REVIEWS_{store_number} pre
 LEFT JOIN (
     SELECT
@@ -237,11 +237,11 @@ LEFT JOIN (
 ) post ON pre.prod_id = post.PROD_ID
 UNION
 SELECT
-    LPAD(post.PROD_ID, 8),
-    RPAD(post.TITLE, 40),
-    LPAD(IFNULL(pre.review_count, 0), 10),
-    LPAD(IFNULL(post.ReviewCount, 0), 10),
-    LPAD(IFNULL(post.ReviewCount, 0) - IFNULL(pre.review_count, 0), 10)
+    post.PROD_ID,
+    LEFT(post.TITLE, 30),
+    IFNULL(pre.review_count, 0),
+    IFNULL(post.ReviewCount, 0),
+    IFNULL(post.ReviewCount, 0) - IFNULL(pre.review_count, 0)
 FROM VALIDATION_POPULAR_REVIEWS_{store_number} pre
 RIGHT JOIN (
     SELECT

@@ -1627,26 +1627,49 @@ namespace ds2xdriver
                 // Check if this result set has rows
                 if (reader.HasRows)
                 {
-                  // Write column headers
+                  // Write column headers with type-aware padding
+                  List<string> headers = new List<string>();
                   for (int i = 0; i < reader.FieldCount; i++)
                   {
-                    writer.Write(reader.GetName(i).PadRight(20));
+                    string colName = reader.GetName(i);
+                    Type fieldType = reader.GetFieldType(i);
+                    // Numeric types get 15 chars (right-aligned), strings get 30 chars (left-aligned)
+                    if (fieldType == typeof(int) || fieldType == typeof(long) ||
+                        fieldType == typeof(decimal) || fieldType == typeof(double) ||
+                        fieldType == typeof(float) || fieldType == typeof(short) ||
+                        fieldType == typeof(byte))
+                    {
+                      headers.Add(colName.PadLeft(15));
+                    }
+                    else
+                    {
+                      headers.Add(colName.PadRight(30));
+                    }
                   }
-                  writer.WriteLine();
+                  writer.WriteLine(string.Join(" ", headers));
 
-                  // Write separator
-                  string separator = new string('-', reader.FieldCount * 20);
-                  writer.WriteLine(separator);
-
-                  // Write data rows
+                  // Write data rows with type-aware padding
                   while (reader.Read())
                   {
+                    List<string> rowValues = new List<string>();
                     for (int i = 0; i < reader.FieldCount; i++)
                     {
                       string value = reader.IsDBNull(i) ? "" : reader.GetValue(i).ToString() ?? "";
-                      writer.Write(value.PadRight(20));
+                      Type fieldType = reader.GetFieldType(i);
+                      // Numeric types get 15 chars (right-aligned), strings get 30 chars (left-aligned)
+                      if (fieldType == typeof(int) || fieldType == typeof(long) ||
+                          fieldType == typeof(decimal) || fieldType == typeof(double) ||
+                          fieldType == typeof(float) || fieldType == typeof(short) ||
+                          fieldType == typeof(byte))
+                      {
+                        rowValues.Add(value.PadLeft(15));
+                      }
+                      else
+                      {
+                        rowValues.Add(value.PadRight(30));
+                      }
                     }
-                    writer.WriteLine();
+                    writer.WriteLine(string.Join(" ", rowValues));
                   }
                   writer.WriteLine();
                 }

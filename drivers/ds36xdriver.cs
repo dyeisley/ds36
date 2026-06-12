@@ -2414,21 +2414,21 @@ namespace ds2xdriver
         writer.WriteLine("========================================================================");
         writer.WriteLine();
         writer.WriteLine("BENCHMARK PARAMETERS:");
-        writer.WriteLine($"  Database Type:          {databaseType}");
-        writer.WriteLine($"  Store Number:           {storeNumber}");
-        writer.WriteLine($"  Target Server:          {serverName}");
-        writer.WriteLine($"  Run Time:               {run_time} minutes");
-        writer.WriteLine($"  Threads:                {n_threads}");
-        writer.WriteLine($"  Ramp Rate:              {ramp_rate} users/sec");
-        writer.WriteLine($"  n_searches:             {n_searches}");
-        writer.WriteLine($"  search_batch_size:      {search_batch_size}");
-        writer.WriteLine($"  pct_newcustomers:       {pct_newcustomers}%");
-        writer.WriteLine($"  pct_renewmember:        {pct_renewmember}%");
-        writer.WriteLine($"  pct_newmember:          {pct_newmember}%");
-        writer.WriteLine($"  pct_newreviews:         {pct_newreviews}%");
-        writer.WriteLine($"  pct_newhelpfulness:     {pct_newhelpfulness}%");
-        writer.WriteLine($"  DS2 Mode:               {(ds2_mode ? "yes" : "no")}");
-        writer.WriteLine($"  Manager Threads:        {(enable_managers ? (n_target_servers * n_stores).ToString() : "disabled")}");
+        writer.WriteLine($"  Database Type:                {databaseType}");
+        writer.WriteLine($"  Store Number:                 {storeNumber}");
+        writer.WriteLine($"  Target Server:                {serverName}");
+        writer.WriteLine($"  Run Time:                     {run_time} minutes");
+        writer.WriteLine($"  Threads:                      {n_threads}");
+        writer.WriteLine($"  Ramp Rate:                    {ramp_rate} users/sec");
+        writer.WriteLine($"  n_searches:                   {n_searches}");
+        writer.WriteLine($"  search_batch_size:            {search_batch_size}");
+        writer.WriteLine($"  pct_newcustomers:             {pct_newcustomers}%");
+        writer.WriteLine($"  pct_renewmember:              {pct_renewmember}%");
+        writer.WriteLine($"  pct_newmember:                {pct_newmember}%");
+        writer.WriteLine($"  pct_newreviews:               {pct_newreviews}%");
+        writer.WriteLine($"  pct_newhelpfulness:           {pct_newhelpfulness}%");
+        writer.WriteLine($"  DS2 Mode:                     {(ds2_mode ? "yes" : "no")}");
+        writer.WriteLine($"  Manager Threads:              {(enable_managers ? (n_target_servers * n_stores).ToString() : "disabled")}");
         if (enable_managers)
         {
           writer.WriteLine($"  manager_interval:             {manager_interval} sec");
@@ -2442,7 +2442,7 @@ namespace ds2xdriver
           writer.WriteLine($"  manager_promo_membership:     {manager_promo_membership_pct}%");
           writer.WriteLine($"  manager_batch_size:           {manager_batch_size_min}-{manager_batch_size_max}");
         }
-        writer.WriteLine($"  Vector Search:          {(n_vectors > 0 ? "enabled" : "disabled")}");
+        writer.WriteLine($"  Vector Search:                {(n_vectors > 0 ? "enabled" : "disabled")}");
         writer.WriteLine();
         writer.WriteLine("========================================================================");
         writer.WriteLine("VALIDATION RESULTS:");

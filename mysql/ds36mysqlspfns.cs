@@ -1334,6 +1334,14 @@ namespace ds2xdriver
     //
     //-------------------------------------------------------------------------------------------------
     //
+    private static bool IsNumericType(Type type)
+    {
+      return type == typeof(int) || type == typeof(long) ||
+             type == typeof(decimal) || type == typeof(double) ||
+             type == typeof(float) || type == typeof(short) ||
+             type == typeof(byte);
+    }
+
     private static string FormatValue(object value)
     {
       if (value == null || value == DBNull.Value)
@@ -1660,27 +1668,43 @@ namespace ds2xdriver
                   }
                   else
                   {
-                    // Multiple columns - format as table
-                    // Write column headers
+                    // Multiple columns - format as table with type-aware padding
+                    List<string> headers = new List<string>();
                     for (int i = 0; i < reader.FieldCount; i++)
                     {
-                      writer.Write(reader.GetName(i).PadRight(20));
+                      string colName = reader.GetName(i);
+                      Type fieldType = reader.GetFieldType(i);
+                      // Numeric types get 15 chars (right-aligned), strings get 30 chars (left-aligned)
+                      if (IsNumericType(fieldType))
+                      {
+                        headers.Add(colName.PadLeft(15));
+                      }
+                      else
+                      {
+                        headers.Add(colName.PadRight(30));
+                      }
                     }
-                    writer.WriteLine();
+                    writer.WriteLine(string.Join(" ", headers));
 
-                    // Write separator
-                    string separator = new string('-', reader.FieldCount * 20);
-                    writer.WriteLine(separator);
-
-                    // Write data rows
+                    // Write data rows with type-aware padding
                     while (reader.Read())
                     {
+                      List<string> rowValues = new List<string>();
                       for (int i = 0; i < reader.FieldCount; i++)
                       {
                         string value = reader.IsDBNull(i) ? "" : FormatValue(reader.GetValue(i));
-                        writer.Write(value.PadRight(20));
+                        Type fieldType = reader.GetFieldType(i);
+                        // Numeric types get 15 chars (right-aligned), strings get 30 chars (left-aligned)
+                        if (IsNumericType(fieldType))
+                        {
+                          rowValues.Add(value.PadLeft(15));
+                        }
+                        else
+                        {
+                          rowValues.Add(value.PadRight(30));
+                        }
                       }
-                      writer.WriteLine();
+                      writer.WriteLine(string.Join(" ", rowValues));
                     }
                     writer.WriteLine();
                   }

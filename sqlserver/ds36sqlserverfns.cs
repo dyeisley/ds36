@@ -1704,7 +1704,7 @@ namespace ds2xdriver
                         fieldType == typeof(float) || fieldType == typeof(short) ||
                         fieldType == typeof(byte))
                     {
-                      headers.Add(colName.PadLeft(12));
+                      headers.Add(colName.PadLeft(15));
                     }
                     else
                     {
@@ -1730,7 +1730,7 @@ namespace ds2xdriver
                         fieldType == typeof(float) || fieldType == typeof(short) ||
                         fieldType == typeof(byte))
                     {
-                      rowValues.Add(strValue.PadLeft(12));
+                      rowValues.Add(strValue.PadLeft(15));
                     }
                     else
                     {
