@@ -665,7 +665,7 @@ Products where `PROD_ID % modulo = 0` are designated "popular":
 - All prices end in .99 (e.g., 19.99, 24.99)
 
 **During benchmark:**
-- AdjustPrices (±10%): Keeps .99 endings
+- AdjustPrices: Changes PRICE ±10% (random endings)
 - BulkPriceAdjustment (±25%): Changes to .77 endings
 - AddProduct: New products use .01 endings
 

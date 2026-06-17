@@ -188,6 +188,23 @@ namespace DvdStoreOrchestrator
         }
       }
 
+      // Detect duplicate targets (same hostname:dbtype combination)
+      var duplicates = targets
+        .GroupBy(t => $"{t.DbType}:{t.Hostname}")
+        .Where(g => g.Count() > 1)
+        .Select(g => g.Key)
+        .ToList();
+
+      if (duplicates.Any())
+      {
+        Console.WriteLine("Error: Duplicate targets detected in config file:");
+        foreach (var dup in duplicates)
+        {
+          Console.WriteLine($"  {dup} appears multiple times");
+        }
+        Environment.Exit(1);
+      }
+
       return (commonParams, targets);
     }
 
