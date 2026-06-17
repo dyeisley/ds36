@@ -284,3 +284,152 @@ graph TD
 
 *Note: If viewing this README outside of GitHub, see [docs/driver_workflow.png](docs/driver_workflow.png) for a static image.*
 
+## Database Schema
+
+```mermaid
+erDiagram
+    CUSTOMERS ||--o{ ORDERS : "places"
+    CUSTOMERS ||--o{ CUST_HIST : "has purchase history"
+    CUSTOMERS ||--o{ MEMBERSHIP : "has"
+    CUSTOMERS ||--o{ REVIEWS : "writes"
+    
+    ORDERS ||--|{ ORDERLINES : "contains"
+    
+    PRODUCTS ||--o{ ORDERLINES : "ordered in"
+    PRODUCTS ||--o{ CUST_HIST : "purchased"
+    PRODUCTS ||--|| INVENTORY : "has inventory"
+    PRODUCTS ||--o{ REVIEWS : "has reviews"
+    PRODUCTS ||--o{ REORDER : "reordered"
+    PRODUCTS }o--|| CATEGORIES : "belongs to"
+    
+    REVIEWS ||--o{ REVIEWS_HELPFULNESS : "rated by"
+    
+    CUSTOMERS {
+        int CUSTOMERID PK
+        varchar FIRSTNAME
+        varchar LASTNAME
+        varchar ADDRESS1
+        varchar ADDRESS2
+        varchar CITY
+        varchar STATE
+        int ZIP
+        varchar COUNTRY
+        tinyint REGION
+        varchar EMAIL
+        varchar PHONE
+        tinyint CREDITCARDTYPE
+        varchar CREDITCARD
+        varchar CREDITCARDEXPIRATION
+        varchar USERNAME
+        varchar PASSWORD
+        tinyint AGE
+        int INCOME
+        varchar GENDER
+    }
+    
+    CUST_HIST {
+        int CUSTOMERID FK
+        int ORDERID
+        int PROD_ID
+    }
+    
+    MEMBERSHIP {
+        int CUSTOMERID FK
+        int MEMBERSHIPTYPE
+        datetime EXPIREDATE
+    }
+    
+    ORDERS {
+        int ORDERID PK
+        datetime ORDERDATE
+        int CUSTOMERID FK
+        money NETAMOUNT
+        money TAX
+        money TOTALAMOUNT
+    }
+    
+    ORDERLINES {
+        smallint ORDERLINEID PK
+        int ORDERID FK
+        int PROD_ID
+        smallint QUANTITY
+        datetime ORDERDATE
+    }
+    
+    PRODUCTS {
+        int PROD_ID PK
+        tinyint CATEGORY
+        varchar TITLE
+        varchar ACTOR
+        money PRICE
+        tinyint SPECIAL
+        int COMMON_PROD_ID
+        int MEMBERSHIP_ITEM
+    }
+    
+    INVENTORY {
+        int PROD_ID PK_FK
+        int QUAN_IN_STOCK
+        int SALES
+    }
+    
+    CATEGORIES {
+        tinyint CATEGORY PK
+        varchar CATEGORYNAME
+    }
+    
+    REVIEWS {
+        int REVIEW_ID PK
+        int PROD_ID FK
+        datetime REVIEW_DATE
+        int STARS
+        int CUSTOMERID FK
+        varchar REVIEW_SUMMARY
+        varchar REVIEW_TEXT
+        int TOTAL_HELPFULNESS
+    }
+    
+    REVIEWS_HELPFULNESS {
+        int REVIEW_HELPFULNESS_ID PK
+        int REVIEW_ID FK
+        int CUSTOMERID
+        int HELPFULNESS
+    }
+    
+    REORDER {
+        int PROD_ID
+        datetime DATE_LOW
+        int QUAN_LOW
+        datetime DATE_REORDERED
+        int QUAN_REORDERED
+        datetime DATE_EXPECTED
+    }
+```
+
+### Schema Improvements over DS2
+
+**New Tables:**
+- **MEMBERSHIP** - Customer membership tiers (Bronze/Silver/Gold)
+- **REVIEWS** - Customer product reviews with star ratings
+- **REVIEWS_HELPFULNESS** - Customer ratings of review helpfulness
+- **MERGE_AUDIT** - Audit trail for MERGE operations
+- **MEMBERSHIP_PROMO_AUDIT** - Audit trail for promotional membership upgrades
+
+**New Columns:**
+- **PRODUCTS.MEMBERSHIP_ITEM** - Tier-specific products for member browsing
+
+**Fixed Foreign Keys:**
+- **INVENTORY.PROD_ID → PRODUCTS.PROD_ID** - Now enforced (missing in DS2)
+
+**All Foreign Key Constraints:**
+1. CUST_HIST.CUSTOMERID → CUSTOMERS.CUSTOMERID (ON DELETE CASCADE)
+2. ORDERS.CUSTOMERID → CUSTOMERS.CUSTOMERID (ON DELETE SET NULL)
+3. ORDERLINES.ORDERID → ORDERS.ORDERID (ON DELETE CASCADE)
+4. INVENTORY.PROD_ID → PRODUCTS.PROD_ID (ON DELETE CASCADE)
+5. MEMBERSHIP.CUSTOMERID → CUSTOMERS.CUSTOMERID (ON DELETE CASCADE)
+6. REVIEWS.PROD_ID → PRODUCTS.PROD_ID (ON DELETE CASCADE)
+7. REVIEWS.CUSTOMERID → CUSTOMERS.CUSTOMERID (ON DELETE CASCADE)
+8. REVIEWS_HELPFULNESS.REVIEW_ID → REVIEWS.REVIEW_ID (ON DELETE CASCADE)
+
+*Note: If viewing this README outside of GitHub, see [docs/ds36_schema_erd.png](docs/ds36_schema_erd.png) for a static image.*
+

@@ -1,0 +1,117 @@
+erDiagram
+    CUSTOMERS ||--o{ ORDERS : "places"
+    CUSTOMERS ||--o{ CUST_HIST : "has purchase history"
+    CUSTOMERS ||--o{ MEMBERSHIP : "has"
+    CUSTOMERS ||--o{ REVIEWS : "writes"
+
+    ORDERS ||--|{ ORDERLINES : "contains"
+
+    PRODUCTS ||--o{ ORDERLINES : "ordered in"
+    PRODUCTS ||--o{ CUST_HIST : "purchased"
+    PRODUCTS ||--|| INVENTORY : "has inventory"
+    PRODUCTS ||--o{ REVIEWS : "has reviews"
+    PRODUCTS ||--o{ REORDER : "reordered"
+    PRODUCTS }o--|| CATEGORIES : "belongs to"
+
+    REVIEWS ||--o{ REVIEWS_HELPFULNESS : "rated by"
+
+    CUSTOMERS {
+        int CUSTOMERID PK
+        varchar FIRSTNAME
+        varchar LASTNAME
+        varchar ADDRESS1
+        varchar ADDRESS2
+        varchar CITY
+        varchar STATE
+        int ZIP
+        varchar COUNTRY
+        tinyint REGION
+        varchar EMAIL
+        varchar PHONE
+        tinyint CREDITCARDTYPE
+        varchar CREDITCARD
+        varchar CREDITCARDEXPIRATION
+        varchar USERNAME
+        varchar PASSWORD
+        tinyint AGE
+        int INCOME
+        varchar GENDER
+    }
+
+    CUST_HIST {
+        int CUSTOMERID FK
+        int ORDERID
+        int PROD_ID
+    }
+
+    MEMBERSHIP {
+        int CUSTOMERID FK
+        int MEMBERSHIPTYPE
+        datetime EXPIREDATE
+    }
+
+    ORDERS {
+        int ORDERID PK
+        datetime ORDERDATE
+        int CUSTOMERID FK
+        money NETAMOUNT
+        money TAX
+        money TOTALAMOUNT
+    }
+
+    ORDERLINES {
+        smallint ORDERLINEID PK
+        int ORDERID FK
+        int PROD_ID
+        smallint QUANTITY
+        datetime ORDERDATE
+    }
+
+    PRODUCTS {
+        int PROD_ID PK
+        tinyint CATEGORY
+        varchar TITLE
+        varchar ACTOR
+        money PRICE
+        tinyint SPECIAL
+        int COMMON_PROD_ID
+        int MEMBERSHIP_ITEM
+    }
+
+    INVENTORY {
+        int PROD_ID PK_FK
+        int QUAN_IN_STOCK
+        int SALES
+    }
+
+    CATEGORIES {
+        tinyint CATEGORY PK
+        varchar CATEGORYNAME
+    }
+
+    REVIEWS {
+        int REVIEW_ID PK
+        int PROD_ID FK
+        datetime REVIEW_DATE
+        int STARS
+        int CUSTOMERID FK
+        varchar REVIEW_SUMMARY
+        varchar REVIEW_TEXT
+        int TOTAL_HELPFULNESS
+    }
+
+    REVIEWS_HELPFULNESS {
+        int REVIEW_HELPFULNESS_ID PK
+        int REVIEW_ID FK
+        int CUSTOMERID
+        int HELPFULNESS
+    }
+
+    REORDER {
+        int PROD_ID
+        datetime DATE_LOW
+        int QUAN_LOW
+        datetime DATE_REORDERED
+        int QUAN_REORDERED
+        datetime DATE_EXPECTED
+    }
