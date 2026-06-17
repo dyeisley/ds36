@@ -177,7 +177,7 @@ manager_promotional_membership_pct=0  # Off by default
 **What it does:**
 - Selects random products
 - Applies 0.90-1.10 price factor
-- Updates PRODUCTS.PRICE
+- Updates PRODUCTS.PRICE (simple multiplication, random endings)
 - Alternates with BulkPriceAdjustment
 
 **Parameters:**
@@ -189,7 +189,7 @@ manager_promotional_membership_pct=0  # Off by default
 - Indexed UPDATE performance
 - Price calculation accuracy (DECIMAL/MONEY types)
 
-**Validation:** Check price ending distribution (.99 endings from individual adjustments)
+**Validation:** Price ending distribution shows random endings (vs .77 from BulkPriceAdjustment, .01 from AddProduct)
 
 ---
 
