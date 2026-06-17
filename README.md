@@ -368,7 +368,7 @@ erDiagram
     }
     
     INVENTORY {
-        int PROD_ID PK_FK
+        int PROD_ID "PK, FK"
         int QUAN_IN_STOCK
         int SALES
     }
