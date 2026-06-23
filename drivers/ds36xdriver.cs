@@ -2908,9 +2908,10 @@ namespace ds2xdriver
         IsNewReview = false;
         IsNewHelpfulness = false;
 
-        // Clear membership status before each iteration
+        // Clear membership status & customer ID before each iteration
         membershiplevel_out = 0;
         is_expired_out = 0;
+        customerid_out = 0;
 
         // Login/New Customer Phase
 
