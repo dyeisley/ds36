@@ -97,11 +97,11 @@ namespace ds2xdriver
     //string conn_str = "";
     int target_store_number = 1; // Added to support multiple stores - default is 1
     NpgsqlConnection objConn;
-    NpgsqlCommand Login, New_Customer, Browse_By_Category, Browse_By_Actor, Browse_By_Title, Browse_By_Membership, Purchase;
+    NpgsqlCommand Login, New_Customer, Browse_By_Category, Browse_By_Actor, Browse_By_Title, Browse_By_Membership, Purchase, Purchase_TVP;
     NpgsqlCommand New_Member, Get_Membership_Status, Renew_Membership, New_Prod_Review, New_Review_Helpfulness, New_Product;
     NpgsqlCommand Get_Prod_Reviews, Get_Prod_Reviews_By_Date, Get_Prod_Reviews_By_Stars, Get_Prod_Reviews_By_Actor, Get_Prod_Reviews_By_Title;
     NpgsqlCommand Remove_Review_By_Product, Remove_Unhelpful_Reviews, Remove_Reviews_By_Date, Adjust_Prices, Bulk_Price_Adjustment, Mark_Specials, Expire_Memberships, Purge_Old_Orders, Upgrade_Membership, Promotional_Membership, Get_Membership_Analytics, Get_New_Customer_Analytics, Get_Review_Analytics, Get_Price_Point_Analytics, Get_Inventory_Analytics;
-    NpgsqlCommand[] CostQuery = new NpgsqlCommand[11];
+    NpgsqlCommand[] CostQuery = new NpgsqlCommand[101];
 
     //
     //-------------------------------------------------------------------------------------------------
@@ -252,6 +252,15 @@ namespace ds2xdriver
       Purchase.Parameters.Add("prod_id_in9", NpgsqlDbType.Integer);
       Purchase.Parameters.Add("qty_in9", NpgsqlDbType.Integer);
 
+      Purchase_TVP = new NpgsqlCommand("PURCHASE_TVP" + target_store_number, objConn);
+      Purchase_TVP.CommandType = CommandType.StoredProcedure;
+      Purchase_TVP.Parameters.Add("customerid_in", NpgsqlDbType.Integer);
+      Purchase_TVP.Parameters.Add("netamount_in", NpgsqlDbType.Numeric);
+      Purchase_TVP.Parameters.Add("taxamount_in", NpgsqlDbType.Numeric);
+      Purchase_TVP.Parameters.Add("totalamount_in", NpgsqlDbType.Numeric);
+      Purchase_TVP.Parameters.Add("prod_ids", NpgsqlDbType.Array | NpgsqlDbType.Integer);
+      Purchase_TVP.Parameters.Add("qtys", NpgsqlDbType.Array | NpgsqlDbType.Integer);
+
       //New Product
       New_Product = new NpgsqlCommand("addnewinventoryproduct" + target_store_number, objConn);
       New_Product.CommandType = CommandType.StoredProcedure;
@@ -267,7 +276,7 @@ namespace ds2xdriver
       New_Product.Parameters.Add(outParam);
 
       // Pre-compile cost query commands for cart sizes 1-10
-      for (int items = 1; items <= 10; items++)
+      for (int items = 1; items <= 100; items++)
       {
         string query = "SELECT PROD_ID, PRICE FROM PRODUCTS" + target_store_number + " WHERE PROD_ID IN (";
         for (int i = 0; i < items; i++)
@@ -934,10 +943,13 @@ namespace ds2xdriver
     public bool ds2purchase(int cart_items, int[] prod_id_in, int[] qty_in, int customerid_out,
       ref int neworderid_out, ref bool IsRollback, ref double rt)
     {
-      int j;
+      // Route to TVP implementation for >10 items (unlimited), original for <=10 items
+      if (cart_items > 10)
+      {
+        return ds2purchase_tvp(cart_items, prod_id_in, qty_in, customerid_out, ref neworderid_out, ref IsRollback, ref rt);
+      }
 
-      //Cap cart_items at 10 for this implementation of stored procedure
-      cart_items = System.Math.Min(10, cart_items);
+      int j;
 
       // Extra, non-stored procedure query to find total cost of purchase
       Decimal netamount_in = 0;
@@ -1027,6 +1039,109 @@ namespace ds2xdriver
         rt = timer.Elapsed.TotalSeconds;
       }
     } // end ds2purchase()
+
+    //
+    //-------------------------------------------------------------------------------------------------
+    //
+    public bool ds2purchase_tvp(int cart_items, int[] prod_id_in, int[] qty_in, int customerid_out,
+      ref int neworderid_out, ref bool IsRollback, ref double rt)
+    {
+      int i, j;
+
+      // No item limit with array parameter approach!
+
+      // Extra, non-stored procedure query to find total cost of purchase
+      Decimal netamount_in = 0;
+
+      // Use pre-compiled cost query command (still limited to 10 by CostQuery array size)
+      // For cart_items > 10, fall back to dynamic query
+      if (cart_items <= 100)
+      {
+        var cost_command = CostQuery[cart_items];
+        for (i = 0; i < cart_items; i++)
+        {
+          cost_command.Parameters["@ARG" + i].Value = prod_id_in[i];
+        }
+
+        using (NpgsqlDataReader Rdr = cost_command.ExecuteReader())
+        {
+          while (Rdr.Read())
+          {
+            j = 0;
+            int prod_id = Rdr.GetInt32(0);
+            while (prod_id_in[j] != prod_id)
+              ++j; // Find which product was returned
+            netamount_in = netamount_in + qty_in[j] * Rdr.GetDecimal(1);
+          }
+        }
+      }
+      else
+      {
+        // Fallback: build dynamic query for carts > 100 items
+        string cost_query = "SELECT PROD_ID, PRICE FROM PRODUCTS" + target_store_number + " WHERE PROD_ID IN (" + prod_id_in[0];
+        for (i = 1; i < cart_items; i++)
+          cost_query = cost_query + "," + prod_id_in[i];
+        cost_query = cost_query + ")";
+
+        NpgsqlCommand cost_command = new NpgsqlCommand(cost_query, objConn);
+        using (NpgsqlDataReader Rdr = cost_command.ExecuteReader())
+        {
+          while (Rdr.Read())
+          {
+            j = 0;
+            int prod_id = Rdr.GetInt32(0);
+            while (prod_id_in[j] != prod_id)
+              ++j;
+            netamount_in = netamount_in + qty_in[j] * Rdr.GetDecimal(1);
+          }
+        }
+      }
+
+      Decimal taxamount_in = (Decimal)0.0825 * netamount_in;
+      Decimal totalamount_in = netamount_in + taxamount_in;
+
+      // Build arrays for PostgreSQL array parameters
+      int[] prod_ids = new int[cart_items];
+      int[] qtys = new int[cart_items];
+      Array.Copy(prod_id_in, prod_ids, cart_items);
+      Array.Copy(qty_in, qtys, cart_items);
+
+      Purchase_TVP.Parameters["customerid_in"].Value = customerid_out;
+      Purchase_TVP.Parameters["netamount_in"].Value = netamount_in;
+      Purchase_TVP.Parameters["taxamount_in"].Value = taxamount_in;
+      Purchase_TVP.Parameters["totalamount_in"].Value = totalamount_in;
+      Purchase_TVP.Parameters["prod_ids"].Value = prod_ids;
+      Purchase_TVP.Parameters["qtys"].Value = qtys;
+
+      Stopwatch timer = Stopwatch.StartNew();
+
+      try
+      {
+        neworderid_out = (int)Purchase_TVP.ExecuteScalar();
+
+        if (neworderid_out == 0)
+          IsRollback = true;
+        return true;
+      }
+      catch (PostgresException e)
+      {
+        if (e.SqlState == "P0001")
+        {
+          neworderid_out = 0;
+          return true;
+        }
+        else
+        {
+          Console.WriteLine("Thread {0}: SQL Error {1} in Purchase_TVP: {2}",
+            Thread.CurrentThread.Name, e.SqlState, e.Message);
+          return false;
+        }
+      }
+      finally
+      {
+        rt = timer.Elapsed.TotalSeconds;
+      }
+    } // end ds2purchase_tvp()
 
     //
     //-------------------------------------------------------------------------------------------------

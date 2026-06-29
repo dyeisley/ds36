@@ -281,6 +281,7 @@ DECLARE
   new_sales  INTEGER;
 BEGIN
  date_in := current_timestamp;
+ -- Explicit transaction control to ensure atomicity
  BEGIN
    INSERT INTO ORDERS$k
     (
@@ -330,33 +331,127 @@ BEGIN
     new_sales := cur_Sales + qty;
 
     IF (new_quan < 0) THEN
-        -- RAISE EXCEPTION 'Insufficient Quantity for prodid:%' , prodid;
-        RETURN 0;
-    ELSE
-        UPDATE INVENTORY$k SET QUAN_IN_STOCK=new_quan, SALES=new_sales WHERE PROD_ID=prodid;
-        INSERT INTO ORDERLINES$k
-          (
-          ORDERLINEID, ORDERID, PROD_ID, QUANTITY, ORDERDATE
-          )
-        VALUES
-          (
-          item_id + 1, neworderid, prodid, qty, date_in
-          );
+        -- Insufficient stock - raise exception to trigger rollback
+        RAISE EXCEPTION 'Insufficient stock for product %', prodid;
+    END IF;
 
-        INSERT INTO CUST_HIST$k
-          (
-          CUSTOMERID, ORDERID, PROD_ID
-          )
-        VALUES
-          (
-          customerid_in, neworderid, prodid
-          );
+    UPDATE INVENTORY$k SET QUAN_IN_STOCK=new_quan, SALES=new_sales WHERE PROD_ID=prodid;
+    INSERT INTO ORDERLINES$k
+      (
+      ORDERLINEID, ORDERID, PROD_ID, QUANTITY, ORDERDATE
+      )
+    VALUES
+      (
+      item_id + 1, neworderid, prodid, qty, date_in
+      );
 
-        item_id := item_id + 1;
-     END IF;
+    INSERT INTO CUST_HIST$k
+      (
+      CUSTOMERID, ORDERID, PROD_ID
+      )
+    VALUES
+      (
+      customerid_in, neworderid, prodid
+      );
+
+    item_id := item_id + 1;
   END LOOP;
+
+  -- All items processed successfully
   RETURN neworderid;
+
+ EXCEPTION
+   WHEN OTHERS THEN
+     -- Any error (including insufficient stock) causes full rollback
+     RETURN 0;
  END;
+END;
+\$\$;
+
+CREATE OR REPLACE FUNCTION PURCHASE_TVP$k (
+    IN customerid_in INTEGER,
+    IN netamount_in NUMERIC,
+    IN taxamount_in NUMERIC,
+    IN totalamount_in NUMERIC,
+    IN prod_ids INTEGER[],
+    IN qtys INTEGER[]
+)
+RETURNS INTEGER
+LANGUAGE plpgsql
+AS \$\$
+DECLARE
+  date_in TIMESTAMP;
+  neworderid INTEGER;
+  item_id    INTEGER;
+  prodid     INTEGER;
+  qty        INTEGER;
+  cur_quan   INTEGER;
+  new_quan   INTEGER;
+  cur_sales  INTEGER;
+  new_sales  INTEGER;
+  cart_items INTEGER;
+BEGIN
+  date_in := current_timestamp;
+  cart_items := array_length(prod_ids, 1);
+
+  -- Explicit transaction control to ensure atomicity
+  BEGIN
+    INSERT INTO ORDERS$k
+      (
+      ORDERDATE, CUSTOMERID, NETAMOUNT, TAX, TOTALAMOUNT
+      )
+    VALUES
+      (
+      date_in, customerid_in, netamount_in, taxamount_in, totalamount_in
+      )
+    RETURNING orderid INTO neworderid;
+
+    -- Process line items one by one (preserves RESTOCK trigger behavior)
+    FOR item_id IN 1..cart_items LOOP
+      prodid := prod_ids[item_id];
+      qty := qtys[item_id];
+
+      SELECT QUAN_IN_STOCK, SALES INTO cur_quan, cur_sales
+      FROM INVENTORY$k WHERE PROD_ID = prodid;
+
+      new_quan := cur_quan - qty;
+      new_sales := cur_sales + qty;
+
+      IF (new_quan < 0) THEN
+        -- Insufficient stock - raise exception to trigger rollback
+        RAISE EXCEPTION 'Insufficient stock for product %', prodid;
+      END IF;
+
+      UPDATE INVENTORY$k SET QUAN_IN_STOCK = new_quan, SALES = new_sales
+      WHERE PROD_ID = prodid;
+
+      INSERT INTO ORDERLINES$k
+        (
+        ORDERLINEID, ORDERID, PROD_ID, QUANTITY, ORDERDATE
+        )
+      VALUES
+        (
+        item_id, neworderid, prodid, qty, date_in
+        );
+
+      INSERT INTO CUST_HIST$k
+        (
+        CUSTOMERID, ORDERID, PROD_ID
+        )
+      VALUES
+        (
+        customerid_in, neworderid, prodid
+        );
+    END LOOP;
+
+    -- All items processed successfully
+    RETURN neworderid;
+
+  EXCEPTION
+    WHEN OTHERS THEN
+      -- Any error (including insufficient stock) causes full rollback
+      RETURN 0;
+  END;
 END;
 \$\$;
 
