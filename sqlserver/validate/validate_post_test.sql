@@ -728,6 +728,9 @@ PRINT 'Verifying: Cart size formula and unlimited cart feature';
 PRINT 'Expected: Average cart size = Random(1, 2*n_line_items) + tier';
 PRINT 'Expected: Max cart size >10 when n_line_items >5 (proves PURCHASE_TVP works)';
 PRINT 'Expected: Min cart size = 1 for N/A, 2 for tier 1, 3 for tier 2, 4 for tier 3';
+PRINT 'NOTE: Customers becoming members or changing tiers after placing orders';
+PRINT '      will cause historical orders to be classified by their current tier,';
+PRINT '      potentially reducing Min cart size results.';
 PRINT '========================================================================';
 PRINT '';
 
