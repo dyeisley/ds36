@@ -1086,6 +1086,9 @@ namespace ds2xdriver
       decimal taxamount_in = (decimal)0.0825 * netamount_in;
       decimal totalamount_in = netamount_in + taxamount_in;
 
+      // Sort products by prod_id to prevent deadlocks (consistent lock ordering)
+      Array.Sort(prod_id_in, qty_in, 0, cart_items);
+
       Purchase_prm[0].Value = customerid_out;
       Purchase_prm[1].Value = cart_items;
       Purchase_prm[2].Value = netamount_in;
