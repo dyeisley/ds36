@@ -662,11 +662,11 @@ CREATE TYPE LineItemsType$k AS TABLE
 GO
 
 -- New PURCHASE procedure using Table-Valued Parameter (no 10-item limit)
-IF EXISTS (SELECT name FROM sysobjects WHERE name = 'PURCHASE_TVP$k' AND type = 'P')
+IF EXISTS (SELECT name FROM sysobjects WHERE name = 'PURCHASE$k' AND type = 'P')
   DROP PROCEDURE PURCHASE_TVP$k
 GO
 
-CREATE PROCEDURE PURCHASE_TVP$k
+CREATE PROCEDURE PURCHASE$k
   \@customerid_in    INT,
   \@netamount_in     MONEY,
   \@taxamount_in     MONEY,
@@ -743,154 +743,6 @@ BEGIN
   COMMIT TRANSACTION;
   SELECT \@neworderid;
 END
-GO
-
--- Legacy PURCHASE procedure (10-item limit, for backward compatibility)
-IF EXISTS (SELECT name FROM sysobjects WHERE name = 'PURCHASE$k' AND type = 'P')
-  DROP PROCEDURE PURCHASE$k
-GO
-
-CREATE PROCEDURE PURCHASE$k
-  (
-  \@customerid_in            INT,
-  \@number_items             INT,
-  \@netamount_in             MONEY,
-  \@taxamount_in             MONEY,
-  \@totalamount_in           MONEY,
-  \@prod_id_in0              INT = 0,     \@qty_in0     INT = 0,
-  \@prod_id_in1              INT = 0,     \@qty_in1     INT = 0,
-  \@prod_id_in2              INT = 0,     \@qty_in2     INT = 0,
-  \@prod_id_in3              INT = 0,     \@qty_in3     INT = 0,
-  \@prod_id_in4              INT = 0,     \@qty_in4     INT = 0,
-  \@prod_id_in5              INT = 0,     \@qty_in5     INT = 0,
-  \@prod_id_in6              INT = 0,     \@qty_in6     INT = 0,
-  \@prod_id_in7              INT = 0,     \@qty_in7     INT = 0,
-  \@prod_id_in8              INT = 0,     \@qty_in8     INT = 0,
-  \@prod_id_in9              INT = 0,     \@qty_in9     INT = 0
-  )
-
-  AS 
-
-  DECLARE
-  \@date_in                  DATETIME,
-  \@neworderid               INT,
-  \@item_id                  INT,
-  \@prod_id                  INT,
-  \@qty                      INT,
-  \@cur_quan		     INT,
-  \@new_quan		     INT,
-  \@cur_sales                INT,
-  \@new_sales                INT
-  
-
-  SET DATEFORMAT ymd
-
-  SET \@date_in = GETDATE()
---SET \@date_in = '2005/10/31'
-
-  BEGIN TRANSACTION
-  -- CREATE NEW ENTRY IN ORDERS TABLE
-  INSERT INTO ORDERS$k
-    (
-    ORDERDATE,
-    CUSTOMERID,
-    NETAMOUNT,
-    TAX,
-    TOTALAMOUNT
-    )
-  VALUES
-    (
-    \@date_in,
-    \@customerid_in,
-    \@netamount_in,
-    \@taxamount_in,
-    \@totalamount_in
-    )
-
-  SET \@neworderid = SCOPE_IDENTITY()
-
-
-  -- ADD LINE ITEMS TO ORDERLINES
-
-  SET \@item_id = 0
-
-  WHILE (\@item_id < \@number_items)
-  BEGIN
-    SELECT \@prod_id = CASE \@item_id WHEN 0 THEN \@prod_id_in0
-	                                WHEN 1 THEN \@prod_id_in1
-	                                WHEN 2 THEN \@prod_id_in2
-	                                WHEN 3 THEN \@prod_id_in3
-	                                WHEN 4 THEN \@prod_id_in4
-	                                WHEN 5 THEN \@prod_id_in5
-	                                WHEN 6 THEN \@prod_id_in6
-	                                WHEN 7 THEN \@prod_id_in7
-	                                WHEN 8 THEN \@prod_id_in8
-	                                WHEN 9 THEN \@prod_id_in9
-    END
-
-    SELECT \@qty = CASE \@item_id WHEN 0 THEN \@qty_in0
-	                            WHEN 1 THEN \@qty_in1
-	                            WHEN 2 THEN \@qty_in2
-	                            WHEN 3 THEN \@qty_in3
-	                            WHEN 4 THEN \@qty_in4
-	                            WHEN 5 THEN \@qty_in5
-	                            WHEN 6 THEN \@qty_in6
-	                            WHEN 7 THEN \@qty_in7
-	                            WHEN 8 THEN \@qty_in8
-	                            WHEN 9 THEN \@qty_in9
-    END
-
-    SELECT \@cur_quan=QUAN_IN_STOCK, \@cur_sales=SALES FROM INVENTORY$k WHERE PROD_ID=\@prod_id
-
-    SET \@new_quan = \@cur_quan - \@qty
-    SET \@new_sales = \@cur_Sales + \@qty
-
-    IF (\@new_quan < 0)
-      BEGIN
-        ROLLBACK TRANSACTION
-        SELECT 0
-        RETURN
-      END
-    ELSE
-      BEGIN
-        UPDATE INVENTORY$k SET QUAN_IN_STOCK=\@new_quan, SALES=\@new_sales WHERE PROD_ID=\@prod_id
-        INSERT INTO ORDERLINES$k
-          (
-          ORDERLINEID,
-          ORDERID,
-          PROD_ID,
-          QUANTITY,
-          ORDERDATE
-          )
-        VALUES
-          (
-          \@item_id + 1,
-          \@neworderid,
-          \@prod_id,
-          \@qty,
-          \@date_in
-          )
-        
-        INSERT INTO CUST_HIST$k
-          (
-          CUSTOMERID,
-          ORDERID,
-          PROD_ID
-          )
-        VALUES
-          (
-          \@customerid_in,
-          \@neworderid,
-          \@prod_id
-          )
-      
-        SET \@item_id = \@item_id + 1
-      END    
-  END
-
-  COMMIT
-
-  SELECT \@neworderid
 GO
 
 USE DS3
