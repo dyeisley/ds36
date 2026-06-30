@@ -1154,6 +1154,9 @@ namespace ds2xdriver
       Decimal taxamount_in = (Decimal)0.0825 * netamount_in;
       Decimal totalamount_in = netamount_in + taxamount_in;
 
+      // Sort products by prod_id to prevent deadlocks (consistent lock ordering)
+      Array.Sort(prod_id_in, qty_in, 0, cart_items);
+
       // Build DataTable for TVP
       DataTable lineItemsTable = new DataTable();
       lineItemsTable.Columns.Add("prod_id", typeof(int));
