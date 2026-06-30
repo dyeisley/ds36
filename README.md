@@ -19,6 +19,7 @@ The web driver (drivers/ds36webfns.cs) and PHP code have not been modified.
 - **Index and Trigger Consistency**: Standardized indexes and triggers across all 4 database platforms
 - **Validation SQL Framework**: Before/after validation scripts for verifying manager operations and data integrity
 - **LOGIN Performance Fix**: Added ORDER BY + LIMIT to return only 10 most recent orders (35% improvement on SQL Server)
+- **Unlimited Cart Support**: SQL Server, PostgreSQL, and Oracle support unlimited cart sizes via TVP/arrays with deadlock prevention (MySQL remains at 10-item limit)
 
 See [CHANGES.md](CHANGES.md) for detailed changelog.
 
