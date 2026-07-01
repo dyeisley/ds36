@@ -663,7 +663,7 @@ GO
 
 -- New PURCHASE procedure using Table-Valued Parameter (no 10-item limit)
 IF EXISTS (SELECT name FROM sysobjects WHERE name = 'PURCHASE$k' AND type = 'P')
-  DROP PROCEDURE PURCHASE_TVP$k
+  DROP PROCEDURE PURCHASE$k
 GO
 
 CREATE PROCEDURE PURCHASE$k
