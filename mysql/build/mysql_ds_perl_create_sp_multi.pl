@@ -286,6 +286,8 @@ proc_label:BEGIN
    DECLARE prod_id_in     INTEGER;
    DECLARE qty_in         INTEGER;
 
+   START TRANSACTION;
+
    SET date_in = NOW();
 
    -- CREATE NEW ENTRY IN ORDERS TABLE

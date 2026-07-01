@@ -1304,6 +1304,49 @@ LIMIT 10;
 
 DO $$ BEGIN RAISE NOTICE ''; END $$;
 
+-- =======================================================================
+-- CART SIZE BY MEMBERSHIP TIER (validates unlimited cart feature)
+-- =======================================================================
+DO $$
+BEGIN
+    RAISE NOTICE '';
+    RAISE NOTICE '========================================================================';
+    RAISE NOTICE '--- CART SIZE BY MEMBERSHIP TIER ---';
+    RAISE NOTICE 'Verifying: Cart size formula and unlimited cart feature';
+    RAISE NOTICE 'Expected: Average cart size = Random(1, 2*n_line_items) + tier';
+    RAISE NOTICE 'Expected: Max cart size >10 when n_line_items >5 (proves PURCHASE_TVP works)';
+    RAISE NOTICE 'Expected: Min cart size = 1 for N/A, 2 for tier 1, 3 for tier 2, 4 for tier 3';
+    RAISE NOTICE 'NOTE: Customers becoming members or changing tiers after placing orders';
+    RAISE NOTICE '      will cause historical orders to be classified by their current tier,';
+    RAISE NOTICE '      potentially reducing Min cart size results.';
+    RAISE NOTICE '========================================================================';
+    RAISE NOTICE '';
+END $$;
+
+SELECT
+  CASE
+    WHEN m.MEMBERSHIPTYPE IS NULL THEN 'N/A'
+    ELSE m.MEMBERSHIPTYPE::TEXT
+  END AS tier,
+  COUNT(DISTINCT o.ORDERID) AS orders,
+  SUM(ol_counts.item_count) AS total_items,
+  MIN(ol_counts.item_count) AS min_items,
+  ROUND(AVG(ol_counts.item_count), 2) AS avg_items,
+  MAX(ol_counts.item_count) AS max_items
+FROM ORDERS{store_number} o
+LEFT JOIN MEMBERSHIP{store_number} m ON o.CUSTOMERID = m.CUSTOMERID
+  AND m.EXPIREDATE >= o.ORDERDATE  -- Only active memberships at order time
+JOIN (
+  SELECT ORDERID, COUNT(*) AS item_count
+  FROM ORDERLINES{store_number}
+  GROUP BY ORDERID
+) ol_counts ON o.ORDERID = ol_counts.ORDERID
+WHERE o.ORDERID > (SELECT metric_value FROM VALIDATION_METRICS_{store_number} WHERE metric_name = 'ORDERS_COUNT')
+GROUP BY m.MEMBERSHIPTYPE
+ORDER BY COALESCE(m.MEMBERSHIPTYPE, -999);
+
+DO $$ BEGIN RAISE NOTICE ''; END $$;
+
 
 DO $$
 BEGIN

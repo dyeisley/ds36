@@ -1418,6 +1418,50 @@ WHERE ROWNUM <= 10;
 BEGIN DBMS_OUTPUT.PUT_LINE(''); END;
 /
 
+-- =======================================================================
+-- CART SIZE BY MEMBERSHIP TIER (validates unlimited cart feature)
+-- =======================================================================
+BEGIN
+    DBMS_OUTPUT.PUT_LINE('');
+    DBMS_OUTPUT.PUT_LINE('========================================================================');
+    DBMS_OUTPUT.PUT_LINE('--- CART SIZE BY MEMBERSHIP TIER ---');
+    DBMS_OUTPUT.PUT_LINE('Verifying: Cart size formula and unlimited cart feature');
+    DBMS_OUTPUT.PUT_LINE('Expected: Average cart size = Random(1, 2*n_line_items) + tier');
+    DBMS_OUTPUT.PUT_LINE('Expected: Max cart size >10 when n_line_items >5 (proves unlimited works)');
+    DBMS_OUTPUT.PUT_LINE('Expected: Min cart size = 1 for N/A, 2 for tier 1, 3 for tier 2, 4 for tier 3');
+    DBMS_OUTPUT.PUT_LINE('NOTE: Customers becoming members or changing tiers after placing orders');
+    DBMS_OUTPUT.PUT_LINE('      will cause historical orders to be classified by their current tier,');
+    DBMS_OUTPUT.PUT_LINE('      potentially reducing Min cart size results.');
+    DBMS_OUTPUT.PUT_LINE('========================================================================');
+    DBMS_OUTPUT.PUT_LINE('');
+END;
+/
+
+SELECT
+  CASE
+    WHEN m.MEMBERSHIPTYPE IS NULL THEN 'N/A'
+    ELSE TO_CHAR(m.MEMBERSHIPTYPE)
+  END AS tier,
+  COUNT(DISTINCT o.ORDERID) AS orders,
+  SUM(ol_counts.item_count) AS total_items,
+  MIN(ol_counts.item_count) AS min_items,
+  ROUND(AVG(ol_counts.item_count), 2) AS avg_items,
+  MAX(ol_counts.item_count) AS max_items
+FROM DS3.ORDERS{store_number} o
+LEFT JOIN DS3.MEMBERSHIP{store_number} m ON o.CUSTOMERID = m.CUSTOMERID
+  AND m.EXPIREDATE >= o.ORDERDATE  -- Only active memberships at order time
+JOIN (
+  SELECT ORDERID, COUNT(*) AS item_count
+  FROM DS3.ORDERLINES{store_number}
+  GROUP BY ORDERID
+) ol_counts ON o.ORDERID = ol_counts.ORDERID
+WHERE o.ORDERID > (SELECT metric_value FROM VALIDATION_METRICS_{store_number} WHERE metric_name = 'ORDERS_COUNT')
+GROUP BY m.MEMBERSHIPTYPE
+ORDER BY NVL(m.MEMBERSHIPTYPE, -999);
+
+BEGIN DBMS_OUTPUT.PUT_LINE(''); END;
+/
+
 
 BEGIN
     DBMS_OUTPUT.PUT_LINE('');

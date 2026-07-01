@@ -106,7 +106,7 @@ namespace ds2xdriver
     OracleParameter[] New_Review_Helpfulness_prm = new OracleParameter[4];
 
     OracleParameter Purchase_prod_id_in, Purchase_qty_in;
-    OracleCommand[] CostQuery = new OracleCommand[11];
+    OracleCommand[] CostQuery = new OracleCommand[101];  // Support up to 100 items with pre-compiled queries
 
     //Added by GSK (This variable will have target server name to which thread is tied to and users will login to the database on this server)
     string target_server_name;
@@ -296,8 +296,8 @@ namespace ds2xdriver
       Purchase_qty_in.CollectionType = OracleCollectionType.PLSQLAssociativeArray;
       Purchase_qty_in.Size = 10;
 
-      // Pre-compile cost query commands for cart sizes 1-10
-      for (int items = 1; items <= 10; items++)
+      // Pre-compile cost query commands for cart sizes 1-100
+      for (int items = 1; items <= 100; items++)
       {
         string query = "SELECT PROD_ID, PRICE FROM PRODUCTS" + target_store_number + " WHERE PROD_ID IN (";
         for (int i = 0; i < items; i++)
@@ -1032,29 +1032,50 @@ namespace ds2xdriver
     {
       int i, j;
 
-      //Cap cart_items at 10 for this implementation of stored procedure
-      cart_items = System.Math.Min(10, cart_items);
-
-      // Extra, non-stored procedure query to find total cost of purchase
+      // No item limit! Oracle's associative arrays handle unlimited items.
+      // Use pre-compiled cost query command (for carts <= 100), dynamic query for larger carts
       decimal netamount_in = 0;
 
-      // Use pre-compiled cost query command
-      var cost_command = CostQuery[cart_items];
-      for (i = 0; i < cart_items; i++)
+      if (cart_items <= 100)
       {
-        cost_command.Parameters[":ARG" + i].Value = prod_id_in[i];
-      }
-
-      using (OracleDataReader Rdr = cost_command.ExecuteReader())
-      {
-        while (Rdr.Read())
+        // Use pre-compiled cost query command
+        var cost_command = CostQuery[cart_items];
+        for (i = 0; i < cart_items; i++)
         {
-          j = 0;
-          int prod_id = Convert.ToInt32(Rdr.GetDecimal(0));
-          while (prod_id_in[j] != prod_id)
-            ++j; // Find which product was returned
-          netamount_in = netamount_in + qty_in[j] * Rdr.GetDecimal(1);
-          //Console.WriteLine(j + " " + prod_id + " " + qty_in[j] + " " + Rdr.GetDecimal(1));
+          cost_command.Parameters[":ARG" + i].Value = prod_id_in[i];
+        }
+
+        using (OracleDataReader Rdr = cost_command.ExecuteReader())
+        {
+          while (Rdr.Read())
+          {
+            j = 0;
+            int prod_id = Convert.ToInt32(Rdr.GetDecimal(0));
+            while (prod_id_in[j] != prod_id)
+              ++j; // Find which product was returned
+            netamount_in = netamount_in + qty_in[j] * Rdr.GetDecimal(1);
+          }
+        }
+      }
+      else
+      {
+        // Fallback: build dynamic query for carts > 100 items
+        string cost_query = "SELECT PROD_ID, PRICE FROM PRODUCTS" + target_store_number + " WHERE PROD_ID IN (" + prod_id_in[0];
+        for (i = 1; i < cart_items; i++)
+          cost_query = cost_query + "," + prod_id_in[i];
+        cost_query = cost_query + ")";
+
+        OracleCommand cost_command = new OracleCommand(cost_query, objConn);
+        using (OracleDataReader Rdr = cost_command.ExecuteReader())
+        {
+          while (Rdr.Read())
+          {
+            j = 0;
+            int prod_id = Convert.ToInt32(Rdr.GetDecimal(0));
+            while (prod_id_in[j] != prod_id)
+              ++j;
+            netamount_in = netamount_in + qty_in[j] * Rdr.GetDecimal(1);
+          }
         }
       }
 
@@ -1065,12 +1086,18 @@ namespace ds2xdriver
       decimal taxamount_in = (decimal)0.0825 * netamount_in;
       decimal totalamount_in = netamount_in + taxamount_in;
 
+      // Sort products by prod_id to prevent deadlocks (consistent lock ordering)
+      Array.Sort(prod_id_in, qty_in, 0, cart_items);
+
       Purchase_prm[0].Value = customerid_out;
       Purchase_prm[1].Value = cart_items;
       Purchase_prm[2].Value = netamount_in;
       Purchase_prm[3].Value = taxamount_in;
       Purchase_prm[4].Value = totalamount_in;
 
+      // Set array sizes dynamically to match cart_items (no limit!)
+      Purchase_prod_id_in.Size = cart_items;
+      Purchase_qty_in.Size = cart_items;
       Purchase_prod_id_in.Value = prod_id_in;
       Purchase_qty_in.Value = qty_in;
 

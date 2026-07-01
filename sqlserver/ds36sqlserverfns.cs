@@ -102,7 +102,7 @@ namespace ds2xdriver
     SqlCommand Get_Membership_Status, Renew_Membership;
     SqlCommand Remove_Review_By_Product, Remove_Unhelpful_Reviews, Remove_Reviews_By_Date, Adjust_Prices, Bulk_Price_Adjustment, Mark_Specials, Expire_Memberships, Purge_Old_Orders, Upgrade_Membership, Promotional_Membership;
     SqlCommand Get_Membership_Analytics, Get_New_Customer_Analytics, Get_Review_Analytics, Get_Price_Point_Analytics, Get_Inventory_Analytics;
-    SqlCommand[] CostQuery = new SqlCommand[11];
+    SqlCommand[] CostQuery = new SqlCommand[101];
 
     //
     //-------------------------------------------------------------------------------------------------
@@ -229,33 +229,14 @@ namespace ds2xdriver
       Get_Prod_Reviews_By_Actor.Parameters.Add("@search_depth_in", SqlDbType.Int);
       Get_Prod_Reviews_By_Actor.Parameters.Add("@actor_in", SqlDbType.VarChar, 50);
 
+      // Purchase - TVP-based, unlimited items
       Purchase = new SqlCommand("PURCHASE" + target_store_number, objConn);
       Purchase.CommandType = CommandType.StoredProcedure;
       Purchase.Parameters.Add("@customerid_in", SqlDbType.Int);
-      Purchase.Parameters.Add("@number_items", SqlDbType.Int);
       Purchase.Parameters.Add("@netamount_in", SqlDbType.Money);
       Purchase.Parameters.Add("@taxamount_in", SqlDbType.Money);
       Purchase.Parameters.Add("@totalamount_in", SqlDbType.Money);
-      Purchase.Parameters.Add("@prod_id_in0", SqlDbType.Int);
-      Purchase.Parameters.Add("@qty_in0", SqlDbType.Int);
-      Purchase.Parameters.Add("@prod_id_in1", SqlDbType.Int);
-      Purchase.Parameters.Add("@qty_in1", SqlDbType.Int);
-      Purchase.Parameters.Add("@prod_id_in2", SqlDbType.Int);
-      Purchase.Parameters.Add("@qty_in2", SqlDbType.Int);
-      Purchase.Parameters.Add("@prod_id_in3", SqlDbType.Int);
-      Purchase.Parameters.Add("@qty_in3", SqlDbType.Int);
-      Purchase.Parameters.Add("@prod_id_in4", SqlDbType.Int);
-      Purchase.Parameters.Add("@qty_in4", SqlDbType.Int);
-      Purchase.Parameters.Add("@prod_id_in5", SqlDbType.Int);
-      Purchase.Parameters.Add("@qty_in5", SqlDbType.Int);
-      Purchase.Parameters.Add("@prod_id_in6", SqlDbType.Int);
-      Purchase.Parameters.Add("@qty_in6", SqlDbType.Int);
-      Purchase.Parameters.Add("@prod_id_in7", SqlDbType.Int);
-      Purchase.Parameters.Add("@qty_in7", SqlDbType.Int);
-      Purchase.Parameters.Add("@prod_id_in8", SqlDbType.Int);
-      Purchase.Parameters.Add("@qty_in8", SqlDbType.Int);
-      Purchase.Parameters.Add("@prod_id_in9", SqlDbType.Int);
-      Purchase.Parameters.Add("@qty_in9", SqlDbType.Int);
+      // @line_items TVP parameter will be added dynamically in the method
 
       New_Product = new SqlCommand("AddNewInventoryProduct" + target_store_number, objConn);
       New_Product.CommandType = CommandType.StoredProcedure;
@@ -266,7 +247,7 @@ namespace ds2xdriver
       New_Product.Parameters.Add("p_stock", SqlDbType.Int);
 
       // Pre-compile cost query commands for cart sizes 1-10
-      for (int items = 1; items <= 10; items++)
+      for (int items = 1; items <= 100; items++)
       {
         string query = "SELECT PROD_ID, PRICE FROM PRODUCTS" + target_store_number + " WHERE PROD_ID IN (";
         for (int i = 0; i < items; i++)
@@ -980,78 +961,93 @@ namespace ds2xdriver
 
     //
     //-------------------------------------------------------------------------------------------------
+    // ds2purchase() - Purchase with Table-Valued Parameter (no 10-item limit)
+    //-------------------------------------------------------------------------------------------------
     //
     public bool ds2purchase(int cart_items, int[] prod_id_in, int[] qty_in, int customerid_out,
       ref int neworderid_out, ref bool IsRollback, ref double rt)
     {
       int i, j;
 
-      //Cap cart_items at 10 for this implementation of stored procedure
-      cart_items = System.Math.Min(10, cart_items);
+      // No item limit with TVP approach!
 
       // Extra, non-stored procedure query to find total cost of purchase
       Decimal netamount_in = 0;
-      //Modified by GSK for parameterization of query below - Affects performance in case of Query Caching
-      //string cost_query = "select PROD_ID, PRICE from PRODUCTS where PROD_ID in (" + prod_id_in[0];
-      //for (i=1; i<cart_items; i++) cost_query = cost_query + "," + prod_id_in[i];
-      //cost_query = cost_query + ")";
-      ////Console.WriteLine(cost_query);
-      //SqlCommand cost_command = new SqlCommand(cost_query, objConn);
 
-      // Use pre-compiled cost query command
-      var cost_command = CostQuery[cart_items];
-      for (i = 0; i < cart_items; i++)
+      // Use pre-compiled cost query command (still limited to 100 by CostQuery array size)
+      // For cart_items > 100, fall back to dynamic query
+      if (cart_items <= 100)
       {
-        cost_command.Parameters["@ARG" + i].Value = prod_id_in[i];
-      }
-
-      using (SqlDataReader Rdr = cost_command.ExecuteReader())
-      {
-        while (Rdr.Read())
+        var cost_command = CostQuery[cart_items];
+        for (i = 0; i < cart_items; i++)
         {
-          j = 0;
-          int prod_id = Rdr.GetInt32(0);
-          while (prod_id_in[j] != prod_id)
-            ++j; // Find which product was returned
-          netamount_in = netamount_in + qty_in[j] * Rdr.GetDecimal(1);
+          cost_command.Parameters["@ARG" + i].Value = prod_id_in[i];
+        }
+
+        using (SqlDataReader Rdr = cost_command.ExecuteReader())
+        {
+          while (Rdr.Read())
+          {
+            j = 0;
+            int prod_id = Rdr.GetInt32(0);
+            while (prod_id_in[j] != prod_id)
+              ++j; // Find which product was returned
+            netamount_in = netamount_in + qty_in[j] * Rdr.GetDecimal(1);
+          }
+        }
+      }
+      else
+      {
+        // Fallback: build dynamic query for carts > 100 items
+        string cost_query = "SELECT PROD_ID, PRICE FROM PRODUCTS" + target_store_number + " WHERE PROD_ID IN (" + prod_id_in[0];
+        for (i = 1; i < cart_items; i++)
+          cost_query = cost_query + "," + prod_id_in[i];
+        cost_query = cost_query + ")";
+
+        SqlCommand cost_command = new SqlCommand(cost_query, objConn);
+        using (SqlDataReader Rdr = cost_command.ExecuteReader())
+        {
+          while (Rdr.Read())
+          {
+            j = 0;
+            int prod_id = Rdr.GetInt32(0);
+            while (prod_id_in[j] != prod_id)
+              ++j;
+            netamount_in = netamount_in + qty_in[j] * Rdr.GetDecimal(1);
+          }
         }
       }
 
-      // Can use following code instead if you don't want extra roundtrip to database:
-      // Random rr = new Random(DateTime.Now.Millisecond);
-      // Decimal netamount_in = (Decimal) (0.01 * (1 + rr.Next(40000)));
       Decimal taxamount_in = (Decimal)0.0825 * netamount_in;
       Decimal totalamount_in = netamount_in + taxamount_in;
-      //Console.WriteLine(netamount_in);
+
+      // Sort products by prod_id to prevent deadlocks (consistent lock ordering)
+      Array.Sort(prod_id_in, qty_in, 0, cart_items);
+
+      // Build DataTable for TVP
+      DataTable lineItemsTable = new DataTable();
+      lineItemsTable.Columns.Add("prod_id", typeof(int));
+      lineItemsTable.Columns.Add("qty", typeof(int));
+
+      for (i = 0; i < cart_items; i++)
+      {
+        lineItemsTable.Rows.Add(prod_id_in[i], qty_in[i]);
+      }
 
       Purchase.Parameters["@customerid_in"].Value = customerid_out;
-      Purchase.Parameters["@number_items"].Value = cart_items;
       Purchase.Parameters["@netamount_in"].Value = netamount_in;
       Purchase.Parameters["@taxamount_in"].Value = taxamount_in;
       Purchase.Parameters["@totalamount_in"].Value = totalamount_in;
-      Purchase.Parameters["@prod_id_in0"].Value = prod_id_in[0];
-      Purchase.Parameters["@qty_in0"].Value = qty_in[0];
-      Purchase.Parameters["@prod_id_in1"].Value = prod_id_in[1];
-      Purchase.Parameters["@qty_in1"].Value = qty_in[1];
-      Purchase.Parameters["@prod_id_in2"].Value = prod_id_in[2];
-      Purchase.Parameters["@qty_in2"].Value = qty_in[2];
-      Purchase.Parameters["@prod_id_in3"].Value = prod_id_in[3];
-      Purchase.Parameters["@qty_in3"].Value = qty_in[3];
-      Purchase.Parameters["@prod_id_in4"].Value = prod_id_in[4];
-      Purchase.Parameters["@qty_in4"].Value = qty_in[4];
-      Purchase.Parameters["@prod_id_in5"].Value = prod_id_in[5];
-      Purchase.Parameters["@qty_in5"].Value = qty_in[5];
-      Purchase.Parameters["@prod_id_in6"].Value = prod_id_in[6];
-      Purchase.Parameters["@qty_in6"].Value = qty_in[6];
-      Purchase.Parameters["@prod_id_in7"].Value = prod_id_in[7];
-      Purchase.Parameters["@qty_in7"].Value = qty_in[7];
-      Purchase.Parameters["@prod_id_in8"].Value = prod_id_in[8];
-      Purchase.Parameters["@qty_in8"].Value = qty_in[8];
-      Purchase.Parameters["@prod_id_in9"].Value = prod_id_in[9];
-      Purchase.Parameters["@qty_in9"].Value = qty_in[9];
 
-      //    Console.WriteLine("Thread {0}: Calling Purchase w/ customerid = {1}  number_items= {2}",
-      //      Thread.CurrentThread.Name, customerid_out, cart_items);
+      // Add or update the TVP parameter
+      if (Purchase.Parameters.Contains("@line_items"))
+        Purchase.Parameters["@line_items"].Value = lineItemsTable;
+      else
+      {
+        SqlParameter tvpParam = Purchase.Parameters.AddWithValue("@line_items", lineItemsTable);
+        tvpParam.SqlDbType = SqlDbType.Structured;
+        tvpParam.TypeName = "LineItemsType" + target_store_number;
+      }
 
       Stopwatch timer = Stopwatch.StartNew();
 

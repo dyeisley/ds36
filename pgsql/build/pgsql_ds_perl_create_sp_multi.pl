@@ -251,20 +251,11 @@ END;
 
 CREATE OR REPLACE FUNCTION PURCHASE$k (
     IN customerid_in INTEGER,
-    IN number_items INTEGER,
     IN netamount_in NUMERIC,
     IN taxamount_in NUMERIC,
     IN totalamount_in NUMERIC,
-    IN prod_id_in0 INTEGER DEFAULT 0, IN qty_in0 INTEGER DEFAULT 0,
-    IN prod_id_in1 INTEGER DEFAULT 0, IN qty_in1 INTEGER DEFAULT 0,
-    IN prod_id_in2 INTEGER DEFAULT 0, IN qty_in2 INTEGER DEFAULT 0,
-    IN prod_id_in3 INTEGER DEFAULT 0, IN qty_in3 INTEGER DEFAULT 0,
-    IN prod_id_in4 INTEGER DEFAULT 0, IN qty_in4 INTEGER DEFAULT 0,
-    IN prod_id_in5 INTEGER DEFAULT 0, IN qty_in5 INTEGER DEFAULT 0,
-    IN prod_id_in6 INTEGER DEFAULT 0, IN qty_in6 INTEGER DEFAULT 0,
-    IN prod_id_in7 INTEGER DEFAULT 0, IN qty_in7 INTEGER DEFAULT 0,
-    IN prod_id_in8 INTEGER DEFAULT 0, IN qty_in8 INTEGER DEFAULT 0,
-    IN prod_id_in9 INTEGER DEFAULT 0, IN qty_in9 INTEGER DEFAULT 0
+    IN prod_ids INTEGER[],
+    IN qtys INTEGER[]
 )
 RETURNS INTEGER
 LANGUAGE plpgsql
@@ -273,90 +264,75 @@ DECLARE
   date_in TIMESTAMP;
   neworderid INTEGER;
   item_id    INTEGER;
-  prodid    INTEGER;
+  prodid     INTEGER;
   qty        INTEGER;
   cur_quan   INTEGER;
   new_quan   INTEGER;
   cur_sales  INTEGER;
   new_sales  INTEGER;
+  cart_items INTEGER;
 BEGIN
- date_in := current_timestamp;
- BEGIN
-   INSERT INTO ORDERS$k
-    (
-    ORDERDATE, CUSTOMERID, NETAMOUNT, TAX, TOTALAMOUNT
-    )
-  VALUES
-  (
-    date_in, customerid_in, netamount_in, taxamount_in, totalamount_in
-    )
+  date_in := current_timestamp;
+  cart_items := array_length(prod_ids, 1);
+
+  -- Explicit transaction control to ensure atomicity
+  BEGIN
+    INSERT INTO ORDERS$k
+      (
+      ORDERDATE, CUSTOMERID, NETAMOUNT, TAX, TOTALAMOUNT
+      )
+    VALUES
+      (
+      date_in, customerid_in, netamount_in, taxamount_in, totalamount_in
+      )
     RETURNING orderid INTO neworderid;
 
+    -- Process line items one by one (preserves RESTOCK trigger behavior)
+    FOR item_id IN 1..cart_items LOOP
+      prodid := prod_ids[item_id];
+      qty := qtys[item_id];
 
-  -- neworderid := CURRVAL('orders_orderid_seq');
+      SELECT QUAN_IN_STOCK, SALES INTO cur_quan, cur_sales
+      FROM INVENTORY$k WHERE PROD_ID = prodid;
 
+      new_quan := cur_quan - qty;
+      new_sales := cur_sales + qty;
 
-  -- ADD LINE ITEMS TO ORDERLINES
+      IF (new_quan < 0) THEN
+        -- Insufficient stock - raise exception to trigger rollback
+        RAISE EXCEPTION 'Insufficient stock for product %', prodid;
+      END IF;
 
-  item_id := 0;
+      UPDATE INVENTORY$k SET QUAN_IN_STOCK = new_quan, SALES = new_sales
+      WHERE PROD_ID = prodid;
 
-  WHILE (item_id < number_items) LOOP
-    prodid := CASE item_id WHEN 0 THEN prod_id_in0
-                                  WHEN 1 THEN prod_id_in1
-                                  WHEN 2 THEN prod_id_in2
-                                  WHEN 3 THEN prod_id_in3
-                                  WHEN 4 THEN prod_id_in4
-                                  WHEN 5 THEN prod_id_in5
-                                  WHEN 6 THEN prod_id_in6
-                                  WHEN 7 THEN prod_id_in7
-                                  WHEN 8 THEN prod_id_in8
-                                  WHEN 9 THEN prod_id_in9
-                      END;
+      INSERT INTO ORDERLINES$k
+        (
+        ORDERLINEID, ORDERID, PROD_ID, QUANTITY, ORDERDATE
+        )
+      VALUES
+        (
+        item_id, neworderid, prodid, qty, date_in
+        );
 
-    qty := CASE item_id WHEN 0 THEN qty_in0
-                                    WHEN 1 THEN qty_in1
-                                    WHEN 2 THEN qty_in2
-                                    WHEN 3 THEN qty_in3
-                                    WHEN 4 THEN qty_in4
-                                    WHEN 5 THEN qty_in5
-                                    WHEN 6 THEN qty_in6
-                                    WHEN 7 THEN qty_in7
-                                    WHEN 8 THEN qty_in8
-                                    WHEN 9 THEN qty_in9
-                        END;
+      INSERT INTO CUST_HIST$k
+        (
+        CUSTOMERID, ORDERID, PROD_ID
+        )
+      VALUES
+        (
+        customerid_in, neworderid, prodid
+        );
+    END LOOP;
 
-    SELECT QUAN_IN_STOCK, SALES  INTO cur_quan, cur_sales FROM INVENTORY$k WHERE PROD_ID=prodid;
-    new_quan := cur_quan - qty;
-    new_sales := cur_Sales + qty;
+    -- All items processed successfully
+    RETURN neworderid;
 
-    IF (new_quan < 0) THEN
-        -- RAISE EXCEPTION 'Insufficient Quantity for prodid:%' , prodid;
-        RETURN 0;
-    ELSE
-        UPDATE INVENTORY$k SET QUAN_IN_STOCK=new_quan, SALES=new_sales WHERE PROD_ID=prodid;
-        INSERT INTO ORDERLINES$k
-          (
-          ORDERLINEID, ORDERID, PROD_ID, QUANTITY, ORDERDATE
-          )
-        VALUES
-          (
-          item_id + 1, neworderid, prodid, qty, date_in
-          );
-
-        INSERT INTO CUST_HIST$k
-          (
-          CUSTOMERID, ORDERID, PROD_ID
-          )
-        VALUES
-          (
-          customerid_in, neworderid, prodid
-          );
-
-        item_id := item_id + 1;
-     END IF;
-  END LOOP;
-  RETURN neworderid;
- END;
+  EXCEPTION
+    WHEN OTHERS THEN
+      -- Any error (including insufficient stock) causes full rollback
+      RETURN 0;
+  END;
 END;
 \$\$;
 
