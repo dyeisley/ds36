@@ -1352,32 +1352,54 @@ CREATE OR REPLACE PROCEDURE DS3.GetMembershipAnalytics$k (
 AS
 BEGIN
     OPEN p_cursor FOR
-    WITH CustomerOrders AS (
+    -- Aggregate orders by customer tier (from LEFT JOIN with MEMBERSHIP)
+    -- This scans ORDERS once and joins to MEMBERSHIP, avoiding full CUSTOMERS scan
+    WITH order_stats AS (
         SELECT
-            CUSTOMERID,
+            NVL(m.MEMBERSHIPTYPE, -999) AS tier,  -- -999 for non-members
+            CASE WHEN m.EXPIREDATE >= TRUNC(SYSDATE) THEN 1 ELSE 0 END AS is_active,
             COUNT(*) AS order_count,
-            SUM(TOTALAMOUNT) AS total_revenue
-        FROM DS3.ORDERS$k
-        GROUP BY CUSTOMERID
+            SUM(o.TOTALAMOUNT) AS total_revenue
+        FROM DS3.ORDERS$k o
+        LEFT JOIN DS3.MEMBERSHIP$k m ON o.CUSTOMERID = m.CUSTOMERID
+        GROUP BY NVL(m.MEMBERSHIPTYPE, -999), CASE WHEN m.EXPIREDATE >= TRUNC(SYSDATE) THEN 1 ELSE 0 END
+    ),
+    -- Get membership counts directly from MEMBERSHIP table
+    member_stats AS (
+        SELECT
+            MEMBERSHIPTYPE AS tier,
+            COUNT(CASE WHEN EXPIREDATE >= TRUNC(SYSDATE) THEN 1 END) AS active_count,
+            COUNT(CASE WHEN EXPIREDATE < TRUNC(SYSDATE) THEN 1 END) AS expired_count
+        FROM DS3.MEMBERSHIP$k
+        GROUP BY MEMBERSHIPTYPE
+    ),
+    -- Count non-members (customers without membership records)
+    non_member_count AS (
+        SELECT COUNT(*) AS cnt
+        FROM DS3.CUSTOMERS$k c
+        WHERE NOT EXISTS (SELECT 1 FROM DS3.MEMBERSHIP$k m WHERE m.CUSTOMERID = c.CUSTOMERID)
     )
+    -- Combine results: tiers 1, 2, 3, and NULL (non-members)
     SELECT
-        m.MEMBERSHIPTYPE AS membership_tier,
-        COUNT(DISTINCT CASE
-            WHEN m.MEMBERSHIPTYPE IS NULL THEN c.CUSTOMERID
-            WHEN m.EXPIREDATE >= TRUNC(SYSDATE) THEN c.CUSTOMERID
-            ELSE NULL
-        END) AS active_member_count,
-        COUNT(DISTINCT CASE
-            WHEN m.MEMBERSHIPTYPE IS NOT NULL AND m.EXPIREDATE < TRUNC(SYSDATE) THEN c.CUSTOMERID
-            ELSE NULL
-        END) AS expired_member_count,
-        NVL(SUM(co.order_count), 0) AS total_orders,
-        ROUND(NVL(SUM(co.total_revenue), 0), 2) AS total_revenue
-    FROM DS3.CUSTOMERS$k c
-    LEFT JOIN DS3.MEMBERSHIP$k m ON c.CUSTOMERID = m.CUSTOMERID
-    LEFT JOIN CustomerOrders co ON c.CUSTOMERID = co.CUSTOMERID
-    GROUP BY m.MEMBERSHIPTYPE
-    ORDER BY CASE WHEN m.MEMBERSHIPTYPE IS NULL THEN -1 ELSE m.MEMBERSHIPTYPE END DESC;
+        CASE WHEN all_tiers.tier = -999 THEN NULL ELSE all_tiers.tier END AS membership_tier,
+        CASE
+            WHEN all_tiers.tier = -999 THEN (SELECT cnt FROM non_member_count)
+            ELSE NVL(ms.active_count, 0)
+        END AS active_member_count,
+        NVL(ms.expired_count, 0) AS expired_member_count,
+        NVL(SUM(os.order_count), 0) AS total_orders,
+        ROUND(NVL(SUM(os.total_revenue), 0), 2) AS total_revenue
+    FROM (
+        SELECT DISTINCT tier FROM order_stats
+        UNION
+        SELECT tier FROM member_stats
+        UNION
+        SELECT -999 AS tier FROM DUAL  -- Ensure non-members appear even if no orders
+    ) all_tiers
+    LEFT JOIN order_stats os ON all_tiers.tier = os.tier
+    LEFT JOIN member_stats ms ON all_tiers.tier = ms.tier
+    GROUP BY all_tiers.tier, ms.active_count, ms.expired_count
+    ORDER BY CASE WHEN all_tiers.tier = -999 THEN -1 ELSE all_tiers.tier END DESC;
 END;
 /
 

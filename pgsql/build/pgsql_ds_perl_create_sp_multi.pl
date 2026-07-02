@@ -1061,32 +1061,54 @@ RETURNS TABLE (
 ) AS \$\$
 BEGIN
     RETURN QUERY
-    WITH CustomerOrders AS (
+    -- Aggregate orders by customer tier (from LEFT JOIN with MEMBERSHIP)
+    -- This scans ORDERS once and joins to MEMBERSHIP, avoiding full CUSTOMERS scan
+    WITH order_stats AS (
         SELECT
-            customerid,
+            COALESCE(m.membershiptype, -999) AS tier,  -- -999 for non-members
+            CASE WHEN m.expiredate >= CURRENT_DATE THEN 1 ELSE 0 END AS is_active,
             COUNT(*) AS order_count,
-            SUM(totalamount) AS total_revenue
-        FROM orders$k
-        GROUP BY customerid
+            SUM(o.totalamount) AS total_revenue
+        FROM orders$k o
+        LEFT JOIN membership$k m ON o.customerid = m.customerid
+        GROUP BY COALESCE(m.membershiptype, -999), CASE WHEN m.expiredate >= CURRENT_DATE THEN 1 ELSE 0 END
+    ),
+    -- Get membership counts directly from MEMBERSHIP table
+    member_stats AS (
+        SELECT
+            membershiptype AS tier,
+            COUNT(CASE WHEN expiredate >= CURRENT_DATE THEN 1 END) AS active_count,
+            COUNT(CASE WHEN expiredate < CURRENT_DATE THEN 1 END) AS expired_count
+        FROM membership$k
+        GROUP BY membershiptype
+    ),
+    -- Count non-members (customers without membership records)
+    non_member_count AS (
+        SELECT COUNT(*) AS cnt
+        FROM customers$k c
+        WHERE NOT EXISTS (SELECT 1 FROM membership$k m WHERE m.customerid = c.customerid)
     )
+    -- Combine results: tiers 1, 2, 3, and NULL (non-members)
     SELECT
-        m.membershiptype AS membership_tier,
-        COUNT(DISTINCT CASE
-            WHEN m.membershiptype IS NULL THEN c.customerid
-            WHEN m.expiredate >= CURRENT_DATE THEN c.customerid
-            ELSE NULL
-        END) AS active_member_count,
-        COUNT(DISTINCT CASE
-            WHEN m.membershiptype IS NOT NULL AND m.expiredate < CURRENT_DATE THEN c.customerid
-            ELSE NULL
-        END) AS expired_member_count,
-        COALESCE(SUM(co.order_count), 0)::BIGINT AS total_orders,
-        ROUND(COALESCE(SUM(co.total_revenue), 0), 2) AS total_revenue
-    FROM customers$k c
-    LEFT JOIN membership$k m ON c.customerid = m.customerid
-    LEFT JOIN CustomerOrders co ON c.customerid = co.customerid
-    GROUP BY m.membershiptype
-    ORDER BY CASE WHEN m.membershiptype IS NULL THEN -1 ELSE m.membershiptype END DESC;
+        CASE WHEN all_tiers.tier = -999 THEN NULL ELSE all_tiers.tier END AS membership_tier,
+        CASE
+            WHEN all_tiers.tier = -999 THEN (SELECT cnt FROM non_member_count)
+            ELSE COALESCE(ms.active_count, 0)
+        END AS active_member_count,
+        COALESCE(ms.expired_count, 0) AS expired_member_count,
+        COALESCE(SUM(os.order_count), 0)::BIGINT AS total_orders,
+        ROUND(COALESCE(SUM(os.total_revenue), 0), 2) AS total_revenue
+    FROM (
+        SELECT DISTINCT tier FROM order_stats
+        UNION
+        SELECT tier FROM member_stats
+        UNION
+        SELECT -999 AS tier  -- Ensure non-members appear even if no orders
+    ) all_tiers
+    LEFT JOIN order_stats os ON all_tiers.tier = os.tier
+    LEFT JOIN member_stats ms ON all_tiers.tier = ms.tier
+    GROUP BY all_tiers.tier, ms.active_count, ms.expired_count
+    ORDER BY CASE WHEN all_tiers.tier = -999 THEN -1 ELSE all_tiers.tier END DESC;
 END;
 \$\$
 LANGUAGE plpgsql;

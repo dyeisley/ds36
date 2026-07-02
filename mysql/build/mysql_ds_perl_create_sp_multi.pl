@@ -1001,35 +1001,64 @@ END $$
 DROP PROCEDURE IF EXISTS DS3.GetMembershipAnalytics$k $$
 CREATE PROCEDURE DS3.GetMembershipAnalytics$k()
 BEGIN
-  -- Use READ UNCOMMITTED to avoid locking MEMBERSHIP table (analytics is read-only, dirty reads acceptable)
+  -- Use a single point-in-time timestamp to guarantee consistency
+  DECLARE v_now DATETIME;
+  SET v_now = NOW();
+
+  -- Use READ UNCOMMITTED to avoid locking tables
   SET SESSION TRANSACTION ISOLATION LEVEL READ UNCOMMITTED;
 
-  WITH CustomerOrders AS (
+  -- Simplify order stats: Group ONLY by tier. Drop the active/expired split since it's discarded later anyway.
+  WITH order_stats AS (
     SELECT
-      CUSTOMERID,
+      IFNULL(m.MEMBERSHIPTYPE, -999) AS tier,
       COUNT(*) AS order_count,
-      SUM(TOTALAMOUNT) AS total_revenue
-    FROM ORDERS$k
-    GROUP BY CUSTOMERID
+      SUM(o.TOTALAMOUNT) AS total_revenue
+    FROM ORDERS$k o
+    LEFT JOIN MEMBERSHIP$k m ON o.CUSTOMERID = m.CUSTOMERID
+    GROUP BY IFNULL(m.MEMBERSHIPTYPE, -999)
+  ),
+
+  -- Membership breakdown using our fixed timestamp variable
+  member_stats AS (
+    SELECT
+      MEMBERSHIPTYPE AS tier,
+      COUNT(CASE WHEN EXPIREDATE >= v_now THEN 1 END) AS active_count,
+      COUNT(CASE WHEN EXPIREDATE < v_now THEN 1 END) AS expired_count
+    FROM MEMBERSHIP$k
+    GROUP BY MEMBERSHIPTYPE
+  ),
+
+  -- Optimized scalar check for non-members
+  non_member_count AS (
+    SELECT COUNT(*) AS cnt
+    FROM CUSTOMERS$k c
+    WHERE NOT EXISTS (SELECT 1 FROM MEMBERSHIP$k m WHERE m.CUSTOMERID = c.CUSTOMERID)
+  ),
+
+  -- Create a clean anchor list of all possible tiers to drive the LEFT JOINs
+  tier_universe AS (
+    SELECT 1 AS tier UNION ALL
+    SELECT 2 UNION ALL
+    SELECT 3 UNION ALL
+    SELECT -999
   )
+
+  -- Final SELECT: Removed the redundant outer GROUP BY
   SELECT
-    m.MEMBERSHIPTYPE AS membership_tier,
-    CAST(COUNT(DISTINCT CASE
-      WHEN m.MEMBERSHIPTYPE IS NULL THEN c.CUSTOMERID  -- non-members, count all
-      WHEN m.EXPIREDATE >= NOW() THEN c.CUSTOMERID  -- active members only
-      ELSE NULL  -- expired members, don't count
-    END) AS UNSIGNED) AS active_member_count,
-    CAST(COUNT(DISTINCT CASE
-      WHEN m.MEMBERSHIPTYPE IS NOT NULL AND m.EXPIREDATE < NOW() THEN c.CUSTOMERID
-      ELSE NULL
-    END) AS UNSIGNED) AS expired_member_count,
-    CAST(IFNULL(SUM(co.order_count), 0) AS UNSIGNED) AS total_orders,
-    ROUND(IFNULL(SUM(co.total_revenue), 0), 2) AS total_revenue
-  FROM CUSTOMERS$k c
-  LEFT JOIN MEMBERSHIP$k m ON c.CUSTOMERID = m.CUSTOMERID
-  LEFT JOIN CustomerOrders co ON c.CUSTOMERID = co.CUSTOMERID
-  GROUP BY m.MEMBERSHIPTYPE
-  ORDER BY CASE WHEN m.MEMBERSHIPTYPE IS NULL THEN -1 ELSE m.MEMBERSHIPTYPE END DESC;
+    CASE WHEN tu.tier = -999 THEN NULL ELSE tu.tier END AS membership_tier,
+    CAST(CASE
+      WHEN tu.tier = -999 THEN (SELECT cnt FROM non_member_count)
+      ELSE IFNULL(ms.active_count, 0)
+    END AS UNSIGNED) AS active_member_count,
+    CAST(IFNULL(ms.expired_count, 0) AS UNSIGNED) AS expired_member_count,
+    CAST(IFNULL(os.order_count, 0) AS UNSIGNED) AS total_orders,
+    ROUND(IFNULL(os.total_revenue, 0), 2) AS total_revenue
+  FROM tier_universe tu
+  LEFT JOIN order_stats os ON tu.tier = os.tier
+  LEFT JOIN member_stats ms ON tu.tier = ms.tier
+  ORDER BY CASE WHEN tu.tier = -999 THEN -1 ELSE tu.tier END DESC;
+
 END $$
 
 DROP PROCEDURE IF EXISTS DS3.GetNewCustomerAnalytics$k $$
