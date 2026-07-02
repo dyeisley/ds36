@@ -1350,56 +1350,62 @@ CREATE OR REPLACE PROCEDURE DS3.GetMembershipAnalytics$k (
     p_cursor OUT SYS_REFCURSOR
 )
 AS
+    v_now DATE;
 BEGIN
+    -- Use a single point-in-time timestamp to guarantee consistency
+    v_now := TRUNC(SYSDATE);
+
     OPEN p_cursor FOR
-    -- Aggregate orders by customer tier (from LEFT JOIN with MEMBERSHIP)
-    -- This scans ORDERS once and joins to MEMBERSHIP, avoiding full CUSTOMERS scan
+    -- Simplify order stats: Group ONLY by tier. Drop the active/expired split since it's discarded later anyway.
     WITH order_stats AS (
         SELECT
-            NVL(m.MEMBERSHIPTYPE, -999) AS tier,  -- -999 for non-members
-            CASE WHEN m.EXPIREDATE >= TRUNC(SYSDATE) THEN 1 ELSE 0 END AS is_active,
+            NVL(m.MEMBERSHIPTYPE, -999) AS tier,
             COUNT(*) AS order_count,
             SUM(o.TOTALAMOUNT) AS total_revenue
         FROM DS3.ORDERS$k o
         LEFT JOIN DS3.MEMBERSHIP$k m ON o.CUSTOMERID = m.CUSTOMERID
-        GROUP BY NVL(m.MEMBERSHIPTYPE, -999), CASE WHEN m.EXPIREDATE >= TRUNC(SYSDATE) THEN 1 ELSE 0 END
+        GROUP BY NVL(m.MEMBERSHIPTYPE, -999)
     ),
-    -- Get membership counts directly from MEMBERSHIP table
+
+    -- Membership breakdown using our fixed timestamp variable
     member_stats AS (
         SELECT
             MEMBERSHIPTYPE AS tier,
-            COUNT(CASE WHEN EXPIREDATE >= TRUNC(SYSDATE) THEN 1 END) AS active_count,
-            COUNT(CASE WHEN EXPIREDATE < TRUNC(SYSDATE) THEN 1 END) AS expired_count
+            COUNT(CASE WHEN EXPIREDATE >= v_now THEN 1 END) AS active_count,
+            COUNT(CASE WHEN EXPIREDATE < v_now THEN 1 END) AS expired_count
         FROM DS3.MEMBERSHIP$k
         GROUP BY MEMBERSHIPTYPE
     ),
-    -- Count non-members (customers without membership records)
+
+    -- Optimized scalar check for non-members
     non_member_count AS (
         SELECT COUNT(*) AS cnt
         FROM DS3.CUSTOMERS$k c
         WHERE NOT EXISTS (SELECT 1 FROM DS3.MEMBERSHIP$k m WHERE m.CUSTOMERID = c.CUSTOMERID)
+    ),
+
+    -- Create a clean anchor list of all possible tiers to drive the LEFT JOINs
+    tier_universe AS (
+        SELECT 1 AS tier FROM DUAL UNION ALL
+        SELECT 2 FROM DUAL UNION ALL
+        SELECT 3 FROM DUAL UNION ALL
+        SELECT -999 FROM DUAL
     )
-    -- Combine results: tiers 1, 2, 3, and NULL (non-members)
+
+    -- Final SELECT: Removed the redundant outer GROUP BY
     SELECT
-        CASE WHEN all_tiers.tier = -999 THEN NULL ELSE all_tiers.tier END AS membership_tier,
+        CASE WHEN tu.tier = -999 THEN NULL ELSE tu.tier END AS membership_tier,
         CASE
-            WHEN all_tiers.tier = -999 THEN (SELECT cnt FROM non_member_count)
+            WHEN tu.tier = -999 THEN (SELECT cnt FROM non_member_count)
             ELSE NVL(ms.active_count, 0)
         END AS active_member_count,
         NVL(ms.expired_count, 0) AS expired_member_count,
-        NVL(SUM(os.order_count), 0) AS total_orders,
-        ROUND(NVL(SUM(os.total_revenue), 0), 2) AS total_revenue
-    FROM (
-        SELECT DISTINCT tier FROM order_stats
-        UNION
-        SELECT tier FROM member_stats
-        UNION
-        SELECT -999 AS tier FROM DUAL  -- Ensure non-members appear even if no orders
-    ) all_tiers
-    LEFT JOIN order_stats os ON all_tiers.tier = os.tier
-    LEFT JOIN member_stats ms ON all_tiers.tier = ms.tier
-    GROUP BY all_tiers.tier, ms.active_count, ms.expired_count
-    ORDER BY CASE WHEN all_tiers.tier = -999 THEN -1 ELSE all_tiers.tier END DESC;
+        NVL(os.order_count, 0) AS total_orders,
+        ROUND(NVL(os.total_revenue, 0), 2) AS total_revenue
+    FROM tier_universe tu
+    LEFT JOIN order_stats os ON tu.tier = os.tier
+    LEFT JOIN member_stats ms ON tu.tier = ms.tier
+    ORDER BY CASE WHEN tu.tier = -999 THEN -1 ELSE tu.tier END DESC;
 END;
 /
 

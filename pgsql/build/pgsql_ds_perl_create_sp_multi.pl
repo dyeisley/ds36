@@ -1059,56 +1059,63 @@ RETURNS TABLE (
     total_orders BIGINT,
     total_revenue NUMERIC(12,2)
 ) AS \$\$
+DECLARE
+    v_now DATE;
 BEGIN
+    -- Use a single point-in-time timestamp to guarantee consistency
+    v_now := CURRENT_DATE;
+
     RETURN QUERY
-    -- Aggregate orders by customer tier (from LEFT JOIN with MEMBERSHIP)
-    -- This scans ORDERS once and joins to MEMBERSHIP, avoiding full CUSTOMERS scan
+    -- Simplify order stats: Group ONLY by tier. Drop the active/expired split since it's discarded later anyway.
     WITH order_stats AS (
         SELECT
-            COALESCE(m.membershiptype, -999) AS tier,  -- -999 for non-members
-            CASE WHEN m.expiredate >= CURRENT_DATE THEN 1 ELSE 0 END AS is_active,
+            COALESCE(m.membershiptype, -999) AS tier,
             COUNT(*) AS order_count,
             SUM(o.totalamount) AS total_revenue
         FROM orders$k o
         LEFT JOIN membership$k m ON o.customerid = m.customerid
-        GROUP BY COALESCE(m.membershiptype, -999), CASE WHEN m.expiredate >= CURRENT_DATE THEN 1 ELSE 0 END
+        GROUP BY COALESCE(m.membershiptype, -999)
     ),
-    -- Get membership counts directly from MEMBERSHIP table
+
+    -- Membership breakdown using our fixed timestamp variable
     member_stats AS (
         SELECT
             membershiptype AS tier,
-            COUNT(CASE WHEN expiredate >= CURRENT_DATE THEN 1 END) AS active_count,
-            COUNT(CASE WHEN expiredate < CURRENT_DATE THEN 1 END) AS expired_count
+            COUNT(CASE WHEN expiredate >= v_now THEN 1 END) AS active_count,
+            COUNT(CASE WHEN expiredate < v_now THEN 1 END) AS expired_count
         FROM membership$k
         GROUP BY membershiptype
     ),
-    -- Count non-members (customers without membership records)
+
+    -- Optimized scalar check for non-members
     non_member_count AS (
         SELECT COUNT(*) AS cnt
         FROM customers$k c
         WHERE NOT EXISTS (SELECT 1 FROM membership$k m WHERE m.customerid = c.customerid)
+    ),
+
+    -- Create a clean anchor list of all possible tiers to drive the LEFT JOINs
+    tier_universe AS (
+        SELECT 1 AS tier UNION ALL
+        SELECT 2 UNION ALL
+        SELECT 3 UNION ALL
+        SELECT -999
     )
-    -- Combine results: tiers 1, 2, 3, and NULL (non-members)
+
+    -- Final SELECT: Removed the redundant outer GROUP BY
     SELECT
-        CASE WHEN all_tiers.tier = -999 THEN NULL ELSE all_tiers.tier END AS membership_tier,
+        CASE WHEN tu.tier = -999 THEN NULL ELSE tu.tier END AS membership_tier,
         CASE
-            WHEN all_tiers.tier = -999 THEN (SELECT cnt FROM non_member_count)
+            WHEN tu.tier = -999 THEN (SELECT cnt FROM non_member_count)
             ELSE COALESCE(ms.active_count, 0)
         END AS active_member_count,
         COALESCE(ms.expired_count, 0) AS expired_member_count,
-        COALESCE(SUM(os.order_count), 0)::BIGINT AS total_orders,
-        ROUND(COALESCE(SUM(os.total_revenue), 0), 2) AS total_revenue
-    FROM (
-        SELECT DISTINCT tier FROM order_stats
-        UNION
-        SELECT tier FROM member_stats
-        UNION
-        SELECT -999 AS tier  -- Ensure non-members appear even if no orders
-    ) all_tiers
-    LEFT JOIN order_stats os ON all_tiers.tier = os.tier
-    LEFT JOIN member_stats ms ON all_tiers.tier = ms.tier
-    GROUP BY all_tiers.tier, ms.active_count, ms.expired_count
-    ORDER BY CASE WHEN all_tiers.tier = -999 THEN -1 ELSE all_tiers.tier END DESC;
+        COALESCE(os.order_count, 0)::BIGINT AS total_orders,
+        ROUND(COALESCE(os.total_revenue, 0), 2) AS total_revenue
+    FROM tier_universe tu
+    LEFT JOIN order_stats os ON tu.tier = os.tier
+    LEFT JOIN member_stats ms ON tu.tier = ms.tier
+    ORDER BY CASE WHEN tu.tier = -999 THEN -1 ELSE tu.tier END DESC;
 END;
 \$\$
 LANGUAGE plpgsql;
