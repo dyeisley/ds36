@@ -1270,13 +1270,18 @@ CREATE OR REPLACE PROCEDURE DS3.PromotionalMembership$k (
     v_old_expiredate DATE;
     v_new_expiredate DATE;
     v_operation_type VARCHAR2(10);
+    v_current_slice INT;
 
     CURSOR customer_cursor IS
         SELECT CUSTOMERID
         FROM DS3.CUSTOMERS$k
-        ORDER BY DBMS_RANDOM.VALUE
+        WHERE MOD(CUSTOMERID, 100) = v_current_slice
+        ORDER BY CUSTOMERID
         FETCH FIRST p_batch_size ROWS ONLY;
 BEGIN
+    -- Time-based slicing: cycles through all customers every 100 seconds (slice 0-99)
+    SELECT MOD(EXTRACT(SECOND FROM SYSTIMESTAMP), 100) INTO v_current_slice FROM DUAL;
+
     p_rows_affected := 0;
 
     FOR customer_rec IN customer_cursor LOOP

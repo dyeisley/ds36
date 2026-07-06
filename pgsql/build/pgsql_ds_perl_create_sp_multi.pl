@@ -984,13 +984,18 @@ DECLARE
     v_old_expiredate DATE;
     v_new_expiredate DATE;
     v_operation_type VARCHAR(10);
+    v_current_slice INT;
     rows_affected INT := 0;
 BEGIN
-    -- Process random batch of customers
+    -- Time-based slicing: cycles through all customers every 100 seconds (slice 0-99)
+    v_current_slice := EXTRACT(SECOND FROM CURRENT_TIMESTAMP)::INT % 100;
+
+    -- Process batch of customers from current time slice
     FOR v_customerid IN
         SELECT customerid
         FROM customers$k
-        ORDER BY RANDOM()
+        WHERE customerid % 100 = v_current_slice
+        ORDER BY customerid
         LIMIT p_batch_size
     LOOP
         -- Check if customer has membership

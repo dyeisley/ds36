@@ -879,15 +879,20 @@ BEGIN
     DECLARE v_new_tier INT;
     DECLARE v_old_expiredate DATE;
     DECLARE v_new_expiredate DATE;
+    DECLARE v_current_slice INT;
 
-    -- Cursor to select random batch of customers
+    -- Cursor to select batch of customers from current time slice
     DECLARE customer_cursor CURSOR FOR
         SELECT CUSTOMERID
         FROM CUSTOMERS$k
-        ORDER BY RAND()
+        WHERE CUSTOMERID % 100 = v_current_slice
+        ORDER BY CUSTOMERID
         LIMIT p_batch_size;
 
     DECLARE CONTINUE HANDLER FOR NOT FOUND SET done = TRUE;
+
+    -- Time-based slicing: cycles through all customers every 100 seconds (slice 0-99)
+    SET v_current_slice = SECOND(NOW()) % 100;
 
     -- Create temporary table to track operations
     CREATE TEMPORARY TABLE IF NOT EXISTS temp_promo_ops (
