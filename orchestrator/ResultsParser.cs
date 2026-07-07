@@ -265,9 +265,15 @@ namespace DvdStoreOrchestrator
       Console.WriteLine("Database            Hostname           OPM    Avg RT  Rollback%  Orders");
       Console.WriteLine("───────────────────────────────────────────────────────────────────────");
 
+
       foreach (var r in results.OrderByDescending(x => x.Opm))
       {
-        Console.WriteLine($"{r.DbType,-18} {r.Hostname,-15}  {r.Opm,6:N0}  {r.AvgRt,6:F1}ms    {r.RollbackPct,5:F1}%  {r.TotalOrders,7:N0}");
+        // Extract hostname (before first dot), then truncate to 15 chars if needed
+        string shortHostname = r.Hostname.Split('.')[0];
+        if (shortHostname.Length > 15)
+          shortHostname = shortHostname.Substring(0, 15);
+
+        Console.WriteLine($"{r.DbType,-18} {shortHostname,-15}  {r.Opm,6:N0}  {r.AvgRt,6:F1}ms    {r.RollbackPct,5:F1}%  {r.TotalOrders,7:N0}");
       }
       Console.WriteLine("───────────────────────────────────────────────────────────────────────");
 
