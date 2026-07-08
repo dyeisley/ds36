@@ -8,6 +8,97 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [3.6.0] - 2026-06-30
 
+### Added - Vector Search Support for PostgreSQL and Oracle
+
+**PostgreSQL vector search implementation:**
+
+- **Functionality**:
+  - 384-dimensional vector embeddings on PRODUCTS table
+  - Cosine similarity search via BROWSE_BY_VECTOR stored function
+  - pgvector extension with ivfflat index
+
+- **Implementation**:
+  - Schema: `v_embedding vector(384)` column on PRODUCTS
+  - Index: `CREATE INDEX USING ivfflat (v_embedding vector_cosine_ops) WITH (lists = 100)`
+  - Stored Function: `BROWSE_BY_VECTOR(p_batch_size_in, p_vector_text)` using `<=>` cosine distance operator
+  - C# driver generates random 384-dim vectors for testing, passes as JSON array string
+  - Enable with: `sh pgsql_ds_create_all.sh <hostname> <stores> 1` (third parameter)
+
+- **Files Modified**:
+  - `pgsql/build/pgsql_ds_perl_create_db_tables_multi.pl` - CREATE EXTENSION vector, v_embedding column
+  - `pgsql/build/pgsql_ds_perl_create_indexes_multi.pl` - ivfflat index
+  - `pgsql/build/pgsql_ds_perl_create_sp_multi.pl` - BROWSE_BY_VECTOR function
+  - `pgsql/load/ds_create_pgsql_multistore_load_files.pl` - \COPY with v_embedding column
+  - `pgsql/pgsql_ds_create_all.sh` - VECTORS parameter
+  - `pgsql/ds36pgsqlfns.cs` - Browse_By_Vector command implementation
+  - `Install_DVDStore.pl` - PostgreSQL vector prompt
+
+**Oracle vector search implementation:**
+
+- **Functionality**:
+  - 384-dimensional vector embeddings on PRODUCTS table
+  - Cosine similarity search via BROWSE_BY_VECTOR stored procedure
+  - Oracle 26ai native VECTOR type with VECTOR INDEX
+
+- **Implementation**:
+  - Schema: `V_EMBEDDING VECTOR(384, FLOAT32)` column on PRODUCTS
+  - Index: `CREATE VECTOR INDEX USING NEIGHBOR PARTITIONS DISTANCE COSINE WITH TARGET ACCURACY 95`
+  - Stored Procedure: `BROWSE_BY_VECTOR(p_batch_size_in, p_vector_text)` using `VECTOR_DISTANCE(V_EMBEDDING, v_vector, COSINE)`
+  - C# driver generates random 384-dim vectors, passes as JSON CLOB, converted with TO_VECTOR()
+  - Enable with: `sh oracle_ds_create_all.sh <hostname> <stores> 1` (third parameter)
+
+- **Files Modified**:
+  - `oracle/build/oracle_ds_perl_create_db_tables_multi.pl` - V_EMBEDDING VECTOR column
+  - `oracle/build/oracle_ds_perl_create_indexes_multi.pl` - VECTOR INDEX
+  - `oracle/build/oracle_ds_perl_create_sp_multi.pl` - BROWSE_BY_VECTOR procedure
+  - `oracle/load/ds_create_oracle_sqlldr_ctl.pl` - V_EMBEDDING char(8000) for sqlldr
+  - `oracle/load/linux_ds_create_oracle_multistore_ctl_files.pl` - use_vectors parameter
+  - `oracle/oracle_ds_create_all.sh` - VECTORS parameter
+  - `oracle/ds36oraclefns.cs` - Browse_By_Vector command implementation
+  - `Install_DVDStore.pl` - Oracle vector prompt
+
+**Configuration updates:**
+
+- **CreateConfigFile.pl**: Removed database-type restriction for vector prompt
+  - Now prompts for vector search on any database type (SQL Server, MySQL, PostgreSQL, Oracle)
+  - Previously restricted to SQL Server and MySQL only
+  - Condition remains Linux-only (`if(lc($^O) eq lc("linux"))`)
+
+**Vector support status:**
+- ✅ SQL Server 2025 - VECTOR(384) with VECTOR INDEX
+- ✅ MySQL 9.0+ - VECTOR(384) with VECTOR INDEX
+- ✅ PostgreSQL - vector(384) with pgvector extension
+- ✅ Oracle 23ai - VECTOR(384, FLOAT32) with VECTOR INDEX
+
+### Added - Zero Customer Threads for Manager/Analytics Testing
+
+**Allow n_threads=0 for isolated manager and analytics testing:**
+
+- **Functionality**:
+  - `--n_threads=0` now valid parameter (previously required >= 1)
+  - Skips all customer thread creation, connection waiting, and OLTP operations
+  - Manager and analytics threads continue to run normally
+  - Enables clean performance measurement of manager/analytics subsystems without customer load
+
+- **Use Cases**:
+  - Test manager operations in isolation (no OLTP contention)
+  - Measure analytics query performance without concurrent transactions
+  - Debug manager/analytics behavior without customer thread noise
+  - Validate manager data changes (UpgradeMembership, BulkPriceAdjustment, etc.) affect analytics correctly
+
+- **Implementation**:
+  - Parameter validation changed from `min: 1` to `min: 0` in ds36xdriver.cs
+  - Customer thread loops skip when n_threads=0 (for loops never execute)
+  - Manager/analytics thread creation unaffected
+
+- **Usage**:
+  ```bash
+  ./ds36xdriver --target=hostname --n_threads=0 --manager_interval=30 --analytics_interval=2 --run_time=60
+  ```
+
+- **Files Modified**:
+  - `drivers/ds36xdriver.cs` - Parameter validator min changed from 1 to 0 (line 414)
+
 ### Added - Unlimited Cart Support with Deadlock Prevention
 
 **Removed 10-item cart limit for SQL Server, PostgreSQL, and Oracle:**
