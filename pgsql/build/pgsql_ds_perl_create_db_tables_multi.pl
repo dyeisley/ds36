@@ -1,6 +1,6 @@
 # pgsql_ds_perl_create_db_tables_multi.pl
 # Script to create ds36 tables in PostgresQL with a provided number of copies - supporting multiple stores
-# Syntax to run: perl pgsql_ds_perl_create_db_tables_multi.pl <pgsql_target> <number of stores>
+# Syntax to run: perl pgsql_ds_perl_create_db_tables_multi.pl <pgsql_target> <number of stores> <use_vectors>
 # Last updated 11/2/21
 
 use strict;
@@ -8,6 +8,7 @@ use warnings;
 
 my $pgsql_target = $ARGV[0];
 my $numStores = $ARGV[1];
+my $use_vectors = $ARGV[2];
 my $DBNAME = "ds3";
 my $SYSDBA = "ds3";
 my $PGPASSWORD = "ds3";
@@ -44,6 +45,16 @@ foreach my $k (1 .. $numStores){
 	print $OUT "-- Tables
 
 \\c ds3;
+
+-- Enable pgvector extension for vector search support";
+
+if ($use_vectors == 1)
+{
+print $OUT "
+CREATE EXTENSION IF NOT EXISTS vector;";
+}
+
+print $OUT "
 
  
  CREATE TABLE CUSTOMERS$k
@@ -105,7 +116,15 @@ foreach my $k (1 .. $numStores){
   PRICE NUMERIC(12,2) NOT NULL,
   SPECIAL SMALLINT,
   COMMON_PROD_ID INT NOT NULL,
-  MEMBERSHIP_ITEM SMALLINT NOT NULL
+  MEMBERSHIP_ITEM SMALLINT NOT NULL";
+
+if ($use_vectors == 1)
+{
+print $OUT ",
+  v_embedding vector(384)";
+}
+
+print $OUT "
   );
 
   CREATE TABLE INVENTORY$k

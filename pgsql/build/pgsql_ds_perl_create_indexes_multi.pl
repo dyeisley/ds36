@@ -1,12 +1,13 @@
 # pgsql_ds_perl_create_indexes_multi.pl
 # Script to create a ds36 indexes in PostgresQL with a provided number of copies - supporting multiple stores
-# Syntax to run - perl pgsql_ds_perl_create_indexes_multi.pl <psql_target> <number_of_stores>
+# Syntax to run - perl pgsql_ds_perl_create_indexes_multi.pl <psql_target> <number_of_stores> <use_vectors>
 
 use strict;
 use warnings;
 
 my $psqltarget = $ARGV[0];
 my $numStores = $ARGV[1];
+my $use_vectors = $ARGV[2];
 
 my $PGPASSWORD = "ds3";
 my $SYSDBA = "ds3";
@@ -111,7 +112,17 @@ CREATE INDEX IX_PROD_SPECIAL_CATEGORY$k ON PRODUCTS$k
 CREATE INDEX IX_PROD_MEMBERSHIP_ITEM$k ON PRODUCTS$k
   (
   MEMBERSHIP_ITEM
-  );
+  );";
+
+if ($use_vectors == 1)
+{
+print $OUT "
+
+-- Vector index for similarity search using pgvector
+CREATE INDEX idx_v_prod$k ON PRODUCTS$k USING ivfflat (v_embedding vector_cosine_ops) WITH (lists = 100);";
+}
+
+print $OUT "
 
 CREATE INDEX IX_INV_PROD_ID$k ON INVENTORY$k
   (

@@ -222,6 +222,43 @@ END;
 \$\$;
 
 
+CREATE OR REPLACE FUNCTION BROWSE_BY_VECTOR$k (
+    IN p_batch_size_in INTEGER,
+    IN p_vector_text TEXT  -- Pass the vector as a JSON array string
+)
+RETURNS TABLE (
+    PROD_ID INTEGER,
+    CATEGORY SMALLINT,
+    TITLE TEXT,
+    ACTOR TEXT,
+    PRICE NUMERIC(12,2),
+    SPECIAL SMALLINT,
+    COMMON_PROD_ID INTEGER,
+    MEMBERSHIP_ITEM SMALLINT,
+    distance DOUBLE PRECISION
+)
+LANGUAGE plpgsql
+AS \$\$
+BEGIN
+    RETURN QUERY
+    SELECT
+        p.PROD_ID,
+        p.CATEGORY,
+        p.TITLE,
+        p.ACTOR,
+        p.PRICE,
+        p.SPECIAL,
+        p.COMMON_PROD_ID,
+        p.MEMBERSHIP_ITEM,
+        -- Calculate cosine distance (lower is better/more similar)
+        (p.v_embedding <=> p_vector_text::vector) AS distance
+    FROM PRODUCTS$k p
+    ORDER BY p.v_embedding <=> p_vector_text::vector
+    LIMIT p_batch_size_in;
+END;
+\$\$;
+
+
 CREATE OR REPLACE FUNCTION BROWSE_BY_MEMBERSHIP$k (
     IN batch_size_in INTEGER,
     IN membershiptype_in INTEGER

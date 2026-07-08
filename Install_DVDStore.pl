@@ -297,6 +297,22 @@ if($bln_is_DB_MYSQL == 1)
 	}
 }
 
+if($bln_is_DB_PGSQL == 1)
+{
+	if(lc($^O) eq lc("linux"))
+	{
+		print "\nEnable vector search (requires pgvector extension) (Y / N) [N] : ";
+		chomp($is_use_vector_S = <STDIN>);
+		$is_use_vector_S ||= "N";
+
+		if(lc($is_use_vector_S) eq "y")
+		{
+			$bln_is_use_vectors = 1;
+			print "  Vector search: ENABLED\n";
+		}
+	}
+}
+
 print "***********************************\n";
 #***************************************************************************************
 

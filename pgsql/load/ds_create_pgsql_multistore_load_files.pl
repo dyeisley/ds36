@@ -1,12 +1,13 @@
 # ds_create_pgsql_multistore_load_files.pl
 # Script to create a set of ds pgsql load files for a given number of stores
-# Syntax to run - perl ds_create_pgsql_multistore_load_files.pl <psql_target> <number_of_stores> 
+# Syntax to run - perl ds_create_pgsql_multistore_load_files.pl <psql_target> <number_of_stores> <use_vectors>
 
 use strict;
 use warnings;
 
 my $psqltarget = $ARGV[0];
 my $numStores = $ARGV[1];
+my $use_vectors = $ARGV[2];
 
 my $SYSDBA = "ds3";
 my $DBNAME = "ds3";
@@ -172,8 +173,20 @@ foreach my $k (1 .. $numStores){
         print $OUT "\\c ds3;
 
 ALTER TABLE PRODUCTS$k DISABLE TRIGGER ALL;
+";
 
-\\COPY PRODUCTS$k FROM '..$pathsep..$pathsep..$pathsep..${pathsep}data_files${pathsep}prod${pathsep}prod.csv' WITH DELIMITER ','
+if ($use_vectors == 1)
+{
+print $OUT "
+\\COPY PRODUCTS$k (PROD_ID, CATEGORY, TITLE, ACTOR, PRICE, SPECIAL, COMMON_PROD_ID, MEMBERSHIP_ITEM, v_embedding) FROM '..$pathsep..$pathsep..$pathsep..${pathsep}data_files${pathsep}prod${pathsep}prod.csv' WITH DELIMITER ',' CSV";
+}
+else
+{
+print $OUT "
+\\COPY PRODUCTS$k FROM '..$pathsep..$pathsep..$pathsep..${pathsep}data_files${pathsep}prod${pathsep}prod.csv' WITH DELIMITER ','";
+}
+
+print $OUT "
 
 ALTER TABLE PRODUCTS$k ENABLE TRIGGER ALL;
 \n";
