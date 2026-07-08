@@ -411,7 +411,7 @@ namespace ds2xdriver
         Description = "number of driver threads",
         DefaultValue = "1",
         Type = ParamType.Int,
-        Validator = (value) => ValidateInt(value, min: 1, max: GlobalConstants.MAX_USERS)
+        Validator = (value) => ValidateInt(value, min: 0, max: GlobalConstants.MAX_USERS)
       };
 
       // pct_newcustomers - percent of customers that are new
