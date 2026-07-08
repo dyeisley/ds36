@@ -116,17 +116,9 @@ if ($n_targets > 1)
 
 if(lc($^O) eq lc("linux"))
 {
-  # Only MySQL and SQL Server support vector search
-  if (defined $saved_db_type && (lc($saved_db_type) eq "MYSQL" || lc($saved_db_type) eq "MSSQL"))
-  {
-    print "Enable vector search ( Y / N ) [N] : ";
-    chomp($use_vectors = <STDIN>);
-    $use_vectors ||= "N";
-  }
-  else
-  {
-    $use_vectors = "N";  # PostgreSQL and Oracle don't support vectors yet
-  }
+  print "Enable vector search ( Y / N ) [N] : ";
+  chomp($use_vectors = <STDIN>);
+  $use_vectors ||= "N";
 }
 
 print "DS2 compatibility mode - 3 browse types only, no review browse ( Y / N ) [N] : ";

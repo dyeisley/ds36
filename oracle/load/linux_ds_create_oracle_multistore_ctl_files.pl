@@ -1,6 +1,6 @@
 # ds_create_oracle_multistore_ctl_files.pl
 # Script to create a set of ds3 oracle sqlldr ctl files for a given number of stores
-# Syntax to run - perl ds3_create_oracle_multistore_ctl_files.pl <oracle_target> <number_of_stores> 
+# Syntax to run - perl ds3_create_oracle_multistore_ctl_files.pl <oracle_target> <number_of_stores> <use_vectors>
 
 use strict;
 use warnings;
@@ -8,6 +8,7 @@ use Cwd;
 
 my $oracletarget = $ARGV [0];
 my $numberofstores = $ARGV[1];
+my $use_vectors = $ARGV[2];
 
 my $execute_path = getcwd;
 print "path: $execute_path";
@@ -127,11 +128,11 @@ foreach my $k (1 .. $numberofstores){
 # prod
 foreach my $k (1 .. $numberofstores){
 	open (my $OUT, ">prod/$oracletargetdir/remote_oracle_ds_prod_sqlldr$k.sh") || die("Can't open remote_oracle_ds_prod_sqlldr$k.sh");
-	print $OUT "sqlldr ds3/ds3\@$oracletarget  CONTROL=prod$k.ctl, silent=header, LOG=prod$k.log, BAD=prod$k.bad, DATA=$execute_path/../../data_files/prod/prod.csv\n"; 
+	print $OUT "sqlldr ds3/ds3\@$oracletarget  CONTROL=prod$k.ctl, silent=header, LOG=prod$k.log, BAD=prod$k.bad, DATA=$execute_path/../../data_files/prod/prod.csv\n";
 	print $OUT "echo finish > finished$k.txt\n";
 	print $OUT "exit\n";
 	close $OUT;
-	system ("perl ds_create_oracle_sqlldr_ctl.pl products$k PROD prod/$oracletargetdir/prod$k.ctl");
+	system ("perl ds_create_oracle_sqlldr_ctl.pl products$k PROD prod/$oracletargetdir/prod$k.ctl \"\" $use_vectors");
 }
 
 # inv

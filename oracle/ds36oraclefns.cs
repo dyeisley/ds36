@@ -92,7 +92,7 @@ namespace ds2xdriver
   {
     int ds2Interfaceid;
     OracleConnection objConn;
-    OracleCommand Login, New_Customer, Browse_By_Category, Browse_By_Actor, Browse_By_Title, Browse_By_Membership, New_Product, Purchase;
+    OracleCommand Login, New_Customer, Browse_By_Category, Browse_By_Actor, Browse_By_Title, Browse_By_Membership, Browse_By_Vector, New_Product, Purchase;
     OracleCommand Get_Prod_Reviews, Get_Prod_Reviews_By_Actor, Get_Prod_Reviews_By_Title, Get_Prod_Reviews_By_Date, Get_Prod_Reviews_By_Stars;
     OracleCommand New_Member, Get_Membership_Status, Renew_Membership, New_Prod_Review, New_Review_Helpfulness;
     OracleCommand Remove_Review_By_Product, Remove_Unhelpful_Reviews, Remove_Reviews_By_Date, Adjust_Prices, Bulk_Price_Adjustment, Mark_Specials, Expire_Memberships, Purge_Old_Orders, Upgrade_Membership, Promotional_Membership, Get_Membership_Analytics, Get_New_Customer_Analytics, Get_Review_Analytics, Get_Price_Point_Analytics, Get_New_Products_Purchased, Get_Inventory_Analytics;
@@ -211,6 +211,12 @@ namespace ds2xdriver
       Browse_By_Membership.CommandType = CommandType.StoredProcedure;
       Browse_By_Membership.Parameters.Add("p_batch_size", OracleDbType.Int32);
       Browse_By_Membership.Parameters.Add("p_membershiptype_in", OracleDbType.Int32);
+
+      //Browse_By_Vector
+      Browse_By_Vector = new OracleCommand("BROWSE_BY_VECTOR" + target_store_number, objConn);
+      Browse_By_Vector.CommandType = CommandType.StoredProcedure;
+      Browse_By_Vector.Parameters.Add("p_batch_size_in", OracleDbType.Int32);
+      Browse_By_Vector.Parameters.Add("p_vector_text", OracleDbType.Clob);
 
       // Get_Prod_Reviews
 
@@ -696,6 +702,19 @@ namespace ds2xdriver
           Browse_By_Membership.Parameters["p_membershiptype_in"].Value = membership_level_in;
           data_in = "membership level: " + membership_level_in;
           break;
+        case "vector":
+          int dim = 384;
+          float[] vector = new float[dim];
+          for (int i = 0; i < dim; i++)
+          {
+            vector[i] = (float)(Random.Shared.NextDouble() * 2.0 - 1.0);
+          }
+          string vectorJson = "[" + string.Join(",", vector.Select(v => v.ToString("F6", System.Globalization.CultureInfo.InvariantCulture))) + "]";
+
+          Browse_By_Vector.Parameters["p_batch_size_in"].Value = batch_size_in;
+          Browse_By_Vector.Parameters["p_vector_text"].Value = vectorJson;
+          data_in = "vector search";
+          break;
         default:
           Console.WriteLine("  Browse type '{0}' unsupported.", browse_type_in);
           rows_returned = -1;
@@ -724,6 +743,9 @@ namespace ds2xdriver
             break;
           case "membership":
             Rdr = Browse_By_Membership.ExecuteReader();
+            break;
+          case "vector":
+            Rdr = Browse_By_Vector.ExecuteReader();
             break;
         }
 

@@ -313,6 +313,22 @@ if($bln_is_DB_PGSQL == 1)
 	}
 }
 
+if($bln_is_DB_ORACLE == 1)
+{
+	if(lc($^O) eq lc("linux"))
+	{
+		print "\nEnable vector search (Oracle 23ai and later) (Y / N) [N] : ";
+		chomp($is_use_vector_S = <STDIN>);
+		$is_use_vector_S ||= "N";
+
+		if(lc($is_use_vector_S) eq "y")
+		{
+			$bln_is_use_vectors = 1;
+			print "  Vector search: ENABLED\n";
+		}
+	}
+}
+
 print "***********************************\n";
 #***************************************************************************************
 

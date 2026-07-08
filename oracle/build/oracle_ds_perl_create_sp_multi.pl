@@ -660,6 +660,36 @@ BEGIN
 END;
 /
 
+CREATE OR REPLACE PROCEDURE \"DS3\".\"BROWSE_BY_VECTOR$k\"
+  (
+  p_batch_size_in IN INTEGER,
+  p_vector_text   IN CLOB
+  )
+AS
+  v_cursor SYS_REFCURSOR;
+  v_vector VECTOR(384, FLOAT32);
+BEGIN
+  v_vector := TO_VECTOR(p_vector_text);
+
+  OPEN v_cursor FOR
+    SELECT
+        PROD_ID,
+        CATEGORY,
+        TITLE,
+        ACTOR,
+        PRICE,
+        SPECIAL,
+        COMMON_PROD_ID,
+        MEMBERSHIP_ITEM,
+        VECTOR_DISTANCE(V_EMBEDDING, v_vector, COSINE) as distance
+    FROM PRODUCTS$k
+    ORDER BY VECTOR_DISTANCE(V_EMBEDDING, v_vector, COSINE)
+    FETCH NEXT p_batch_size_in ROWS ONLY;
+
+  DBMS_SQL.RETURN_RESULT(v_cursor);
+END;
+/
+
 CREATE OR REPLACE  PROCEDURE \"DS3\".\"BROWSE_BY_TITLE_FOR_MEMBERTY$k\"
   (
   batch_size            IN INTEGER,

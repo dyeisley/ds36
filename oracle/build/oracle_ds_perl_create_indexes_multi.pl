@@ -1,12 +1,13 @@
 # oracleds3_perl_create_indexes_multi.pl
 # Script to create a ds3 indexes in oracle with a provided number of copies - supporting multiple stores
-# Syntax to run - perl oracleds3_perl_create_indexes_multi.pl <oracle_target> <number_of_stores> 
+# Syntax to run - perl oracleds3_perl_create_indexes_multi.pl <oracle_target> <number_of_stores> <use_vectors>
 
 use strict;
 use warnings;
 
 my $oracletarget = $ARGV [0];
 my $numberofstores = $ARGV[1];
+my $use_vectors = $ARGV[2];
 
 my $pathsep;
 my $startcmd;
@@ -120,7 +121,22 @@ CREATE INDEX \"DS3\".\"IX_PROD_MEMBERSHIP_ITEM$k\"
   ON \"DS3\".\"PRODUCTS$k\"  (\"MEMBERSHIP_ITEM\")
   TABLESPACE \"INDXTBS\"
   ;
+";
 
+if ($use_vectors == 1)
+{
+print $OUT "
+-- Vector index for similarity search
+CREATE VECTOR INDEX \"DS3\".\"IX_V_PROD$k\"
+  ON \"DS3\".\"PRODUCTS$k\" (\"V_EMBEDDING\")
+  ORGANIZATION NEIGHBOR PARTITIONS
+  DISTANCE COSINE
+  WITH TARGET ACCURACY 95
+  ;
+";
+}
+
+print $OUT "
 ALTER TABLE DS3.INVENTORY$k
   ADD CONSTRAINT fk_inventory_product$k
   FOREIGN KEY (PROD_ID) 

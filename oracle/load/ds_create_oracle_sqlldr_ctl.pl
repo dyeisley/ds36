@@ -1,8 +1,8 @@
 # ds_create_oracle_sqlldr_ctl.pl
 # Script to create an oracle sqlldr ctl file that defines the bulk load with table and definition of data
-# Syntax to run - perl ds3_create_oracle_sqlldr_ctl.pl <tablename> <ds3_tabletype> <ctl_filename> <partitionname - only needed for orders, orderlines, and cust types>
-# The ds3_tabletype options are CUST ORDERS ORDERLINES CUST_HIST REVIEWS REVIEWHELPFULNESS MEMBERS PROD INV 
-# key parameters that are changed often are at the top of the file  
+# Syntax to run - perl ds3_create_oracle_sqlldr_ctl.pl <tablename> <ds3_tabletype> <ctl_filename> <partitionname - only needed for orders, orderlines, and cust types> <use_vectors>
+# The ds3_tabletype options are CUST ORDERS ORDERLINES CUST_HIST REVIEWS REVIEWHELPFULNESS MEMBERS PROD INV
+# key parameters that are changed often are at the top of the file
 
 use strict;
 use warnings;
@@ -11,6 +11,7 @@ my $tablename = $ARGV[0];
 my $ds3tabletype = $ARGV[1];
 my $ctlfilename = $ARGV[2];
 my $partitionname = $ARGV[3];
+my $use_vectors = $ARGV[4];
 my $ds3tabledefinition;
 
 open (my $OUT, ">$ctlfilename") || die("Can't open $ctlfilename");
@@ -94,7 +95,18 @@ MEMBERSHIPTYPE integer external,
 EXPIREDATE date \"yyyy/mm/dd\")\n ";
     }
 	if ($ds3tabletype eq 'PROD') {
-	$ds3tabledefinition = "(PROD_ID integer external,
+	if ($use_vectors == 1) {
+		$ds3tabledefinition = "(PROD_ID integer external,
+CATEGORY integer external,
+TITLE char,
+ACTOR char,
+PRICE decimal external,
+SPECIAL integer external,
+COMMON_PROD_ID integer external,
+MEMBERSHIP_ITEM integer external,
+V_EMBEDDING char(8000))\n";
+	} else {
+		$ds3tabledefinition = "(PROD_ID integer external,
 CATEGORY integer external,
 TITLE char,
 ACTOR char,
@@ -102,6 +114,7 @@ PRICE decimal external,
 SPECIAL integer external,
 COMMON_PROD_ID integer external,
 MEMBERSHIP_ITEM integer external)\n";
+	}
     }
 	if ($ds3tabletype eq 'INV') {
 	$ds3tabledefinition = "(PROD_ID integer external,

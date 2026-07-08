@@ -1,12 +1,13 @@
 # oracle_ds_perl_create_db_tables_multi.pl
 # Script to create a ds3 tables in oracle with a provided number of copies - supporting multiple stores
-# Syntax to run - perl oracle_ds_perl_create_db_tables_multi.pl <oracle_target> <number_of_stores> 
+# Syntax to run - perl oracle_ds_perl_create_db_tables_multi.pl <oracle_target> <number_of_stores> <use_vectors>
 
 use strict;
 use warnings;
 
 my $oracletarget = $ARGV [0];
 my $numberofstores = $ARGV[1];
+my $use_vectors = $ARGV[2];
 
 my $pathsep;
 
@@ -119,14 +120,22 @@ CREATE TABLE \"DS3\".\"ORDERLINES$k\"
 
 CREATE TABLE \"DS3\".\"PRODUCTS$k\"
   (
-  \"PROD_ID\" NUMBER NOT NULL, 
-  \"CATEGORY\" NUMBER NOT NULL, 
-  \"TITLE\" VARCHAR2(50 byte) NOT NULL, 
-  \"ACTOR\" VARCHAR2(50 byte) NOT NULL, 
-  \"PRICE\" NUMBER(12, 2) NOT NULL, 
+  \"PROD_ID\" NUMBER NOT NULL,
+  \"CATEGORY\" NUMBER NOT NULL,
+  \"TITLE\" VARCHAR2(50 byte) NOT NULL,
+  \"ACTOR\" VARCHAR2(50 byte) NOT NULL,
+  \"PRICE\" NUMBER(12, 2) NOT NULL,
   \"SPECIAL\" NUMBER NOT NULL,
   \"COMMON_PROD_ID\" NUMBER NOT NULL,
-  \"MEMBERSHIP_ITEM\" NUMBER NOT NULL
+  \"MEMBERSHIP_ITEM\" NUMBER NOT NULL";
+
+if ($use_vectors == 1)
+{
+print $OUT ",
+  \"V_EMBEDDING\" VECTOR(384, FLOAT32)";
+}
+
+print $OUT "
   )
   ;
 
