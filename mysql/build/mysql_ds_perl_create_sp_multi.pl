@@ -461,7 +461,7 @@ BEGIN
         PRICE,
         SPECIAL,
         COMMON_PROD_ID,
-        -- Calculate distance (automatically uses index if created)
+        MEMBERSHIP_ITEM,
         VEC_DISTANCE(v_embedding, VEC_FromText(p_vector_text)) AS distance
     FROM PRODUCTS$k
     ORDER BY distance ASC
