@@ -772,6 +772,13 @@ namespace ds2xdriver
       catch (OracleException e)
       {
         Console.WriteLine("Thread {0}: Oracle Error in Browse: {1}", Thread.CurrentThread.Name, e.Message);
+
+        if (e.Number == 6550)
+        {
+          Console.WriteLine("  Problem with vector search. Please try with --use_vectors=n");
+          rows_returned = -1;
+        }
+
         return (false);
       }
       catch (System.Exception e)
