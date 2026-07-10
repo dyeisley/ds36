@@ -250,9 +250,9 @@ namespace DvdStoreOrchestrator
 
       using (var logWriter = new StreamWriter(outputLog))
       {
-        // Create label: dbtype (left-aligned, 9 chars) + ": " + hostname (right-aligned, 11 chars)
-        string shortHostname = target.Hostname.Length > 11 ? target.Hostname.Substring(0, 11) : target.Hostname;
-        string label = $"{target.DbType,-9}: {shortHostname,11}";
+        // Create label: dbtype (left-aligned, 9 chars) + ": " + hostname (right-aligned, 15 chars)
+        string shortHostname = target.Hostname.Length > 15 ? target.Hostname.Substring(0, 15) : target.Hostname;
+        string label = $"{target.DbType,-9}: {shortHostname,15}";
 
         process.OutputDataReceived += (sender, e) =>
         {

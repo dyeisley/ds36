@@ -277,8 +277,15 @@ namespace DvdStoreOrchestrator
 
       foreach (var r in results.OrderByDescending(x => x.Opm))
       {
-        // Extract hostname (before first dot), then truncate to 15 chars if needed
-        string shortHostname = r.Hostname.Split('.')[0];
+        // Extract hostname: if it's an IP address, keep as-is; if it's a hostname, split at first dot
+        string shortHostname = r.Hostname;
+        if (!System.Text.RegularExpressions.Regex.IsMatch(r.Hostname, @"^\d+\.\d+\.\d+\.\d+$"))
+        {
+          // Not an IP address - split at first dot to get short hostname
+          shortHostname = r.Hostname.Split('.')[0];
+        }
+
+        // Truncate to 15 chars if needed
         if (shortHostname.Length > 15)
           shortHostname = shortHostname.Substring(0, 15);
 
