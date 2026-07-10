@@ -81,15 +81,19 @@ if (-f ".dvdstore_metadata") {
 	close $META;
 	# Re-read to construct full size string
 	open($META, "<", ".dvdstore_metadata");
-	my ($size_mb, $size_str);
+	my ($size_mb, $size_str, $saved_use_vectors);
 	while (<$META>) {
 		if (/database_size_mb=(\d+)/) { $size_mb = $1; }
 		if (/database_size_str=(\w+)/) { $size_str = $1; }
 		if (/database_type=(\w+)/) { $saved_db_type = $1; }
+		if (/use_vectors=(\d+)/) { $saved_use_vectors = $1; }
 	}
 	close $META;
 	if (defined $size_mb && defined $size_str) {
 		$saved_db_size = "$size_mb" . uc($size_str);
+	}
+	if (defined $saved_use_vectors && $saved_use_vectors == 1) {
+		$use_vectors = "Y";
 	}
 }
 
@@ -116,9 +120,11 @@ if ($n_targets > 1)
 
 if(lc($^O) eq lc("linux"))
 {
-  print "Enable vector search ( Y / N ) [N] : ";
-  chomp($use_vectors = <STDIN>);
-  $use_vectors ||= "N";
+  my $vector_default = ($use_vectors eq "Y") ? "Y" : "N";
+  print "Enable vector search ( Y / N ) [$vector_default] : ";
+  my $input = <STDIN>;
+  chomp($input);
+  $use_vectors = $input || $vector_default;
 }
 
 print "DS2 compatibility mode - 3 browse types only, no review browse ( Y / N ) [N] : ";

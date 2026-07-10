@@ -1110,6 +1110,7 @@ print $META "products=$i_Prod_Rows\n";
 print $META "customers=$i_Cust_Rows\n";
 print $META "orders=$i_Ord_Rows\n";
 print $META "popular_modulo=$popular_modulo\n";
+print $META "use_vectors=$bln_is_use_vectors\n";
 close $META;
 print "\nSaved database metadata to .dvdstore_metadata\n";
 
