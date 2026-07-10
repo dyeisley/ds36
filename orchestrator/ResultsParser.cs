@@ -233,8 +233,17 @@ namespace DvdStoreOrchestrator
           }
         }
 
-        // Only return if we got at least OPM
-        if (result.Opm > 0)
+        // Return if we got OPM, or if we got manager/analytics results (for n_threads=0 case)
+        bool hasManagerResults = result.AddProductRt > 0 || result.AdjustPricesRt > 0 ||
+                                 result.BulkPriceAdjustmentRt > 0 || result.MarkSpecialsRt > 0 ||
+                                 result.ExpireMembershipsRt > 0 || result.PurgeOldOrdersRt > 0 ||
+                                 result.UpgradeMembershipRt > 0 || result.PromotionalMembershipRt > 0;
+
+        bool hasAnalyticsResults = result.MembershipAnalyticsRt > 0 || result.NewCustomerAnalyticsRt > 0 ||
+                                   result.ReviewAnalyticsRt > 0 || result.PricePointAnalyticsRt > 0 ||
+                                   result.InventoryAnalyticsRt > 0;
+
+        if (result.Opm > 0 || hasManagerResults || hasAnalyticsResults)
         {
           return result;
         }
