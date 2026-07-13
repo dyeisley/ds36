@@ -1,12 +1,13 @@
 # oracleds3_perl_create_sp_multi.pl
 # Script to create a ds3 stored procedures in oracle with a provided number of copies - supporting multiple stores
-# Syntax to run - perl oracleds3_perl_create_sp_multi.pl <oracle_target> <number_of_stores>
+# Syntax to run - perl oracleds3_perl_create_sp_multi.pl <oracle_target> <number_of_stores> <use_vectors>
 
 use strict;
 use warnings;
 
 my $oracletarget = $ARGV [0];
 my $numberofstores = $ARGV[1];
+my $use_vectors = $ARGV[2] || 0;
 
 my $pathsep;
 my $startcmd;
@@ -659,7 +660,11 @@ BEGIN
   DBMS_SQL.RETURN_RESULT(v_cursor);
 END;
 /
+";
 
+if ($use_vectors == 1)
+{
+print $OUT "
 CREATE OR REPLACE PROCEDURE \"DS3\".\"BROWSE_BY_VECTOR$k\"
   (
   p_batch_size_in IN INTEGER,
@@ -689,6 +694,10 @@ BEGIN
   DBMS_SQL.RETURN_RESULT(v_cursor);
 END;
 /
+";
+}
+
+print $OUT "
 
 CREATE OR REPLACE  PROCEDURE \"DS3\".\"BROWSE_BY_TITLE_FOR_MEMBERTY$k\"
   (
@@ -930,27 +939,15 @@ BEGIN
             p_review_id := 0;
     END;
 
-    -- Delete it if found
+    -- Delete it if found (cascade will delete helpfulness ratings, trigger handles TOTAL_HELPFULNESS)
     IF p_review_id > 0 THEN
-        -- Disable trigger to avoid mutating table error
-        EXECUTE IMMEDIATE 'ALTER TRIGGER DS3.TRG_HELPFULNESS_SYNC$k DISABLE';
-
         DELETE FROM DS3.REVIEWS$k WHERE REVIEW_ID = p_review_id;
-
-        -- Re-enable trigger
-        EXECUTE IMMEDIATE 'ALTER TRIGGER DS3.TRG_HELPFULNESS_SYNC$k ENABLE';
     END IF;
 
     COMMIT;
 
 EXCEPTION
     WHEN OTHERS THEN
-        -- Re-enable trigger even on error
-        BEGIN
-            EXECUTE IMMEDIATE 'ALTER TRIGGER DS3.TRG_HELPFULNESS_SYNC$k ENABLE';
-        EXCEPTION
-            WHEN OTHERS THEN NULL;
-        END;
         ROLLBACK;
         RAISE;
 END;
@@ -978,17 +975,11 @@ BEGIN
     FETCH c_reviews BULK COLLECT INTO v_review_ids LIMIT p_batch_size;
     CLOSE c_reviews;
 
-    -- Then delete them
+    -- Then delete them (cascade will delete helpfulness ratings, trigger handles TOTAL_HELPFULNESS)
     IF v_review_ids.COUNT > 0 THEN
-        -- Disable trigger to avoid mutating table error
-        EXECUTE IMMEDIATE 'ALTER TRIGGER DS3.TRG_HELPFULNESS_SYNC$k DISABLE';
-
         FORALL i IN 1..v_review_ids.COUNT
             DELETE FROM DS3.REVIEWS$k
             WHERE REVIEW_ID = v_review_ids(i);
-
-        -- Re-enable trigger
-        EXECUTE IMMEDIATE 'ALTER TRIGGER DS3.TRG_HELPFULNESS_SYNC$k ENABLE';
 
         p_rows_affected := v_review_ids.COUNT;
     ELSE
@@ -999,12 +990,6 @@ BEGIN
 
 EXCEPTION
     WHEN OTHERS THEN
-        -- Re-enable trigger even on error
-        BEGIN
-            EXECUTE IMMEDIATE 'ALTER TRIGGER DS3.TRG_HELPFULNESS_SYNC$k ENABLE';
-        EXCEPTION
-            WHEN OTHERS THEN NULL;
-        END;
         ROLLBACK;
         RAISE;
 END;
@@ -1031,17 +1016,11 @@ BEGIN
     FETCH c_reviews BULK COLLECT INTO v_review_ids LIMIT p_batch_size;
     CLOSE c_reviews;
 
-    -- Then delete them
+    -- Then delete them (cascade will delete helpfulness ratings, trigger handles TOTAL_HELPFULNESS)
     IF v_review_ids.COUNT > 0 THEN
-        -- Disable trigger to avoid mutating table error
-        EXECUTE IMMEDIATE 'ALTER TRIGGER DS3.TRG_HELPFULNESS_SYNC$k DISABLE';
-
         FORALL i IN 1..v_review_ids.COUNT
             DELETE FROM DS3.REVIEWS$k
             WHERE REVIEW_ID = v_review_ids(i);
-
-        -- Re-enable trigger
-        EXECUTE IMMEDIATE 'ALTER TRIGGER DS3.TRG_HELPFULNESS_SYNC$k ENABLE';
 
         p_rows_affected := v_review_ids.COUNT;
     ELSE
@@ -1052,12 +1031,6 @@ BEGIN
 
 EXCEPTION
     WHEN OTHERS THEN
-        -- Re-enable trigger even on error
-        BEGIN
-            EXECUTE IMMEDIATE 'ALTER TRIGGER DS3.TRG_HELPFULNESS_SYNC$k ENABLE';
-        EXCEPTION
-            WHEN OTHERS THEN NULL;
-        END;
         ROLLBACK;
         RAISE;
 END;
@@ -1581,22 +1554,44 @@ END;
 /
 
 CREATE OR REPLACE TRIGGER \"DS3\".\"TRG_HELPFULNESS_SYNC$k\"
-AFTER INSERT OR UPDATE OR DELETE ON \"DS3\".\"REVIEWS_HELPFULNESS$k\"
-FOR EACH ROW
-BEGIN
-    IF INSERTING THEN
-        UPDATE DS3.REVIEWS$k
-        SET TOTAL_HELPFULNESS = TOTAL_HELPFULNESS + :NEW.HELPFULNESS
-        WHERE REVIEW_ID = :NEW.REVIEW_ID;
-    ELSIF UPDATING THEN
-        UPDATE DS3.REVIEWS$k
-        SET TOTAL_HELPFULNESS = TOTAL_HELPFULNESS - :OLD.HELPFULNESS + :NEW.HELPFULNESS
-        WHERE REVIEW_ID = :NEW.REVIEW_ID;
-    ELSIF DELETING THEN
-        UPDATE DS3.REVIEWS$k
-        SET TOTAL_HELPFULNESS = TOTAL_HELPFULNESS - :OLD.HELPFULNESS
-        WHERE REVIEW_ID = :OLD.REVIEW_ID;
-    END IF;
+FOR INSERT OR UPDATE OR DELETE ON \"DS3\".\"REVIEWS_HELPFULNESS$k\"
+COMPOUND TRIGGER
+    -- Collection to track helpfulness changes per review_id
+    TYPE review_helpfulness_rec IS RECORD (
+        review_id NUMBER,
+        delta     NUMBER
+    );
+    TYPE review_helpfulness_tab IS TABLE OF review_helpfulness_rec INDEX BY PLS_INTEGER;
+    g_changes review_helpfulness_tab;
+    g_count   PLS_INTEGER := 0;
+
+    AFTER EACH ROW IS
+    BEGIN
+        g_count := g_count + 1;
+        g_changes(g_count).review_id := COALESCE(:NEW.REVIEW_ID, :OLD.REVIEW_ID);
+
+        IF INSERTING THEN
+            g_changes(g_count).delta := :NEW.HELPFULNESS;
+        ELSIF UPDATING THEN
+            g_changes(g_count).delta := :NEW.HELPFULNESS - :OLD.HELPFULNESS;
+        ELSIF DELETING THEN
+            g_changes(g_count).delta := -:OLD.HELPFULNESS;
+        END IF;
+    END AFTER EACH ROW;
+
+    AFTER STATEMENT IS
+    BEGIN
+        -- Apply all accumulated changes
+        FOR i IN 1..g_count LOOP
+            UPDATE DS3.REVIEWS$k
+            SET TOTAL_HELPFULNESS = NVL(TOTAL_HELPFULNESS, 0) + g_changes(i).delta
+            WHERE REVIEW_ID = g_changes(i).review_id;
+        END LOOP;
+
+        -- Clear for next statement
+        g_changes.DELETE;
+        g_count := 0;
+    END AFTER STATEMENT;
 END;
 /
 

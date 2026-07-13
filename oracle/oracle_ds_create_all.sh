@@ -27,7 +27,7 @@ cd ../build
 perl oracle_ds_perl_create_seq_multi.pl $TARGET $STORES
 perl oracle_ds_perl_create_indexes_multi.pl $TARGET $STORES $VECTORS
 perl oracle_ds_perl_create_fulltextindex_multi.pl $TARGET $STORES
-perl oracle_ds_perl_create_sp_multi.pl $TARGET $STORES
+perl oracle_ds_perl_create_sp_multi.pl $TARGET $STORES $VECTORS
 perl oracle_ds_perl_analyze_all_multi.pl $TARGET $STORES
 cd ../validate
 perl oracle_ds_perl_validate_multi.pl $HOSTNAME $STORES post_test generate > generate_post_test.txt
