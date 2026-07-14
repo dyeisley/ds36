@@ -58,7 +58,7 @@ AFTER INSERT ON DS3.REVIEWS_HELPFULNESS$k
 FOR EACH ROW
 BEGIN
     UPDATE DS3.REVIEWS$k
-    SET total_helpfulness = total_helpfulness + NEW.helpfulness
+    SET total_helpfulness = COALESCE(total_helpfulness, 0) + NEW.helpfulness
     WHERE review_id = NEW.review_id;
 END; $$
 
@@ -68,7 +68,7 @@ AFTER UPDATE ON DS3.REVIEWS_HELPFULNESS$k
 FOR EACH ROW
 BEGIN
     UPDATE DS3.REVIEWS$k
-    SET total_helpfulness = total_helpfulness - OLD.helpfulness + NEW.helpfulness
+    SET total_helpfulness = COALESCE(total_helpfulness, 0) - OLD.helpfulness + NEW.helpfulness
     WHERE review_id = NEW.review_id;
 END; $$
 
@@ -78,7 +78,7 @@ AFTER DELETE ON DS3.REVIEWS_HELPFULNESS$k
 FOR EACH ROW
 BEGIN
     UPDATE DS3.REVIEWS$k
-    SET total_helpfulness = total_helpfulness - OLD.helpfulness
+    SET total_helpfulness = COALESCE(total_helpfulness, 0) - OLD.helpfulness
     WHERE review_id = OLD.review_id;
 END; $$
 
