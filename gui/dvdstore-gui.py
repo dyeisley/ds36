@@ -313,28 +313,33 @@ class DVDStoreGUI:
 
         self.master.columnconfigure(0, weight=1)
         self.master.rowconfigure(0, weight=1)
+        main_frame.columnconfigure(0, weight=1)
+        main_frame.rowconfigure(1, weight=1)
 
-        # Two-column layout: Steps on left, Console on right
-        main_frame.columnconfigure(0, weight=2, minsize=600)  # Left column (steps) - wider for long fields
-        main_frame.columnconfigure(1, weight=3)  # Right column (console)
-        main_frame.rowconfigure(1, weight=1)     # Row 1 expands vertically
-
-        # Title spans both columns
+        # Title spans full width
         title = ttk.Label(main_frame, text="DVD Store 3.6 Benchmark",
                          font=('TkDefaultFont', 16, 'bold'))
-        title.grid(row=0, column=0, columnspan=2, pady=10)
+        title.grid(row=0, column=0, pady=10, sticky=(tk.W, tk.E))
 
-        # Left column: Steps 1, 2, 3
-        left_frame = ttk.Frame(main_frame)
-        left_frame.grid(row=1, column=0, sticky=(tk.W, tk.E, tk.N, tk.S), padx=(0, 5))
+        # PanedWindow for resizable columns
+        paned = ttk.PanedWindow(main_frame, orient=tk.HORIZONTAL)
+        paned.grid(row=1, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
+
+        # Left pane: Steps 1, 2, 3
+        left_frame = ttk.Frame(paned)
         left_frame.columnconfigure(0, weight=1)
 
         self.create_step1_widgets(left_frame)
         self.create_step2_widgets(left_frame)
         self.create_step3_widgets(left_frame)
 
-        # Right column: Output console
-        self.create_output_console(main_frame)
+        # Right pane: Output console
+        right_frame = ttk.Frame(paned)
+        self.create_output_console(right_frame)
+
+        # Add panes (left gets initial 400px, right gets the rest)
+        paned.add(left_frame, weight=1)
+        paned.add(right_frame, weight=3)
 
     def create_step1_widgets(self, parent):
         """Create Step 1: Data Generation widgets"""
@@ -715,11 +720,22 @@ class DVDStoreGUI:
                 self.master.after_idle(lambda: self.load_button.config(state='normal', text='Load Database'))
 
         except Exception as e:
-            self.master.after_idle(lambda: self.log_output(f"\n✗ Error: {e}\n", "error"))
+            self.master.after_idle(lambda err=e: self.log_output(f"\n✗ Error: {err}\n", "error"))
             self.master.after_idle(lambda: self.load_button.config(state='normal', text='Load Database'))
 
     def add_loaded_database(self, db_type, host, stores, vectors):
-        """Add successfully loaded database to the list"""
+        """Add successfully loaded database to the list (avoiding duplicates)"""
+        # Check if this database+host combination already exists
+        for existing in self.loaded_databases:
+            if existing['type'] == db_type and existing['host'] == host:
+                # Update the existing entry instead of adding duplicate
+                existing['stores'] = stores
+                existing['vectors'] = vectors
+                existing['loaded_at'] = datetime.now()
+                self.update_loaded_databases_display()
+                return
+
+        # Not a duplicate, add new entry
         entry = {
             'type': db_type,
             'host': host,
@@ -742,22 +758,34 @@ class DVDStoreGUI:
         self.update_target_database_dropdown()
 
     def update_target_database_dropdown(self):
-        """Update Step 3 target database dropdown from loaded databases"""
-        if self.loaded_databases:
-            # Build list of "DatabaseType @ Host" strings
-            targets = [f"{db['type']} @ {db['host']}" for db in self.loaded_databases]
-            self.target_db_combo['values'] = targets
-            self.target_db_combo.config(state='readonly')
+        """Update Step 3 target database checkboxes from loaded databases"""
+        # Clear existing checkboxes
+        for widget in self.target_selection_frame.winfo_children():
+            widget.destroy()
+        self.target_checkboxes = []
 
-            # Auto-select the first one if nothing selected
-            if not self.target_db_var.get() and targets:
-                self.target_db_combo.current(0)
+        if self.loaded_databases:
+            # Create checkbox for each loaded database
+            for idx, db in enumerate(self.loaded_databases):
+                var = tk.BooleanVar(value=False)
+                vectors_str = "vectors" if db['vectors'] else "no vectors"
+                label_text = f"{db['type']} @ {db['host']} ({db['stores']} store, {vectors_str})"
+
+                cb = ttk.Checkbutton(self.target_selection_frame,
+                                    text=label_text,
+                                    variable=var)
+                cb.grid(row=idx, column=0, sticky=tk.W, pady=1)
+
+                self.target_checkboxes.append((db, var))
 
             # Enable Step 3
             self.run_driver_button.config(state='normal')
         else:
-            self.target_db_combo['values'] = []
-            self.target_db_combo.config(state='disabled')
+            # Recreate placeholder label (it was destroyed above)
+            self.no_targets_label = ttk.Label(self.target_selection_frame,
+                                              text="(Load databases in Step 2 first)",
+                                              foreground='gray')
+            self.no_targets_label.grid(row=0, column=0, sticky=tk.W)
             self.run_driver_button.config(state='disabled')
 
     def clear_loaded_databases(self):
@@ -796,14 +824,20 @@ class DVDStoreGUI:
 
         row = 0
 
-        # Target Database Selection (from loaded databases)
-        ttk.Label(step3_frame, text="Target Database:").grid(row=row, column=0, sticky=tk.W, pady=2)
-        self.target_db_var = tk.StringVar()
-        self.target_db_combo = ttk.Combobox(step3_frame, textvariable=self.target_db_var, state='readonly')
-        self.target_db_combo.grid(row=row, column=1, sticky=(tk.W, tk.E), pady=2, padx=5)
-        self.target_db_combo.bind('<<ComboboxSelected>>', self.on_target_db_changed)
-        ToolTip(self.target_db_combo, "Select which loaded database to run the benchmark against.\n"
-                                       "You must load at least one database in Step 2 first.")
+        # Target Database Selection (from loaded databases) - checkboxes for multi-select
+        ttk.Label(step3_frame, text="Target Database(s):").grid(row=row, column=0, sticky=tk.W, pady=2)
+
+        # Create a frame to hold target checkboxes (populated dynamically when databases are loaded)
+        self.target_selection_frame = ttk.Frame(step3_frame)
+        self.target_selection_frame.grid(row=row, column=1, sticky=(tk.W, tk.E), pady=2, padx=5)
+        self.target_checkboxes = []  # List of (db_dict, checkbox_var) tuples
+
+        # Placeholder label (shown when no databases loaded)
+        self.no_targets_label = ttk.Label(self.target_selection_frame,
+                                          text="(Load databases in Step 2 first)",
+                                          foreground='gray')
+        self.no_targets_label.grid(row=0, column=0, sticky=tk.W)
+
         row += 1
 
         # Basic parameters
@@ -858,7 +892,6 @@ class DVDStoreGUI:
 
         # Initially disable until Step 2 completes
         self.run_driver_button.config(state='disabled')
-        self.target_db_combo.config(state='disabled')
 
     def on_target_db_changed(self, event):
         """Handle target database selection change"""
@@ -987,6 +1020,17 @@ class DVDStoreGUI:
         ToolTip(scrollable_frame.winfo_children()[-1], "Delay between operations (seconds)\n0 = maximum throughput\nDefault: 0")
         row += 1
 
+        # Number of stores
+        ttk.Label(scrollable_frame, text="Number of Stores:").grid(row=row, column=0, sticky=tk.W, pady=5)
+        # Default to the number loaded from Step 1, allow reducing it
+        default_stores = 1
+        if hasattr(self, 'loaded_databases') and self.loaded_databases:
+            default_stores = self.loaded_databases[0].get('stores', 1)
+        self.n_stores_var = tk.IntVar(value=default_stores)
+        ttk.Spinbox(scrollable_frame, from_=1, to=16, textvariable=self.n_stores_var, width=10).grid(row=row, column=1, sticky=tk.W, pady=5, padx=5)
+        ToolTip(scrollable_frame.winfo_children()[-1], "Number of stores to use in the test\nMust be <= stores loaded in Step 2\nDefault: all loaded stores")
+        row += 1
+
         ttk.Separator(scrollable_frame, orient=tk.HORIZONTAL).grid(row=row, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=10)
         row += 1
 
@@ -1057,13 +1101,11 @@ class DVDStoreGUI:
         ttk.Label(scrollable_frame, text="Advanced:", font=('TkDefaultFont', 10, 'bold')).grid(row=row, column=0, columnspan=2, sticky=tk.W, pady=5)
         row += 1
 
-        # Initialize based on the currently selected target database
+        # Initialize based on whether any loaded database has vectors
         has_vectors = False
         if hasattr(self, 'loaded_databases') and self.loaded_databases:
-            # Get the currently selected database from Step 3
-            target_db = self.get_selected_database()
-            if target_db:
-                has_vectors = target_db.get('vectors', False)
+            # Check if any loaded database has vectors enabled
+            has_vectors = any(db.get('vectors', False) for db in self.loaded_databases)
         self.use_vectors_var = tk.BooleanVar(value=has_vectors)
         ttk.Checkbutton(scrollable_frame, text="Enable Vector Search",
                        variable=self.use_vectors_var).grid(row=row, column=0, columnspan=2, sticky=tk.W, pady=5, padx=20)
@@ -1240,7 +1282,7 @@ class DVDStoreGUI:
         ToolTip(analytics_frame.winfo_children()[-1], "Low/high stock counts, reorder events, sales velocity")
 
     def run_driver(self):
-        """Generate config and run driver"""
+        """Generate config and run orchestrator (supports 1 or multiple targets)"""
         self.log_output("\n=== Running Driver ===\n")
 
         # Validation: ensure database was loaded
@@ -1248,24 +1290,24 @@ class DVDStoreGUI:
             messagebox.showerror("Error", "Please load a database first (Step 2)")
             return
 
-        target_db_str = self.target_db_var.get()
-        if not target_db_str:
-            messagebox.showerror("Error", "Please select a target database")
-            return
-
-        # Parse target database string ("DatabaseType @ Host")
-        target_db = self.get_selected_database()
-        if not target_db:
-            messagebox.showerror("Error", "Selected database not found")
+        # Get selected target databases from checkboxes
+        selected_targets = self.get_selected_targets()
+        if not selected_targets:
+            messagebox.showerror("Error", "Please select at least one target database")
             return
 
         # Validation: cannot use both vectors and managers
-        # Check if vectors are enabled (from checkbox if advanced config used, else from database)
+        # Check if ANY selected target has vectors enabled
         vectors_enabled = False
-        if hasattr(self, 'use_vectors_var'):
-            vectors_enabled = self.use_vectors_var.get()
-        else:
-            vectors_enabled = target_db['vectors']
+        for target_db in selected_targets:
+            if hasattr(self, 'use_vectors_var'):
+                if self.use_vectors_var.get():
+                    vectors_enabled = True
+                    break
+            else:
+                if target_db['vectors']:
+                    vectors_enabled = True
+                    break
 
         if vectors_enabled and self.enable_managers_var.get():
             messagebox.showerror("Error",
@@ -1277,19 +1319,30 @@ class DVDStoreGUI:
                 "  • Uncheck 'Enable Vector Search' in Advanced Config")
             return
 
+        # Validation: n_stores must be <= loaded stores
+        if hasattr(self, 'n_stores_var'):
+            requested_stores = self.n_stores_var.get()
+            max_loaded_stores = max(int(db['stores']) for db in selected_targets)
+            if requested_stores > max_loaded_stores:
+                messagebox.showerror("Error",
+                    f"Cannot use {requested_stores} stores.\n\n"
+                    f"Maximum loaded stores: {max_loaded_stores}\n\n"
+                    f"Please reduce Number of Stores in Advanced Config (Workload Mix tab)\n"
+                    f"or load more stores in Step 2.")
+                return
+
         threads = self.threads_spinbox.get()
         runtime = self.runtime_spinbox.get()
 
-        self.log_output(f"Target: {target_db['type']} @ {target_db['host']}\n")
+        # Log selected targets
+        self.log_output(f"Selected Targets ({len(selected_targets)}):\n")
+        for target_db in selected_targets:
+            self.log_output(f"  • {target_db['type']} @ {target_db['host']}\n")
+
         self.log_output(f"Threads: {threads}\n")
         self.log_output(f"Run Time: {runtime} minutes\n")
         self.log_output(f"Managers: {'Yes' if self.enable_managers_var.get() else 'No'}\n")
-        self.log_output(f"Analytics: {'Yes' if self.enable_analytics_var.get() else 'No'}\n")
-
-        # Generate DriverConfig.txt
-        self.log_output("\nGenerating DriverConfig.txt...\n")
-        config_path = self.generate_driver_config(target_db)
-        self.log_output(f"Config written to {config_path}\n")
+        self.log_output(f"Analytics: {'Yes' if self.enable_analytics_var.get() else 'No'}\n\n")
 
         # Disable run button, enable stop button during execution
         self.run_driver_button.config(state='disabled', text='Running...')
@@ -1297,8 +1350,8 @@ class DVDStoreGUI:
 
         # Run in background thread
         thread = threading.Thread(
-            target=self._execute_driver,
-            args=(target_db, config_path),
+            target=self._execute_orchestrator,
+            args=(selected_targets,),
             daemon=True
         )
         thread.start()
@@ -1319,20 +1372,23 @@ class DVDStoreGUI:
             except Exception as e:
                 self.log_output(f"Error stopping driver: {e}\n", "error")
 
-    def get_selected_database(self):
-        """Get the database object for the selected target"""
-        target_str = self.target_db_var.get()
-        for db in self.loaded_databases:
-            if f"{db['type']} @ {db['host']}" == target_str:
-                return db
-        return None
+    def get_selected_targets(self):
+        """Get list of selected target databases from checkboxes"""
+        selected = []
+        for db, var in self.target_checkboxes:
+            if var.get():
+                selected.append(db)
+        return selected
 
-    def generate_driver_config(self, target_db):
-        """Generate DriverConfig.txt from current settings"""
+    def generate_orchestrator_config(self, selected_targets):
+        """Generate orchestrator config from current settings (supports multiple targets)"""
         lines = []
+        lines.append("# DVD Store Multi-Database Orchestrator Config")
+        lines.append("# Generated by DVD Store 3.6 GUI")
+        lines.append("")
+        lines.append("# Common benchmark parameters (shared across all databases)")
 
-        # Basic parameters
-        lines.append(f"target={target_db['host']}")
+        # Basic parameters (NO target= here - that goes in target_N= lines)
         lines.append(f"n_threads={self.threads_spinbox.get()}")
         lines.append(f"run_time={self.runtime_spinbox.get()}")
         lines.append(f"ramp_rate=10")   # Default
@@ -1371,16 +1427,13 @@ class DVDStoreGUI:
             lines.append(f"pct_newreviews=5")
             lines.append(f"pct_newhelpfulness=10")
 
-        # Store count from loaded database
-        lines.append(f"n_stores={target_db['stores']}")
-
         # Vector search (from advanced config if available, otherwise from loaded database)
         if hasattr(self, 'use_vectors_var'):
             # Use the checkbox from Workload tab
             if self.use_vectors_var.get():
                 lines.append(f"use_vectors=Y")
-        elif target_db['vectors']:
-            # Fallback: auto-detect from loaded database if advanced config not used
+        elif selected_targets and any(db.get('vectors', False) for db in selected_targets):
+            # Fallback: auto-detect if ANY selected database has vectors
             lines.append(f"use_vectors=Y")
 
         # Manager operations (use advanced config settings if available)
@@ -1450,8 +1503,31 @@ class DVDStoreGUI:
             if self.ds2_mode_var.get():
                 lines.append(f"ds2_mode=Y")
 
-        # Write config file
-        config_path = os.path.join(self.ds36_path, 'DriverConfig.txt')
+        # Number of stores (use advanced config if available, otherwise use loaded value)
+        if hasattr(self, 'n_stores_var'):
+            n_stores = self.n_stores_var.get()
+        elif selected_targets:
+            n_stores = selected_targets[0]['stores']
+        else:
+            n_stores = 1  # Fallback default
+        lines.append(f"n_stores={n_stores}")
+
+        # Add target definitions
+        lines.append("")
+        lines.append("# Database targets")
+        lines.append("# Format: target_N=path/to/executable:hostname")
+
+        exe_ext = '.exe' if self.platform_support.is_windows else ''
+
+        for idx, target_db in enumerate(selected_targets, start=1):
+            db_dir = self.get_db_dir(target_db['type'])
+            exe_name = f"{db_dir}_ds{exe_ext}"
+            target_line = f"target_{idx}=../{db_dir}/{exe_name}:{target_db['host']}"
+            lines.append(target_line)
+
+        # Write orchestrator config file
+        config_path = os.path.join(self.ds36_path, 'orchestrator', 'OrchestratorConfig.txt')
+        os.makedirs(os.path.dirname(config_path), exist_ok=True)
         with open(config_path, 'w') as f:
             f.write('\n'.join(lines) + '\n')
 
@@ -1506,16 +1582,112 @@ class DVDStoreGUI:
 
         except Exception as e:
             self.running_process = None
-            self.master.after_idle(lambda: self.log_output(f"\n✗ Error: {e}\n", "error"))
+            self.master.after_idle(lambda err=e: self.log_output(f"\n✗ Error: {err}\n", "error"))
+            self.master.after_idle(lambda: self.run_driver_button.config(state='normal', text='Run Driver'))
+            self.master.after_idle(lambda: self.stop_driver_button.config(state='disabled'))
+
+    def _execute_orchestrator(self, selected_targets):
+        """Compile drivers and execute orchestrator in background thread"""
+        try:
+            # Step 1: Compile drivers for each selected target
+            self.master.after_idle(lambda: self.log_output("\n=== Compiling Drivers ===\n"))
+
+            for target_db in selected_targets:
+                db_dir = self.get_db_dir(target_db['type'])
+                db_path = os.path.join(self.ds36_path, db_dir)
+
+                self.master.after_idle(lambda db=target_db['type']:
+                    self.log_output(f"Compiling {db} driver...\n"))
+
+                # Run dotnet publish to create standalone executable
+                compile_proc = subprocess.Popen(
+                    ['dotnet', 'publish', '-c', 'Release', '-o', '.'],
+                    stdout=subprocess.PIPE,
+                    stderr=subprocess.STDOUT,
+                    text=True,
+                    cwd=db_path
+                )
+
+                # Stream compilation output
+                for line in iter(compile_proc.stdout.readline, ''):
+                    if not line:
+                        break
+                    # Only show important messages (errors, warnings, final success)
+                    if 'error' in line.lower() or 'warning' in line.lower() or 'succeeded' in line.lower():
+                        self.master.after_idle(lambda msg=line: self.log_output(f"  {msg}"))
+
+                compile_proc.wait()
+                if compile_proc.returncode != 0:
+                    self.master.after_idle(lambda db=target_db['type']:
+                        self.log_output(f"✗ Failed to compile {db} driver\n", "error"))
+                    self.master.after_idle(lambda: self.run_driver_button.config(state='normal', text='Run Driver'))
+                    self.master.after_idle(lambda: self.stop_driver_button.config(state='disabled'))
+                    return
+
+                self.master.after_idle(lambda db=target_db['type']:
+                    self.log_output(f"✓ {db} driver compiled\n", "success"))
+
+            # Step 2: Generate orchestrator config
+            self.master.after_idle(lambda: self.log_output("\n=== Generating Orchestrator Config ===\n"))
+            config_path = self.generate_orchestrator_config(selected_targets)
+            self.master.after_idle(lambda path=config_path:
+                self.log_output(f"Config written to {path}\n"))
+
+            # Step 3: Run orchestrator
+            self.master.after_idle(lambda: self.log_output("\n=== Running Orchestrator ===\n"))
+            orchestrator_dir = os.path.join(self.ds36_path, 'orchestrator')
+
+            proc = subprocess.Popen(
+                ['dotnet', 'run', 'OrchestratorConfig.txt'],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+                cwd=orchestrator_dir
+            )
+
+            # Store process for cancellation
+            self.running_process = proc
+
+            # Stream output line by line
+            for line in iter(proc.stdout.readline, ''):
+                if not line:
+                    break
+                # Update GUI from background thread
+                self.master.after_idle(lambda msg=line: self.log_output(msg))
+
+            # Wait for completion
+            proc.wait()
+            return_code = proc.returncode
+
+            # Clear running process
+            self.running_process = None
+
+            # Update GUI based on result
+            if return_code == 0:
+                self.master.after_idle(lambda: self.log_output("\n✓ Orchestrator completed successfully!\n", "success"))
+            elif return_code == -15 or return_code == -9:  # SIGTERM or SIGKILL
+                self.master.after_idle(lambda: self.log_output("\n⚠ Orchestrator stopped by user\n", "error"))
+            else:
+                self.master.after_idle(lambda: self.log_output(f"\n✗ Orchestrator failed (exit code {return_code})\n", "error"))
+
+            # Re-enable run button, disable stop button
+            self.master.after_idle(lambda: self.run_driver_button.config(state='normal', text='Run Driver'))
+            self.master.after_idle(lambda: self.stop_driver_button.config(state='disabled'))
+
+        except Exception as e:
+            self.running_process = None
+            self.master.after_idle(lambda err=e: self.log_output(f"\n✗ Error: {err}\n", "error"))
             self.master.after_idle(lambda: self.run_driver_button.config(state='normal', text='Run Driver'))
             self.master.after_idle(lambda: self.stop_driver_button.config(state='disabled'))
 
     def create_output_console(self, parent):
         """Create output console widget"""
         console_frame = ttk.LabelFrame(parent, text="Output Console", padding="10")
-        console_frame.grid(row=1, column=1, sticky=(tk.W, tk.E, tk.N, tk.S), pady=5)
+        console_frame.grid(row=0, column=0, sticky=(tk.W, tk.E, tk.N, tk.S))
         console_frame.columnconfigure(0, weight=1)
         console_frame.rowconfigure(0, weight=1)
+        parent.columnconfigure(0, weight=1)
+        parent.rowconfigure(0, weight=1)
 
         # Scrolled text widget - remove fixed height, let it expand
         self.output_text = scrolledtext.ScrolledText(console_frame, wrap=tk.WORD)
@@ -1770,7 +1942,7 @@ class DVDStoreGUI:
                 self.master.after_idle(lambda: self.generate_button.config(state='normal', text='Generate Data Files'))
 
         except Exception as e:
-            self.master.after_idle(lambda: self.log_output(f"\n✗ Error: {e}\n", "error"))
+            self.master.after_idle(lambda err=e: self.log_output(f"\n✗ Error: {err}\n", "error"))
             self.master.after_idle(lambda: self.generate_button.config(state='normal', text='Generate Data Files'))
 
     def log_output(self, message, tag=None):
