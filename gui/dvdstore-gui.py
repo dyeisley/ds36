@@ -117,6 +117,7 @@ class DVDStoreGUI:
         self.data_generated = False
         self.generated_for_database = None  # Track which DB type was used in Step 1
         self.db_params = {}  # Parsed script parameters
+        self.running_process = None  # Track running subprocess for cancellation
 
         # Get ds36 directory
         self.ds36_path = self.get_ds36_directory()
@@ -415,10 +416,16 @@ class DVDStoreGUI:
 
         row += 1
 
-        # Generate button
-        self.generate_button = ttk.Button(step1_frame, text="Generate Data Files",
+        # Generate button with timestamp
+        button_frame = ttk.Frame(step1_frame)
+        button_frame.grid(row=row, column=0, columnspan=3, pady=10)
+
+        self.generate_button = ttk.Button(button_frame, text="Generate Data Files",
                                          command=self.run_install_dvdstore)
-        self.generate_button.grid(row=row, column=0, columnspan=3, pady=10)
+        self.generate_button.pack(side=tk.LEFT, padx=5)
+
+        self.generate_timestamp_label = ttk.Label(button_frame, text="", foreground="gray")
+        self.generate_timestamp_label.pack(side=tk.LEFT, padx=5)
 
         # Populate database types
         self.populate_database_types()
@@ -826,6 +833,13 @@ class DVDStoreGUI:
                        variable=self.enable_analytics_var).grid(row=row, column=1, sticky=tk.W, pady=2, padx=5)
         row += 1
 
+        # Validate after test checkbox
+        self.validate_post_test_var = tk.BooleanVar(value=False)
+        ttk.Checkbutton(step3_frame, text="Run Validation SQL After Test",
+                       variable=self.validate_post_test_var).grid(row=row, column=1, sticky=tk.W, pady=2, padx=5)
+        ToolTip(step3_frame.winfo_children()[-1], "Execute validation queries after benchmark completes\nto verify database consistency")
+        row += 1
+
         # Configure/Run buttons
         button_frame = ttk.Frame(step3_frame)
         button_frame.grid(row=row, column=0, columnspan=2, pady=10)
@@ -836,6 +850,11 @@ class DVDStoreGUI:
         self.run_driver_button = ttk.Button(button_frame, text="Run Driver",
                                             command=self.run_driver)
         self.run_driver_button.pack(side=tk.LEFT, padx=5)
+
+        self.stop_driver_button = ttk.Button(button_frame, text="Stop",
+                                             command=self.stop_driver,
+                                             state='disabled')
+        self.stop_driver_button.pack(side=tk.LEFT, padx=5)
 
         # Initially disable until Step 2 completes
         self.run_driver_button.config(state='disabled')
@@ -848,14 +867,377 @@ class DVDStoreGUI:
 
     def open_advanced_config(self):
         """Open advanced configuration dialog"""
-        # TODO: Create a dialog window with tabbed interface for all parameters
-        messagebox.showinfo("Advanced Configuration",
-                          "Advanced configuration dialog will be implemented next.\n\n"
-                          "Will include tabs for:\n"
-                          "- Workload Mix\n"
-                          "- Manager Operations\n"
-                          "- Analytics\n"
-                          "- Advanced Options")
+        # Create dialog window
+        dialog = tk.Toplevel(self.master)
+        dialog.title("Advanced Driver Configuration")
+        dialog.geometry("700x750")
+        dialog.transient(self.master)
+        dialog.grab_set()
+
+        # Create notebook (tabbed interface)
+        notebook = ttk.Notebook(dialog)
+        notebook.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
+
+        # Customer/Membership tab
+        self.create_customer_tab(notebook)
+
+        # Workload Mix tab
+        self.create_workload_tab(notebook)
+
+        # Manager tab
+        self.create_manager_tab(notebook)
+
+        # Analytics tab
+        self.create_analytics_tab(notebook)
+
+        # OK/Cancel buttons
+        button_frame = ttk.Frame(dialog)
+        button_frame.pack(side=tk.BOTTOM, pady=10)
+
+        ttk.Button(button_frame, text="OK", command=dialog.destroy).pack(side=tk.LEFT, padx=5)
+        ttk.Button(button_frame, text="Cancel", command=dialog.destroy).pack(side=tk.LEFT, padx=5)
+
+    def create_customer_tab(self, notebook):
+        """Create the Customer/Membership configuration tab"""
+        customer_frame = ttk.Frame(notebook, padding=10)
+        notebook.add(customer_frame, text="Customer/Membership")
+
+        row = 0
+
+        # New Customer percentage
+        ttk.Label(customer_frame, text="New Customer %:").grid(row=row, column=0, sticky=tk.W, pady=5)
+        self.pct_newcustomers_var = tk.IntVar(value=20)
+        ttk.Spinbox(customer_frame, from_=0, to=100, textvariable=self.pct_newcustomers_var, width=10).grid(row=row, column=1, sticky=tk.W, pady=5, padx=5)
+        ToolTip(customer_frame.winfo_children()[-1], "Percentage of orders from new customers\n(vs existing customers logging in)\nDefault: 20%")
+        row += 1
+
+        # New Member percentage
+        ttk.Label(customer_frame, text="New Member %:").grid(row=row, column=0, sticky=tk.W, pady=5)
+        self.pct_newmember_var = tk.IntVar(value=1)
+        ttk.Spinbox(customer_frame, from_=0, to=100, textvariable=self.pct_newmember_var, width=10).grid(row=row, column=1, sticky=tk.W, pady=5, padx=5)
+        ToolTip(customer_frame.winfo_children()[-1], "Percentage of new customers who sign up for membership\nDefault: 1%")
+        row += 1
+
+        # Renew Member percentage
+        ttk.Label(customer_frame, text="Renew Member %:").grid(row=row, column=0, sticky=tk.W, pady=5)
+        self.pct_renewmember_var = tk.IntVar(value=50)
+        ttk.Spinbox(customer_frame, from_=0, to=100, textvariable=self.pct_renewmember_var, width=10).grid(row=row, column=1, sticky=tk.W, pady=5, padx=5)
+        ToolTip(customer_frame.winfo_children()[-1], "Percentage of expired members who renew during login\nDefault: 50%")
+        row += 1
+
+        ttk.Separator(customer_frame, orient=tk.HORIZONTAL).grid(row=row, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=10)
+        row += 1
+
+        # Review behavior
+        ttk.Label(customer_frame, text="Review Behavior:", font=('TkDefaultFont', 10, 'bold')).grid(row=row, column=0, columnspan=2, sticky=tk.W, pady=5)
+        row += 1
+
+        ttk.Label(customer_frame, text="Reviews per Order:").grid(row=row, column=0, sticky=tk.W, pady=5)
+        self.n_reviews_var = tk.IntVar(value=3)
+        ttk.Spinbox(customer_frame, from_=0, to=100, textvariable=self.n_reviews_var, width=10).grid(row=row, column=1, sticky=tk.W, pady=5, padx=5)
+        ToolTip(customer_frame.winfo_children()[-1], "Number of product reviews to read per order\nDefault: 3")
+        row += 1
+
+        ttk.Label(customer_frame, text="New Reviews %:").grid(row=row, column=0, sticky=tk.W, pady=5)
+        self.pct_newreviews_var = tk.IntVar(value=5)
+        ttk.Spinbox(customer_frame, from_=0, to=100, textvariable=self.pct_newreviews_var, width=10).grid(row=row, column=1, sticky=tk.W, pady=5, padx=5)
+        ToolTip(customer_frame.winfo_children()[-1], "Percentage of customers who write a new review\nDefault: 5%")
+        row += 1
+
+        ttk.Label(customer_frame, text="New Helpfulness %:").grid(row=row, column=0, sticky=tk.W, pady=5)
+        self.pct_newhelpfulness_var = tk.IntVar(value=10)
+        ttk.Spinbox(customer_frame, from_=0, to=100, textvariable=self.pct_newhelpfulness_var, width=10).grid(row=row, column=1, sticky=tk.W, pady=5, padx=5)
+        ToolTip(customer_frame.winfo_children()[-1], "Percentage of customers who rate a review as helpful/unhelpful\nDefault: 10%")
+        row += 1
+
+    def create_workload_tab(self, notebook):
+        """Create the Workload Mix configuration tab"""
+        workload_frame = ttk.Frame(notebook, padding=10)
+        notebook.add(workload_frame, text="Workload Mix")
+
+        # Create scrollable canvas for all the workload parameters
+        canvas = tk.Canvas(workload_frame, highlightthickness=0)
+        scrollbar = ttk.Scrollbar(workload_frame, orient="vertical", command=canvas.yview)
+        scrollable_frame = ttk.Frame(canvas)
+
+        scrollable_frame.bind(
+            "<Configure>",
+            lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
+        )
+
+        canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
+        canvas.configure(yscrollcommand=scrollbar.set)
+
+        canvas.pack(side="left", fill="both", expand=True)
+        scrollbar.pack(side="right", fill="y")
+
+        row = 0
+
+        # Warmup time
+        ttk.Label(scrollable_frame, text="Warmup Time (min):").grid(row=row, column=0, sticky=tk.W, pady=5)
+        self.warmup_time_var = tk.IntVar(value=1)
+        ttk.Spinbox(scrollable_frame, from_=0, to=60, textvariable=self.warmup_time_var, width=10).grid(row=row, column=1, sticky=tk.W, pady=5, padx=5)
+        ToolTip(scrollable_frame.winfo_children()[-1], "Minutes to run before collecting metrics\nDefault: 1 minute")
+        row += 1
+
+        # Think time
+        ttk.Label(scrollable_frame, text="Think Time (sec):").grid(row=row, column=0, sticky=tk.W, pady=5)
+        self.think_time_var = tk.DoubleVar(value=0.0)
+        ttk.Spinbox(scrollable_frame, from_=0.0, to=60.0, increment=0.1, textvariable=self.think_time_var, width=10).grid(row=row, column=1, sticky=tk.W, pady=5, padx=5)
+        ToolTip(scrollable_frame.winfo_children()[-1], "Delay between operations (seconds)\n0 = maximum throughput\nDefault: 0")
+        row += 1
+
+        ttk.Separator(scrollable_frame, orient=tk.HORIZONTAL).grid(row=row, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=10)
+        row += 1
+
+        # Search behavior
+        ttk.Label(scrollable_frame, text="Search Behavior:", font=('TkDefaultFont', 10, 'bold')).grid(row=row, column=0, columnspan=2, sticky=tk.W, pady=5)
+        row += 1
+
+        ttk.Label(scrollable_frame, text="Searches per Order:").grid(row=row, column=0, sticky=tk.W, pady=5)
+        self.n_searches_var = tk.IntVar(value=3)
+        ttk.Spinbox(scrollable_frame, from_=0, to=100, textvariable=self.n_searches_var, width=10).grid(row=row, column=1, sticky=tk.W, pady=5, padx=5)
+        ToolTip(scrollable_frame.winfo_children()[-1], "Number of searches per purchase\nDefault: 3")
+        row += 1
+
+        ttk.Label(scrollable_frame, text="Search Batch Size:").grid(row=row, column=0, sticky=tk.W, pady=5)
+        self.search_batch_size_var = tk.IntVar(value=5)
+        ttk.Spinbox(scrollable_frame, from_=1, to=1000, textvariable=self.search_batch_size_var, width=10).grid(row=row, column=1, sticky=tk.W, pady=5, padx=5)
+        ToolTip(scrollable_frame.winfo_children()[-1], "Number of products per search result\nDefault: 5")
+        row += 1
+
+        ttk.Label(scrollable_frame, text="Search Depth:").grid(row=row, column=0, sticky=tk.W, pady=5)
+        self.search_depth_var = tk.IntVar(value=500)
+        ttk.Spinbox(scrollable_frame, from_=1, to=100000, textvariable=self.search_depth_var, width=10).grid(row=row, column=1, sticky=tk.W, pady=5, padx=5)
+        ToolTip(scrollable_frame.winfo_children()[-1], "Number of rows to scan before applying batch size limit\nHigher = more thorough search, slower\nDefault: 500")
+        row += 1
+
+        ttk.Separator(scrollable_frame, orient=tk.HORIZONTAL).grid(row=row, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=10)
+        row += 1
+
+        # Purchase behavior
+        ttk.Label(scrollable_frame, text="Purchase Behavior:", font=('TkDefaultFont', 10, 'bold')).grid(row=row, column=0, columnspan=2, sticky=tk.W, pady=5)
+        row += 1
+
+        ttk.Label(scrollable_frame, text="Line Items per Order:").grid(row=row, column=0, sticky=tk.W, pady=5)
+        self.n_line_items_var = tk.IntVar(value=5)
+        ttk.Spinbox(scrollable_frame, from_=1, to=1000, textvariable=self.n_line_items_var, width=10).grid(row=row, column=1, sticky=tk.W, pady=5, padx=5)
+        ToolTip(scrollable_frame.winfo_children()[-1], "Products per shopping cart\nDefault: 5")
+        row += 1
+
+        ttk.Separator(scrollable_frame, orient=tk.HORIZONTAL).grid(row=row, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=10)
+        row += 1
+
+        # Logging
+        ttk.Label(scrollable_frame, text="Logging:", font=('TkDefaultFont', 10, 'bold')).grid(row=row, column=0, columnspan=2, sticky=tk.W, pady=5)
+        row += 1
+
+        ttk.Label(scrollable_frame, text="Log Frequency (sec):").grid(row=row, column=0, sticky=tk.W, pady=5)
+        self.log_freq_var = tk.IntVar(value=10)
+        ttk.Spinbox(scrollable_frame, from_=1, to=3600, textvariable=self.log_freq_var, width=10).grid(row=row, column=1, sticky=tk.W, pady=5, padx=5)
+        ToolTip(scrollable_frame.winfo_children()[-1], "Seconds between OPM status updates\nDefault: 10 seconds")
+        row += 1
+
+        ttk.Label(scrollable_frame, text="Log Timestamp:").grid(row=row, column=0, sticky=tk.W, pady=5)
+        self.log_timestamp_var = tk.StringVar(value="NONE")
+        ttk.Combobox(scrollable_frame, textvariable=self.log_timestamp_var, values=["NONE", "UTC", "LOCAL"], state='readonly', width=10).grid(row=row, column=1, sticky=tk.W, pady=5, padx=5)
+        ToolTip(scrollable_frame.winfo_children()[-1], "Add timestamps to log output\nNONE = no timestamps (default)\nUTC = UTC timestamps\nLOCAL = local timezone")
+        row += 1
+
+        self.detailed_view_var = tk.BooleanVar(value=False)
+        ttk.Checkbutton(scrollable_frame, text="Detailed View (verbose statistics)",
+                       variable=self.detailed_view_var).grid(row=row, column=0, columnspan=2, sticky=tk.W, pady=5)
+        ToolTip(scrollable_frame.winfo_children()[-1], "Show detailed per-operation statistics")
+        row += 1
+
+        ttk.Separator(scrollable_frame, orient=tk.HORIZONTAL).grid(row=row, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=10)
+        row += 1
+
+        # Advanced options
+        ttk.Label(scrollable_frame, text="Advanced:", font=('TkDefaultFont', 10, 'bold')).grid(row=row, column=0, columnspan=2, sticky=tk.W, pady=5)
+        row += 1
+
+        # Initialize based on the currently selected target database
+        has_vectors = False
+        if hasattr(self, 'loaded_databases') and self.loaded_databases:
+            # Get the currently selected database from Step 3
+            target_db = self.get_selected_database()
+            if target_db:
+                has_vectors = target_db.get('vectors', False)
+        self.use_vectors_var = tk.BooleanVar(value=has_vectors)
+        ttk.Checkbutton(scrollable_frame, text="Enable Vector Search",
+                       variable=self.use_vectors_var).grid(row=row, column=0, columnspan=2, sticky=tk.W, pady=5, padx=20)
+        ToolTip(scrollable_frame.winfo_children()[-1], "Enable vector similarity searches (PostgreSQL/Oracle)\nRequires vector data loaded in Step 2\nIncompatible with Manager Operations")
+        row += 1
+
+        self.ds2_mode_var = tk.BooleanVar(value=False)
+        ttk.Checkbutton(scrollable_frame, text="DS2 Compatibility Mode",
+                       variable=self.ds2_mode_var).grid(row=row, column=0, columnspan=2, sticky=tk.W, pady=5, padx=20)
+        ToolTip(scrollable_frame.winfo_children()[-1], "Disable DS3.6 features for DVD Store 2 comparison\n(Disables membership, manager, analytics)")
+        row += 1
+
+    def create_manager_tab(self, notebook):
+        """Create the Manager Operations configuration tab"""
+        manager_frame = ttk.Frame(notebook, padding=10)
+        notebook.add(manager_frame, text="Manager Operations")
+
+        # Create scrollable canvas for all the manager parameters
+        canvas = tk.Canvas(manager_frame, highlightthickness=0)
+        scrollbar = ttk.Scrollbar(manager_frame, orient="vertical", command=canvas.yview)
+        scrollable_frame = ttk.Frame(canvas)
+
+        scrollable_frame.bind(
+            "<Configure>",
+            lambda e: canvas.configure(scrollregion=canvas.bbox("all"))
+        )
+
+        canvas.create_window((0, 0), window=scrollable_frame, anchor="nw")
+        canvas.configure(yscrollcommand=scrollbar.set)
+
+        canvas.pack(side="left", fill="both", expand=True)
+        scrollbar.pack(side="right", fill="y")
+
+        row = 0
+
+        # Manager interval
+        ttk.Label(scrollable_frame, text="Manager Interval (seconds):").grid(row=row, column=0, sticky=tk.W, pady=5)
+        self.manager_interval_var = tk.IntVar(value=30)
+        interval_spin = ttk.Spinbox(scrollable_frame, from_=1, to=600, textvariable=self.manager_interval_var, width=10)
+        interval_spin.grid(row=row, column=1, sticky=tk.W, pady=5, padx=5)
+        ToolTip(interval_spin, "Seconds between manager operations\nDefault: 30 seconds")
+        row += 1
+
+        # Batch sizes
+        ttk.Label(scrollable_frame, text="Batch Size Min:").grid(row=row, column=0, sticky=tk.W, pady=5)
+        self.manager_batch_min_var = tk.IntVar(value=1)
+        batch_min_spin = ttk.Spinbox(scrollable_frame, from_=1, to=1000, textvariable=self.manager_batch_min_var, width=10)
+        batch_min_spin.grid(row=row, column=1, sticky=tk.W, pady=5, padx=5)
+        ToolTip(batch_min_spin, "Minimum batch size for manager operations")
+        row += 1
+
+        ttk.Label(scrollable_frame, text="Batch Size Max:").grid(row=row, column=0, sticky=tk.W, pady=5)
+        self.manager_batch_max_var = tk.IntVar(value=20)
+        batch_max_spin = ttk.Spinbox(scrollable_frame, from_=1, to=1000, textvariable=self.manager_batch_max_var, width=10)
+        batch_max_spin.grid(row=row, column=1, sticky=tk.W, pady=5, padx=5)
+        ToolTip(batch_max_spin, "Maximum batch size for manager operations")
+        row += 1
+
+        ttk.Separator(scrollable_frame, orient=tk.HORIZONTAL).grid(row=row, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=10)
+        row += 1
+
+        # Operation percentages header
+        ttk.Label(scrollable_frame, text="Operation Percentages:", font=('TkDefaultFont', 10, 'bold')).grid(row=row, column=0, columnspan=2, sticky=tk.W, pady=5)
+        row += 1
+
+        ttk.Label(scrollable_frame, text="(Total should equal 100%)", font=('TkDefaultFont', 8)).grid(row=row, column=0, columnspan=2, sticky=tk.W, pady=2, padx=20)
+        row += 1
+
+        # AddProduct
+        ttk.Label(scrollable_frame, text="Add Product %:").grid(row=row, column=0, sticky=tk.W, pady=2, padx=20)
+        self.mgr_add_product_var = tk.IntVar(value=40)
+        ttk.Spinbox(scrollable_frame, from_=0, to=100, textvariable=self.mgr_add_product_var, width=10).grid(row=row, column=1, sticky=tk.W, pady=2)
+        ToolTip(scrollable_frame.winfo_children()[-1], "Add new products to inventory (.01 price endings)")
+        row += 1
+
+        # DeleteReview
+        ttk.Label(scrollable_frame, text="Delete Review %:").grid(row=row, column=0, sticky=tk.W, pady=2, padx=20)
+        self.mgr_delete_review_var = tk.IntVar(value=20)
+        ttk.Spinbox(scrollable_frame, from_=0, to=100, textvariable=self.mgr_delete_review_var, width=10).grid(row=row, column=1, sticky=tk.W, pady=2)
+        ToolTip(scrollable_frame.winfo_children()[-1], "Remove reviews (by product, unhelpful, or by date)")
+        row += 1
+
+        # AdjustPrices (includes BulkPriceAdjustment)
+        ttk.Label(scrollable_frame, text="Adjust Prices %:").grid(row=row, column=0, sticky=tk.W, pady=2, padx=20)
+        self.mgr_update_price_var = tk.IntVar(value=20)
+        ttk.Spinbox(scrollable_frame, from_=0, to=100, textvariable=self.mgr_update_price_var, width=10).grid(row=row, column=1, sticky=tk.W, pady=2)
+        ToolTip(scrollable_frame.winfo_children()[-1], "Price adjustments (alternates individual .99 and bulk .77)")
+        row += 1
+
+        # MarkSpecials
+        ttk.Label(scrollable_frame, text="Mark Specials %:").grid(row=row, column=0, sticky=tk.W, pady=2, padx=20)
+        self.mgr_update_special_var = tk.IntVar(value=5)
+        ttk.Spinbox(scrollable_frame, from_=0, to=100, textvariable=self.mgr_update_special_var, width=10).grid(row=row, column=1, sticky=tk.W, pady=2)
+        ToolTip(scrollable_frame.winfo_children()[-1], "Toggle product special flags")
+        row += 1
+
+        # ExpireMemberships
+        ttk.Label(scrollable_frame, text="Expire Memberships %:").grid(row=row, column=0, sticky=tk.W, pady=2, padx=20)
+        self.mgr_expire_memberships_var = tk.IntVar(value=5)
+        ttk.Spinbox(scrollable_frame, from_=0, to=100, textvariable=self.mgr_expire_memberships_var, width=10).grid(row=row, column=1, sticky=tk.W, pady=2)
+        ToolTip(scrollable_frame.winfo_children()[-1], "Expire old memberships based on expiration date")
+        row += 1
+
+        # PurgeOldOrders
+        ttk.Label(scrollable_frame, text="Purge Old Orders %:").grid(row=row, column=0, sticky=tk.W, pady=2, padx=20)
+        self.mgr_purge_old_orders_var = tk.IntVar(value=5)
+        ttk.Spinbox(scrollable_frame, from_=0, to=100, textvariable=self.mgr_purge_old_orders_var, width=10).grid(row=row, column=1, sticky=tk.W, pady=2)
+        ToolTip(scrollable_frame.winfo_children()[-1], "Delete oldest orders (GDPR/data retention compliance)")
+        row += 1
+
+        # UpgradeMembership
+        ttk.Label(scrollable_frame, text="Upgrade Membership %:").grid(row=row, column=0, sticky=tk.W, pady=2, padx=20)
+        self.mgr_upgrade_membership_var = tk.IntVar(value=5)
+        ttk.Spinbox(scrollable_frame, from_=0, to=100, textvariable=self.mgr_upgrade_membership_var, width=10).grid(row=row, column=1, sticky=tk.W, pady=2)
+        ToolTip(scrollable_frame.winfo_children()[-1], "Upgrade membership tiers based on purchase history (percentile-based)")
+        row += 1
+
+        # PromotionalMembership
+        ttk.Label(scrollable_frame, text="Promotional Membership %:").grid(row=row, column=0, sticky=tk.W, pady=2, padx=20)
+        self.mgr_promo_membership_var = tk.IntVar(value=0)
+        ttk.Spinbox(scrollable_frame, from_=0, to=100, textvariable=self.mgr_promo_membership_var, width=10).grid(row=row, column=1, sticky=tk.W, pady=2)
+        ToolTip(scrollable_frame.winfo_children()[-1], "90-day promotional membership upgrades (MERGE-based)")
+        row += 1
+
+    def create_analytics_tab(self, notebook):
+        """Create the Analytics configuration tab"""
+        analytics_frame = ttk.Frame(notebook, padding=10)
+        notebook.add(analytics_frame, text="Analytics")
+
+        row = 0
+
+        # Analytics interval
+        ttk.Label(analytics_frame, text="Analytics Interval (minutes):").grid(row=row, column=0, sticky=tk.W, pady=5)
+        self.analytics_interval_var = tk.IntVar(value=5)
+        analytics_spin = ttk.Spinbox(analytics_frame, from_=0, to=60, textvariable=self.analytics_interval_var, width=10)
+        analytics_spin.grid(row=row, column=1, sticky=tk.W, pady=5, padx=5)
+        ToolTip(analytics_spin, "Minutes between analytics queries.\n0 = disabled\nTypical: 5-15 minutes")
+        row += 1
+
+        ttk.Separator(analytics_frame, orient=tk.HORIZONTAL).grid(row=row, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=10)
+        row += 1
+
+        # Individual analytics toggles
+        ttk.Label(analytics_frame, text="Enable Individual Analytics:", font=('TkDefaultFont', 10, 'bold')).grid(row=row, column=0, columnspan=2, sticky=tk.W, pady=5)
+        row += 1
+
+        self.enable_membership_analytics_var = tk.BooleanVar(value=True)
+        ttk.Checkbutton(analytics_frame, text="Membership Analytics",
+                       variable=self.enable_membership_analytics_var).grid(row=row, column=0, columnspan=2, sticky=tk.W, pady=2, padx=20)
+        ToolTip(analytics_frame.winfo_children()[-1], "Orders and revenue per tier (Gold/Silver/Bronze/Non-member)")
+        row += 1
+
+        self.enable_newcustomer_analytics_var = tk.BooleanVar(value=True)
+        ttk.Checkbutton(analytics_frame, text="New Customer Analytics",
+                       variable=self.enable_newcustomer_analytics_var).grid(row=row, column=0, columnspan=2, sticky=tk.W, pady=2, padx=20)
+        ToolTip(analytics_frame.winfo_children()[-1], "New customers created and retention metrics")
+        row += 1
+
+        self.enable_review_analytics_var = tk.BooleanVar(value=True)
+        ttk.Checkbutton(analytics_frame, text="Review Analytics",
+                       variable=self.enable_review_analytics_var).grid(row=row, column=0, columnspan=2, sticky=tk.W, pady=2, padx=20)
+        ToolTip(analytics_frame.winfo_children()[-1], "Review distribution by star rating and helpfulness scores")
+        row += 1
+
+        self.enable_pricepoint_analytics_var = tk.BooleanVar(value=True)
+        ttk.Checkbutton(analytics_frame, text="Price Point Analytics",
+                       variable=self.enable_pricepoint_analytics_var).grid(row=row, column=0, columnspan=2, sticky=tk.W, pady=2, padx=20)
+        ToolTip(analytics_frame.winfo_children()[-1], "Distribution of price endings (.99, .77, .01, other)")
+        row += 1
+
+        self.enable_inventory_analytics_var = tk.BooleanVar(value=True)
+        ttk.Checkbutton(analytics_frame, text="Inventory Analytics",
+                       variable=self.enable_inventory_analytics_var).grid(row=row, column=0, columnspan=2, sticky=tk.W, pady=2, padx=20)
+        ToolTip(analytics_frame.winfo_children()[-1], "Low/high stock counts, reorder events, sales velocity")
 
     def run_driver(self):
         """Generate config and run driver"""
@@ -866,17 +1248,267 @@ class DVDStoreGUI:
             messagebox.showerror("Error", "Please load a database first (Step 2)")
             return
 
-        target_db = self.target_db_var.get()
-        if not target_db:
+        target_db_str = self.target_db_var.get()
+        if not target_db_str:
             messagebox.showerror("Error", "Please select a target database")
             return
 
-        self.log_output(f"Target: {target_db}\n")
-        self.log_output(f"Threads: {self.threads_spinbox.get()}\n")
-        self.log_output(f"Run Time: {self.runtime_spinbox.get()} minutes\n")
+        # Parse target database string ("DatabaseType @ Host")
+        target_db = self.get_selected_database()
+        if not target_db:
+            messagebox.showerror("Error", "Selected database not found")
+            return
 
-        # TODO: Generate DriverConfig.txt and execute driver
-        self.log_output("Driver execution not yet implemented...\n", "error")
+        # Validation: cannot use both vectors and managers
+        # Check if vectors are enabled (from checkbox if advanced config used, else from database)
+        vectors_enabled = False
+        if hasattr(self, 'use_vectors_var'):
+            vectors_enabled = self.use_vectors_var.get()
+        else:
+            vectors_enabled = target_db['vectors']
+
+        if vectors_enabled and self.enable_managers_var.get():
+            messagebox.showerror("Error",
+                "Cannot enable both Vector Search and Manager Operations.\n\n"
+                "Vector search requires specific database configuration that is\n"
+                "incompatible with manager operations.\n\n"
+                "Please either:\n"
+                "  • Disable Manager Operations, or\n"
+                "  • Uncheck 'Enable Vector Search' in Advanced Config")
+            return
+
+        threads = self.threads_spinbox.get()
+        runtime = self.runtime_spinbox.get()
+
+        self.log_output(f"Target: {target_db['type']} @ {target_db['host']}\n")
+        self.log_output(f"Threads: {threads}\n")
+        self.log_output(f"Run Time: {runtime} minutes\n")
+        self.log_output(f"Managers: {'Yes' if self.enable_managers_var.get() else 'No'}\n")
+        self.log_output(f"Analytics: {'Yes' if self.enable_analytics_var.get() else 'No'}\n")
+
+        # Generate DriverConfig.txt
+        self.log_output("\nGenerating DriverConfig.txt...\n")
+        config_path = self.generate_driver_config(target_db)
+        self.log_output(f"Config written to {config_path}\n")
+
+        # Disable run button, enable stop button during execution
+        self.run_driver_button.config(state='disabled', text='Running...')
+        self.stop_driver_button.config(state='normal')
+
+        # Run in background thread
+        thread = threading.Thread(
+            target=self._execute_driver,
+            args=(target_db, config_path),
+            daemon=True
+        )
+        thread.start()
+
+    def stop_driver(self):
+        """Stop the currently running driver process"""
+        if self.running_process:
+            self.log_output("\n⚠ Stopping driver...\n", "error")
+            try:
+                self.running_process.terminate()
+                # Give it a moment to terminate gracefully
+                try:
+                    self.running_process.wait(timeout=5)
+                except subprocess.TimeoutExpired:
+                    # Force kill if it doesn't terminate
+                    self.running_process.kill()
+                    self.log_output("Driver process killed (forced)\n", "error")
+            except Exception as e:
+                self.log_output(f"Error stopping driver: {e}\n", "error")
+
+    def get_selected_database(self):
+        """Get the database object for the selected target"""
+        target_str = self.target_db_var.get()
+        for db in self.loaded_databases:
+            if f"{db['type']} @ {db['host']}" == target_str:
+                return db
+        return None
+
+    def generate_driver_config(self, target_db):
+        """Generate DriverConfig.txt from current settings"""
+        lines = []
+
+        # Basic parameters
+        lines.append(f"target={target_db['host']}")
+        lines.append(f"n_threads={self.threads_spinbox.get()}")
+        lines.append(f"run_time={self.runtime_spinbox.get()}")
+        lines.append(f"ramp_rate=10")   # Default
+
+        # Workload parameters (use advanced config if available, otherwise defaults)
+        if hasattr(self, 'warmup_time_var'):
+            lines.append(f"warmup_time={self.warmup_time_var.get()}")
+            lines.append(f"think_time={self.think_time_var.get()}")
+            lines.append(f"n_searches={self.n_searches_var.get()}")
+            lines.append(f"search_batch_size={self.search_batch_size_var.get()}")
+            lines.append(f"search_depth={self.search_depth_var.get()}")
+            lines.append(f"n_line_items={self.n_line_items_var.get()}")
+            lines.append(f"log_freq={self.log_freq_var.get()}")
+        else:
+            lines.append(f"warmup_time=1")
+            lines.append(f"think_time=0")
+            lines.append(f"n_searches=3")
+            lines.append(f"search_batch_size=5")
+            lines.append(f"search_depth=500")
+            lines.append(f"n_line_items=5")
+            lines.append(f"log_freq=10")
+
+        # Customer/Membership parameters (use advanced config if available, otherwise defaults)
+        if hasattr(self, 'pct_newcustomers_var'):
+            lines.append(f"pct_newcustomers={self.pct_newcustomers_var.get()}")
+            lines.append(f"pct_newmember={self.pct_newmember_var.get()}")
+            lines.append(f"pct_renewmember={self.pct_renewmember_var.get()}")
+            lines.append(f"n_reviews={self.n_reviews_var.get()}")
+            lines.append(f"pct_newreviews={self.pct_newreviews_var.get()}")
+            lines.append(f"pct_newhelpfulness={self.pct_newhelpfulness_var.get()}")
+        else:
+            lines.append(f"pct_newcustomers=20")
+            lines.append(f"pct_newmember=1")
+            lines.append(f"pct_renewmember=50")
+            lines.append(f"n_reviews=3")
+            lines.append(f"pct_newreviews=5")
+            lines.append(f"pct_newhelpfulness=10")
+
+        # Store count from loaded database
+        lines.append(f"n_stores={target_db['stores']}")
+
+        # Vector search (from advanced config if available, otherwise from loaded database)
+        if hasattr(self, 'use_vectors_var'):
+            # Use the checkbox from Workload tab
+            if self.use_vectors_var.get():
+                lines.append(f"use_vectors=Y")
+        elif target_db['vectors']:
+            # Fallback: auto-detect from loaded database if advanced config not used
+            lines.append(f"use_vectors=Y")
+
+        # Manager operations (use advanced config settings if available)
+        if self.enable_managers_var.get():
+            lines.append(f"enable_managers=Y")
+
+            # Use advanced config values if dialog was opened, otherwise use defaults
+            if hasattr(self, 'manager_interval_var'):
+                lines.append(f"manager_interval={self.manager_interval_var.get()}")
+                lines.append(f"manager_batch_size_min={self.manager_batch_min_var.get()}")
+                lines.append(f"manager_batch_size_max={self.manager_batch_max_var.get()}")
+                lines.append(f"manager_add_product_pct={self.mgr_add_product_var.get()}")
+                lines.append(f"manager_delete_review_pct={self.mgr_delete_review_var.get()}")
+                lines.append(f"manager_update_price_pct={self.mgr_update_price_var.get()}")
+                lines.append(f"manager_update_special_pct={self.mgr_update_special_var.get()}")
+                lines.append(f"manager_expire_memberships_pct={self.mgr_expire_memberships_var.get()}")
+                lines.append(f"manager_purge_old_orders_pct={self.mgr_purge_old_orders_var.get()}")
+                lines.append(f"manager_upgrade_membership_pct={self.mgr_upgrade_membership_var.get()}")
+                lines.append(f"manager_promo_membership_pct={self.mgr_promo_membership_var.get()}")
+            else:
+                # Defaults if advanced config not used
+                lines.append(f"manager_interval=30")
+                lines.append(f"manager_batch_size_min=1")
+                lines.append(f"manager_batch_size_max=20")
+                lines.append(f"manager_add_product_pct=40")
+                lines.append(f"manager_delete_review_pct=20")
+                lines.append(f"manager_update_price_pct=20")
+                lines.append(f"manager_update_special_pct=5")
+                lines.append(f"manager_expire_memberships_pct=5")
+                lines.append(f"manager_purge_old_orders_pct=5")
+                lines.append(f"manager_upgrade_membership_pct=5")
+                lines.append(f"manager_promo_membership_pct=0")
+
+        # Analytics (use advanced config settings if available, but respect main checkbox)
+        if hasattr(self, 'analytics_interval_var') and self.enable_analytics_var.get():
+            analytics_interval = self.analytics_interval_var.get()
+        elif self.enable_analytics_var.get():
+            analytics_interval = 5  # Default if checkbox enabled but no advanced config
+        else:
+            analytics_interval = 0  # Checkbox unchecked = disabled
+
+        if analytics_interval > 0:
+            lines.append(f"analytics_interval={analytics_interval}")
+
+            # Individual analytics toggles (only disable if explicitly unchecked)
+            if hasattr(self, 'enable_membership_analytics_var') and not self.enable_membership_analytics_var.get():
+                lines.append(f"enable_membership_analytics=N")
+            if hasattr(self, 'enable_newcustomer_analytics_var') and not self.enable_newcustomer_analytics_var.get():
+                lines.append(f"enable_newcustomer_analytics=N")
+            if hasattr(self, 'enable_review_analytics_var') and not self.enable_review_analytics_var.get():
+                lines.append(f"enable_review_analytics=N")
+            if hasattr(self, 'enable_pricepoint_analytics_var') and not self.enable_pricepoint_analytics_var.get():
+                lines.append(f"enable_pricepoint_analytics=N")
+            if hasattr(self, 'enable_inventory_analytics_var') and not self.enable_inventory_analytics_var.get():
+                lines.append(f"enable_inventory_analytics=N")
+
+        # Validation (always available in Step 3)
+        if self.validate_post_test_var.get():
+            lines.append(f"validate_post_test=Y")
+
+        # Additional workload options (from advanced config if available)
+        if hasattr(self, 'log_timestamp_var'):
+            if self.log_timestamp_var.get() != "NONE":
+                lines.append(f"log_timestamp={self.log_timestamp_var.get()}")
+            if self.detailed_view_var.get():
+                lines.append(f"detailed_view=Y")
+            if self.ds2_mode_var.get():
+                lines.append(f"ds2_mode=Y")
+
+        # Write config file
+        config_path = os.path.join(self.ds36_path, 'DriverConfig.txt')
+        with open(config_path, 'w') as f:
+            f.write('\n'.join(lines) + '\n')
+
+        return config_path
+
+    def _execute_driver(self, target_db, config_path):
+        """Execute driver in background thread"""
+        try:
+            # Determine database directory
+            db_dir = self.get_db_dir(target_db['type'])
+            driver_cwd = os.path.join(self.ds36_path, db_dir)
+
+            self.master.after_idle(lambda: self.log_output(f"\nStarting driver from {db_dir}/ directory...\n"))
+
+            # Execute driver
+            proc = subprocess.Popen(
+                ['dotnet', 'run', '--', '--config_file=../DriverConfig.txt'],
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+                text=True,
+                cwd=driver_cwd
+            )
+
+            # Store process for cancellation
+            self.running_process = proc
+
+            # Stream output line by line
+            for line in iter(proc.stdout.readline, ''):
+                if not line:
+                    break
+                # Update GUI from background thread
+                self.master.after_idle(lambda msg=line: self.log_output(msg))
+
+            # Wait for completion
+            proc.wait()
+            return_code = proc.returncode
+
+            # Clear running process
+            self.running_process = None
+
+            # Update GUI based on result
+            if return_code == 0:
+                self.master.after_idle(lambda: self.log_output("\n✓ Driver completed successfully!\n", "success"))
+            elif return_code == -15 or return_code == -9:  # SIGTERM or SIGKILL
+                self.master.after_idle(lambda: self.log_output("\n⚠ Driver stopped by user\n", "error"))
+            else:
+                self.master.after_idle(lambda: self.log_output(f"\n✗ Driver failed (exit code {return_code})\n", "error"))
+
+            # Re-enable run button, disable stop button
+            self.master.after_idle(lambda: self.run_driver_button.config(state='normal', text='Run Driver'))
+            self.master.after_idle(lambda: self.stop_driver_button.config(state='disabled'))
+
+        except Exception as e:
+            self.running_process = None
+            self.master.after_idle(lambda: self.log_output(f"\n✗ Error: {e}\n", "error"))
+            self.master.after_idle(lambda: self.run_driver_button.config(state='normal', text='Run Driver'))
+            self.master.after_idle(lambda: self.stop_driver_button.config(state='disabled'))
 
     def create_output_console(self, parent):
         """Create output console widget"""
@@ -1128,6 +1760,9 @@ class DVDStoreGUI:
                 gen_db_type = self.db_type_var.get()
                 self.master.after_idle(lambda: setattr(self, 'generated_for_database', gen_db_type))
                 self.master.after_idle(lambda: self.generate_button.config(state='normal', text='Generate Data Files'))
+                # Update timestamp
+                timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                self.master.after_idle(lambda: self.generate_timestamp_label.config(text=f"(last: {timestamp})"))
                 # Enable Step 2 and update display fields
                 self.master.after_idle(self.enable_step2)
             else:
