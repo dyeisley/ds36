@@ -760,8 +760,9 @@ class DVDStoreGUI:
             line = f"✓ {db['type']} @ {db['host']} ({db['stores']} store, {vectors_str})"
             self.loaded_db_listbox.insert(tk.END, line)
 
-        # Update Step 3 target database dropdown
+        # Update Step 3 target database dropdown and stores dropdown
         self.update_target_database_dropdown()
+        self.update_stores_dropdown()
 
     def update_target_database_dropdown(self):
         """Update Step 3 target database checkboxes from loaded databases"""
@@ -794,10 +795,33 @@ class DVDStoreGUI:
             self.no_targets_label.grid(row=0, column=0, sticky=tk.W)
             self.run_driver_button.config(state='disabled')
 
+    def update_stores_dropdown(self):
+        """Update Step 3 stores spinbox based on loaded databases"""
+        # Guard: only update if the widget exists
+        if not hasattr(self, 'n_stores_spinbox'):
+            return
+
+        if not self.loaded_databases:
+            # No databases loaded, reset to default
+            self.n_stores_spinbox.config(to=1)
+            self.n_stores_var.set(1)
+            return
+
+        # Find maximum stores across all loaded databases
+        max_stores = max(db['stores'] for db in self.loaded_databases)
+
+        # Update spinbox maximum
+        self.n_stores_spinbox.config(to=max_stores)
+
+        # Default to maximum (use all loaded stores)
+        self.n_stores_var.set(max_stores)
+
     def clear_loaded_databases(self):
         """Clear the loaded databases list"""
         self.loaded_databases = []
         self.loaded_db_listbox.delete(0, tk.END)
+        self.update_target_database_dropdown()
+        self.update_stores_dropdown()
         self.log_output("Cleared loaded databases list\n")
 
     def enable_step2(self):
@@ -850,6 +874,14 @@ class DVDStoreGUI:
         self.threads_spinbox.set(16)
         self.threads_spinbox.grid(row=row, column=1, sticky=tk.W, pady=2, padx=5)
         ToolTip(self.threads_spinbox, "Number of concurrent user threads.\nTypical: 16 (matches 16 CPUs)")
+        row += 1
+
+        # Number of stores (spinbox with max from Step 2)
+        ttk.Label(step3_frame, text="Number of Stores:").grid(row=row, column=0, sticky=tk.W, pady=2)
+        self.n_stores_var = tk.IntVar(value=1)
+        self.n_stores_spinbox = ttk.Spinbox(step3_frame, from_=1, to=1, textvariable=self.n_stores_var, width=10)
+        self.n_stores_spinbox.grid(row=row, column=1, sticky=tk.W, pady=2, padx=5)
+        ToolTip(self.n_stores_spinbox, "Number of stores to use in the test\nMaximum set by stores loaded in Step 2\nDefault: all loaded stores")
         row += 1
 
         ttk.Label(step3_frame, text="Run Time (min):").grid(row=row, column=0, sticky=tk.W, pady=2)
@@ -1022,17 +1054,6 @@ class DVDStoreGUI:
         self.think_time_var = tk.DoubleVar(value=0.0)
         ttk.Spinbox(scrollable_frame, from_=0.0, to=60.0, increment=0.1, textvariable=self.think_time_var, width=10).grid(row=row, column=1, sticky=tk.W, pady=5, padx=5)
         ToolTip(scrollable_frame.winfo_children()[-1], "Delay between operations (seconds)\n0 = maximum throughput\nDefault: 0")
-        row += 1
-
-        # Number of stores
-        ttk.Label(scrollable_frame, text="Number of Stores:").grid(row=row, column=0, sticky=tk.W, pady=5)
-        # Default to the number loaded from Step 1, allow reducing it
-        default_stores = 1
-        if hasattr(self, 'loaded_databases') and self.loaded_databases:
-            default_stores = self.loaded_databases[0].get('stores', 1)
-        self.n_stores_var = tk.IntVar(value=default_stores)
-        ttk.Spinbox(scrollable_frame, from_=1, to=16, textvariable=self.n_stores_var, width=10).grid(row=row, column=1, sticky=tk.W, pady=5, padx=5)
-        ToolTip(scrollable_frame.winfo_children()[-1], "Number of stores to use in the test\nMust be <= stores loaded in Step 2\nDefault: all loaded stores")
         row += 1
 
         ttk.Separator(scrollable_frame, orient=tk.HORIZONTAL).grid(row=row, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=10)
@@ -1331,8 +1352,7 @@ class DVDStoreGUI:
                 messagebox.showerror("Error",
                     f"Cannot use {requested_stores} stores.\n\n"
                     f"Maximum loaded stores: {max_loaded_stores}\n\n"
-                    f"Please reduce Number of Stores in Advanced Config (Workload Mix tab)\n"
-                    f"or load more stores in Step 2.")
+                    f"Please reduce the number of stores or load more stores in Step 2.")
                 return
 
         threads = self.threads_spinbox.get()
