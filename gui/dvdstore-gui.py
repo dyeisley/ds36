@@ -118,7 +118,7 @@ class DVDStoreGUI:
         # State management
         self.loaded_databases = []
         self.data_generated = False
-        self.generated_for_database = None  # Track which DB type was used in Step 1
+        self.generated_for_databases = []  # List of databases configured in Step 1 (Oracle/SQL Server need paths)
         self.db_params = {}  # Parsed script parameters
         self.running_process = None  # Track running subprocess for cancellation
 
@@ -373,15 +373,6 @@ class DVDStoreGUI:
         self.db_unit_combo.pack(side=tk.LEFT)
         row += 1
 
-        # Number of Stores
-        ttk.Label(step1_frame, text="Number of Stores:").grid(row=row, column=0, sticky=tk.W, pady=2)
-        self.stores_var = tk.StringVar(value="1")
-        self.stores_combo = ttk.Combobox(step1_frame, textvariable=self.stores_var,
-                                        values=[str(i) for i in range(1, 17)],
-                                        state='readonly', width=5)
-        self.stores_combo.grid(row=row, column=1, sticky=tk.W, pady=2, padx=5)
-        row += 1
-
         # Vector Search (conditional - Linux only + database-specific)
         # Don't grid it yet - update_step1_visibility() will decide
         self.vector_search_var = tk.BooleanVar(value=False)
@@ -474,10 +465,14 @@ class DVDStoreGUI:
         self.password_row = row
         row += 1
 
-        # Stores (display only - from Step 1)
-        ttk.Label(step2_frame, text="Stores:").grid(row=row, column=0, sticky=tk.W, pady=2)
-        self.stores_display = ttk.Label(step2_frame, text="(complete Step 1 first)", foreground="gray")
-        self.stores_display.grid(row=row, column=1, sticky=tk.W, pady=2, padx=5)
+        # Number of Stores
+        ttk.Label(step2_frame, text="Number of Stores:").grid(row=row, column=0, sticky=tk.W, pady=2)
+        self.stores_var = tk.StringVar(value="1")
+        self.stores_combo = ttk.Combobox(step2_frame, textvariable=self.stores_var,
+                                        values=[str(i) for i in range(1, 17)],
+                                        state='readonly', width=5)
+        self.stores_combo.grid(row=row, column=1, sticky=tk.W, pady=2, padx=5)
+        ToolTip(self.stores_combo, "Number of stores to create in the database.\nMultiple stores allow testing parallel workloads.")
         row += 1
 
         # Vector Search (display only - from Step 1)
@@ -514,15 +509,15 @@ class DVDStoreGUI:
         """Populate database type dropdown with databases that have client tools installed"""
         databases = self.detect_available_databases_for_loading()
 
-        # Filter based on what was generated in Step 1
-        if self.generated_for_database:
+        # Filter based on what was configured in Step 1
+        if self.generated_for_databases:
             databases = self.filter_compatible_databases(databases)
 
         self.db_type_load_combo['values'] = databases
 
         if not databases:
-            if self.generated_for_database:
-                self.log_output(f"Warning: No compatible databases available for data generated with {self.generated_for_database}.\n", "error")
+            if self.generated_for_databases:
+                self.log_output(f"Warning: No compatible databases available. Oracle/SQL Server require Step 1 configuration first.\n", "error")
             else:
                 self.log_output("Warning: No database client tools found. Install sqlcmd, psql, mariadb/mysql, or sqlplus.\n", "error")
         elif databases:
@@ -530,32 +525,24 @@ class DVDStoreGUI:
             self.on_load_db_type_changed(None)
 
     def filter_compatible_databases(self, databases):
-        """Filter databases based on compatibility with generated data
+        """Filter databases based on what was configured in Step 1
 
         Compatibility logic:
-        - Databases that require paths during generation (Oracle, SQL Server) have incompatible path formats
-        - Data generated WITH paths can load to: same database + any database that doesn't need paths
-        - Data generated WITHOUT paths can only load to databases that don't need paths
-
-        This is determined dynamically - no hardcoded database list.
+        - Oracle and SQL Server require file paths generated in Step 1
+        - Only show Oracle/SQL Server in Step 2 if they were configured in Step 1
+        - All other databases (MySQL, PostgreSQL, HANA, etc.) don't need paths - always show them
         """
-        if not self.generated_for_database:
+        if not self.generated_for_databases:
             return databases
 
-        gen_db = self.generated_for_database
-
-        # Databases that require paths (detected at runtime, not hardcoded)
+        # Databases that require paths configured in Step 1
         path_requiring_dbs = ['Oracle', 'SQL Server']
 
-        if gen_db in path_requiring_dbs:
-            # Data was generated WITH paths
-            # Can load to: same database + all databases that DON'T require paths
-            # Cannot load to: the OTHER path-requiring database
-            compatible = [db for db in databases if db == gen_db or db not in path_requiring_dbs]
-        else:
-            # Data was generated WITHOUT paths
-            # Can only load to databases that don't require paths
-            compatible = [db for db in databases if db not in path_requiring_dbs]
+        # Filter: only show databases that either:
+        # 1. Were configured in Step 1, OR
+        # 2. Don't require paths (MySQL, PostgreSQL, HANA, etc.)
+        compatible = [db for db in databases
+                     if db in self.generated_for_databases or db not in path_requiring_dbs]
 
         return compatible
 
@@ -656,8 +643,9 @@ class DVDStoreGUI:
             messagebox.showerror("Error", "Please select a database type")
             return
 
-        # These come from Step 1 and are immutable
+        # Get user-selected values from Step 2
         stores = self.stores_var.get()
+        # Vector search comes from Step 1 (immutable in Step 2)
         use_vectors = '1' if self.vector_search_var.get() else '0'
 
         # Get database directory
@@ -814,11 +802,8 @@ class DVDStoreGUI:
 
     def enable_step2(self):
         """Enable Step 2 after successful data generation"""
-        # Update display fields from Step 1
-        stores = self.stores_var.get()
+        # Update vector search display from Step 1
         vectors = "Yes" if self.vector_search_var.get() else "No"
-
-        self.stores_display.config(text=stores, foreground="black")
         self.vectors_display.config(text=vectors, foreground="black")
 
         # Repopulate database types based on compatibility
@@ -828,8 +813,9 @@ class DVDStoreGUI:
         self.load_button.config(state='normal')
 
         # Show compatibility info
-        if self.generated_for_database:
-            self.log_output(f"\nData generated for {self.generated_for_database}.\n")
+        if self.generated_for_databases:
+            db_list = ", ".join(self.generated_for_databases)
+            self.log_output(f"\nData generated for: {db_list}.\n")
             compatible = self.filter_compatible_databases(['Oracle', 'SQL Server', 'MySQL', 'PostgreSQL'])
             if compatible:
                 self.log_output(f"Compatible databases: {', '.join(compatible)}\n")
@@ -1954,9 +1940,12 @@ class DVDStoreGUI:
             if return_code == 0:
                 self.master.after_idle(lambda: self.log_output("\n✓ Data generation completed successfully!\n", "success"))
                 self.master.after_idle(lambda: setattr(self, 'data_generated', True))
-                # Remember which database type was used for generation
+                # Remember which database type was used for generation (add to list, avoiding duplicates)
                 gen_db_type = self.db_type_var.get()
-                self.master.after_idle(lambda: setattr(self, 'generated_for_database', gen_db_type))
+                def add_to_list():
+                    if gen_db_type not in self.generated_for_databases:
+                        self.generated_for_databases.append(gen_db_type)
+                self.master.after_idle(add_to_list)
                 self.master.after_idle(lambda: self.generate_button.config(state='normal', text='Generate Data Files'))
                 # Update timestamp
                 timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
