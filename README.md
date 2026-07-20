@@ -24,6 +24,32 @@ The web driver (drivers/ds36webfns.cs) and PHP code have not been modified.
 
 See [CHANGES.md](CHANGES.md) for detailed changelog.
 
+## Requirements
+
+### Database Versions
+
+- **MySQL 8.0+** or **MariaDB 10.6+** 
+  - Manager operations use `FOR UPDATE SKIP LOCKED` (added in MySQL 8.0, MariaDB 10.6)
+  - Vector search requires **MariaDB 11.8 LTS** (native vector similarity search)
+  - **Note:** RHEL 9 default (MariaDB 10.5) is too old - use `dnf module enable mariadb:10.11`
+- **PostgreSQL 12+** (14+ for pgvector extension)
+- **SQL Server 2019+** (2025 for vector search)
+- **Oracle 19c+** (23ai for vector search)
+
+### Build Tools
+
+- **dotnet SDK** (8.0 or later)
+- **Perl** (for stored procedure generation and scripts)
+- **gcc** (Linux/Mac only - for data generation C programs)
+
+### Database Client Tools
+
+Required for loading data and running validation:
+- MySQL/MariaDB: `mariadb` or `mysql` command
+- PostgreSQL: `psql`
+- SQL Server: `sqlcmd`
+- Oracle: `sqlplus`
+
 ## Customer Workflow
 
 The diagram below shows the complete customer operation flow, from login/registration through purchase:
