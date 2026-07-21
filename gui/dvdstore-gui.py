@@ -407,8 +407,8 @@ class DVDStoreGUI:
         # Database Type
         ttk.Label(step1_frame, text="Database Type:").grid(row=row, column=0, sticky=tk.W, pady=2)
         self.db_type_var = tk.StringVar()
-        self.db_type_combo = ttk.Combobox(step1_frame, textvariable=self.db_type_var, state='readonly')
-        self.db_type_combo.grid(row=row, column=1, sticky=(tk.W, tk.E), pady=2, padx=5)
+        self.db_type_combo = ttk.Combobox(step1_frame, textvariable=self.db_type_var, state='readonly', width=20)
+        self.db_type_combo.grid(row=row, column=1, sticky=tk.W, pady=2, padx=5)
         self.db_type_combo.bind('<<ComboboxSelected>>', self.on_db_type_changed)
         row += 1
 
@@ -568,10 +568,11 @@ class DVDStoreGUI:
         self.db_type_load_combo['values'] = databases
 
         if not databases:
-            if self.generated_for_databases:
-                self.log_output(f"Warning: No compatible databases available. Oracle/SQL Server require Step 1 configuration first.\n", "error")
-            else:
-                self.log_output("Warning: No database client tools found. Install sqlcmd, psql, mariadb/mysql, or sqlplus.\n", "error")
+            if hasattr(self, 'output_text'):
+                if self.generated_for_databases:
+                    self.log_output(f"Warning: No compatible databases available. Oracle/SQL Server require Step 1 configuration first.\n", "error")
+                else:
+                    self.log_output("Warning: No database client tools found. Install sqlcmd, psql, mariadb/mysql, or sqlplus.\n", "error")
         elif databases:
             self.db_type_load_combo.current(0)
             self.on_load_db_type_changed(None)
@@ -617,6 +618,9 @@ class DVDStoreGUI:
                 if os.path.isdir(item_path):
                     script_path = self.platform_support.get_script_path(item, self.ds36_path)
                     if os.path.exists(script_path):
+                        # Parse script for ALL databases (to get supports_vectors info)
+                        self._parse_script_syntax(item, script_path)
+
                         info = known_db_info.get(item)
 
                         if info:
@@ -624,8 +628,7 @@ class DVDStoreGUI:
                             if self._is_client_tool_installed(info['client']):
                                 databases.append(info['name'])
                         else:
-                            # Unknown database - parse script to find required client tool
-                            self._parse_script_syntax(item, script_path)
+                            # Unknown database - use parsed client tool
                             db_meta = self.db_params.get(item, {})
                             client_tool = db_meta.get('client_tool')
 
@@ -972,6 +975,10 @@ class DVDStoreGUI:
 
         ttk.Button(button_frame, text="Advanced Configuration...",
                   command=self.open_advanced_config).pack(side=tk.LEFT, padx=5)
+        ttk.Button(button_frame, text="Save Config...",
+                  command=self.save_config).pack(side=tk.LEFT, padx=5)
+        ttk.Button(button_frame, text="Load Config...",
+                  command=self.load_config).pack(side=tk.LEFT, padx=5)
 
         self.run_driver_button = ttk.Button(button_frame, text="Run Driver",
                                             command=self.run_driver)
@@ -1647,9 +1654,9 @@ class DVDStoreGUI:
                 self.master.after_idle(lambda db=target_db['type']:
                     self.log_output(f"Compiling {db} driver...\n"))
 
-                # Run dotnet publish to create standalone executable (suppress warnings)
+                # Run dotnet publish to create standalone executable (minimal verbosity to hide warnings)
                 compile_proc = subprocess.Popen(
-                    ['dotnet', 'publish', '-c', 'Release', '-o', '.', '-nowarn'],
+                    ['dotnet', 'publish', '-c', 'Release', '-o', '.', '--verbosity', 'quiet'],
                     stdout=subprocess.PIPE,
                     stderr=subprocess.STDOUT,
                     text=True,
@@ -1863,6 +1870,15 @@ class DVDStoreGUI:
         if db_type in ['Oracle', 'SQL Server']:
             self.db_paths_entry.grid()
             self.db_paths_label.grid()
+
+            # Set default path based on database type (Linux only)
+            if self.platform_support.is_linux:
+                default_path = '/home/oracle' if db_type == 'Oracle' else '/var/opt/mssql/data'
+                current_value = self.db_paths_entry.get()
+                # Update if empty OR if it's the other database's default (switching between Oracle/SQL Server)
+                if not current_value or current_value in ['/home/oracle', '/var/opt/mssql/data']:
+                    self.db_paths_entry.delete(0, tk.END)
+                    self.db_paths_entry.insert(0, default_path)
         else:
             self.db_paths_entry.grid_remove()
             self.db_paths_label.grid_remove()
@@ -2009,6 +2025,199 @@ class DVDStoreGUI:
         self.output_text.insert(tk.END, message, tag)
         self.output_text.see(tk.END)
         # Note: No .update() needed - called via after_idle which handles scheduling
+
+    def save_config(self):
+        """Save current driver configuration to JSON file"""
+        import json
+        from datetime import datetime
+
+        # Build configuration dictionary
+        config = {
+            "preset_name": "Custom Configuration",
+            "description": "Saved configuration",
+            "created": datetime.now().isoformat(),
+
+            "basic": {
+                "threads": self.threads_spinbox.get(),
+                "run_time": self.runtime_spinbox.get(),
+                "n_stores": self.n_stores_var.get() if hasattr(self, 'n_stores_var') else 1
+            },
+
+            "customer_membership": {
+                "pct_newcustomers": self.pct_newcustomers_var.get(),
+                "pct_newmember": self.pct_newmember_var.get(),
+                "pct_renewmember": self.pct_renewmember_var.get(),
+                "n_reviews": self.n_reviews_var.get(),
+                "pct_newreviews": self.pct_newreviews_var.get(),
+                "pct_newhelpfulness": self.pct_newhelpfulness_var.get()
+            },
+
+            "workload": {
+                "warmup_time": self.warmup_time_var.get(),
+                "think_time": self.think_time_var.get(),
+                "n_searches": self.n_searches_var.get(),
+                "search_batch_size": self.search_batch_size_var.get(),
+                "search_depth": self.search_depth_var.get(),
+                "n_line_items": self.n_line_items_var.get(),
+                "log_freq": self.log_freq_var.get(),
+                "log_timestamp": self.log_timestamp_var.get(),
+                "detailed_view": self.detailed_view_var.get(),
+                "out_filename": self.out_filename_var.get(),
+                "ds2_mode": self.ds2_mode_var.get()
+            },
+
+            "manager": {
+                "enabled": self.enable_managers_var.get(),
+                "interval": self.manager_interval_var.get(),
+                "batch_min": self.manager_batch_min_var.get(),
+                "batch_max": self.manager_batch_max_var.get(),
+                "operations": {
+                    "add_product": self.mgr_add_product_var.get(),
+                    "delete_review": self.mgr_delete_review_var.get(),
+                    "update_price": self.mgr_update_price_var.get(),
+                    "update_special": self.mgr_update_special_var.get(),
+                    "expire_memberships": self.mgr_expire_memberships_var.get(),
+                    "purge_old_orders": self.mgr_purge_old_orders_var.get(),
+                    "upgrade_membership": self.mgr_upgrade_membership_var.get(),
+                    "promo_membership": self.mgr_promo_membership_var.get()
+                }
+            },
+
+            "analytics": {
+                "interval": self.analytics_interval_var.get(),
+                "enable_membership": self.enable_membership_analytics_var.get(),
+                "enable_newcustomer": self.enable_newcustomer_analytics_var.get(),
+                "enable_review": self.enable_review_analytics_var.get(),
+                "enable_pricepoint": self.enable_pricepoint_analytics_var.get(),
+                "enable_inventory": self.enable_inventory_analytics_var.get()
+            },
+
+            "other": {
+                "validate_post_test": self.validate_post_test_var.get()
+            }
+        }
+
+        # Ask user for filename
+        presets_dir = os.path.join(os.path.dirname(__file__), 'presets')
+        os.makedirs(presets_dir, exist_ok=True)
+
+        filename = filedialog.asksaveasfilename(
+            title="Save Configuration",
+            initialdir=presets_dir,
+            defaultextension=".json",
+            filetypes=[("JSON files", "*.json"), ("All files", "*.*")]
+        )
+
+        if filename:
+            try:
+                with open(filename, 'w') as f:
+                    json.dump(config, f, indent=2)
+                messagebox.showinfo("Success", f"Configuration saved to:\n{filename}")
+                self.log_output(f"\n✓ Configuration saved to {os.path.basename(filename)}\n", "success")
+            except Exception as e:
+                messagebox.showerror("Error", f"Failed to save configuration:\n{e}")
+
+    def load_config(self):
+        """Load driver configuration from JSON file"""
+        import json
+
+        # Ask user for filename
+        presets_dir = os.path.join(os.path.dirname(__file__), 'presets')
+
+        filename = filedialog.askopenfilename(
+            title="Load Configuration",
+            initialdir=presets_dir,
+            filetypes=[("JSON files", "*.json"), ("All files", "*.*")]
+        )
+
+        if filename:
+            try:
+                with open(filename, 'r') as f:
+                    config = json.load(f)
+
+                # Apply basic settings
+                if 'basic' in config:
+                    self.threads_spinbox.delete(0, tk.END)
+                    self.threads_spinbox.insert(0, config['basic'].get('threads', 16))
+                    self.runtime_spinbox.delete(0, tk.END)
+                    self.runtime_spinbox.insert(0, config['basic'].get('run_time', 10))
+
+                    # Validate n_stores matches generated data
+                    config_stores = config['basic'].get('n_stores', 1)
+                    if hasattr(self, 'n_stores_var'):
+                        if self.data_generated and hasattr(self, 'stores_combo'):
+                            actual_stores = int(self.stores_combo.get())
+                            if config_stores != actual_stores:
+                                messagebox.showwarning(
+                                    "Store Count Mismatch",
+                                    f"Config has n_stores={config_stores}, but data was generated with {actual_stores} store(s).\n\n"
+                                    f"The driver will use {actual_stores} stores to match the loaded data."
+                                )
+                                config_stores = actual_stores
+                        self.n_stores_var.set(config_stores)
+
+                # Apply customer/membership settings
+                if 'customer_membership' in config:
+                    cm = config['customer_membership']
+                    self.pct_newcustomers_var.set(cm.get('pct_newcustomers', 20))
+                    self.pct_newmember_var.set(cm.get('pct_newmember', 1))
+                    self.pct_renewmember_var.set(cm.get('pct_renewmember', 50))
+                    self.n_reviews_var.set(cm.get('n_reviews', 3))
+                    self.pct_newreviews_var.set(cm.get('pct_newreviews', 5))
+                    self.pct_newhelpfulness_var.set(cm.get('pct_newhelpfulness', 10))
+
+                # Apply workload settings
+                if 'workload' in config:
+                    w = config['workload']
+                    self.warmup_time_var.set(w.get('warmup_time', 1))
+                    self.think_time_var.set(w.get('think_time', 0.0))
+                    self.n_searches_var.set(w.get('n_searches', 3))
+                    self.search_batch_size_var.set(w.get('search_batch_size', 5))
+                    self.search_depth_var.set(w.get('search_depth', 500))
+                    self.n_line_items_var.set(w.get('n_line_items', 5))
+                    self.log_freq_var.set(w.get('log_freq', 10))
+                    self.log_timestamp_var.set(w.get('log_timestamp', 'NONE'))
+                    self.detailed_view_var.set(w.get('detailed_view', False))
+                    self.out_filename_var.set(w.get('out_filename', ''))
+                    self.ds2_mode_var.set(w.get('ds2_mode', False))
+
+                # Apply manager settings
+                if 'manager' in config:
+                    m = config['manager']
+                    self.enable_managers_var.set(m.get('enabled', False))
+                    self.manager_interval_var.set(m.get('interval', 30))
+                    self.manager_batch_min_var.set(m.get('batch_min', 1))
+                    self.manager_batch_max_var.set(m.get('batch_max', 20))
+                    if 'operations' in m:
+                        ops = m['operations']
+                        self.mgr_add_product_var.set(ops.get('add_product', 40))
+                        self.mgr_delete_review_var.set(ops.get('delete_review', 20))
+                        self.mgr_update_price_var.set(ops.get('update_price', 20))
+                        self.mgr_update_special_var.set(ops.get('update_special', 5))
+                        self.mgr_expire_memberships_var.set(ops.get('expire_memberships', 5))
+                        self.mgr_purge_old_orders_var.set(ops.get('purge_old_orders', 5))
+                        self.mgr_upgrade_membership_var.set(ops.get('upgrade_membership', 5))
+                        self.mgr_promo_membership_var.set(ops.get('promo_membership', 0))
+
+                # Apply analytics settings
+                if 'analytics' in config:
+                    a = config['analytics']
+                    self.analytics_interval_var.set(a.get('interval', 0))
+                    self.enable_membership_analytics_var.set(a.get('enable_membership', True))
+                    self.enable_newcustomer_analytics_var.set(a.get('enable_newcustomer', True))
+                    self.enable_review_analytics_var.set(a.get('enable_review', True))
+                    self.enable_pricepoint_analytics_var.set(a.get('enable_pricepoint', True))
+                    self.enable_inventory_analytics_var.set(a.get('enable_inventory', True))
+
+                # Apply other settings
+                if 'other' in config:
+                    self.validate_post_test_var.set(config['other'].get('validate_post_test', True))
+
+                messagebox.showinfo("Success", f"Configuration loaded from:\n{filename}")
+                self.log_output(f"\n✓ Configuration loaded from {os.path.basename(filename)}\n", "success")
+
+            except Exception as e:
+                messagebox.showerror("Error", f"Failed to load configuration:\n{e}")
 
 
 def main():
