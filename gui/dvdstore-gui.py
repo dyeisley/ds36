@@ -122,6 +122,9 @@ class DVDStoreGUI:
         self.db_params = {}  # Parsed script parameters
         self.running_process = None  # Track running subprocess for cancellation
 
+        # Initialize all driver config variables with defaults
+        self.init_driver_config_vars()
+
         # Get ds36 directory
         self.ds36_path = self.get_ds36_directory()
         if not self.ds36_path:
@@ -133,6 +136,55 @@ class DVDStoreGUI:
 
         # Build UI
         self.create_widgets()
+
+    def init_driver_config_vars(self):
+        """Initialize all driver configuration variables with defaults (called once at startup)"""
+        # Customer/Membership
+        self.pct_newcustomers_var = tk.IntVar(value=20)
+        self.pct_newmember_var = tk.IntVar(value=10)
+        self.pct_renewmember_var = tk.IntVar(value=50)
+        self.n_reviews_var = tk.IntVar(value=3)
+        self.pct_newreviews_var = tk.IntVar(value=5)
+        self.pct_newhelpfulness_var = tk.IntVar(value=10)
+
+        # Workload Mix
+        self.warmup_time_var = tk.IntVar(value=1)
+        self.think_time_var = tk.DoubleVar(value=0.0)
+        self.n_searches_var = tk.IntVar(value=3)
+        self.search_batch_size_var = tk.IntVar(value=5)
+        self.search_depth_var = tk.IntVar(value=500)
+        self.n_line_items_var = tk.IntVar(value=5)
+
+        # Manager Operations
+        self.manager_interval_var = tk.IntVar(value=30)
+        self.manager_batch_min_var = tk.IntVar(value=10)
+        self.manager_batch_max_var = tk.IntVar(value=200)
+        self.mgr_add_product_var = tk.IntVar(value=40)
+        self.mgr_delete_review_var = tk.IntVar(value=20)
+        self.mgr_update_price_var = tk.IntVar(value=20)
+        self.mgr_update_special_var = tk.IntVar(value=5)
+        self.mgr_expire_memberships_var = tk.IntVar(value=5)
+        self.mgr_purge_old_orders_var = tk.IntVar(value=5)
+        self.mgr_upgrade_membership_var = tk.IntVar(value=5)
+        self.mgr_promo_membership_var = tk.IntVar(value=0)
+
+        # Analytics
+        self.analytics_interval_var = tk.IntVar(value=0)
+        self.enable_membership_analytics_var = tk.BooleanVar(value=True)
+        self.enable_newcustomer_analytics_var = tk.BooleanVar(value=True)
+        self.enable_review_analytics_var = tk.BooleanVar(value=True)
+        self.enable_pricepoint_analytics_var = tk.BooleanVar(value=True)
+        self.enable_inventory_analytics_var = tk.BooleanVar(value=True)
+
+        # Logging
+        self.log_freq_var = tk.IntVar(value=10)
+        self.log_timestamp_var = tk.StringVar(value="NONE")
+        self.detailed_view_var = tk.BooleanVar(value=False)
+        self.out_filename_var = tk.StringVar(value="")
+
+        # Other driver options
+        self.validate_post_test_var = tk.BooleanVar(value=True)
+        self.ds2_mode_var = tk.BooleanVar(value=False)
 
     def get_ds36_directory(self):
         """Find or ask for ds36 directory location (cross-platform)"""
@@ -766,6 +818,10 @@ class DVDStoreGUI:
 
     def update_target_database_dropdown(self):
         """Update Step 3 target database checkboxes from loaded databases"""
+        # Guard: only update if the widget exists
+        if not hasattr(self, 'target_selection_frame'):
+            return
+
         # Clear existing checkboxes
         for widget in self.target_selection_frame.winfo_children():
             widget.destroy()
@@ -947,11 +1003,12 @@ class DVDStoreGUI:
         notebook = ttk.Notebook(dialog)
         notebook.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
 
-        # Customer/Membership tab
-        self.create_customer_tab(notebook)
-
+        # Tab order: Workload, Customer/Membership, Manager, Analytics
         # Workload Mix tab
         self.create_workload_tab(notebook)
+
+        # Customer/Membership tab
+        self.create_customer_tab(notebook)
 
         # Manager tab
         self.create_manager_tab(notebook)
@@ -975,21 +1032,18 @@ class DVDStoreGUI:
 
         # New Customer percentage
         ttk.Label(customer_frame, text="New Customer %:").grid(row=row, column=0, sticky=tk.W, pady=5)
-        self.pct_newcustomers_var = tk.IntVar(value=20)
         ttk.Spinbox(customer_frame, from_=0, to=100, textvariable=self.pct_newcustomers_var, width=10).grid(row=row, column=1, sticky=tk.W, pady=5, padx=5)
         ToolTip(customer_frame.winfo_children()[-1], "Percentage of orders from new customers\n(vs existing customers logging in)\nDefault: 20%")
         row += 1
 
         # New Member percentage
         ttk.Label(customer_frame, text="New Member %:").grid(row=row, column=0, sticky=tk.W, pady=5)
-        self.pct_newmember_var = tk.IntVar(value=1)
         ttk.Spinbox(customer_frame, from_=0, to=100, textvariable=self.pct_newmember_var, width=10).grid(row=row, column=1, sticky=tk.W, pady=5, padx=5)
         ToolTip(customer_frame.winfo_children()[-1], "Percentage of new customers who sign up for membership\nDefault: 1%")
         row += 1
 
         # Renew Member percentage
         ttk.Label(customer_frame, text="Renew Member %:").grid(row=row, column=0, sticky=tk.W, pady=5)
-        self.pct_renewmember_var = tk.IntVar(value=50)
         ttk.Spinbox(customer_frame, from_=0, to=100, textvariable=self.pct_renewmember_var, width=10).grid(row=row, column=1, sticky=tk.W, pady=5, padx=5)
         ToolTip(customer_frame.winfo_children()[-1], "Percentage of expired members who renew during login\nDefault: 50%")
         row += 1
@@ -1002,19 +1056,16 @@ class DVDStoreGUI:
         row += 1
 
         ttk.Label(customer_frame, text="Reviews per Order:").grid(row=row, column=0, sticky=tk.W, pady=5)
-        self.n_reviews_var = tk.IntVar(value=3)
         ttk.Spinbox(customer_frame, from_=0, to=100, textvariable=self.n_reviews_var, width=10).grid(row=row, column=1, sticky=tk.W, pady=5, padx=5)
         ToolTip(customer_frame.winfo_children()[-1], "Number of product reviews to read per order\nDefault: 3")
         row += 1
 
         ttk.Label(customer_frame, text="New Reviews %:").grid(row=row, column=0, sticky=tk.W, pady=5)
-        self.pct_newreviews_var = tk.IntVar(value=5)
         ttk.Spinbox(customer_frame, from_=0, to=100, textvariable=self.pct_newreviews_var, width=10).grid(row=row, column=1, sticky=tk.W, pady=5, padx=5)
         ToolTip(customer_frame.winfo_children()[-1], "Percentage of customers who write a new review\nDefault: 5%")
         row += 1
 
         ttk.Label(customer_frame, text="New Helpfulness %:").grid(row=row, column=0, sticky=tk.W, pady=5)
-        self.pct_newhelpfulness_var = tk.IntVar(value=10)
         ttk.Spinbox(customer_frame, from_=0, to=100, textvariable=self.pct_newhelpfulness_var, width=10).grid(row=row, column=1, sticky=tk.W, pady=5, padx=5)
         ToolTip(customer_frame.winfo_children()[-1], "Percentage of customers who rate a review as helpful/unhelpful\nDefault: 10%")
         row += 1
@@ -1044,14 +1095,12 @@ class DVDStoreGUI:
 
         # Warmup time
         ttk.Label(scrollable_frame, text="Warmup Time (min):").grid(row=row, column=0, sticky=tk.W, pady=5)
-        self.warmup_time_var = tk.IntVar(value=1)
         ttk.Spinbox(scrollable_frame, from_=0, to=60, textvariable=self.warmup_time_var, width=10).grid(row=row, column=1, sticky=tk.W, pady=5, padx=5)
         ToolTip(scrollable_frame.winfo_children()[-1], "Minutes to run before collecting metrics\nDefault: 1 minute")
         row += 1
 
         # Think time
         ttk.Label(scrollable_frame, text="Think Time (sec):").grid(row=row, column=0, sticky=tk.W, pady=5)
-        self.think_time_var = tk.DoubleVar(value=0.0)
         ttk.Spinbox(scrollable_frame, from_=0.0, to=60.0, increment=0.1, textvariable=self.think_time_var, width=10).grid(row=row, column=1, sticky=tk.W, pady=5, padx=5)
         ToolTip(scrollable_frame.winfo_children()[-1], "Delay between operations (seconds)\n0 = maximum throughput\nDefault: 0")
         row += 1
@@ -1064,19 +1113,16 @@ class DVDStoreGUI:
         row += 1
 
         ttk.Label(scrollable_frame, text="Searches per Order:").grid(row=row, column=0, sticky=tk.W, pady=5)
-        self.n_searches_var = tk.IntVar(value=3)
         ttk.Spinbox(scrollable_frame, from_=0, to=100, textvariable=self.n_searches_var, width=10).grid(row=row, column=1, sticky=tk.W, pady=5, padx=5)
         ToolTip(scrollable_frame.winfo_children()[-1], "Number of searches per purchase\nDefault: 3")
         row += 1
 
         ttk.Label(scrollable_frame, text="Search Batch Size:").grid(row=row, column=0, sticky=tk.W, pady=5)
-        self.search_batch_size_var = tk.IntVar(value=5)
         ttk.Spinbox(scrollable_frame, from_=1, to=1000, textvariable=self.search_batch_size_var, width=10).grid(row=row, column=1, sticky=tk.W, pady=5, padx=5)
         ToolTip(scrollable_frame.winfo_children()[-1], "Number of products per search result\nDefault: 5")
         row += 1
 
         ttk.Label(scrollable_frame, text="Search Depth:").grid(row=row, column=0, sticky=tk.W, pady=5)
-        self.search_depth_var = tk.IntVar(value=500)
         ttk.Spinbox(scrollable_frame, from_=1, to=100000, textvariable=self.search_depth_var, width=10).grid(row=row, column=1, sticky=tk.W, pady=5, padx=5)
         ToolTip(scrollable_frame.winfo_children()[-1], "Number of rows to scan before applying batch size limit\nHigher = more thorough search, slower\nDefault: 500")
         row += 1
@@ -1089,7 +1135,6 @@ class DVDStoreGUI:
         row += 1
 
         ttk.Label(scrollable_frame, text="Line Items per Order:").grid(row=row, column=0, sticky=tk.W, pady=5)
-        self.n_line_items_var = tk.IntVar(value=5)
         ttk.Spinbox(scrollable_frame, from_=1, to=1000, textvariable=self.n_line_items_var, width=10).grid(row=row, column=1, sticky=tk.W, pady=5, padx=5)
         ToolTip(scrollable_frame.winfo_children()[-1], "Products per shopping cart\nDefault: 5")
         row += 1
@@ -1102,18 +1147,15 @@ class DVDStoreGUI:
         row += 1
 
         ttk.Label(scrollable_frame, text="Log Frequency (sec):").grid(row=row, column=0, sticky=tk.W, pady=5)
-        self.log_freq_var = tk.IntVar(value=10)
         ttk.Spinbox(scrollable_frame, from_=1, to=3600, textvariable=self.log_freq_var, width=10).grid(row=row, column=1, sticky=tk.W, pady=5, padx=5)
         ToolTip(scrollable_frame.winfo_children()[-1], "Seconds between OPM status updates\nDefault: 10 seconds")
         row += 1
 
         ttk.Label(scrollable_frame, text="Log Timestamp:").grid(row=row, column=0, sticky=tk.W, pady=5)
-        self.log_timestamp_var = tk.StringVar(value="NONE")
         ttk.Combobox(scrollable_frame, textvariable=self.log_timestamp_var, values=["NONE", "UTC", "LOCAL"], state='readonly', width=10).grid(row=row, column=1, sticky=tk.W, pady=5, padx=5)
         ToolTip(scrollable_frame.winfo_children()[-1], "Add timestamps to log output\nNONE = no timestamps (default)\nUTC = UTC timestamps\nLOCAL = local timezone")
         row += 1
 
-        self.detailed_view_var = tk.BooleanVar(value=False)
         ttk.Checkbutton(scrollable_frame, text="Detailed View (verbose statistics)",
                        variable=self.detailed_view_var).grid(row=row, column=0, columnspan=2, sticky=tk.W, pady=5)
         ToolTip(scrollable_frame.winfo_children()[-1], "Show detailed per-operation statistics")
@@ -1137,7 +1179,6 @@ class DVDStoreGUI:
         ToolTip(scrollable_frame.winfo_children()[-1], "Enable vector similarity searches (PostgreSQL/Oracle)\nRequires vector data loaded in Step 2\nIncompatible with Manager Operations")
         row += 1
 
-        self.ds2_mode_var = tk.BooleanVar(value=False)
         ttk.Checkbutton(scrollable_frame, text="DS2 Compatibility Mode",
                        variable=self.ds2_mode_var).grid(row=row, column=0, columnspan=2, sticky=tk.W, pady=5, padx=20)
         ToolTip(scrollable_frame.winfo_children()[-1], "Disable DS3.6 features for DVD Store 2 comparison\n(Disables membership, manager, analytics)")
@@ -1168,7 +1209,6 @@ class DVDStoreGUI:
 
         # Manager interval
         ttk.Label(scrollable_frame, text="Manager Interval (seconds):").grid(row=row, column=0, sticky=tk.W, pady=5)
-        self.manager_interval_var = tk.IntVar(value=30)
         interval_spin = ttk.Spinbox(scrollable_frame, from_=1, to=600, textvariable=self.manager_interval_var, width=10)
         interval_spin.grid(row=row, column=1, sticky=tk.W, pady=5, padx=5)
         ToolTip(interval_spin, "Seconds between manager operations\nDefault: 30 seconds")
@@ -1176,14 +1216,12 @@ class DVDStoreGUI:
 
         # Batch sizes
         ttk.Label(scrollable_frame, text="Batch Size Min:").grid(row=row, column=0, sticky=tk.W, pady=5)
-        self.manager_batch_min_var = tk.IntVar(value=1)
         batch_min_spin = ttk.Spinbox(scrollable_frame, from_=1, to=1000, textvariable=self.manager_batch_min_var, width=10)
         batch_min_spin.grid(row=row, column=1, sticky=tk.W, pady=5, padx=5)
         ToolTip(batch_min_spin, "Minimum batch size for manager operations")
         row += 1
 
         ttk.Label(scrollable_frame, text="Batch Size Max:").grid(row=row, column=0, sticky=tk.W, pady=5)
-        self.manager_batch_max_var = tk.IntVar(value=20)
         batch_max_spin = ttk.Spinbox(scrollable_frame, from_=1, to=1000, textvariable=self.manager_batch_max_var, width=10)
         batch_max_spin.grid(row=row, column=1, sticky=tk.W, pady=5, padx=5)
         ToolTip(batch_max_spin, "Maximum batch size for manager operations")
@@ -1201,56 +1239,48 @@ class DVDStoreGUI:
 
         # AddProduct
         ttk.Label(scrollable_frame, text="Add Product %:").grid(row=row, column=0, sticky=tk.W, pady=2, padx=20)
-        self.mgr_add_product_var = tk.IntVar(value=40)
         ttk.Spinbox(scrollable_frame, from_=0, to=100, textvariable=self.mgr_add_product_var, width=10).grid(row=row, column=1, sticky=tk.W, pady=2)
         ToolTip(scrollable_frame.winfo_children()[-1], "Add new products to inventory (.01 price endings)")
         row += 1
 
         # DeleteReview
         ttk.Label(scrollable_frame, text="Delete Review %:").grid(row=row, column=0, sticky=tk.W, pady=2, padx=20)
-        self.mgr_delete_review_var = tk.IntVar(value=20)
         ttk.Spinbox(scrollable_frame, from_=0, to=100, textvariable=self.mgr_delete_review_var, width=10).grid(row=row, column=1, sticky=tk.W, pady=2)
         ToolTip(scrollable_frame.winfo_children()[-1], "Remove reviews (by product, unhelpful, or by date)")
         row += 1
 
         # AdjustPrices (includes BulkPriceAdjustment)
         ttk.Label(scrollable_frame, text="Adjust Prices %:").grid(row=row, column=0, sticky=tk.W, pady=2, padx=20)
-        self.mgr_update_price_var = tk.IntVar(value=20)
         ttk.Spinbox(scrollable_frame, from_=0, to=100, textvariable=self.mgr_update_price_var, width=10).grid(row=row, column=1, sticky=tk.W, pady=2)
         ToolTip(scrollable_frame.winfo_children()[-1], "Price adjustments (alternates individual .99 and bulk .77)")
         row += 1
 
         # MarkSpecials
         ttk.Label(scrollable_frame, text="Mark Specials %:").grid(row=row, column=0, sticky=tk.W, pady=2, padx=20)
-        self.mgr_update_special_var = tk.IntVar(value=5)
         ttk.Spinbox(scrollable_frame, from_=0, to=100, textvariable=self.mgr_update_special_var, width=10).grid(row=row, column=1, sticky=tk.W, pady=2)
         ToolTip(scrollable_frame.winfo_children()[-1], "Toggle product special flags")
         row += 1
 
         # ExpireMemberships
         ttk.Label(scrollable_frame, text="Expire Memberships %:").grid(row=row, column=0, sticky=tk.W, pady=2, padx=20)
-        self.mgr_expire_memberships_var = tk.IntVar(value=5)
         ttk.Spinbox(scrollable_frame, from_=0, to=100, textvariable=self.mgr_expire_memberships_var, width=10).grid(row=row, column=1, sticky=tk.W, pady=2)
         ToolTip(scrollable_frame.winfo_children()[-1], "Expire old memberships based on expiration date")
         row += 1
 
         # PurgeOldOrders
         ttk.Label(scrollable_frame, text="Purge Old Orders %:").grid(row=row, column=0, sticky=tk.W, pady=2, padx=20)
-        self.mgr_purge_old_orders_var = tk.IntVar(value=5)
         ttk.Spinbox(scrollable_frame, from_=0, to=100, textvariable=self.mgr_purge_old_orders_var, width=10).grid(row=row, column=1, sticky=tk.W, pady=2)
         ToolTip(scrollable_frame.winfo_children()[-1], "Delete oldest orders (GDPR/data retention compliance)")
         row += 1
 
         # UpgradeMembership
         ttk.Label(scrollable_frame, text="Upgrade Membership %:").grid(row=row, column=0, sticky=tk.W, pady=2, padx=20)
-        self.mgr_upgrade_membership_var = tk.IntVar(value=5)
         ttk.Spinbox(scrollable_frame, from_=0, to=100, textvariable=self.mgr_upgrade_membership_var, width=10).grid(row=row, column=1, sticky=tk.W, pady=2)
         ToolTip(scrollable_frame.winfo_children()[-1], "Upgrade membership tiers based on purchase history (percentile-based)")
         row += 1
 
         # PromotionalMembership
         ttk.Label(scrollable_frame, text="Promotional Membership %:").grid(row=row, column=0, sticky=tk.W, pady=2, padx=20)
-        self.mgr_promo_membership_var = tk.IntVar(value=0)
         ttk.Spinbox(scrollable_frame, from_=0, to=100, textvariable=self.mgr_promo_membership_var, width=10).grid(row=row, column=1, sticky=tk.W, pady=2)
         ToolTip(scrollable_frame.winfo_children()[-1], "90-day promotional membership upgrades (MERGE-based)")
         row += 1
@@ -1264,7 +1294,6 @@ class DVDStoreGUI:
 
         # Analytics interval
         ttk.Label(analytics_frame, text="Analytics Interval (minutes):").grid(row=row, column=0, sticky=tk.W, pady=5)
-        self.analytics_interval_var = tk.IntVar(value=5)
         analytics_spin = ttk.Spinbox(analytics_frame, from_=0, to=60, textvariable=self.analytics_interval_var, width=10)
         analytics_spin.grid(row=row, column=1, sticky=tk.W, pady=5, padx=5)
         ToolTip(analytics_spin, "Minutes between analytics queries.\n0 = disabled\nTypical: 5-15 minutes")
@@ -1277,31 +1306,26 @@ class DVDStoreGUI:
         ttk.Label(analytics_frame, text="Enable Individual Analytics:", font=('TkDefaultFont', 10, 'bold')).grid(row=row, column=0, columnspan=2, sticky=tk.W, pady=5)
         row += 1
 
-        self.enable_membership_analytics_var = tk.BooleanVar(value=True)
         ttk.Checkbutton(analytics_frame, text="Membership Analytics",
                        variable=self.enable_membership_analytics_var).grid(row=row, column=0, columnspan=2, sticky=tk.W, pady=2, padx=20)
         ToolTip(analytics_frame.winfo_children()[-1], "Orders and revenue per tier (Gold/Silver/Bronze/Non-member)")
         row += 1
 
-        self.enable_newcustomer_analytics_var = tk.BooleanVar(value=True)
         ttk.Checkbutton(analytics_frame, text="New Customer Analytics",
                        variable=self.enable_newcustomer_analytics_var).grid(row=row, column=0, columnspan=2, sticky=tk.W, pady=2, padx=20)
         ToolTip(analytics_frame.winfo_children()[-1], "New customers created and retention metrics")
         row += 1
 
-        self.enable_review_analytics_var = tk.BooleanVar(value=True)
         ttk.Checkbutton(analytics_frame, text="Review Analytics",
                        variable=self.enable_review_analytics_var).grid(row=row, column=0, columnspan=2, sticky=tk.W, pady=2, padx=20)
         ToolTip(analytics_frame.winfo_children()[-1], "Review distribution by star rating and helpfulness scores")
         row += 1
 
-        self.enable_pricepoint_analytics_var = tk.BooleanVar(value=True)
         ttk.Checkbutton(analytics_frame, text="Price Point Analytics",
                        variable=self.enable_pricepoint_analytics_var).grid(row=row, column=0, columnspan=2, sticky=tk.W, pady=2, padx=20)
         ToolTip(analytics_frame.winfo_children()[-1], "Distribution of price endings (.99, .77, .01, other)")
         row += 1
 
-        self.enable_inventory_analytics_var = tk.BooleanVar(value=True)
         ttk.Checkbutton(analytics_frame, text="Inventory Analytics",
                        variable=self.enable_inventory_analytics_var).grid(row=row, column=0, columnspan=2, sticky=tk.W, pady=2, padx=20)
         ToolTip(analytics_frame.winfo_children()[-1], "Low/high stock counts, reorder events, sales velocity")
@@ -1623,9 +1647,9 @@ class DVDStoreGUI:
                 self.master.after_idle(lambda db=target_db['type']:
                     self.log_output(f"Compiling {db} driver...\n"))
 
-                # Run dotnet publish to create standalone executable
+                # Run dotnet publish to create standalone executable (suppress warnings)
                 compile_proc = subprocess.Popen(
-                    ['dotnet', 'publish', '-c', 'Release', '-o', '.'],
+                    ['dotnet', 'publish', '-c', 'Release', '-o', '.', '-nowarn'],
                     stdout=subprocess.PIPE,
                     stderr=subprocess.STDOUT,
                     text=True,
@@ -1636,8 +1660,8 @@ class DVDStoreGUI:
                 for line in iter(compile_proc.stdout.readline, ''):
                     if not line:
                         break
-                    # Only show important messages (errors, warnings, final success)
-                    if 'error' in line.lower() or 'warning' in line.lower() or 'succeeded' in line.lower():
+                    # Only show important messages (errors and final success, warnings suppressed)
+                    if 'error' in line.lower() or 'succeeded' in line.lower():
                         self.master.after_idle(lambda msg=line: self.log_output(f"  {msg}"))
 
                 compile_proc.wait()
@@ -1984,7 +2008,7 @@ class DVDStoreGUI:
         """Append message to output console"""
         self.output_text.insert(tk.END, message, tag)
         self.output_text.see(tk.END)
-        self.output_text.update()
+        # Note: No .update() needed - called via after_idle which handles scheduling
 
 
 def main():
