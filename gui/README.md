@@ -19,10 +19,15 @@ A desktop GUI application for the DVD Store 3.6 database benchmark.
 - gcc (for data generation)
 
 ### Database Client Tools (for Step 2)
+
+These tools must be installed and available in your PATH:
+
 - SQL Server: `sqlcmd`
 - MySQL: `mariadb` or `mysql`
 - PostgreSQL: `psql`
 - Oracle: `sqlplus`
+
+The GUI will only show databases in Step 2 (Database Loading) if their corresponding client tool is found in your PATH.
 
 ## Usage
 
@@ -59,6 +64,113 @@ cd /path/to/ds36
 ./run-gui.sh
 ```
 
+## Workflow
+
+### Data Generation and Loading
+
+**Step 1: Generate Data (CSV files + database-specific SQL files)**
+- Generates CSV files in `data_files/` directory
+- CSV files are overwritten each time you generate
+- **Oracle and SQL Server:** Also create database-specific SQL files
+  - SQL files persist when you generate for MySQL/PostgreSQL
+  - SQL files are regenerated if you generate for Oracle/SQL Server again
+  - You can change the database file path and regenerate to update the SQL files
+- **MySQL and PostgreSQL:** Only use CSV files (no additional SQL files needed)
+
+**Step 2: Load Database (repeatable)**
+- Loads data from the CSV files (most recently generated)
+- Can be run multiple times to load the same CSV data into different databases
+- **MySQL and PostgreSQL:** Available in Step 2 after ANY generation
+- **Oracle and SQL Server:** Available in Step 2 after you generate with them selected at least once
+  - Their SQL files persist when you generate for MySQL/PostgreSQL
+  - If you regenerate for Oracle/SQL Server, their SQL files get updated
+- **The GUI tracks which databases have been generated** to show only compatible databases in Step 2 dropdown
+
+**Common Workflows:**
+
+1. **Single Database:**
+   ```
+   Generate (MySQL, 4GB) → Load to MySQL
+   ```
+
+2. **MySQL + PostgreSQL (same data):**
+   ```
+   Generate (MySQL, 4GB) → Load to MySQL → Load to PostgreSQL
+   ```
+   Both databases contain identical data for fair comparison.
+
+3. **All Four Databases (requires TWO generations):**
+   ```
+   Generate (Oracle, 4GB, /home/oracle)     → Creates Oracle SQL files + CSV
+   Generate (SQL Server, 4GB, /var/opt/mssql/data) → Creates SQL Server SQL files + overwrites CSV
+   Load to Oracle → Load to SQL Server → Load to MySQL → Load to PostgreSQL
+   ```
+   - Oracle SQL files created and persist
+   - SQL Server SQL files created, CSV files overwritten
+   - All four databases now available in Step 2
+   - All four load the same CSV data (from SQL Server generation)
+
+4. **Regenerating CSV after Oracle/SQL Server SQL files exist:**
+   ```
+   Generate (Oracle, 4GB, /home/oracle)     → Creates Oracle SQL files + CSV
+   Generate (SQL Server, 4GB, /var/opt/mssql/data) → Creates SQL Server SQL files + CSV
+   Generate (MySQL, 10GB)                    → Overwrites CSV only (no new SQL files)
+   Load to Oracle → Load to SQL Server → Load to MySQL → Load to PostgreSQL
+   ```
+   - Oracle and SQL Server SQL files still exist (from earlier generations)
+   - All four databases available in Step 2
+   - All four load 10GB MySQL-generated CSV data
+
+5. **Different data sizes:**
+   ```
+   Generate (Oracle, 4GB, /home/oracle)  → Load to Oracle
+   Generate (MySQL, 50GB)                → Load to MySQL → Load to PostgreSQL
+   ```
+   - Oracle loads 4GB data
+   - MySQL and PostgreSQL load 50GB data (CSV overwritten)
+
+5. **Different Data Sizes:**
+   ```
+   Generate (MySQL, 4GB) → Load to MySQL
+   Generate (MySQL, 50GB) → Load to MySQL
+   ```
+   The second generation replaces the 4GB data. The second load creates a different 50GB database.
+
+**Important:** 
+- MySQL and PostgreSQL data is database-agnostic and can be shared
+- Oracle and SQL Server require separate generation with database-specific file paths
+- Only the most recently generated CSV files are loaded in Step 2
+
+## How It Works
+
+The GUI is a wrapper around the standard DVD Store 3.6 command-line tools:
+
+**Step 1: Data Generation**
+- Runs `Install_DVDStore.pl` with automated answers
+- Same as running the Perl script manually, but without interactive prompts
+
+**Step 2: Database Loading**
+- Runs database-specific scripts:
+  - MySQL: `mysql/mysql_ds_create_all.sh`
+  - PostgreSQL: `pgsql/pgsql_ds_create_all.sh`
+  - Oracle: `oracle/oracle_ds_create_all.sh`
+  - SQL Server: `sqlserver/sqlserver_ds_create_all.sh`
+- Same as running these scripts from the command line
+
+**Step 3: Driver Execution**
+- Generates `DriverConfig.txt` from GUI form values
+- Runs the orchestrator or individual database driver
+- Same as running `dotnet run` manually
+
+**Advantages of the GUI:**
+- No need to remember script locations or parameters
+- Visual feedback with real-time output
+- Repeatable workflows (save/load configurations)
+- Form-based configuration instead of editing text files
+
+**Command-line equivalent still works:**
+Everything the GUI does can still be done manually from the command line. The GUI is just a convenience wrapper.
+
 ## Configuration Presets
 
 Save and load complete benchmark configurations:
@@ -75,7 +187,19 @@ The GUI will check for required tools on startup and show warnings for any missi
 If your installed dotnet version doesn't match the project requirements, the GUI will offer to automatically update the .csproj files.
 
 **Client Tools Not Found:**
-Databases requiring missing client tools will be hidden from Step 2 (Database Loading). Install the required client tool to enable that database.
+Databases requiring missing client tools will be hidden from Step 2 (Database Loading). Install the required client tool and ensure it's in your PATH to enable that database.
+
+**Checking your PATH:**
+```bash
+# Linux/Mac
+which sqlcmd    # Check if sqlcmd is in PATH
+which psql      # Check if psql is in PATH
+which mariadb   # Check if mariadb is in PATH
+
+# Windows
+where sqlcmd    # Check if sqlcmd is in PATH
+where psql      # Check if psql is in PATH
+```
 
 ## Documentation
 

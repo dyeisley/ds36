@@ -7,6 +7,7 @@ The web driver (drivers/ds36webfns.cs) and PHP code have not been modified.
 
 ## What's New in 3.6
 
+- **Desktop GUI**: Python Tkinter GUI (`gui/dvdstore-gui.py`) for data generation, database loading, and driver execution - form-based configuration with save/load presets, real-time output streaming, and multi-database workflow support
 - **Multi-Database Orchestrator**: New orchestrator executable for side-by-side performance comparison - launches MySQL, SQL Server, PostgreSQL, and Oracle simultaneously with identical workload parameters, real-time labeled output, and automated comparison tables showing OPM, response times, analytics, and manager operations across all databases
 - **Vector Search Support**: PostgreSQL (pgvector with ivfflat index) and Oracle (native VECTOR type with VECTOR INDEX) support 384-dimensional vector similarity search - tests database vector capabilities with cosine distance calculations and BROWSE_BY_VECTOR operations (SQL Server and MySQL already supported)
 - **Manager Thread System**: Background thread with 11 administrative operations (AddProduct, RemoveReviews, AdjustPrices, BulkPriceAdjustment, MarkSpecials, ExpireMemberships, PurgeOldOrders, UpgradeMembership, PromotionalMembership)
