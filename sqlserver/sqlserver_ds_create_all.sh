@@ -1,5 +1,5 @@
 # start in ./ds36/sqlserver
-# Syntax is: remote_sqlserver_ds_create_all_concurrent.sh <sqlserverdbtarget> <number of stores> <password> <use_vectors>
+# Syntax is: ./sqlserver_ds_create_all.sh <target> <number of stores> <password> <use_vectors>
 # Assumes sqlcmd is in PATH.
 
 TARGET=${1:-`hostname`}
