@@ -467,6 +467,27 @@ class DVDStoreGUI:
 
         row += 1
 
+        # Skip CSV checkbox (conditional - Oracle/SQL Server only)
+        self.skip_csv_var = tk.BooleanVar(value=False)
+        self.skip_csv_check = ttk.Checkbutton(step1_frame, text="SQL files only (keep existing CSV data)",
+                                             variable=self.skip_csv_var)
+        self.skip_csv_row = row
+        self.skip_csv_frame = step1_frame
+
+        # Add tooltip for skip CSV
+        ToolTip(self.skip_csv_check,
+                "Generate database-specific SQL files without regenerating CSV data.\n\n"
+                "Use this when:\n"
+                "• You need to update Oracle/SQL Server file paths\n"
+                "• You want to generate SQL files for multiple databases using the same CSV data\n\n"
+                "Example workflow:\n"
+                "1. Generate SQL Server (creates CSV + SQL files)\n"
+                "2. Generate Oracle with this checked (creates Oracle SQL files, keeps CSV)\n"
+                "3. Load both databases with identical data\n\n"
+                "Note: At least one generation must create CSV files (checkbox unchecked) before loading.")
+
+        row += 1
+
         # Generate button with timestamp
         button_frame = ttk.Frame(step1_frame)
         button_frame.grid(row=row, column=0, columnspan=3, pady=10)
@@ -1883,6 +1904,13 @@ class DVDStoreGUI:
             self.db_paths_entry.grid_remove()
             self.db_paths_label.grid_remove()
 
+        # Skip CSV checkbox: only for Oracle/SQL Server
+        if db_type in ['Oracle', 'SQL Server']:
+            self.skip_csv_check.grid(row=self.skip_csv_row, column=1, columnspan=2, sticky=tk.W, pady=2, padx=5)
+        else:
+            self.skip_csv_check.grid_remove()
+            self.skip_csv_var.set(False)  # Reset to unchecked when hidden
+
     def get_db_dir(self, db_type):
         """Convert friendly database name to directory name"""
         name_to_dir = {
@@ -1971,9 +1999,14 @@ class DVDStoreGUI:
     def _execute_install_dvdstore(self, answers):
         """Execute Install_DVDStore.pl in background thread"""
         try:
+            # Build command with --skip-csv flag if checkbox is checked
+            cmd = ['perl', 'Install_DVDStore.pl']
+            if self.skip_csv_var.get():
+                cmd.append('--skip-csv')
+
             # Execute with piped input
             proc = subprocess.Popen(
-                ['perl', 'Install_DVDStore.pl'],
+                cmd,
                 stdin=subprocess.PIPE,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.STDOUT,
