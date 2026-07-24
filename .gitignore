@@ -41,3 +41,8 @@ data_files/
 # Backup files
 *.bak
 *~
+
+# Python bytecode
+__pycache__/
+*.pyc
+*.pyo
