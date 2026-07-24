@@ -27,6 +27,16 @@ my $database_type = "mssql";		#Type = mssql / mysql / pgsql / oracle / MSSQL / M
 my $db_sys_type = "win";		#System : win / linux / WIN / LINUX
 my $db_file_path = "c:/";		#User can give any path to store DBFiles
 
+# Parse command-line arguments for --skip-csv flag
+my $skip_csv = 0;
+foreach my $arg (@ARGV) {
+    if ($arg eq '--skip-csv') {
+        $skip_csv = 1;
+        print "NOTE: --skip-csv flag detected. CSV generation will be skipped.\n";
+        print "      Only database-specific SQL files will be generated.\n\n";
+    }
+}
+
 my $pathsep = File::Spec->catdir('', '');
 
 my @arr_db_file_paths = ();
@@ -514,15 +524,21 @@ elsif($bln_is_Sys_Linux == 1)
 
 #***************************************************************************************
 
-print "Starting to create CSV data files.... \n";
-print "For larger database sizes, it will take time.\n";
-print "Do not kill the script till execution is complete. \n";
-
-#Create CSV files for Customer table
-#Call already compiled C program in respective folders to generate CSV Files
+if (!$skip_csv) {
+	print "Starting to create CSV data files.... \n";
+	print "For larger database sizes, it will take time.\n";
+	print "Do not kill the script till execution is complete. \n";
+} else {
+	print "Skipping CSV data file generation (--skip-csv flag set).\n";
+	print "Only database-specific SQL files will be generated.\n\n";
+}
 
 #Move to cust folder
 chdir "./data_files/cust/";
+
+if (!$skip_csv) {
+#Create CSV files for Customer table
+#Call already compiled C program in respective folders to generate CSV Files
 
 #Initialize parameters for Customer C Program
 $par1_Start = 1;
@@ -579,14 +595,19 @@ else   #Windows
 
 print "\nCustomer CSV Files created!! \n";
 
-#***************************************************************************************
+} else {
+	print "\nSkipping Customer CSV generation (--skip-csv flag set)\n";
+}
 
-#Create CSV files for Orders, Orderlines and Cust_Hist table
-#Call already compiled C program in respective folders to generate CSV Files
+#***************************************************************************************
 
 #Move to Orders folder
 chdir "../";
 chdir "./orders/";
+
+if (!$skip_csv) {
+#Create CSV files for Orders, Orderlines and Cust_Hist table
+#Call already compiled C program in respective folders to generate CSV Files
 
 #use Cwd;
 #my $dir = getcwd();
@@ -634,8 +655,13 @@ for($i_LoopCount = 0; $i_LoopCount < 12; $i_LoopCount++)
 
 print "\nAll Order, Orderlines, Cust_Hist CSV files created !!! \n";
 
+} else {
+	print "\nSkipping Orders CSV generation (--skip-csv flag set)\n";
+}
+
 #***************************************************************************************
 
+if (!$skip_csv) {
 #Create CSV files for Products,Inv table
 #Call already compiled C program in respective folders to generate CSV Files
 
@@ -700,12 +726,16 @@ else   #Windows
 
 print "\nProduct CSV file created!!!! \n";
 
+} else {
+	print "\nSkipping Inventory and Products CSV generation (--skip-csv flag set)\n";
+}
+
 #***************************************************************************************
 
-# Create Membership data file
+chdir "../membership/";
 
-chdir "../";
-chdir "./membership/";
+if (!$skip_csv) {
+# Create Membership data file
 
 print "\nCreating membership CSV file!!!! \n";
 
@@ -729,16 +759,21 @@ else   #Windows
 
 print "\nMembership CSV file created!!!! \n";
 
+} else {
+	print "\nSkipping Membership CSV generation (--skip-csv flag set)\n";
+}
+
 
 #*****************************************************************************************
-#Create Reviews and Reviews Helpfulness data file
 
-chdir "../";
-chdir "./reviews/";
-
-print "\nCreating reviews and reviews helpfulness CSV files!!!! \n";
-
+# Calculate review rows (needed even with --skip-csv for SQL file generation)
 my $par_review_rows = $par_n_Prod * $par_Avg_Reviews;
+
+chdir "../reviews/";
+
+if (!$skip_csv) {
+#Create Reviews and Reviews Helpfulness data file
+print "\nCreating reviews and reviews helpfulness CSV files!!!! \n";
 
 if(lc($^O) eq lc("linux"))   #If system on which perl script is executing is Linux
 {
@@ -760,7 +795,9 @@ else   #Windows
 
 print "\nReviews and heviews helpfulness CSV files created!!!! \n";
 
-
+} else {
+	print "\nSkipping Reviews CSV generation (--skip-csv flag set)\n";
+}
 
 #Now move to required folders according to Database Type
 my @lines;

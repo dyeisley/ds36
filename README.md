@@ -7,6 +7,7 @@ The web driver (drivers/ds36webfns.cs) and PHP code have not been modified.
 
 ## What's New in 3.6
 
+- **Desktop GUI**: Python Tkinter GUI (`gui/dvdstore-gui.py`) for data generation, database loading, and driver execution - form-based configuration with save/load presets, real-time output streaming, and multi-database workflow support
 - **Multi-Database Orchestrator**: New orchestrator executable for side-by-side performance comparison - launches MySQL, SQL Server, PostgreSQL, and Oracle simultaneously with identical workload parameters, real-time labeled output, and automated comparison tables showing OPM, response times, analytics, and manager operations across all databases
 - **Vector Search Support**: PostgreSQL (pgvector with ivfflat index) and Oracle (native VECTOR type with VECTOR INDEX) support 384-dimensional vector similarity search - tests database vector capabilities with cosine distance calculations and BROWSE_BY_VECTOR operations (SQL Server and MySQL already supported)
 - **Manager Thread System**: Background thread with 11 administrative operations (AddProduct, RemoveReviews, AdjustPrices, BulkPriceAdjustment, MarkSpecials, ExpireMemberships, PurgeOldOrders, UpgradeMembership, PromotionalMembership)
@@ -23,6 +24,32 @@ The web driver (drivers/ds36webfns.cs) and PHP code have not been modified.
 - **Unlimited Cart Support**: SQL Server, PostgreSQL, and Oracle support unlimited cart sizes via TVP/arrays with deadlock prevention (MySQL remains at 10-item limit)
 
 See [CHANGES.md](CHANGES.md) for detailed changelog.
+
+## Requirements
+
+### Database Versions
+
+- **MySQL 8.0+** or **MariaDB 10.6+** 
+  - Manager operations use `FOR UPDATE SKIP LOCKED` (added in MySQL 8.0, MariaDB 10.6)
+  - Vector search requires **MariaDB 11.8 LTS** (native vector similarity search)
+  - **Note:** RHEL 9 default (MariaDB 10.5) is too old - use `dnf module enable mariadb:10.11`
+- **PostgreSQL 12+** (14+ for pgvector extension)
+- **SQL Server 2019+** (2025 for vector search)
+- **Oracle 19c+** (23ai for vector search)
+
+### Build Tools
+
+- **dotnet SDK** (8.0 or later)
+- **Perl** (for stored procedure generation and scripts)
+- **gcc** (Linux/Mac only - for data generation C programs)
+
+### Database Client Tools
+
+Required for loading data and running validation:
+- MySQL/MariaDB: `mariadb` or `mysql` command
+- PostgreSQL: `psql`
+- SQL Server: `sqlcmd`
+- Oracle: `sqlplus`
 
 ## Customer Workflow
 

@@ -1,7 +1,7 @@
 #!/bin/sh
 
 # oracle_ds_create_all_<DB_SIZE>GB.sh
-# Syntax to run - sh oracle_ds_create_all_<DB_SIZE>GB.sh <oracle_target> <number_of_stores> <use_vectors>
+# Syntax to run - sh oracle_ds_create_all.sh <oracle_target> <number_of_stores> <use_vectors>
 # start in ./ds36/oracle
 
 TARGET=${1:-`hostname`}
