@@ -75,6 +75,10 @@ cd /path/to/ds36
   - SQL files persist when you generate for MySQL/PostgreSQL
   - SQL files are regenerated if you generate for Oracle/SQL Server again
   - You can change the database file path and regenerate to update the SQL files
+  - **"SQL files only" checkbox:** Available for Oracle/SQL Server only
+    - When checked, regenerates SQL files WITHOUT regenerating CSV data
+    - Use this to update database file paths or create SQL files for a second database
+    - At least one generation must create CSV files (checkbox unchecked) before loading
 - **MySQL and PostgreSQL:** Only use CSV files (no additional SQL files needed)
 
 **Step 2: Load Database (repeatable)**
@@ -99,7 +103,26 @@ cd /path/to/ds36
    ```
    Both databases contain identical data for fair comparison.
 
-3. **All Four Databases (requires TWO generations):**
+3. **All Four Databases (using --skip-csv checkbox):**
+   ```
+   Generate (SQL Server, 4GB, /var/opt/mssql/data)                → Creates SQL Server SQL files + CSV
+   Generate (Oracle, 4GB, /home/oracle, ✓ SQL files only checkbox) → Creates Oracle SQL files only, keeps CSV
+   Load to Oracle → Load to SQL Server → Load to MySQL → Load to PostgreSQL
+   ```
+   - SQL Server generation creates CSV + SQL files
+   - Oracle generation with checkbox checked creates only SQL files (CSV unchanged)
+   - All four databases now available in Step 2
+   - All four load identical CSV data (from SQL Server generation)
+   
+   **Alternate order:**
+   ```
+   Generate (Oracle, 4GB, /home/oracle, ✓ SQL files only checkbox)  → Creates Oracle SQL files only (no CSV yet)
+   Generate (SQL Server, 4GB, /var/opt/mssql/data)                  → Creates SQL Server SQL files + CSV
+   Load to Oracle → Load to SQL Server → Load to MySQL → Load to PostgreSQL
+   ```
+   Order doesn't matter - both must complete before Step 2.
+
+4. **All Four Databases (old method, requires TWO full generations):**
    ```
    Generate (Oracle, 4GB, /home/oracle)     → Creates Oracle SQL files + CSV
    Generate (SQL Server, 4GB, /var/opt/mssql/data) → Creates SQL Server SQL files + overwrites CSV
@@ -109,8 +132,21 @@ cd /path/to/ds36
    - SQL Server SQL files created, CSV files overwritten
    - All four databases now available in Step 2
    - All four load the same CSV data (from SQL Server generation)
+   - **Note:** This method regenerates CSV unnecessarily. Use the --skip-csv checkbox method above instead.
 
-4. **Regenerating CSV after Oracle/SQL Server SQL files exist:**
+5. **Update Database File Paths (using --skip-csv checkbox):**
+   ```
+   Generate (Oracle, 4GB, /u01/oracle/data)                            → Creates Oracle SQL files + CSV
+   (Oracle datafiles moved to /data/oracle)
+   Generate (Oracle, 4GB, /data/oracle, ✓ SQL files only checkbox)     → Updates Oracle SQL files only, CSV unchanged
+   Load to Oracle                                                      → Uses new path
+   ```
+   - First generation creates CSV + SQL files with `/u01/oracle/data` paths
+   - Later, Oracle datafiles moved to `/data/oracle` directory
+   - Second generation with checkbox updates SQL files with new path without regenerating CSV
+   - **Use case:** Change database file locations without regenerating benchmark data
+
+6. **Regenerating CSV after Oracle/SQL Server SQL files exist:**
    ```
    Generate (Oracle, 4GB, /home/oracle)     → Creates Oracle SQL files + CSV
    Generate (SQL Server, 4GB, /var/opt/mssql/data) → Creates SQL Server SQL files + CSV
@@ -121,20 +157,13 @@ cd /path/to/ds36
    - All four databases available in Step 2
    - All four load 10GB MySQL-generated CSV data
 
-5. **Different data sizes:**
+7. **Different Data Sizes:**
    ```
    Generate (Oracle, 4GB, /home/oracle)  → Load to Oracle
    Generate (MySQL, 50GB)                → Load to MySQL → Load to PostgreSQL
    ```
    - Oracle loads 4GB data
    - MySQL and PostgreSQL load 50GB data (CSV overwritten)
-
-5. **Different Data Sizes:**
-   ```
-   Generate (MySQL, 4GB) → Load to MySQL
-   Generate (MySQL, 50GB) → Load to MySQL
-   ```
-   The second generation replaces the 4GB data. The second load creates a different 50GB database.
 
 **Important:** 
 - MySQL and PostgreSQL data is database-agnostic and can be shared
