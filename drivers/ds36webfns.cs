@@ -660,6 +660,12 @@ namespace ds2xdriver
       TimeSpan TS = new TimeSpan();
       DateTime DT0;
 #endif  
+      if ( browse_type_in == "vector")
+      {
+         rows_returned = -1;
+         return false;
+      }
+
       //changed Controller.target to target_server_name
       URL =
         "http://" + target_server_name + "/" + Controller.virt_dir + "/dsbrowse." + Controller.page_type +
