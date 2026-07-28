@@ -32,6 +32,7 @@ ds_html_header("DVD Store Browse Page");
 
 $customerid = $_REQUEST["customerid"];
 $storenum = isset($_REQUEST["storenum"]) ? $_REQUEST["storenum"] : 1;
+$membership_level = isset($_REQUEST["membership_level"]) ? $_REQUEST["membership_level"] : 0;
 $browsetype = isset($_REQUEST["browsetype"]) ? $_REQUEST["browsetype"] : NULL;
 $browsereviewtype = isset($_REQUEST["browsereviewtype"]) ? $_REQUEST["brosereviewtype"] : NULL;
 $browse_title = isset($_REQUEST["browse_title"]) ? $_REQUEST["browse_title"] : NULL;
@@ -58,7 +59,12 @@ if (empty($customerid))
 if (isset($selected_item))  // Add new selected items to shopping cart (item[] array)
   {
   $n_items = is_array($item) ? count($item) : 0;
-  for ($i=0; $i<count($selected_item); $i++) $item[$n_items + $i] = $selected_item[$i];
+  // Limit cart to 10 items maximum (PURCHASE stored procedure limit)
+  $max_items = 10;
+  for ($i=0; $i<count($selected_item) && ($n_items + $i) < $max_items; $i++)
+    {
+    $item[$n_items + $i] = $selected_item[$i];
+    }
   }
 
 echo "<H2>Search for DVDs</H2>\n";
@@ -69,6 +75,8 @@ echo "<INPUT NAME='browsetype' TYPE=RADIO VALUE='title'"; if($browsetype == 'tit
 echo ">Title  <INPUT NAME='browse_title' VALUE='$browse_title' TYPE=TEXT SIZE=15> <BR>\n";
 echo "<INPUT NAME='browsetype' TYPE=RADIO VALUE='actor'"; if($browsetype == 'actor') echo "CHECKED";
 echo ">Actor  <INPUT NAME='browse_actor' VALUE='$browse_actor' TYPE=TEXT SIZE=15> <BR>\n";
+echo "<INPUT NAME='browsetype' TYPE=RADIO VALUE='membership'"; if($browsetype == 'membership') echo "CHECKED";
+echo ">Member Products (for your tier) <BR>\n";
 echo "<INPUT NAME='browsetype' TYPE=RADIO VALUE='category'"; if($browsetype == 'category') echo "CHECKED"; echo ">Category\n";
 
 $categories = array("Action", "Animation", "Children", "Classics", "Comedy", "Documentary", "Drama", "Family", "Foreign",
@@ -98,6 +106,7 @@ echo "</SELECT><BR>\n";
 
 echo "<INPUT TYPE=HIDDEN NAME=customerid VALUE='$customerid'>\n";
 echo "<INPUT TYPE=HIDDEN NAME=storenum VALUE='$storenum'>\n";
+echo "<INPUT TYPE=HIDDEN NAME=membership_level VALUE='$membership_level'>\n";
 if (is_array($item)) {
   for ($i=0; $i<count($item); $i++) echo "<INPUT TYPE=HIDDEN NAME='item[]' VALUE=$item[$i]>\n";
 }
@@ -126,6 +135,7 @@ echo "</SELECT><BR>\n";
 
 echo "<INPUT TYPE=HIDDEN NAME=customerid VALUE='$customerid'>\n";
 echo "<INPUT TYPE=HIDDEN NAME=storenum VALUE='$storenum'>\n";
+echo "<INPUT TYPE=HIDDEN NAME=membership_level VALUE='$membership_level'>\n";
 if (is_array($item)) {
   for ($i=0; $i<count($item); $i++) echo "<INPUT TYPE=HIDDEN NAME='item[]' VALUE=$item[$i]>\n";
 }
@@ -136,16 +146,31 @@ if (!empty($browsetype))
   {
   if (!($link_id = mysqli_connect())) die(mysqli_error());
 
+  // Call appropriate BROWSE stored procedure based on type
   switch ($browsetype)
     {
     case "title":
-      $browse_query = "select * from DS3.PRODUCTS$storenum where MATCH (TITLE) AGAINST ('" . $browse_title . "') LIMIT $limit_num;\n";
+      $browse_title_safe = mysqli_real_escape_string($link_id, $browse_title);
+      $browse_query = "CALL DS3.BROWSE_BY_TITLE$storenum($limit_num, '$browse_title_safe')";
       break;
     case "actor":
-      $browse_query = "select * from DS3.PRODUCTS$storenum  where MATCH (ACTOR) AGAINST ('" . $browse_actor . "') LIMIT $limit_num;\n";
+      $browse_actor_safe = mysqli_real_escape_string($link_id, $browse_actor);
+      $browse_query = "CALL DS3.BROWSE_BY_ACTOR$storenum($limit_num, '$browse_actor_safe')";
+      break;
+    case "membership":
+      if ($membership_level > 0) {
+        $browse_query = "CALL DS3.BROWSE_BY_MEMBERSHIP$storenum($limit_num, $membership_level)";
+      } else {
+        // Non-member, fall back to category browse
+        $special = 1;
+        $browse_category = 1;  // Default to category 1
+        $browse_query = "CALL DS3.BROWSE_BY_CATEGORY$storenum($limit_num, $browse_category, $special)";
+      }
       break;
     case "category":
-      $browse_query = "select * from DS3.PRODUCTS$storenum  where CATEGORY = $browse_category and SPECIAL=1 LIMIT $limit_num;\n";
+    default:
+      $special = 1;  // Can be randomized: rand(0,1)
+      $browse_query = "CALL DS3.BROWSE_BY_CATEGORY$storenum($limit_num, $browse_category, $special)";
       break;
     }
 

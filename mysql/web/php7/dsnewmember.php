@@ -82,6 +82,7 @@ if (!(empty($membershiplevel)))
       echo "<FORM ACTION='./dsbrowse.php' METHOD=GET>\n";
       echo "<INPUT TYPE=HIDDEN NAME=customerid VALUE=$customerid>\n";
       echo "<INPUT TYPE=HIDDEN NAME=storenum VALUE=$storenum>\n";
+      echo "<INPUT TYPE=HIDDEN NAME=membership_level VALUE=$membershiplevel>\n";
       echo "<INPUT TYPE=SUBMIT VALUE='Start Shopping'>\n";
       echo "</FORM>\n";
       ds_html_footer();

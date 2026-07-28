@@ -158,63 +158,45 @@ else  // confirmpurchase=yes  => update ORDERS, ORDERLINES, INVENTORY and CUST_H
   echo "<TR><TD></TD><TD></TD><TD></TD><TD>Total</TD><TD ALIGN=RIGHT>$" . $totalamount_fmt . "</TD></TR>\n";
   echo "</TABLE><BR>\n";
 
-  date_default_timezone_set('America/Los_Angeles');
-  $currentdate = date("Y-m-d");
+  // Build PURCHASE stored procedure call
+  // Procedure takes up to 10 items (prod_id_in0, qty_in0, prod_id_in1, qty_in1, ...)
+  $number_items = min(count($item), 10);  // Limit to 10 items maximum
 
-  // Start transaction - open separate connection for inserts that belong to transaction
-  $command_result = mysqli_query($link_id,"START TRANSACTION");
-  $purchase_insertorder_query = "INSERT into DS3.ORDERS$storenum (ORDERDATE, CUSTOMERID, NETAMOUNT, TAX, TOTALAMOUNT)" .
-    " VALUES ( '$currentdate',$customerid,$netamount_fmt,$taxamount_fmt,$totalamount_fmt);";
-  $purchase_insertorder_result = mysqli_query($link_id,$purchase_insertorder_query);
-  $orderid = mysqli_insert_id($link_id);
+  // Build parameter list - interleave prod_id and qty, pad with zeros if less than 10 items
+  $item_params = "";
+  for ($i = 0; $i < 10; $i++) {
+    if ($i < $number_items) {
+      $item_params .= $item[$i] . ", " . max(1, $quan[$i]) . ", ";
+    } else {
+      $item_params .= "0, 0, ";
+    }
+  }
 
-  // To do: check $orderid and handle error if = 0
+  $purchase_proc_call = "CALL DS3.PURCHASE$storenum(" .
+    "$customerid, $number_items, $netamount_fmt, $taxamount_fmt, $totalamount_fmt, " .
+    $item_params .
+    "@neworderid_out)";
 
-  // loop through items to be purchased, check inventory,  and make inserts into ORDERLINES and CUST_HIST tables     
+  // Use multi_query for stored procedures with OUT parameters
+  if (!mysqli_multi_query($link_id, $purchase_proc_call)) {
+    die("PURCHASE procedure failed: " . mysqli_error($link_id));
+  }
 
-    $success = true;
-    $orderlines_insert = "INSERT into DS3.ORDERLINES$storenum (ORDERLINEID, ORDERID, PROD_ID, QUANTITY, ORDERDATE) VALUES "; 
-    $cust_hist_insert= "INSERT into DS3.CUST_HIST$storenum (CUSTOMERID, ORDERID, PROD_ID) VALUES ";
-    for ($i=0; $i < count($item); $i++)
-      {
-      $j = $i+1;
-      $query = "SELECT QUAN_IN_STOCK, SALES FROM DS3.INVENTORY$storenum WHERE PROD_ID=$item[$i]";
-      $result = mysqli_query($link_id,$query);
-      $result_row = mysqli_fetch_row($result);
-      mysqli_free_result($result);
-      $curr_quan = $result_row[0];
-      $curr_sales = $result_row[1];
-      $new_quan = $curr_quan - $quan[$i];
-      $new_sales = $curr_sales + $quan[$i];
-      if ($new_quan < 0)
-        {
-        echo "Insufficient quantity for prod $item[$i]\n";
-        $success = false;
-        }
-      else   
-        {
-        $query = "UPDATE DS3.INVENTORY$storenum SET QUAN_IN_STOCK=$new_quan, SALES=$new_sales WHERE PROD_ID=$item[$i];";
-        $result = mysqli_query($link_id,$query);
-        }
+  // Clear the result set from the stored procedure
+  if ($result = mysqli_store_result($link_id)) {
+    mysqli_free_result($result);
+  }
 
-      $orderlines_insert = $orderlines_insert . "($j, $orderid, $item[$i], $quan[$i], '$currentdate'),";
-      $cust_hist_insert = $cust_hist_insert . "($customerid, $orderid, $item[$i]),";
-      } // End of for $i < count($item)
+  // Move to next result (the output parameter query)
+  mysqli_next_result($link_id);
 
-    $orderlines_insert[strlen($orderlines_insert)-1] = ";";
-    $cust_hist_insert[strlen($cust_hist_insert)-1] = ";";
+  // Get output parameter
+  $result = mysqli_query($link_id, "SELECT @neworderid_out");
+  $row = mysqli_fetch_row($result);
+  $orderid = $row[0];
+  mysqli_free_result($result);
 
-    if (!mysqli_query($link_id,$orderlines_insert))
-      {
-      echo "Insert into ORDERLINES table failed:  query= $orderlines_insert\n";
-      $success = false;
-      }
-
-    if ($success) mysqli_query($link_id,"COMMIT");
-    else  mysqli_query($link_id,"ROLLBACK");
-
-    // Do CUST_HIST insert outside of transaction for performance
-    mysqli_query($link_id,$cust_hist_insert);
+  $success = ($orderid > 0);
 
     if ($success)
       {

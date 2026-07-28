@@ -26,6 +26,7 @@
 
 
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Net;
 using System.Threading;
@@ -34,6 +35,58 @@ using System.Runtime.InteropServices;
 
 namespace ds2xdriver
   {
+  public class MembershipAnalyticsRow
+  {
+    public int? MembershipType { get; set; }
+    public long ActiveMemberCount { get; set; }
+    public long ExpiredMemberCount { get; set; }
+    public long TotalOrders { get; set; }
+    public decimal TotalRevenue { get; set; }
+  }
+
+  public class NewCustomerAnalyticsRow
+  {
+    public long Created { get; set; }
+    public long TwoPlus { get; set; }
+    public long ThreePlus { get; set; }
+    public long TotalOrders { get; set; }
+  }
+
+  public class ReviewAnalyticsRow
+  {
+    public int Stars { get; set; }
+    public long Reviews { get; set; }
+    public long Added { get; set; }
+    public decimal AvgHelp { get; set; }
+    public long HighHelp { get; set; }
+    public long LowHelp { get; set; }
+  }
+
+  public class PricePointAnalyticsRow
+  {
+    public string PriceEnding { get; set; }
+    public long ProductCount { get; set; }
+  }
+
+  public class PricePointAnalyticsData
+  {
+    public List<PricePointAnalyticsRow> PricePoints { get; set; }
+    public long NewProductsPurchased { get; set; }
+  }
+
+  public class InventoryAnalyticsRow
+  {
+    public long LowStockCount { get; set; }
+    public long HighStockCount { get; set; }
+    public long ReorderCount { get; set; }
+    public decimal AvgInventory { get; set; }
+    public long DeadStock { get; set; }
+    public long LowSales { get; set; }
+    public long MedSales { get; set; }
+    public long HighSales { get; set; }
+    public long TotalProducts { get; set; }
+  }
+
   /// <summary>
   /// ds3webfns.cs: DVD Store 3 Web Functions
   /// </summary>
@@ -204,9 +257,10 @@ namespace ds2xdriver
  
       ind_a = str_acc.IndexOf("customerid");
       str_acc = str_acc.Substring(ind_a);
-      ind_b = str_acc.IndexOf("=")  + 1;
+      ind_b = str_acc.IndexOf("VALUE=") + 6;  // Find VALUE= and skip past it
+      if (ind_b < 6) ind_b = str_acc.IndexOf("VALUE=\"") + 7;  // Try VALUE=" if VALUE= not found
       ind_e = str_acc.Substring(ind_b).IndexOf(">");
-//    Console.WriteLine("ind_b= {0}  ind_e= {1}  str_acc[]= {2}", 
+//    Console.WriteLine("ind_b= {0}  ind_e= {1}  str_acc[]= {2}",
 //      ind_b, ind_e, str_acc.Substring(ind_b, ind_e));
       customerid_out = 0;
       try
@@ -264,24 +318,125 @@ namespace ds2xdriver
 
       return(true);
       }  // end ds2login
-      
+
 //
 //-------------------------------------------------------------------------------------------------
 //
-    public bool ds2newcustomer(string username_in, string password_in, string firstname_in, 
-      string lastname_in, string address1_in, string address2_in, string city_in, string state_in, 
-      string zip_in, string country_in, string email_in, string phone_in, int creditcardtype_in, 
-      string creditcard_in, int ccexpmon_in, int ccexpyr_in, int age_in, int income_in, 
-      string gender_in, ref int customerid_out, ref double rt) 
+    public bool ds2getmembershipstatus(int customerid_in, ref int membership_level_out,
+      ref int is_expired_out, ref double rt)
       {
-      int count, ind_e, temp_ind;
+      DateTime start_time = DateTime.Now;
+      string str_acc = "";
+
+      try
+        {
+        string url = "http://" + target_server_name + "/" + Controller.virt_dir + "/dsgetmembershipstatus." + Controller.page_type +
+          "?customerid=" + customerid_in + "&storenum=" + target_store_number;
+
+        HttpWebRequest httpWebRequest = (HttpWebRequest)WebRequest.Create(url);
+        httpWebRequest.Timeout = 30000;
+        HttpWebResponse httpWebResponse = (HttpWebResponse)httpWebRequest.GetResponse();
+        StreamReader readStream = new StreamReader(httpWebResponse.GetResponseStream(), System.Text.Encoding.GetEncoding("utf-8"));
+        str_acc = readStream.ReadToEnd();
+        readStream.Close();
+        httpWebResponse.Close();
+
+        // Parse membership_level from hidden field: <INPUT TYPE=HIDDEN NAME=membership_level VALUE=2>
+        // Use only the FIRST occurrence of each field (page has multiple membership_level fields in forms)
+        bool membership_level_found = false;
+        bool is_expired_found = false;
+        string[] words = str_acc.Split(new char[] { ' ', '=', '>' });
+        for (int i = 0; i < words.Length; i++)
+          {
+          if (!membership_level_found && words[i] == "membership_level" && i + 2 < words.Length && words[i + 1] == "VALUE")
+            {
+            membership_level_out = Convert.ToInt32(words[i + 2]);
+            membership_level_found = true;
+            }
+          if (!is_expired_found && words[i] == "is_expired" && i + 2 < words.Length && words[i + 1] == "VALUE")
+            {
+            is_expired_out = Convert.ToInt32(words[i + 2]);
+            is_expired_found = true;
+            }
+          }
+
+        rt = (DateTime.Now - start_time).TotalSeconds;
+        return true;
+        }
+      catch (System.Exception e)
+        {
+        Console.WriteLine("Thread {0}: System Error in ds2getmembershipstatus: {1}",
+          Thread.CurrentThread.Name, e.Message);
+        rt = (DateTime.Now - start_time).TotalSeconds;
+        return false;
+        }
+      }  // end ds2getmembershipstatus
+
+//
+//-------------------------------------------------------------------------------------------------
+//
+    public bool ds2renewmembership(int customerid_in, ref int rows_affected_out, ref double rt)
+      {
+      DateTime start_time = DateTime.Now;
+      string str_acc = "";
+
+      try
+        {
+        string url = "http://" + target_server_name + "/" + Controller.virt_dir + "/dsrenewmembership." + Controller.page_type +
+          "?customerid=" + customerid_in + "&storenum=" + target_store_number + "&membership_level=1";
+
+        HttpWebRequest httpWebRequest = (HttpWebRequest)WebRequest.Create(url);
+        httpWebRequest.Timeout = 30000;
+        HttpWebResponse httpWebResponse = (HttpWebResponse)httpWebRequest.GetResponse();
+        StreamReader readStream = new StreamReader(httpWebResponse.GetResponseStream(), System.Text.Encoding.GetEncoding("utf-8"));
+        str_acc = readStream.ReadToEnd();
+        readStream.Close();
+        httpWebResponse.Close();
+
+        // Parse rows_affected from hidden field: <INPUT TYPE=HIDDEN NAME=rows_affected VALUE=1>
+        string[] words = str_acc.Split(new char[] { ' ', '=', '>' });
+        for (int i = 0; i < words.Length; i++)
+          {
+          if (words[i] == "rows_affected" && i + 2 < words.Length && words[i + 1] == "VALUE")
+            {
+            rows_affected_out = Convert.ToInt32(words[i + 2]);
+            break;
+            }
+          }
+
+        rt = (DateTime.Now - start_time).TotalSeconds;
+        return true;
+        }
+      catch (System.Exception e)
+        {
+        Console.WriteLine("Thread {0}: System Error in ds2renewmembership: {1}",
+          Thread.CurrentThread.Name, e.Message);
+        rt = (DateTime.Now - start_time).TotalSeconds;
+        return false;
+        }
+      }  // end ds2renewmembership
+
+//
+//-------------------------------------------------------------------------------------------------
+//
+    public bool ds2newcustomer(string password_in, string firstname_in,
+      string lastname_in, string address1_in, string address2_in, string city_in, string state_in,
+      string zip_in, string country_in, string email_in, string phone_in, int creditcardtype_in,
+      string creditcard_in, int ccexpmon_in, int ccexpyr_in, int age_in, int income_in,
+      string gender_in, ref string username_out, ref int customerid_out, ref double rt) 
+      {
+      int count, ind_b, ind_e, temp_ind;
       string temp_string;
 #if (USE_WIN32_TIMER)
       long ctr0 = 0, ctr = 0, freq = 0;
 #else
       TimeSpan TS = new TimeSpan();
       DateTime DT0;
-#endif   
+#endif
+
+      // Generate username from firstname + lastname (matches database driver pattern)
+      username_out = (firstname_in + lastname_in).Replace(" ", "").ToLower();
+
       //changed Controller.target to target_server_name
       URL =
         "http://" + target_server_name + "/" + Controller.virt_dir + "/dsnewcustomer." + Controller.page_type +
@@ -299,7 +454,7 @@ namespace ds2xdriver
         "&creditcard=" + creditcard_in +
         "&ccexpmon=" + ccexpmon_in +
         "&ccexpyr=" + ccexpyr_in +
-        "&username=" + username_in +
+        "&username=" + username_out +
         "&password=" + password_in +
         "&age=" + age_in +
         "&income=" + income_in +
@@ -363,25 +518,65 @@ namespace ds2xdriver
 //                                 IndexOf(customerid)             plus 17      ind_e
 // 
 
-      temp_ind = str_acc.IndexOf("customerid");
+      // Save original response for username parsing later
       temp_string = str_acc;
-      str_acc = str_acc.Substring(17 + str_acc.IndexOf("customerid"));
-      ind_e = str_acc.IndexOf(">");
-      if (ind_e < 1) 
-      { 
-          customerid_out = -1;
-          return (true); 
+
+      // Search for INPUT tag with NAME=customerid to avoid matching HTML comments
+      int input_pos = str_acc.IndexOf("<INPUT");
+      if (input_pos < 0)
+      {
+        Console.WriteLine("Error in ds2newcustomer: <INPUT tag not found");
+        Console.WriteLine("Response (first 1000 chars): {0}", str_acc.Substring(0, Math.Min(1000, str_acc.Length)));
+        customerid_out = -1;
+        return (true);
       }
-//    Console.WriteLine("ind_b= {0}  ind_e= {1}  str_acc.Substring(ind_b, ind_e)= {2}", 
+
+      string input_section = str_acc.Substring(input_pos);
+      temp_ind = input_section.IndexOf("customerid");
+      if (temp_ind < 0)
+      {
+        Console.WriteLine("Error in ds2newcustomer: customerid not found in INPUT section");
+        customerid_out = -1;
+        return (true);
+      }
+
+      str_acc = input_section.Substring(temp_ind);  // Start from customerid
+      ind_b = str_acc.IndexOf("VALUE=") + 6;  // Find VALUE= and skip past it
+      if (ind_b < 6) ind_b = str_acc.IndexOf("VALUE=\"") + 7;  // Try VALUE=" if VALUE= not found
+      ind_e = str_acc.Substring(ind_b).IndexOf(">");
+      if (ind_e < 1)
+      {
+          Console.WriteLine("Error in ds2newcustomer: VALUE not found after customerid");
+          customerid_out = -1;
+          return (true);
+      }
+//    Console.WriteLine("ind_b= {0}  ind_e= {1}  str_acc.Substring(ind_b, ind_e)= {2}",
 //      ind_b, ind_e, str_acc.Substring(ind_b, ind_e));
       try
         {
-        customerid_out = Convert.ToInt32(str_acc.Substring(0, ind_e).Trim('"'));
-        }
-      catch (System.Exception e) 
+        customerid_out = Convert.ToInt32(str_acc.Substring(ind_b, ind_e).Trim('"'));
+
+        // Parse the generated username from: <P>Your username is: <strong>user2400084</strong></P>
+        int username_start = temp_string.IndexOf("Your username is:");
+        if (username_start > 0)
         {
-        Console.WriteLine("Error in parsing customerid: {0}; ind_e= {1}  str_acc[]= {2}", 
-          e.Message, ind_e, str_acc.Substring(0, ind_e));
+          string username_section = temp_string.Substring(username_start);
+          int strong_start = username_section.IndexOf("<strong>") + 8;
+          int strong_end = username_section.IndexOf("</strong>");
+          if (strong_start > 7 && strong_end > strong_start)
+          {
+            username_out = username_section.Substring(strong_start, strong_end - strong_start);
+          }
+        }
+
+//        Console.WriteLine("Thread {0}: New customer created: customerid={1}, username={2}",
+//          Thread.CurrentThread.Name, customerid_out, username_out);
+        }
+      catch (System.Exception e)
+        {
+        Console.WriteLine("Error in parsing customerid: {0}; ind_e= {1}  str_acc[]= {2}",
+          e.Message, ind_e, str_acc.Substring(ind_b, ind_e));
+        Console.WriteLine("Full response (first 1000 chars): {0}", temp_string.Substring(0, Math.Min(1000, temp_string.Length)));
         return(false);
         }
       return(true);
@@ -391,7 +586,7 @@ namespace ds2xdriver
     //-------------------------------------------------------------------------------------------------
     // 
     
-    public bool ds2newmember(int customerid_in, int membershiplevel_in, ref int customerid_out, ref double rt)
+    public bool ds2newmember(int customerid_in, int membershiplevel_in, ref double rt)
     {
     int count, ind_a, ind_b, ind_e;
 #if (USE_WIN32_TIMER)
@@ -442,34 +637,7 @@ namespace ds2xdriver
         rt = TS.TotalSeconds; // Calculate response time
 #endif      
 
-        customerid_out = 0;
-        if (str_acc.IndexOf("Username already in use") > 0) return (true); // customerid_out==0 => name in use
-
-        //    String to parse: ...<INPUT TYPE=HIDDEN NAME=customerid VALUE=12091>...
-        //                                                ^                ^    ^
-        //                                                |                |    |
-        //                              IndexOf(customerid)            ind_b    ind_e
-        //    or:              ...<INPUT TYPE="HIDDEN" NAME="customerid" VALUE="12091">...
-        //                                                   ^                 ^      ^
-        //                                                   |                 |      |
-        //                                 IndexOf(customerid)             ind_b      ind_e
-        // 
-        ind_a = str_acc.IndexOf("customerid");
-        str_acc = str_acc.Substring(ind_a);
-        ind_b = str_acc.IndexOf("=") + 1;
-        ind_e = str_acc.Substring(ind_b).IndexOf(">");
-        //    Console.WriteLine("ind_b= {0}  ind_e= {1}  str_acc.Substring(ind_b, ind_e)= {2}", 
-        //      ind_b, ind_e, str_acc.Substring(ind_b, ind_e));
-        try
-        {
-            customerid_out = Convert.ToInt32(str_acc.Substring(ind_b, ind_e).Trim('"'));
-        }
-        catch (System.Exception e)
-        {
-            Console.WriteLine("Error in parsing customerid: {0}; ind_b= {1}  ind_e= {2}  str_acc[]= {3}",
-              e.Message, ind_b, ind_e, str_acc.Substring(ind_b, ind_e));
-            return (false);
-        }
+        // Success if page returns without error
         return (true);
     } // end ds2newmember()
 
@@ -478,8 +646,8 @@ namespace ds2xdriver
 //-------------------------------------------------------------------------------------------------
 //
     public bool ds2browse(string browse_type_in, string browse_category_in, string browse_actor_in,
-      string browse_title_in, int batch_size_in, int search_depth_in, int customerid_out, ref int rows_returned, 
-      ref int[] prod_id_out, ref string[] title_out, ref string[] actor_out, ref decimal[] price_out, 
+      string browse_title_in, int batch_size_in, int search_depth_in, int customerid_out, int membership_level_in,
+      ref int rows_returned, ref int[] prod_id_out, ref string[] title_out, ref string[] actor_out, ref decimal[] price_out,
       ref int[] special_out, ref int[] common_prod_id_out, ref double rt)
       {
       // Products table: PROD_ID INT, CATEGORY TINYINT, TITLE VARCHAR(50), ACTOR VARCHAR(50), 
@@ -493,14 +661,15 @@ namespace ds2xdriver
       DateTime DT0;
 #endif  
       //changed Controller.target to target_server_name
-      URL = 
-        "http://" + target_server_name + "/" + Controller.virt_dir + "/dsbrowse." + Controller.page_type + 
+      URL =
+        "http://" + target_server_name + "/" + Controller.virt_dir + "/dsbrowse." + Controller.page_type +
         "?browsetype=" + browse_type_in +
         "&browse_category=" + browse_category_in +
         "&browse_actor=" + browse_actor_in +
         "&browse_title=" + browse_title_in +
         "&limit_num=" + batch_size_in +
         "&customerid=" + customerid_out +
+        "&membership_level=" + membership_level_in +
         "&storenum=" + target_store_number;
               
         httpWebRequest = (HttpWebRequest) WebRequest.Create(URL); 
@@ -543,8 +712,8 @@ namespace ds2xdriver
       rt = TS.TotalSeconds; // Calculate response time
 #endif  
 
-//    Console.WriteLine("Thread {0}:  ds2browse str_acc length: {1}  str_acc: \n{2}\n", 
-//      Thread.CurrentThread.Name, str_acc.Length, str_acc);    
+      //Console.WriteLine("Thread {0}:  ds2browse str_acc length: {1}  str_acc: \n{2}\n",
+      //  Thread.CurrentThread.Name, str_acc.Length, str_acc);
 
       if(str_acc.IndexOf("No DVDs Found") > 0)
         {
@@ -1196,9 +1365,12 @@ namespace ds2xdriver
 #else
       TimeSpan TS = new TimeSpan();
       DateTime DT0;
-#endif  
+#endif
+      // Limit to 10 items maximum (PURCHASE stored procedure limit)
+      cart_items = System.Math.Min(10, cart_items);
+
       //changed Controller.target to target_server_name
-      URL = 
+      URL =
         "http://" + target_server_name + "/" + Controller.virt_dir + "/dspurchase." + Controller.page_type +
         "?confirmpurchase=yes&customerid=" + customerid_out + "&storenum=" + target_store_number;
       for (i=0; i<cart_items; i++)
@@ -1248,9 +1420,9 @@ namespace ds2xdriver
       rt = TS.TotalSeconds; // Calculate response time
 #endif  
             
-//    Console.WriteLine("Thread {0}:  ds2purchase str_acc length: {1}  str_acc: \n{2}\n", 
-//      Thread.CurrentThread.Name, str_acc.Length, str_acc);          
-      
+    //Console.WriteLine("Thread {0}:  ds2purchase str_acc length: {1}",
+    //  Thread.CurrentThread.Name, str_acc.Length);
+
       if (str_acc.IndexOf("Insufficient stock") > 0)
         {
         IsRollback = true;
@@ -1261,20 +1433,36 @@ namespace ds2xdriver
 //                              ^              ^    ^
 //                              |              |    |
 //          IndexOf(ORDER NUMBER)          ind_b    ind_e
- 
-      ind_b = 15 + str_acc.IndexOf("ORDER NUMBER");
+
+      // Search for ORDER NUMBER in H2 tag to avoid matching HTML comments
+      int h2_pos = str_acc.IndexOf("<H2>");
+      if (h2_pos < 0)
+      {
+        Console.WriteLine("Error in parsing neworderid: <H2> tag not found in response");
+        Console.WriteLine("Response: {0}", str_acc);
+        return(false);
+      }
+      string h2_section = str_acc.Substring(h2_pos);
+      int order_num_pos = h2_section.IndexOf("ORDER NUMBER");
+      if (order_num_pos < 0)
+      {
+        Console.WriteLine("Error in parsing neworderid: ORDER NUMBER not found in <H2> section");
+        Console.WriteLine("Full response: {0}", str_acc);
+        return(false);
+      }
+      ind_b = h2_pos + order_num_pos + 15;  // 15 = length of "ORDER NUMBER:  "
       ind_e = str_acc.Substring(ind_b).IndexOf("<");
       neworderid_out = 0;
-//    Console.WriteLine("ind_b= {0}  ind_e= {1}  str_acc[]= {2}, neworderid_out= {3}", 
+//    Console.WriteLine("ind_b= {0}  ind_e= {1}  str_acc[]= {2}, neworderid_out= {3}",
 //      ind_b, ind_e, str_acc.Substring(ind_b, ind_e), neworderid_out);
-      
+
       try
         {
         neworderid_out = Convert.ToInt32(str_acc.Substring(ind_b, ind_e));
         }
-      catch (System.Exception e) 
+      catch (System.Exception e)
         {
-        Console.WriteLine("Error in parsing neworderid: {0}; ind_b= {1}  ind_e= {2}  str_acc[]= {3}", 
+        Console.WriteLine("Error in parsing neworderid: {0}; ind_b= {1}  ind_e= {2}  str_acc[]= {3}",
           e.Message, ind_b, ind_e, str_acc.Substring(ind_b, ind_e));
         return(false);
         }
@@ -1284,13 +1472,176 @@ namespace ds2xdriver
     
 //
 //-------------------------------------------------------------------------------------------------
+// Manager Operation Stubs - Not applicable to web driver (backend operations only)
+//-------------------------------------------------------------------------------------------------
+//
+    public bool ds2newproduct(int new_category_in, string new_title_in, string new_actor_in, decimal new_price_in, int new_stock_in, ref int newproduct_id, ref double rt)
+    {
+      newproduct_id = 0;
+      rt = 0.0;
+      return true;
+    }
+
+    public int ds36removereviewbyproduct(int prodId, ref double rt)
+    {
+      rt = 0.0;
+      return 0;
+    }
+
+    public int ds36removeunhelpfulreviews(int batchSize, ref double rt)
+    {
+      rt = 0.0;
+      return 0;
+    }
+
+    public int ds36adjustprices(int prodId, ref double rt)
+    {
+      rt = 0.0;
+      return 0;
+    }
+
+    public int ds36markspecials(int batchSize, ref double rt)
+    {
+      rt = 0.0;
+      return 0;
+    }
+
+    public int ds36removereviewsbydate(int batchSize, ref double rt)
+    {
+      rt = 0.0;
+      return 0;
+    }
+
+    public int ds36expirememberships(int batchSize, ref double rt)
+    {
+      rt = 0.0;
+      return 0;
+    }
+
+    public int ds36purgeoldorders(int batchSize, ref double rt)
+    {
+      rt = 0.0;
+      return 0;
+    }
+
+    public int ds36upgrademembership(int batchSize, ref double rt)
+    {
+      rt = 0.0;
+      return 0;
+    }
+
+    public int ds36promotionalmembership(int batchSize, ref double rt)
+    {
+      rt = 0.0;
+      return 0;
+    }
+
+    public int ds36bulkpriceadjustment(int batchSize, int category, ref double rt)
+    {
+      rt = 0.0;
+      return 0;
+    }
+
+//
+//-------------------------------------------------------------------------------------------------
+// Analytics Operation Stubs - Not applicable to web driver (backend operations only)
+//-------------------------------------------------------------------------------------------------
+//
+    public List<MembershipAnalyticsRow> ds36getmembershipanalytics(ref double rt)
+    {
+      rt = 0.0;
+      return new List<MembershipAnalyticsRow>();
+    }
+
+    public NewCustomerAnalyticsRow ds36getnewcustomeranalytics(long customers_baseline, ref double rt)
+    {
+      rt = 0.0;
+      return new NewCustomerAnalyticsRow();
+    }
+
+    public List<ReviewAnalyticsRow> ds36getreviewanalytics(long reviewid_baseline, ref double rt)
+    {
+      rt = 0.0;
+      return new List<ReviewAnalyticsRow>();
+    }
+
+    public PricePointAnalyticsData ds36getpricepointanalytics(long baseline_product_count, ref double rt)
+    {
+      rt = 0.0;
+      return new PricePointAnalyticsData();
+    }
+
+    public InventoryAnalyticsRow ds36getinventoryanalytics(ref double rt)
+    {
+      rt = 0.0;
+      return new InventoryAnalyticsRow();
+    }
+
+//
+//-------------------------------------------------------------------------------------------------
+// Utility Function Stubs
+//-------------------------------------------------------------------------------------------------
+//
+    public long ds2getmaxid(string tablename, string columnname)
+    {
+      return 0;
+    }
+
+    public long ds2getrowcount(string tablename)
+    {
+      long rowcount = 0;
+      string url = "http://" + target_server_name + "/" + Controller.virt_dir + "/dsgetrowcount." + Controller.page_type +
+        "?tablename=" + tablename + "&storenum=" + target_store_number;
+
+      try
+      {
+        HttpWebRequest httpWebRequest = (HttpWebRequest)WebRequest.Create(url);
+        httpWebRequest.Timeout = 30000; // 30 second timeout
+        HttpWebResponse httpWebResponse = (HttpWebResponse)httpWebRequest.GetResponse();
+        StreamReader readStream = new StreamReader(httpWebResponse.GetResponseStream(), System.Text.Encoding.GetEncoding("utf-8"));
+        string read_buffer = readStream.ReadToEnd();
+        readStream.Close();
+        httpWebResponse.Close();
+
+        // Parse rowcount from hidden field: <INPUT TYPE=HIDDEN NAME=rowcount VALUE=12345>
+        string[] words = read_buffer.Split(new char[] { ' ', '=', '>' });
+        for (int i = 0; i < words.Length; i++)
+        {
+          if (words[i] == "VALUE")
+          {
+            rowcount = Convert.ToInt64(words[i + 1]);
+            break;
+          }
+        }
+      }
+      catch (Exception e)
+      {
+        Console.WriteLine($"Thread {Thread.CurrentThread.Name}: ds2getrowcount({tablename}) error: {e.Message}");
+        throw;
+      }
+
+      return rowcount;
+    }
+
+    public void ds2validate(string outputFile, string targetServer, int storeNumber)
+    {
+      // No-op: validation not applicable to web driver
+    }
+
+    public static string GetDatabaseType()
+    {
+      return "WEB";
+    }
+
+//
+//-------------------------------------------------------------------------------------------------
 //
     public bool ds2close()
-      {      
+      {
       // Release the resources of stream object.
       readStream.Close();
       // Release the resources of response object.
-      httpWebResponse.Close();      
+      httpWebResponse.Close();
       return(true);
       } // end ds2close()
     } // end Class ds2Interface
