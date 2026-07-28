@@ -37,7 +37,7 @@ $quan = isset($_REQUEST["quan"]) ? $_REQUEST["quan"] : NULL;
 $drop = isset($_REQUEST["drop"]) ? $_REQUEST["drop"] : NULL;
 // $drop = $_REQUEST["drop"];
 $customerid = $_REQUEST["customerid"];
-$storenum = $_REQUEST["storenum"];
+$storenum = isset($_REQUEST["storenum"]) ? $_REQUEST["storenum"] : 1;
 $netamount = 0;
 
 if (empty($confirmpurchase))

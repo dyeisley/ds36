@@ -31,7 +31,7 @@ include("dscommon.inc");
 ds_html_header("DVD Store Get Product Reviews Page");
 
 $customerid = $_REQUEST["customerid"];
-$storenum = $_REQUEST["storenum"];
+$storenum = isset($_REQUEST["storenum"]) ? $_REQUEST["storenum"] : 1;
 $review_title = isset($_REQUEST["review_title"]) ? $_REQUEST["review_title"] : NULL;
 $date_order = isset($_REQUEST["date_order"]) ? $_REQUEST["date_order"] : NULL;
 $review_stars = isset($_REQUEST["review_stars"]) ? $_REQUEST["review_stars"] : NULL;

@@ -32,7 +32,7 @@ ds_html_header("DVD Store Login Page");
 
 $username = $_REQUEST["username"];
 $password = $_REQUEST["password"];
-$storenum = $_REQUEST["storenum"];
+$storenum = isset($_REQUEST["storenum"]) ? $_REQUEST["storenum"] : 1;
 
 if (!(empty($username)))
   {

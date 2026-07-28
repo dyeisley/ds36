@@ -31,7 +31,7 @@ include("dscommon.inc");
 ds_html_header("New Review Entry");
 
 $customerid = $_REQUEST["customerid"];
-$storenum = $_REQUEST["storenum"];
+$storenum = isset($_REQUEST["storenum"]) ? $_REQUEST["storenum"] : 1;
 $productid = $_REQUEST["productid"];
 $review_stars = $_REQUEST["review_stars"];
 $review_summary = $_REQUEST["review_summary"];

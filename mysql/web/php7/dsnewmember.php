@@ -32,7 +32,7 @@ ds_html_header("New Premium Membership Signup");
 
 $customerid = $_REQUEST["customerid"];
 $membershiplevel = $_REQUEST["membershiplevel"];
-$storenum = $_REQUEST["storenum"];
+$storenum = isset($_REQUEST["storenum"]) ? $_REQUEST["storenum"] : 1;
 
 if (empty($customerid))
   {

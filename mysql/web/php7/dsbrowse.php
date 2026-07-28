@@ -31,7 +31,7 @@ include("dscommon.inc");
 ds_html_header("DVD Store Browse Page");
 
 $customerid = $_REQUEST["customerid"];
-$storenum = $_REQUEST["storenum"];
+$storenum = isset($_REQUEST["storenum"]) ? $_REQUEST["storenum"] : 1;
 $browsetype = isset($_REQUEST["browsetype"]) ? $_REQUEST["browsetype"] : NULL;
 $browsereviewtype = isset($_REQUEST["browsereviewtype"]) ? $_REQUEST["brosereviewtype"] : NULL;
 $browse_title = isset($_REQUEST["browse_title"]) ? $_REQUEST["browse_title"] : NULL;
@@ -57,7 +57,7 @@ if (empty($customerid))
 
 if (isset($selected_item))  // Add new selected items to shopping cart (item[] array)
   {
-  $n_items = count($item);
+  $n_items = is_array($item) ? count($item) : 0;
   for ($i=0; $i<count($selected_item); $i++) $item[$n_items + $i] = $selected_item[$i];
   }
 
@@ -98,7 +98,9 @@ echo "</SELECT><BR>\n";
 
 echo "<INPUT TYPE=HIDDEN NAME=customerid VALUE='$customerid'>\n";
 echo "<INPUT TYPE=HIDDEN NAME=storenum VALUE='$storenum'>\n";
-for ($i=0; $i<count($item); $i++) echo "<INPUT TYPE=HIDDEN NAME='item[]' VALUE=$item[$i]>\n";
+if (is_array($item)) {
+  for ($i=0; $i<count($item); $i++) echo "<INPUT TYPE=HIDDEN NAME='item[]' VALUE=$item[$i]>\n";
+}
 echo "<INPUT TYPE=SUBMIT VALUE='Search'>\n";
 echo "</FORM>\n";
 
@@ -124,7 +126,9 @@ echo "</SELECT><BR>\n";
 
 echo "<INPUT TYPE=HIDDEN NAME=customerid VALUE='$customerid'>\n";
 echo "<INPUT TYPE=HIDDEN NAME=storenum VALUE='$storenum'>\n";
-for ($i=0; $i<count($item); $i++) echo "<INPUT TYPE=HIDDEN NAME='item[]' VALUE=$item[$i]>\n";
+if (is_array($item)) {
+  for ($i=0; $i<count($item); $i++) echo "<INPUT TYPE=HIDDEN NAME='item[]' VALUE=$item[$i]>\n";
+}
 echo "<INPUT TYPE=SUBMIT VALUE='Search'>\n";
 echo "</FORM>\n";
 
@@ -178,7 +182,9 @@ if (!empty($browsetype))
 
     echo "<INPUT TYPE=HIDDEN NAME=customerid VALUE='$customerid'>\n";
     echo "<INPUT TYPE=HIDDEN NAME=storenum VALUE='$storenum'>\n";
-    for ($i=0; $i<count($item); $i++) echo "<INPUT TYPE=HIDDEN NAME='item[]' VALUE=$item[$i]>\n";
+    if (is_array($item)) {
+  for ($i=0; $i<count($item); $i++) echo "<INPUT TYPE=HIDDEN NAME='item[]' VALUE=$item[$i]>\n";
+}
     echo "<INPUT TYPE=SUBMIT VALUE='Update Shopping Cart'>\n";
     echo "</FORM>\n";
     }
@@ -207,7 +213,9 @@ if (isset($item))  // Show shopping cart
   mysqli_free_result($result);
   echo "</TABLE>\n";
   echo "<BR>\n";
+  if (is_array($item)) {
   for ($i=0; $i<count($item); $i++) echo "<INPUT TYPE=HIDDEN NAME='item[]' VALUE=$item[$i]>\n";
+}
   echo "<INPUT TYPE=HIDDEN NAME=customerid VALUE='$customerid'>\n";
   echo "<INPUT TYPE=HIDDEN NAME=storenum VALUE='$storenum'>\n";
   echo "<INPUT TYPE=SUBMIT VALUE='Checkout'>\n";

@@ -34,7 +34,7 @@ ds_html_header("Review Helpfulness Rating");
 $customerid = $_REQUEST["customerid"];
 $reviewid = $_REQUEST["reviewid"];
 $review_helpfulness = $_REQUEST["review_helpfulness"];
-$storenum = $_REQUEST["storenum"];
+$storenum = isset($_REQUEST["storenum"]) ? $_REQUEST["storenum"] : 1;
 
 if (empty($customerid))
   {
@@ -65,7 +65,7 @@ if (!(empty($reviewid) OR empty($review_helpfulness)))
   "'$reviewid','$customerid','$review_helpfulness', @review_helpfulness_out);";
   mysqli_query($link_id,$new_helpfulness_proc_call);
   $query = "select @review_helpfulness_out;";
-  $result = mysqli_query($query);
+  $result = mysqli_query($link_id, $query);
   $row = mysqli_fetch_row($result);
   $review_helpfulness_out = $row[0];
   mysqli_free_result($result);
