@@ -31,7 +31,7 @@ include("dscommon.inc");
 ds_html_header("New Review Entry");
 
 $customerid = $_REQUEST["customerid"];
-$storenum = $_REQUEST["storenum"];
+$storenum = isset($_REQUEST["storenum"]) ? $_REQUEST["storenum"] : 1;
 $productid = $_REQUEST["productid"];
 $review_stars = $_REQUEST["review_stars"];
 $review_summary = $_REQUEST["review_summary"];
@@ -81,7 +81,7 @@ if (!(empty($productid) OR empty($review_stars) OR empty($review_summary) OR emp
 else
   {
   if (!($link_id = pg_connect($connstr))) die(pg_last_error());
-  $get_product_title_query = "select title from DS3.PRODUCTS$storenum where PROD_ID = '" . $productid . "';";
+  $get_product_title_query = "select title from PRODUCTS$storenum where PROD_ID = '" . $productid . "';";
   $get_title_result = pg_query($link_id,$get_product_title_query);
   $get_title_result_row = pg_fetch_row($get_title_result);
   $producttitle = $get_title_result_row[0];

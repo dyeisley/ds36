@@ -37,7 +37,7 @@ $quan = isset($_REQUEST["quan"]) ? $_REQUEST["quan"] : NULL;
 $drop = isset($_REQUEST["drop"]) ? $_REQUEST["drop"] : NULL;
 // $drop = $_REQUEST["drop"];
 $customerid = $_REQUEST["customerid"];
-$storenum = $_REQUEST["storenum"];
+$storenum = isset($_REQUEST["storenum"]) ? $_REQUEST["storenum"] : 1;
 $netamount = 0;
 
 if (empty($confirmpurchase))
@@ -157,37 +157,34 @@ else  // confirmpurchase=yes  => update ORDERS, ORDERLINES, INVENTORY and CUST_H
   echo "<TR><TD></TD><TD></TD><TD></TD><TD>Total</TD><TD ALIGN=RIGHT>$" . $totalamount_fmt . "</TD></TR>\n";
   echo "</TABLE><BR>\n";
 
-  date_default_timezone_set('America/Los_Angeles');
-  $currentdate = date("Y-m-d");
-  
-  $num_items = count($item);
-  
-  // insert zeros for values not used
-  
-  for ($i=$num_items; $i<10; $i++)
-    {
-		$item[$i] = 0;
-		$quan[$i] = 0;
-	}
+  // Build arrays for PostgreSQL PURCHASE function
+  $prod_ids_array = '{' . implode(',', $item) . '}';
+  $qtys_array = '{' . implode(',', $quan) . '}';
 
-  // Call Purchase stored procedure / function
-  
-  $purchase_query = "SELECT * from purchase$storenum ($customerid,$num_items,$netamount_fmt,$taxamount_fmt,$totalamount_fmt," .
-					"$item[0], $quan[0], $item[1], $quan[1], $item[2], $quan[2], $item[3], $quan[3], $item[4], $quan[4], " .
-					"$item[5], $quan[5], $item[6], $quan[6], $item[7], $quan[7], $item[8], $quan[8], $item[9], $quan[9] );";
-// echo " $purchase_query \n";
-  $purchase_result = pg_query($link_id,$purchase_query);
+  // Call PURCHASE stored procedure with arrays (note: PURCHASE is uppercase in PostgreSQL)
+  $purchase_query = "SELECT * FROM PURCHASE$storenum(" .
+    "$customerid::INTEGER, " .
+    "$netamount_fmt::NUMERIC, " .
+    "$taxamount_fmt::NUMERIC, " .
+    "$totalamount_fmt::NUMERIC, " .
+    "'$prod_ids_array'::INTEGER[], " .
+    "'$qtys_array'::INTEGER[])";
+
+  $purchase_result = pg_query($link_id, $purchase_query);
+
+  if (!$purchase_result) {
+    die("purchase procedure failed: " . pg_last_error($link_id));
+  }
+
   $row = pg_fetch_row($purchase_result);
   $orderid = $row[0];
+  pg_free_result($purchase_result);
 
-  // check $orderid and handle error if = 0
-  
-
-    if ($orderid == 0 )  // purchase transaction failed
-	  {
-		echo "Call to Purchase function failed due to Insufficient stock or other issue:  query= $purchase_query\n";
-	  }
-    else  // purchase was successful
+  if ($orderid == 0)  // purchase transaction failed (insufficient stock)
+    {
+    echo "<H3>Insufficient stock - order not processed</H3>\n";
+    }
+  else  // purchase was successful
       {
       // To Do: verify credit card purchase against a second database
       $cctypes = array("MasterCard", "Visa", "Discover", "Amex", "Dell Preferred");

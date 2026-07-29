@@ -34,7 +34,7 @@ ds_html_header("Review Helpfulness Rating");
 $customerid = $_REQUEST["customerid"];
 $reviewid = $_REQUEST["reviewid"];
 $review_helpfulness = $_REQUEST["review_helpfulness"];
-$storenum = $_REQUEST["storenum"];
+$storenum = isset($_REQUEST["storenum"]) ? $_REQUEST["storenum"] : 1;
 
 if (empty($customerid))
   {
@@ -80,7 +80,7 @@ if (!(empty($reviewid) OR empty($review_helpfulness)))
 else
   {
   if (!($link_id = pg_connect($connstr))) die(pg_last_error());
-  $get_review_query = "select * from DS3.REVIEWS$storenum where REVIEW_ID = '" . $reviewid . "';";
+  $get_review_query = "select * from REVIEWS$storenum where REVIEW_ID = '" . $reviewid . "';";
   $get_review_result = pg_query($link_id,$get_review_query);
   $get_review_result_row = pg_fetch_row($get_review_result);
   echo "----------------------------------------------------------------------------------------------<BR>";

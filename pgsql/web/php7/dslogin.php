@@ -32,7 +32,7 @@ ds_html_header("DVD Store Login Page");
 
 $username = $_REQUEST["username"];
 $password = $_REQUEST["password"];
-$storenum = $_REQUEST["storenum"];
+$storenum = isset($_REQUEST["storenum"]) ? $_REQUEST["storenum"] : 1;
 
 if (!(empty($username)))
   {
@@ -71,12 +71,15 @@ if (!(empty($username)))
     echo "<FORM ACTION=\"./dsbrowse.php\" METHOD=GET>\n";
     echo "<INPUT TYPE=HIDDEN NAME=customerid VALUE=$customerid>\n";
     echo "<INPUT TYPE=HIDDEN NAME=storenum VALUE=$storenum>\n";
+    echo "<INPUT TYPE=HIDDEN NAME=membership_level VALUE=0>\n";
     echo "<INPUT TYPE=SUBMIT VALUE=\"Start Shopping\">\n";
     echo "</FORM>\n";
-    echo "<FORM ACTION=\"./dsnewmember.php\" METHOD=GET>\n";
+
+    echo "<FORM ACTION=\"./dsgetmembershipstatus.php\" METHOD=GET>\n";
     echo "<INPUT TYPE=HIDDEN NAME=customerid VALUE=$customerid>\n";
     echo "<INPUT TYPE=HIDDEN NAME=storenum VALUE=$storenum>\n";
-    echo "<INPUT TYPE=SUBMIT VALUE=\"Premium Member Signup\">\n";
+    echo "<INPUT TYPE=SUBMIT VALUE=\"Check Membership Status\">\n";
+    echo "</FORM>\n";
 
     pg_free_result($result);
     }

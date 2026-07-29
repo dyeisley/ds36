@@ -12,7 +12,7 @@ collaboration and forward progress without impacting the previous version 3.5.
 - **Analytics System**: Separate analytics thread tracks membership tiers, new customer acquisition, and review activity with delta tracking and configurable intervals
 - **Membership Renewal**: Members can renew expired memberships (controlled by pct_renewmember parameter); non-members cannot browse by membership; BROWSE_BY_MEMBERSHIP uses customer's actual membership tier
 - **MERGE/UPSERT Support**: NEW_REVIEW_HELPFULNESS and PromotionalMembership use MERGE/UPSERT with audit tracking - prevents duplicate ratings, handles race conditions, provides batch promotional upgrades, and adds database feature coverage (MERGE operations and trigger behavior testing)
-- **Web Driver Modernization**: MySQL PHP pages converted to stored procedures (LOGIN, BROWSE, PURCHASE, etc.), complete membership support (GET_MEMBERSHIP_STATUS, RENEW_MEMBERSHIP), 10-item cart limit
+- **Web Driver Modernization**: MySQL and PostgreSQL PHP pages converted to stored procedures (LOGIN, BROWSE, PURCHASE, etc.), complete membership support (GET_MEMBERSHIP_STATUS, RENEW_MEMBERSHIP), PHP 8 compatibility
 - **Data Generation Improvements**: Linear database scaling (200:10:1 ratio from 4 GB baseline), dynamic popular products modulo for small databases
 - **C# Code Modernization**: Cross-platform compatibility (Stopwatch), resource management (using statements), command pre-compilation, 20%+ code reduction
 - **Parameter Parsing Rewrite**: Dictionary-based lookup, type-safe validators, centralized configuration

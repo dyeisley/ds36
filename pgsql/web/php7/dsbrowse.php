@@ -31,7 +31,8 @@ include("dscommon.inc");
 ds_html_header("DVD Store Browse Page");
 
 $customerid = $_REQUEST["customerid"];
-$storenum = $_REQUEST["storenum"];
+$storenum = isset($_REQUEST["storenum"]) ? $_REQUEST["storenum"] : 1;
+$membership_level = isset($_REQUEST["membership_level"]) ? $_REQUEST["membership_level"] : 0;
 $browsetype = isset($_REQUEST["browsetype"]) ? $_REQUEST["browsetype"] : NULL;
 $browsereviewtype = isset($_REQUEST["browsereviewtype"]) ? $_REQUEST["brosereviewtype"] : NULL;
 $browse_title = isset($_REQUEST["browse_title"]) ? $_REQUEST["browse_title"] : NULL;
@@ -57,11 +58,12 @@ if (empty($customerid))
 
 if (isset($selected_item))  // Add new selected items to shopping cart (item[] array)
   {
-  $n_items = count($item);
+  $n_items = is_array($item) ? count($item) : 0;
   for ($i=0; $i<count($selected_item); $i++) $item[$n_items + $i] = $selected_item[$i];
   }
 
 if (empty($item)) $n_items = 0;
+else $n_items = count($item);
 
 echo "<H2>Search for DVDs</H2>\n";
 
@@ -86,6 +88,8 @@ for ($i=0; $i<count($categories); $i++)
     {echo "  <OPTION VALUE=$j>$categories[$i]</OPTION>\n";}
   }
 echo "</SELECT><BR>\n";
+echo "<INPUT NAME='browsetype' TYPE=RADIO VALUE='membership'"; if($browsetype == 'membership') echo "CHECKED";
+echo ">Membership (members only)<BR>\n";
 
 echo "Number of search results to return\n";
 echo "<SELECT NAME='limit_num'>\n";
@@ -100,6 +104,7 @@ echo "</SELECT><BR>\n";
 
 echo "<INPUT TYPE=HIDDEN NAME=customerid VALUE='$customerid'>\n";
 echo "<INPUT TYPE=HIDDEN NAME=storenum VALUE='$storenum'>\n";
+echo "<INPUT TYPE=HIDDEN NAME=membership_level VALUE='$membership_level'>\n";
 //for ($i=0; $i<count($item); $i++) echo "<INPUT TYPE=HIDDEN NAME='item[]' VALUE=$item[$i]>\n";
 for ($i=0; $i<$n_items; $i++) echo "<INPUT TYPE=HIDDEN NAME='item[]' VALUE=$item[$i]>\n";
 echo "<INPUT TYPE=SUBMIT VALUE='Search'>\n";
@@ -127,6 +132,7 @@ echo "</SELECT><BR>\n";
 
 echo "<INPUT TYPE=HIDDEN NAME=customerid VALUE='$customerid'>\n";
 echo "<INPUT TYPE=HIDDEN NAME=storenum VALUE='$storenum'>\n";
+echo "<INPUT TYPE=HIDDEN NAME=membership_level VALUE='$membership_level'>\n";
 for ($i=0; $i<$n_items; $i++) echo "<INPUT TYPE=HIDDEN NAME='item[]' VALUE=$item[$i]>\n";
 echo "<INPUT TYPE=SUBMIT VALUE='Search'>\n";
 echo "</FORM>\n";
@@ -135,16 +141,31 @@ if (!empty($browsetype))
   {
   if (!($link_id = pg_connect($connstr))) die(pg_last_error());
 
+  // Escape search strings for SQL safety
+  $browse_title_safe = pg_escape_string($link_id, $browse_title);
+  $browse_actor_safe = pg_escape_string($link_id, $browse_actor);
+
   switch ($browsetype)
     {
     case "title":
-      $browse_query = "select * from browse_by_title$storenum ($limit_num, '$browse_title');";
+      $browse_query = "select * from BROWSE_BY_TITLE$storenum ($limit_num, '$browse_title_safe');";
       break;
     case "actor":
-      $browse_query = "select * from browse_by_actor$storenum  ($limit_num, '$browse_actor');";
+      $browse_query = "select * from BROWSE_BY_ACTOR$storenum  ($limit_num, '$browse_actor_safe');";
       break;
     case "category":
-      $browse_query = "select * from browse_by_category$storenum  ($limit_num, '$browse_category');";
+      $special = rand(0, 1);
+      $browse_query = "select * from BROWSE_BY_CATEGORY$storenum  ($limit_num, $browse_category, $special);";
+      break;
+    case "membership":
+      if ($membership_level > 0) {
+        $browse_query = "select * from BROWSE_BY_MEMBERSHIP$storenum ($limit_num, $membership_level);";
+      } else {
+        echo "<H2>Membership browsing requires an active membership</H2>\n";
+        ds_html_footer();
+        pg_close($link_id);
+        exit;
+      }
       break;
     }
 
@@ -181,6 +202,12 @@ if (!empty($browsetype))
 
     echo "<INPUT TYPE=HIDDEN NAME=customerid VALUE='$customerid'>\n";
     echo "<INPUT TYPE=HIDDEN NAME=storenum VALUE='$storenum'>\n";
+    echo "<INPUT TYPE=HIDDEN NAME=membership_level VALUE='$membership_level'>\n";
+    echo "<INPUT TYPE=HIDDEN NAME=browsetype VALUE='$browsetype'>\n";
+    echo "<INPUT TYPE=HIDDEN NAME=browse_category VALUE='$browse_category'>\n";
+    echo "<INPUT TYPE=HIDDEN NAME=browse_title VALUE='$browse_title'>\n";
+    echo "<INPUT TYPE=HIDDEN NAME=browse_actor VALUE='$browse_actor'>\n";
+    echo "<INPUT TYPE=HIDDEN NAME=limit_num VALUE='$limit_num'>\n";
     for ($i=0; $i<$n_items; $i++) echo "<INPUT TYPE=HIDDEN NAME='item[]' VALUE=$item[$i]>\n";
     echo "<INPUT TYPE=SUBMIT VALUE='Update Shopping Cart'>\n";
     echo "</FORM>\n";

@@ -8,16 +8,16 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [3.6.0]
 
-### Added - Web Driver Modernization (MySQL) - 2026-07-28
+### Added - Web Driver Modernization (MySQL and PostgreSQL) - 2026-07-29
 
-**MySQL Web Driver PHP Pages converted to stored procedures:**
+**MySQL and PostgreSQL Web Driver PHP Pages converted to stored procedures:**
 
 - **Changed**:
   - `dslogin.php` → LOGIN stored procedure
-  - `dsbrowse.php` → BROWSE_BY_TITLE/ACTOR/CATEGORY/MEMBERSHIP stored procedures
-  - `dspurchase.php` → PURCHASE stored procedure
-  - `dsbrowsereviews.php` → GET_PROD_REVIEWS_BY_TITLE/ACTOR stored procedures
-  - `dsnewcustomer.php` → NEW_CUSTOMER stored procedure with username auto-generation
+  - `dsbrowse.php` → BROWSE_BY_TITLE/ACTOR/CATEGORY/MEMBERSHIP stored procedures (uppercase in PostgreSQL)
+  - `dspurchase.php` → PURCHASE stored procedure (MySQL: 10 interleaved parameters; PostgreSQL: arrays with type casts)
+  - `dsbrowsereviews.php` → GET_PROD_REVIEWS_BY_TITLE/ACTOR stored procedures (lowercase in PostgreSQL)
+  - `dsnewcustomer.php` → NEW_CUSTOMER stored procedure with username auto-generation (PostgreSQL: explicit type casts for all parameters)
 
 - **New PHP pages**:
   - `dsgetmembershipstatus.php` → GET_MEMBERSHIP_STATUS stored procedure
@@ -27,16 +27,30 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 - **Functionality**:
   - Complete membership support: check status, renew memberships, browse by tier
   - All customer operations counted and reported: Login, New Customer, Renew Membership, New Member, Browse, Review Browse, New Review, New Helpfulness, Purchase
+  - PHP 8 compatibility: isset() checks, count() on arrays, mysqli/pg parameter requirements
+  - SQL injection protection: mysqli_real_escape_string() for MySQL, pg_escape_string() for PostgreSQL
 
 - **Fixed**:
   - `ds36webfns.cs ds2purchase()`: Added 10-item cart limit to match stored procedure constraint
   - `dsbrowsereviews.php`: Added `search_depth` parameter reading from request (was hardcoded to 500)
   - `dsnewcustomer.php`: Removed username input field - stored procedure now generates username as "user" + customerid
   - `ds36webfns.cs ds2newcustomer()`: Updated to parse generated username from PHP response instead of passing as parameter
+  - `dsbrowse.php`: Added missing `browsetype` and search parameters to "Update Shopping Cart" form to prevent blank page
+  - `dsbrowse.php`: BROWSE_BY_CATEGORY now includes `special` parameter (randomized 0 or 1)
+  - PostgreSQL: All pg_connect() calls now include $connstr parameter
+  - PostgreSQL: Added explicit type casts (::INTEGER, ::VARCHAR, ::NUMERIC, etc.) to match function signatures
+  - PostgreSQL: Fixed new_customer OUT parameter order (customerid, username)
+
+- **PostgreSQL-Specific Implementation Notes**:
+  - Function names are case-sensitive: BROWSE_BY_* and PURCHASE are uppercase, others lowercase
+  - PURCHASE uses array parameters: `'{prod_id1,prod_id2,...}'::INTEGER[]` instead of 10 individual parameters
+  - Type casts required for most function calls to help PostgreSQL match signatures
+  - Schema prefix removed: functions in `public` schema, not `DS3`
 
 - **Notes**:
   - Web driver supports customer operations only; manager and analytics operations not supported (function stubs exist for compilation compatibility but are non-functional)
-  - Post-test validation must be run manually: `mysql/validate/mysql_ds_perl_validate_multi.pl` with appropriate parameters
+  - Manager and analytics operations can be run in conjunction with the web driver by starting a database driver instance with `n_threads=0` - this allows the web driver to handle customer operations while the database driver provides manager/analytics functionality
+  - Post-test validation must be run manually: `mysql/validate/mysql_ds_perl_validate_multi.pl` or `pgsql/validate/pgsql_ds_perl_validate_multi.pl` with appropriate parameters
 
 ### Added - Desktop GUI
 
