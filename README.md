@@ -13,6 +13,7 @@ collaboration and forward progress without impacting the previous version 3.5.
 - **Membership Renewal**: Members can renew expired memberships (controlled by pct_renewmember parameter); non-members cannot browse by membership; BROWSE_BY_MEMBERSHIP uses customer's actual membership tier
 - **MERGE/UPSERT Support**: NEW_REVIEW_HELPFULNESS and PromotionalMembership use MERGE/UPSERT with audit tracking - prevents duplicate ratings, handles race conditions, provides batch promotional upgrades, and adds database feature coverage (MERGE operations and trigger behavior testing)
 - **Web Driver Modernization**: MySQL and PostgreSQL PHP pages converted to stored procedures (LOGIN, BROWSE, PURCHASE, etc.), complete membership support (GET_MEMBERSHIP_STATUS, RENEW_MEMBERSHIP), PHP 8 compatibility
+- **Web Driver: Oracle and SQL Server**: New PHP pages for Oracle (oci_pconnect, implicit result sets) and SQL Server (sqlsrv, TVP via SQL batch, ODBC connection pooling) — see README.txt in `oracle/web/php/` and `sqlserver/web/php/`
 - **Data Generation Improvements**: Linear database scaling (200:10:1 ratio from 4 GB baseline), dynamic popular products modulo for small databases
 - **C# Code Modernization**: Cross-platform compatibility (Stopwatch), resource management (using statements), command pre-compilation, 20%+ code reduction
 - **Parameter Parsing Rewrite**: Dictionary-based lookup, type-safe validators, centralized configuration

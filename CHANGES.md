@@ -8,6 +8,26 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ## [3.6.0]
 
+### Added - Web Driver: Oracle and SQL Server PHP Pages - 2026-08-17
+
+**Oracle PHP pages (oracle/web/php/) - 14 files:**
+
+- All pages use `oci_pconnect()` for persistent connections (avoids ORA-12519 at high thread counts)
+- Oracle SPs return result sets via DBMS_SQL.RETURN_RESULT (implicit result sets) - requires `oci_get_implicit_resultset()` in PHP OCI8
+- Oracle collection types (DS3_TYPES.N_TYPE) are associative arrays - no EXTEND() or constructors
+- PHP-FPM requires `env[ORACLE_HOME]` pointing to full Oracle DB install (for timezone files in oracore/zoneinfo/)
+- See [oracle/web/php/README.txt](oracle/web/php/README.txt) for setup instructions
+
+**SQL Server PHP pages (sqlserver/web/php/) - 14 files:**
+
+- Uses sqlsrv extension with Microsoft ODBC Driver 18
+- PURCHASE SP uses Table-Valued Parameter (LineItemsType) - implemented via SQL batch (DECLARE/INSERT/EXEC) for driver version portability
+- SPs with INSERT/UPDATE before SELECT require `SET NOCOUNT ON` prepended to avoid consuming row-count results
+- CONTAINS full-text search terms formatted as `"word1" AND "word2"` for multi-word queries
+- ODBC connection pooling: `[ODBC] Pooling=Yes` in /etc/odbcinst.ini
+- TCP tuning: `net.ipv4.tcp_tw_reuse=1` prevents port exhaustion at high thread counts
+- See [sqlserver/web/php/README.txt](sqlserver/web/php/README.txt) for setup instructions
+
 ### Added - Web Driver Modernization (MySQL and PostgreSQL) - 2026-07-29
 
 **MySQL and PostgreSQL Web Driver PHP Pages converted to stored procedures:**
