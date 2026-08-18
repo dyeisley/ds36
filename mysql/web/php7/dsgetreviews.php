@@ -91,29 +91,17 @@ if (!empty($getreviewtype))
   {
   if (!($link_id = mysqli_connect())) die(mysqli_error());
 
+  // Call appropriate GET_PROD_REVIEWS stored procedure based on type
   switch ($getreviewtype)
     {
     case "noorder":
-      $getreview_query = "SELECT REVIEWS$storenum.review_id, REVIEWS$storenum.prod_id, REVIEWS$storenum.review_date, REVIEWS$storenum.stars, " .
-                    "REVIEWS$storenum.customerid,REVIEWS$storenum.review_summary, REVIEWS$storenum.review_text, SUM(REVIEWS_HELPFULNESS$storenum.helpfulness) " .
-                    "as total FROM DS3.REVIEWS$storenum INNER JOIN DS3.REVIEWS_HELPFULNESS$storenum " .
-		    "on REVIEWS$storenum.review_id=REVIEWS_HELPFULNESS$storenum.review_id " .
-                    "WHERE PROD_ID = " . $productid . " GROUP BY REVIEWS$storenum.review_id ORDER BY total DESC LIMIT $limit_num;";
+      $getreview_query = "CALL DS3.GET_PROD_REVIEWS$storenum($limit_num, $productid)";
       break;
     case "date":
-      $getreview_query ="SELECT REVIEWS$storenum.review_id, REVIEWS$storenum.prod_id, REVIEWS$storenum.review_date, REVIEWS$storenum.stars, " .
-                    "REVIEWS$storenum.customerid,REVIEWS$storenum.review_summary, REVIEWS$storenum.review_text, SUM(REVIEWS_HELPFULNESS$storenum.helpfulness) " .
-                    "as total FROM DS3.REVIEWS$storenum INNER JOIN DS3.REVIEWS_HELPFULNESS$storenum " .
-		    "on REVIEWS$storenum.review_id=REVIEWS_HELPFULNESS$storenum.review_id " .
-                    "WHERE PROD_ID = " . $productid . " GROUP BY REVIEWS$storenum.review_id ORDER BY REVIEW_DATE DESC LIMIT $limit_num;"; 
+      $getreview_query = "CALL DS3.GET_PROD_REVIEWS_BY_DATE$storenum($limit_num, $productid)";
       break;
     case "star":
-      $getreview_query = "SELECT REVIEWS$storenum.review_id, REVIEWS$storenum.prod_id, REVIEWS$storenum.review_date, REVIEWS$storenum.stars, " .
-                    "REVIEWS$storenum.customerid,REVIEWS$storenum.review_summary, REVIEWS$storenum.review_text, SUM(REVIEWS_HELPFULNESS$storenum.helpfulness) " .
-                    "as total FROM DS3.REVIEWS$storenum INNER JOIN DS3.REVIEWS_HELPFULNESS$storenum " . 
-		    "on REVIEWS$storenum.review_id=REVIEWS_HELPFULNESS$storenum.review_id " .
-                    "WHERE PROD_ID = " . $productid . " AND STARS = " . $review_stars . 
-                    " GROUP BY REVIEWS$storenum.review_id ORDER BY total DESC LIMIT $limit_num;";
+      $getreview_query = "CALL DS3.GET_PROD_REVIEWS_BY_STARS$storenum($limit_num, $review_stars, $productid)";
       break;
     }
 

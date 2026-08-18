@@ -27,7 +27,7 @@ my $pct_newcustomers = 10;				#percent of customers that are new customers defau
 my $n_searches = 3; 					#average number of searches per order default = 3
 my $search_batch_size = 5;				#average number of items returned in each search default = 5
 my $n_line_items = 5;					#average number of items per order default = 5
-my $virt_dir = "ds2";					#virtual directory (for web driver) default = ds2
+my $virt_dir = "ds3";					#virtual directory (for web driver) default = ds3
 my $page_type = "php";					#web page type (for web driver) default = php
 my $windows_perf_host = "";				#target hostname for Perfmon CPU% display (Windows only)
 my $detailed_view = "N";				#Parameter to display detailed view of Runtime Statistics on Each target machine default = N

@@ -37,21 +37,41 @@ $storenum = isset($_REQUEST["storenum"]) ? $_REQUEST["storenum"] : 1;
 if (!(empty($username)))
   {
   if (!($link_id = mysqli_connect())) die(mysqli_error());
-  $query = "select CUSTOMERID FROM DS3.CUSTOMERS$storenum where USERNAME='$username' and PASSWORD='$password';";
-  $result = mysqli_query($link_id,$query);
-  if (mysqli_num_rows($result) > 0)
-    {
-    $row = mysqli_fetch_row($result);
-    $customerid = $row[0];
-    mysqli_free_result($result);
-    echo "<H2>Welcome to the DVD Store - Click below to begin shopping</H2>\n";
-    $query = "SELECT DS3.PRODUCTS$storenum.TITLE, DS3.PRODUCTS$storenum.ACTOR, DS3.PRODUCTS$storenum.COMMON_PROD_ID" .
-             " FROM DS3.CUST_HIST$storenum INNER JOIN DS3.PRODUCTS$storenum ON DS3.CUST_HIST$storenum.PROD_ID = DS3.PRODUCTS$storenum.PROD_ID" .
-             " WHERE DS3.CUST_HIST$storenum.CUSTOMERID =" . $customerid . " ORDER BY ORDERID DESC, TITLE ASC LIMIT 10;";
-/*    mysqli_real_query($link_id, $query); */
-    $result = mysqli_query($link_id,$query);
 
-    if (mysqli_num_rows($result) > 0)
+  // Call LOGIN stored procedure
+  $login_proc_call = "CALL DS3.LOGIN$storenum('$username', '$password')";
+
+  // Use multi_query for stored procedures
+  if (!mysqli_multi_query($link_id, $login_proc_call)) {
+    die("LOGIN procedure failed: " . mysqli_error($link_id));
+  }
+
+  // First result set: customerid (or 0 if login failed)
+  $result = mysqli_store_result($link_id);
+  if (!$result) {
+    die("Failed to get result set. Query: $login_proc_call, Error: " . mysqli_error($link_id));
+  }
+
+  $row = mysqli_fetch_row($result);
+  $customerid = $row ? $row[0] : 0;
+  mysqli_free_result($result);
+
+  // DEBUG: Show what we got
+  echo "<!-- DEBUG: customerid = '$customerid' -->\n";
+
+  if ($customerid > 0)
+    {
+    echo "<H2>Welcome to the DVD Store - Click below to begin shopping</H2>\n";
+
+    // Move to second result set: purchase history
+    if (mysqli_more_results($link_id)) {
+      mysqli_next_result($link_id);
+      $result = mysqli_store_result($link_id);
+    } else {
+      $result = false;
+    }
+
+    if ($result && mysqli_num_rows($result) > 0)
       {
       echo "<H3>Your previous purchases:</H3>\n";
       echo "<TABLE border=2>\n";
@@ -63,32 +83,29 @@ if (!(empty($username)))
 
       while ($result_row = mysqli_fetch_row($result))
         {
-        $query2 = "select TITLE from DS3.PRODUCTS$storenum where PROD_ID =" . $result_row[2] . ";";
-/*        mysqli_real_query($link_id, $query2);*/
-/*        $result2 = mysqli_store_result($link_id);*/
-        $result2 = mysqli_query($link_id,$query2);
-        $row2 = mysqli_fetch_row($result2);
         echo " <TR>\n";
         echo "<TD>$result_row[0]</TD>";
         echo "<TD>$result_row[1]</TD>";
-        echo "<TD>$row2[0]</TD>";
+        echo "<TD>$result_row[2]</TD>";
         echo "</TR>\n";
         }
       echo "</TABLE>\n";
       echo "<BR>\n";
+      mysqli_free_result($result);
       }
-    
+
     echo "<FORM ACTION=\"./dsbrowse.php\" METHOD=GET>\n";
     echo "<INPUT TYPE=HIDDEN NAME=customerid VALUE=$customerid>\n";
     echo "<INPUT TYPE=HIDDEN NAME=storenum VALUE=$storenum>\n";
+    echo "<INPUT TYPE=HIDDEN NAME=membership_level VALUE=0>\n";
     echo "<INPUT TYPE=SUBMIT VALUE=\"Start Shopping\">\n";
     echo "</FORM>\n";
-    echo "<FORM ACTION=\"./dsnewmember.php\" METHOD=GET>\n";
+
+    echo "<FORM ACTION=\"./dsgetmembershipstatus.php\" METHOD=GET>\n";
     echo "<INPUT TYPE=HIDDEN NAME=customerid VALUE=$customerid>\n";
     echo "<INPUT TYPE=HIDDEN NAME=storenum VALUE=$storenum>\n";
-    echo "<INPUT TYPE=SUBMIT VALUE=\"Premium Member Signup\">\n";
-
-    mysqli_free_result($result);
+    echo "<INPUT TYPE=SUBMIT VALUE=\"Check Membership Status\">\n";
+    echo "</FORM>\n";
     }
   else 
     {

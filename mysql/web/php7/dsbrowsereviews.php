@@ -35,6 +35,7 @@ $storenum = isset($_REQUEST["storenum"]) ? $_REQUEST["storenum"] : 1;
 $review_title = isset($_REQUEST["review_title"]) ? $_REQUEST["review_title"] : NULL;
 $review_actor = isset($_REQUEST["review_actor"]) ? $_REQUEST["review_actor"] : NULL;
 $limit_num = isset($_REQUEST["limit_num"]) ? $_REQUEST["limit_num"] : NULL;
+$search_depth = isset($_REQUEST["search_depth"]) ? $_REQUEST["search_depth"] : 500;
 $browsereviewtype = isset($_REQUEST["browsereviewtype"]) ? $_REQUEST["browsereviewtype"] : NULL;
 $productid = isset($_REQUEST["productid"]) ? $_REQUEST["productid"] : NULL;
 // $selected_item = $_REQUEST["selected_item"];
@@ -77,25 +78,16 @@ if (!empty($browsereviewtype))
   {
   if (!($link_id = mysqli_connect())) die(mysqli_error());
 
+  // Call appropriate GET_PROD_REVIEWS stored procedure based on type
   switch ($browsereviewtype)
     {
     case "title":
-      $browsereview_query ="select T1.prod_id, T1.title, T1.actor, REVIEWS_HELPFULNESS$storenum.REVIEW_ID, T1.review_date, T1.stars, " .
-                   "T1.customerid, T1.review_summary, T1.review_text, SUM(helpfulness) AS totalhelp from DS3.REVIEWS_HELPFULNESS$storenum " .
-                   "inner join (select TITLE, ACTOR, PRODUCTS$storenum.PROD_ID,REVIEWS$storenum.review_date, REVIEWS$storenum.stars, " .
-                   "REVIEWS$storenum.review_id, REVIEWS$storenum.customerid, REVIEWS$storenum.review_summary, REVIEWS$storenum.review_text  " .
-                   "from DS3.PRODUCTS$storenum inner join DS3.REVIEWS$storenum on PRODUCTS$storenum.prod_id = REVIEWS$storenum.prod_id " .
-                   "where MATCH (TITLE) AGAINST ('" . $review_title . "') limit 500) " .
-                   "as T1 on REVIEWS_HELPFULNESS$storenum.REVIEW_ID = T1.review_id GROUP BY REVIEW_ID ORDER BY totalhelp DESC limit 10;";
+      $review_title_safe = mysqli_real_escape_string($link_id, $review_title);
+      $browsereview_query = "CALL DS3.GET_PROD_REVIEWS_BY_TITLE$storenum($limit_num, '$review_title_safe', $search_depth)";
       break;
     case "actor":
-      $browsereview_query ="select T1.prod_id, T1.title, T1.actor, REVIEWS_HELPFULNESS$storenum.REVIEW_ID, T1.review_date, T1.stars, " .
-                   "T1.customerid, T1.review_summary, T1.review_text, SUM(helpfulness) AS totalhelp from DS3.REVIEWS_HELPFULNESS$storenum " .
-                   "inner join (select TITLE, ACTOR, PRODUCTS$storenum.PROD_ID,REVIEWS$storenum.review_date, REVIEWS$storenum.stars, " .
-                   "REVIEWS$storenum.review_id, REVIEWS$storenum.customerid, REVIEWS$storenum.review_summary, REVIEWS$storenum.review_text  " .
-                   "from DS3.PRODUCTS$storenum inner join DS3.REVIEWS$storenum on PRODUCTS$storenum.prod_id = REVIEWS$storenum.prod_id " .
-                   "where MATCH (ACTOR) AGAINST ('" . $review_actor . "') limit 500) " .
-                   "as T1 on REVIEWS_HELPFULNESS$storenum.REVIEW_ID = T1.review_id GROUP BY REVIEW_ID ORDER BY totalhelp DESC limit 10;";
+      $review_actor_safe = mysqli_real_escape_string($link_id, $review_actor);
+      $browsereview_query = "CALL DS3.GET_PROD_REVIEWS_BY_ACTOR$storenum($limit_num, '$review_actor_safe', $search_depth)";
       break;
     }
 

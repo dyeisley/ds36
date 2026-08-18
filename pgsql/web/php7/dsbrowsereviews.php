@@ -31,7 +31,7 @@ include("dscommon.inc");
 ds_html_header("DVD Store Browse Product Reviews Page");
 
 $customerid = $_REQUEST["customerid"];
-$storenum = $_REQUEST["storenum"];
+$storenum = isset($_REQUEST["storenum"]) ? $_REQUEST["storenum"] : 1;
 $review_title = isset($_REQUEST["review_title"]) ? $_REQUEST["review_title"] : NULL;
 $review_actor = isset($_REQUEST["review_actor"]) ? $_REQUEST["review_actor"] : NULL;
 $limit_num = isset($_REQUEST["limit_num"]) ? $_REQUEST["limit_num"] : NULL;
@@ -78,13 +78,17 @@ if (!empty($browsereviewtype))
   {
   if (!($link_id = pg_connect($connstr))) die(pg_last_error());
 
+  // Escape search terms for SQL safety
+  $review_title_safe = pg_escape_string($link_id, $review_title);
+  $review_actor_safe = pg_escape_string($link_id, $review_actor);
+
   switch ($browsereviewtype)
     {
     case "title":
-      $browsereview_query ="select * from get_prod_reviews_by_title$storenum ($limit_num,$search_depth,'$review_title');";
+      $browsereview_query ="select * from get_prod_reviews_by_title$storenum ($limit_num,$search_depth,'$review_title_safe');";
       break;
     case "actor":
-      $browsereview_query ="select * from get_prod_reviews_by_actor$storenum ($limit_num,$search_depth,'$review_actor');";
+      $browsereview_query ="select * from get_prod_reviews_by_actor$storenum ($limit_num,$search_depth,'$review_actor_safe');";
       break;
     }
 
