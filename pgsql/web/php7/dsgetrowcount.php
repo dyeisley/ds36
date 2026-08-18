@@ -42,7 +42,7 @@ if (empty($tablename))
   exit;
   }
 
-if (!($link_id=pg_connect($connstr))) die(pg_last_error());
+if (!($link_id=pg_pconnect($connstr))) die(pg_last_error());
 
 // Execute COUNT(*) query
 $query = "SELECT COUNT(*) FROM $tablename;";

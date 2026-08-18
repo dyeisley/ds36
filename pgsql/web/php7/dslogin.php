@@ -36,7 +36,7 @@ $storenum = isset($_REQUEST["storenum"]) ? $_REQUEST["storenum"] : 1;
 
 if (!(empty($username)))
   {
-  if (!($link_id = pg_connect($connstr))) die(pg_last_error());
+  if (!($link_id = pg_pconnect($connstr))) die(pg_last_error());
   $query = "select * from login$storenum('$username','$password');";
   $result = pg_query($link_id,$query);
   if (pg_num_rows($result) > 0)

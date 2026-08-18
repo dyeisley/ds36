@@ -56,7 +56,7 @@ $storenum = isset($_REQUEST["storenum"]) ? $_REQUEST["storenum"] : 1;
 if (!( empty($firstname) OR empty($lastname) OR empty($address1) OR empty($city) OR empty($country)
   OR empty($password) ))
   {
-  if (!($link_id=pg_connect($connstr))) die(pg_last_error());
+  if (!($link_id=pg_pconnect($connstr))) die(pg_last_error());
 
   // No duplicate username check needed - stored procedure generates unique username (user+customerid)
   $region = 1;

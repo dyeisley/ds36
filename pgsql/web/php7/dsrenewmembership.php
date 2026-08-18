@@ -36,7 +36,7 @@ $customerid = $_REQUEST["customerid"];
 $storenum = isset($_REQUEST["storenum"]) ? $_REQUEST["storenum"] : 1;
 $membership_level = isset($_REQUEST["membership_level"]) ? $_REQUEST["membership_level"] : 0;
 
-if (!($link_id=pg_connect($connstr))) die(pg_last_error());
+if (!($link_id=pg_pconnect($connstr))) die(pg_last_error());
 
 // Call renew_membership stored procedure
 $renew_query = "SELECT * FROM renew_membership$storenum($customerid::INT)";

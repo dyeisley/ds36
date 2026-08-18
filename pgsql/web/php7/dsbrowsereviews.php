@@ -76,7 +76,7 @@ echo "</FORM>\n";
 
 if (!empty($browsereviewtype))
   {
-  if (!($link_id = pg_connect($connstr))) die(pg_last_error());
+  if (!($link_id = pg_pconnect($connstr))) die(pg_last_error());
 
   // Escape search terms for SQL safety
   $review_title_safe = pg_escape_string($link_id, $review_title);

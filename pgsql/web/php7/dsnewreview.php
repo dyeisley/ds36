@@ -61,7 +61,7 @@ if (empty($productid))
 
 if (!(empty($productid) OR empty($review_stars) OR empty($review_summary) OR empty($review_text)))
   {
-  if (!($link_id=pg_connect($connstr))) die(pg_last_error());
+  if (!($link_id=pg_pconnect($connstr))) die(pg_last_error());
   $new_review_proc_call = "select new_prod_review$storenum( $productid, $review_stars, $customerid,'$review_summary','$review_text');";
   $result = pg_query($link_id,$new_review_proc_call);
   $row = pg_fetch_row($result);
@@ -80,7 +80,7 @@ if (!(empty($productid) OR empty($review_stars) OR empty($review_summary) OR emp
   }
 else
   {
-  if (!($link_id = pg_connect($connstr))) die(pg_last_error());
+  if (!($link_id = pg_pconnect($connstr))) die(pg_last_error());
   $get_product_title_query = "select title from PRODUCTS$storenum where PROD_ID = '" . $productid . "';";
   $get_title_result = pg_query($link_id,$get_product_title_query);
   $get_title_result_row = pg_fetch_row($get_title_result);

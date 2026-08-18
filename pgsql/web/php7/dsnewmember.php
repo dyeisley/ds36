@@ -46,7 +46,7 @@ if (empty($customerid))
 
 if (!(empty($membershiplevel)))
   {
-  if (!($link_id=pg_connect($connstr))) die(pg_last_error());
+  if (!($link_id=pg_pconnect($connstr))) die(pg_last_error());
   $query = "select COUNT(*) from membership$storenum where CUSTOMERID='$customerid';";
   $result = pg_query($link_id,$query);
   $row = pg_fetch_row($result);

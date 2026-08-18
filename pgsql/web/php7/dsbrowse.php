@@ -139,7 +139,7 @@ echo "</FORM>\n";
 
 if (!empty($browsetype))
   {
-  if (!($link_id = pg_connect($connstr))) die(pg_last_error());
+  if (!($link_id = pg_pconnect($connstr))) die(pg_last_error());
 
   // Escape search strings for SQL safety
   $browse_title_safe = pg_escape_string($link_id, $browse_title);
@@ -224,7 +224,7 @@ if (isset($item))  // Show shopping cart
   echo "<TH>Item</TH>\n";
   echo "<TH>Title</TH>\n";
   echo "</TR>\n";
-  if (!($link_id = pg_connect($connstr))) die(pg_last_error());
+  if (!($link_id = pg_pconnect($connstr))) die(pg_last_error());
   for ($i=0; $i<count($item); $i++) 
     {
     $j=$i+1;

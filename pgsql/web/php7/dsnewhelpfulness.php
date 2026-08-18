@@ -60,7 +60,7 @@ if (empty($reviewid))
 
 if (!(empty($reviewid) OR empty($review_helpfulness)))
   {
-  if (!($link_id=pg_connect($connstr))) die(pg_last_error());
+  if (!($link_id=pg_pconnect($connstr))) die(pg_last_error());
   $new_helpfulness_proc_call = "select new_review_helpfulness$storenum ( $reviewid, $customerid, $review_helpfulness);";
   $result = pg_query($link_id,$new_helpfulness_proc_call);
   $row = pg_fetch_row($result);
@@ -79,7 +79,7 @@ if (!(empty($reviewid) OR empty($review_helpfulness)))
   }
 else
   {
-  if (!($link_id = pg_connect($connstr))) die(pg_last_error());
+  if (!($link_id = pg_pconnect($connstr))) die(pg_last_error());
   $get_review_query = "select * from REVIEWS$storenum where REVIEW_ID = '" . $reviewid . "';";
   $get_review_result = pg_query($link_id,$get_review_query);
   $get_review_result_row = pg_fetch_row($get_review_result);

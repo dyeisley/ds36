@@ -35,7 +35,7 @@ ds_html_header("Membership Status");
 $customerid = $_REQUEST["customerid"];
 $storenum = isset($_REQUEST["storenum"]) ? $_REQUEST["storenum"] : 1;
 
-if (!($link_id=pg_connect($connstr))) die(pg_last_error());
+if (!($link_id=pg_pconnect($connstr))) die(pg_last_error());
 
 // Call get_membership_status stored procedure
 $membership_query = "SELECT * FROM get_membership_status$storenum($customerid::INT)";

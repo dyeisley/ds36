@@ -55,7 +55,7 @@ if (empty($confirmpurchase))
   echo "<TH>Remove From Order?</TH>\n";
   echo "</TR>\n";
 
-  if (!($link_id = pg_connect($connstr))) die(pg_last_error());
+  if (!($link_id = pg_pconnect($connstr))) die(pg_last_error());
 
   $j = 0;
   for ($i=0; $i<count($item); $i++)
@@ -114,7 +114,7 @@ if (empty($confirmpurchase))
   }
 else  // confirmpurchase=yes  => update ORDERS, ORDERLINES, INVENTORY and CUST_HIST table
   {
-  if (!($link_id = pg_connect($connstr))) die(pg_last_error());
+  if (!($link_id = pg_pconnect($connstr))) die(pg_last_error());
  
   echo "<H2>Purchase complete</H2>\n";
   echo "<TABLE border=2>";
