@@ -81,7 +81,8 @@ namespace ds2xdriver
     public static int n_managers_connected = 0;
     public static int n_overall = 0, n_login_overall = 0, n_newcust_overall = 0, n_browse_overall = 0,
       n_purchase_overall = 0, n_rollbacks_overall = 0, n_rollbacks_from_start = 0, n_purchase_from_start = 0, n_cpu_pct_samples = 0;
-    public static int n_reviewbrowse_overall = 0, n_newreview_overall = 0, n_newhelpfulness_overall = 0, n_newmember_overall = 0, n_browse_vector = 0;
+    public static int n_reviewbrowse_overall = 0, n_newreview_overall = 0, n_newhelpfulness_overall = 0, n_newmember_overall = 0;
+    public static int n_browse_actor = 0, n_browse_title = 0, n_browse_category = 0, n_browse_membership = 0, n_browse_vector = 0;
     public static int n_membershiprenew_overall = 0;
     public static double pct_rollbacks;
     public static int run_time = 0, warmup_time = 1, log_freq = 1;
@@ -1951,6 +1952,10 @@ namespace ds2xdriver
           n_purchase_overall = 0;
           n_rollbacks_overall = 0;
           n_browse_vector = 0;
+          n_browse_title = 0;
+          n_browse_actor = 0;
+          n_browse_category = 0;
+          n_browse_membership = 0;
           rt_tot_overall = 0.0;
           rt_login_overall = 0.0;
           rt_newcust_overall = 0.0;
@@ -2296,9 +2301,16 @@ namespace ds2xdriver
       Console.WriteLine("  Renew Membership:     {0,7} operations, avg RT: {1:F3} sec", n_membershiprenew_overall, rt_membershiprenew_avg_msec / 1000.0);
       Console.WriteLine("  New Member:           {0,7} operations, avg RT: {1:F3} sec", n_newmember_overall, rt_newmember_avg_msec / 1000.0);
       Console.WriteLine("  Browse:               {0,7} operations, avg RT: {1:F3} sec", n_browse_overall, rt_browse_avg_msec / 1000.0);
+      Console.WriteLine("    category:           {0,7}", n_browse_category);
+      Console.WriteLine("    actor:              {0,7}", n_browse_actor);
+      Console.WriteLine("    title:              {0,7}", n_browse_title);
+      if (!ds2_mode)
+      {
+        Console.WriteLine("    membership:         {0,7}", n_browse_membership);
+      }
       if (n_vectors == 1)
       {
-        Console.WriteLine("  Browse (vector):      {0,7} operations", n_browse_vector);
+        Console.WriteLine("    vector:             {0,7}", n_browse_vector);
       }
       Console.WriteLine("  Review Browse:        {0,7} operations, avg RT: {1:F3} sec", n_reviewbrowse_overall, rt_reviewbrowse_avg_msec / 1000.0);
       Console.WriteLine("  New Review:           {0,7} operations, avg RT: {1:F3} sec", n_newreview_overall, rt_newreview_avg_msec / 1000.0);
@@ -3146,6 +3158,7 @@ namespace ds2xdriver
           {
             browse_type_in = "membership";
             browse_criteria = "membership level " + membershiplevel_out;
+            Controller.n_browse_membership++;
           }
           else
           {
@@ -3165,16 +3178,19 @@ namespace ds2xdriver
                 browse_type_in = "category";
                 browse_category_in = (Random.Shared.Next(1, GlobalConstants.MAX_CATEGORY + 1)).ToString();
                 browse_criteria = browse_category_in;
+                Controller.n_browse_category++;
                 break;
               case "actor":
                 browse_type_in = "actor";
                 browse_actor_in = CreateActor();
                 browse_criteria = browse_actor_in;
+                Controller.n_browse_actor++;
                 break;
               case "title":
                 browse_type_in = "title";
                 browse_title_in = CreateTitle();
                 browse_criteria = browse_title_in;
+                Controller.n_browse_title++;
                 break;
               case "vector":
                 browse_type_in = "vector";
