@@ -8,6 +8,7 @@
 *.userosscache
 *.sln.docstates
 *.dot
+hana/
 
 # Build results
 [Dd]ebug/
@@ -34,7 +35,7 @@ sqlserver/sqlserver_ds_create_all_concurrent_[0-9]*.bat
 **/validate/*/
 
 # Data files
-data_files/
+#data_files/
 *.csv
 .dvdstore_metadata
 
